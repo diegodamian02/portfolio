@@ -1,0 +1,179 @@
+// Default Dark Mode -> Light mode
+:root {
+  --bg-color: black;
+  --text-color: #fff;
+  --scondary-text: #b0b0b0;
+}
+[data-theme= "light"] {
+  --bg-color: white;
+  --text-color: black;
+  --secondary-text: #555;
+}
+
+//html section
+html {
+  scroll-behavior: smooth;
+}
+
+//body
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: "Avenir Next", Avenir, "Helvetica Neue", "Helvetica Neue", sans-serif;
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.4s ease-in-out, color 0.5s ease-in-out;
+}
+
+// Hero section
+
+.hero {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: left;
+  background-color: var(--bg-color);
+}
+
+.hero-title {
+  font-size: 6rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+.hero-subtitle {
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: var(--text-color);
+}
+
+//Navbar section
+.navbar {
+  position: fixed;
+  top: 0;
+  width: 90%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  background-color: var(--bg-color);
+  z-index: 1000;
+}
+// Navbar links  + toggle bar
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.logo {
+  font-size: 2rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.navbar-links a {
+  color: var(--text-color);
+  text-decoration: none;
+  margin: 0 15px;
+  font-size: 1rem;
+  transition: color 0.3s ease;
+}
+
+.navbar-links a:hover {
+  color: gray;
+}
+
+// Parallax section
+.section {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+// Theme Toggle Button
+
+.theme-toggle {
+  background: none !important;
+  box-shadow: none !important;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  transition: transform 0.3s ease-in-out;
+
+  &:hover{
+    transform: scale(1.1);
+  }
+
+  .theme-icon {
+    width: 28px;
+    height: 28px;
+    transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+  }
+
+}
+
+.theme-transition {
+  transition: ba;
+}
+
+// Theme Toggle Icon Animation
+.theme-icon {
+  width: 28px;
+  height: 28px;
+  position: absolute;
+  opacity: 1;
+  transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
+}
+
+// Hide the inactive  icon smoothly
+[data-theme = "dark"] .theme-icon.sun {
+  opacity: 0;
+  transform: scale(0.8) rotate(180deg);
+}
+
+[data-theme = "light"] .theme-icon.moon {
+  opacity: 0;
+  transform: scale(0.8) rotate(-180deg);
+}
+
+// Active icon smoothly appears
+[data-theme ="dark"] .theme-icon.moon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+[data-theme="light"] .theme-icon.sun {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+// Parallax containers - sections & project
+
+.projects {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: var(--bg-color);
+  opacity: 0;
+  transform: translateY(50px);
+  transition: opacity 1s ease-out, transform 1s ease-out;
+}
+
+.show-projects {
+  opacity: 1;
+  transform: translateY(0);
+}
