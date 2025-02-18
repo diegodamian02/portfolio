@@ -11,6 +11,7 @@ export default function Navbar() {
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
         localStorage.setItem("theme", theme);
+        window.dispatchEvent(new Event("themeChange"))
     }, [theme]);
 
     //Scroll to Top

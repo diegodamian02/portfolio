@@ -1,43 +1,34 @@
-import {useEffect, useState} from "react";
-import "../styles/main.scss"
+import { useState, useEffect } from "react";
+import "../styles/main.scss";
+import pomodoro from "../assets/pomodoro.png"
+import harmoni from  "../assets/harmony-cover.png"
+import chess from "../assets/chess.png"
 
 export default function Projects() {
-    const [isVisible, setIsVisible] = useState(false);
+    const projects = [
+        { title: "Diego's Pomodoro", image: pomodoro },
+        { title: "Harmoni - Dating App", image: harmoni },
+        { title: "Check My Chess", image: chess }
+    ];
+
+    const [currentProject, setCurrentProject] = useState(0);
 
     useEffect(() => {
-        const handleScroll = () => {
-            const section = document.querySelector(".projects");
-            if (section) {
-                const rect = section.getBoundingClientRect();
-                if (rect.top < window.innerHeight * 0.75) {
-                    setIsVisible(true);
-                }
-            }
-        };
+        const interval = setInterval(() => {
+            setCurrentProject((prev) => (prev + 1) % projects.length);
+        }, 5000); // Change project every 5 seconds
 
-        window.addEventListener("scroll", handleScroll);
-        return() => window.removeEventListener("scroll", handleScroll);
-    }, []);
+        return () => clearInterval(interval);
+    }, [projects.length]);
 
-    return(
-        <section className={`projects ${isVisible ? "show-projects" : ""}`}>
-            <h2 className="section-title"> My Projects</h2>
-            <div className="parallax-container">
-                <div className="project-card">
-                    <h3>Project 1</h3>
-                    <p>Brief description of the project.</p>
-                    <p>We have to add the link & video of the project!</p>
+    return (
+        <section className="project-slideshow-section">
+            <div className="project-slideshow">
+                <div className="image-wrapper">
+                    <img src={projects[currentProject].image} alt={projects[currentProject].title}
+                         className="slideshow-image"/>
                 </div>
-                <div className="project-card">
-                    <h3>Project 2</h3>
-                    <p>Brief description of the project.</p>
-                    <p>We have to add the link & video of the project!</p>
-                </div>
-                <div className="project-card">
-                    <h3>Project 1</h3>
-                    <p>Brief description of the project.</p>
-                    <p>We have to add the link & video of the project!</p>
-                </div>
+                <h2 className="slideshow-title">{projects[currentProject].title}</h2>
             </div>
         </section>
     );
