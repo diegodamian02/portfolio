@@ -48,11 +48,91 @@ body {
   color: var(--text-color);
 }
 
+/// Home Section (Full-Screen)
+.home {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease-in-out;
+}
+
+// Slideshow Section (Full-Screen)
+.project-slideshow-section {
+  height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: background-color 0.4s ease-in-out;
+}
+
+// Slideshow Inversion Based on Theme
+[data-theme="dark"] .project-slideshow-section {
+  background-color: white;
+  color: black;
+}
+
+[data-theme="light"] .project-slideshow-section {
+  background-color: black;
+  color: white;
+}
+
+// Slideshow Container
+.project-slideshow {
+  width: 90%;
+  max-width: 1200px;
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+// Image Wrapper to Prevent Overflow
+.image-wrapper {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+// Slideshow Image - Scaled Properly
+.slideshow-image {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  border-radius: 20px;
+  object-fit: contain;
+  transition: opacity 1s ease-in-out;
+}
+
+// Slideshow Title
+.slideshow-title {
+  position: absolute;
+  align-items: center;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--seconday-color);
+  padding: 10px 20px;
+  margin-bottom: 500px;
+
+}
+
 //Navbar section
 .navbar {
   position: fixed;
   top: 0;
-  width: 90%;
+  width: 100%;
+  margin-right: 100px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -64,11 +144,12 @@ body {
 .navbar-right {
   display: flex;
   align-items: center;
+  margin-right: 100px;
   gap: 15px;
 }
 
 .logo {
-  font-size: 2rem;
+  font-size: 2.4rem;
   font-weight: 500;
   color: var(--text-color);
 }
@@ -77,8 +158,8 @@ body {
   color: var(--text-color);
   text-decoration: none;
   margin: 0 15px;
-  font-size: 1rem;
-  transition: color 0.3s ease;
+  font-size: 1.2rem;
+  transition: color 0.4s ease;
 }
 
 .navbar-links a:hover {
@@ -106,10 +187,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 35px;
-  height: 35px;
+  width: 33px;
+  height: 33px;
   border-radius: 50%;
-  transition: transform 0.3s ease-in-out;
+  transition: transform 0.4s ease-in-out;
 
   &:hover{
     transform: scale(1.1);
@@ -133,7 +214,7 @@ body {
   height: 28px;
   position: absolute;
   opacity: 1;
-  transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
+  transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
 }
 
 // Hide the inactive  icon smoothly
@@ -163,17 +244,288 @@ body {
 .projects {
   height: 100vh;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
   text-align: center;
   background-color: var(--bg-color);
   opacity: 0;
   transform: translateY(50px);
-  transition: opacity 1s ease-out, transform 1s ease-out;
 }
 
-.show-projects {
+
+// Ensure active project is visible
+.projects .projects-container {
   opacity: 1;
   transform: translateY(0);
+}
+
+//Text for title and description
+
+.project-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--text-color);
+  margin-bottom: 10px;
+}
+
+.project-description {
+  font-size: 1.2rem;
+  color: var(--secondary-text);
+  margin-bottom: 20px;
+}
+
+
+// About Page
+.about-section {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 50px 0;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+//Bio Section
+.bio-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 90vh;
+  padding: 50px 40px;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+.bio-container {
+  display: flex;
+  align-items: flex-start;
+  max-width: 1000px;
+  gap: 50px;
+}
+
+.bio-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+}
+
+.flag {
+  width: 20px;
+  height: 15px;
+  margin: 0 5px;
+  object-fit: cover;
+}
+.profile-photo {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 20px;
+}
+.profile-info {
+  max-width: 600px;
+}
+
+.university-logo {
+  width: 150px;
+  padding: 50px;
+}
+
+// Right side: Education & Bio
+.bio-right {
+  flex: 1;
+  display: flex;
+  text-align: left;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.bio-right h2 {
+  font-size: 2rem;
+  margin-bottom: -15px;
+}
+
+.bio-right p {
+  font-size: 1.2rem;
+  line-height: 1.6;
+}
+// Work Experience Section
+.work-experience{
+  position: relative;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+}
+
+.work-title {
+  position: absolute;
+  top: 50px;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--text-color);
+}
+
+// bg inversion
+[data-theme = "dark"] .work-experience {
+  background-color: white;
+  color: black;
+}
+[data-theme="light"] .work-experience {
+  background-color: black;
+  color: white;
+}
+
+
+.timeline-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.timeline {
+  display: flex;
+  gap: 50px;
+  padding: 20px;
+  transition: transform 0.3s ease-in-out;
+}
+
+.timeline-image {
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 15px;
+
+}
+
+.timeline-content {
+  text-align: left;
+}
+
+.date {
+  font-size: 0.9rem;
+  color: var(--secondary-text);
+}
+
+// Spotify Action
+.spotify-section {
+  text-align: center;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 50px 20px;
+}
+
+.spotify-grid {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 20px;
+}
+
+.spotify-item {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  width: 150px;
+}
+
+.spotify-artist-img,
+.spotify-track-img {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.spotify-item h3 {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.spotify-item p {
+  font-size: 0.9rem;
+  color: var(--secondary-text);
+}
+//Thank you section
+
+.thank-you {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.thank-you h2{
+  display: flex;
+  font-weight: 600;
+  font-size: 2.1em;
+
+}
+
+// Footer
+.footer {
+  height: 80px;
+  background-color: var(--bg-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+}
+
+
+.footer-links {
+  display: flex;
+  gap: 20px;
+}
+
+//social links
+
+.linkedin-icon {
+  width: 32px;
+  height: 28px;
+}
+
+.github-icon {
+  width: 30px;
+  height: 30px;
+
+}
+.spotify-icon {
+  width: 30px;
+  height: 30px;
+}
+
+
+// Watermark
+.watermark {
+  font-size: 0.9rem;
+  color: var(--secondary-text);
+}
+
+//Responsive media 
+@media (max-width: 768px) {
+  .project-slideshow {
+    max-width: 90%;
+    height: auto;
+  }
+
+  .slideshow-text {
+    font-size: 1.5rem;
+  }
+  
 }
