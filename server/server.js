@@ -57,11 +57,6 @@ async function fetchSpotifyData(endpoint) {
 
 // Function to get a new access token
 async function getSpotifyAccessToken() {
-    if (!accessToken) {
-        console.error("🚨 No access token available!");
-        return res.status(500).json({ error: "Spotify access token is missing" });
-    }
-
     try {
         const response = await axios.post(
             TOKEN_ENDPOINT,
@@ -98,7 +93,7 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
 
     try{
         const reponse = await axios.get("https://api.spotify.com/v1/me/top/tracks?limit=5", {
-            headers: {Authorization: `Bearer ${access_token}`},
+            headers: {Authorization: `Bearer ${accessToken}`},
         });
         res.json(response.data.items);
     } catch (error) {
@@ -117,7 +112,7 @@ app.get("/api/spotify/top-artists", async (req, res) => {
 
     try {
         const response = await axios.get("https://api.spotify.com/v1/me/top/artists?limit=5", {
-            headers: { Authorization: `Bearer ${access_token}` },
+            headers: { Authorization: `Bearer ${accessTokenk}` },
         });
         res.json(response.data.items);
     } catch (error) {
