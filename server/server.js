@@ -60,7 +60,7 @@ async function getSpotifyAccessToken() {
         const response = await axios.post(
             TOKEN_ENDPOINT,
             new URLSearchParams({
-                grat_type: "client_credentials",
+                grant_type: "client_credentials",
                 client_id: CLIENT_ID,
                 client_secret: CLIENT_SECRET,
             }),
