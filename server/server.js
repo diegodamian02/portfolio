@@ -52,10 +52,16 @@ async function fetchSpotifyData(endpoint) {
         return [];
     }
 }
+
 */
 
 // Function to get a new access token
 async function getSpotifyAccessToken() {
+    if (!accessToken) {
+        console.error("🚨 No access token available!");
+        return res.status(500).json({ error: "Spotify access token is missing" });
+    }
+
     try {
         const response = await axios.post(
             TOKEN_ENDPOINT,
@@ -63,7 +69,7 @@ async function getSpotifyAccessToken() {
                 grant_type: "client_credentials",
                 client_id: CLIENT_ID,
                 client_secret: CLIENT_SECRET,
-            }),
+            }).toString(),
             { headers: { "Content-Type": "application/x-www-form-urlencoded"}}
         );
 
@@ -73,12 +79,24 @@ async function getSpotifyAccessToken() {
         console.error("Error getting Spotify access token:", error.response.data || error.message);
     }
 }
-// Get a new token when the server starts
+
 getSpotifyAccessToken();
+setInterval(getSpotifyAccessToken, 55 * 60 * 1000);
 
-
+async function ensureAccessToken() {
+    if (!accessToken) {
+        console.log("🔄 No access token, fetching a new one...");
+        await getSpotifyAccessToken();
+    }
+}
+}
 // API Endpoint for Top 5 Tracks - Fetching
 app.get("/api/spotify/top-tracks", async (req, res) => {
+    await ensureAccessToken();
+    if (!accessToken) {
+        return res.status(500).json({error: "Spotify access token is missing"})
+    }
+
     try{
         const reponse = await axios.get("https://api.spotify.com/v1/me/top/tracks?limit=5", {
             headers: {Authorization: `Bearer ${access_token}`},
@@ -93,6 +111,11 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
 // API Endpoint for Top 5 Artist
 
 app.get("/api/spotify/top-artists", async (req, res) => {
+    await ensureAccessToken();
+    if (!accessToken) {
+        return res.status(500).json({error: "Spotify access token is missing"})
+    }
+
     try {
         const response = await axios.get("https://api.spotify.com/v1/me/top/artists?limit=5", {
             headers: { Authorization: `Bearer ${access_token}` },
