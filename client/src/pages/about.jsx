@@ -11,41 +11,20 @@ import arrowBlack from "../assets/arrow.png"
 import arrowWhite from "../assets/arrow_white.png"
 
 export default function About() {
-    const [profile, setProfile] = useState(null);
-    const [accessToken, setAccessToken] = useState(null);
     const [topTracks, setTopTracks] = useState([]);
     const [topArtists, setTopArtists] = useState([]);
     const [scrollProgress, setScrollProgress] = useState(0);
     const timelineRef = useRef(null);
     const arrowRef = useRef(null)
 
-    //Get access token from URL
-    useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get("access_token");
-        setAccessToken(token);
-
-        if (token) {
-            fetchSpotifyData(token);
-        }
-    }, []);
 
     //Fetch Spotify Profile, Top Tracks & Artist
     const fetchSpotifyData = async (token) => {
         try {
-            const profileRes = await axios.get(
-                `https://portfolio-production-8fce.up.railway.app/api/spotify/profile?access_token=${token}`
-            );
-            setProfile(profileRes.data);
-
-            const trackRes = await axios.get(
-                `https://portfolio-production-8fce.up.railway.app/api/spotify/top-tracks?access_token=${token}`
-            );
+            const trackRes = await axios.get("https://portfolio-production-8fce.up.railway.app/api/spotify/top-tracks");
             setTopTracks(trackRes.data)
 
-            const artistRes = await axios.get(
-                `https://portfolio-production-8fce.up.railway.app/api/spotify/top-artists?access_token=${token}`
-            );
+            const artistRes = await axios.get("https://portfolio-production-8fce.up.railway.app/api/spotify/top-artists");
             setTopArtists(artistRes.data)
         } catch (error){
             console.error("Error Fetching Spotify Data", error);
@@ -132,51 +111,33 @@ export default function About() {
 
             {/* Spotify Section */}
             <section className="about-section spotify-section">
-                <h2>My Favorite Spotify Artists & Songs</h2>
-                {accessToken ? (
-                    <>
-                        {profile && (
-                            <div className="profile">
-                                <h1>Welcome, {profile.display_name}!</h1>
-                                {profile.images[0] && <img src={profile.images[0].url} alt="Profile" />}
-                            </div>
-                        )}
+                <h2>🎵 My Top Tracks</h2>
+                <ul>
+                    {topTracks.length > 0 ? (
+                        topTracks.map((track, index) => (
+                            <li key={index}>
+                                <img src={track.album.images[0]?.url} alt={track.name} className="spotify-track-img"/>
+                                {track.name} - {track.artists.map(artist => artist.name).join(", ")}
+                            </li>
+                        ))
+                    ) : (
+                        <p>Loading top tracks...</p>
+                    )}
+                </ul>
 
-                        <div className="spotify-section">
-                            <h2>🎵 My Top Tracks</h2>
-                            <ul>
-                                {topTracks.length > 0 ? (
-                                    topTracks.map((track, index) => (
-                                        <li key={index}>
-                                            <img src={track.cover} alt={track.name} className="spotify-track-img" />
-                                            {track.name} - {track.artist}
-                                        </li>
-                                    ))
-                                ) : (
-                                    <p>Loading top tracks...</p>
-                                )}
-                            </ul>
-
-                            <h2>🎤 My Top Artists</h2>
-                            <ul>
-                                {topArtists.length > 0 ? (
-                                    topArtists.map((artist, index) => (
-                                        <li key={index}>
-                                            <img src={artist.image} alt={artist.name} className="spotify-artist-img" />
-                                            {artist.name}
-                                        </li>
-                                    ))
-                                ) : (
-                                    <p>Loading top artists...</p>
-                                )}
-                            </ul>
-                        </div>
-                    </>
-                ) : (
-                    <button onClick={() => window.location.href = "https://portfolio-production-8fce.up.railway.app/login"}>
-                        Login with Spotify
-                    </button>
-                )}
+                <h2>🎤 My Top Artists</h2>
+                <ul>
+                    {topArtists.length > 0 ? (
+                        topArtists.map((artist, index) => (
+                            <li key={index}>
+                                <img src={artist.images[0]?.url} alt={artist.name} className="spotify-artist-img"/>
+                                {artist.name}
+                            </li>
+                        ))
+                    ) : (
+                        <p>Loading top artists...</p>
+                    )}
+                </ul>
             </section>
         </>
     );
