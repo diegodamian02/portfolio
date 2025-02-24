@@ -89,7 +89,6 @@ async function ensureAccessToken() {
         await getSpotifyAccessToken();
     }
 }
-}
 // API Endpoint for Top 5 Tracks - Fetching
 app.get("/api/spotify/top-tracks", async (req, res) => {
     await ensureAccessToken();
