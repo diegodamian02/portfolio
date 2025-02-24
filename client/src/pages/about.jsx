@@ -11,22 +11,46 @@ import arrowBlack from "../assets/arrow.png"
 import arrowWhite from "../assets/arrow_white.png"
 
 export default function About() {
+    const [profile, setProfile] = useState(null);
+    const [accessToken, setAccessToken] = useState(null);
     const [topTracks, setTopTracks] = useState([]);
     const [topArtists, setTopArtists] = useState([]);
     const [scrollProgress, setScrollProgress] = useState(0);
     const timelineRef = useRef(null);
     const arrowRef = useRef(null)
 
-    //Spotify API
+    //Get access token from URL
     useEffect(() => {
-        axios.get("http://localhost:5050/api/spotify/top-tracks")
-            .then(response => setTopTracks(response.data))
-            .catch(error => console.error("Error fetching Spotify tracks:", error));
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get("access_token");
+        setAccessToken(token);
 
-        axios.get("http://localhost:5050/api/spotify/top-artists")
-            .then(response => setTopArtists(response.data))
-            .catch(error => console.error("Error fetching artists:", error));
+        if (token) {
+            fetchSpotifyData(token);
+        }
     }, []);
+
+    //Fetch Spotify Profile, Top Tracks & Artist
+    const fetchSpotifyData = async (token) => {
+        try {
+            const profileRes = await axios.get(
+                `https://portfolio-production-8fce.up.railway.app/api/spotify/profile?access_token=${token}`
+            );
+            setProfile(profileRes.data);
+
+            const trackRes = await axios.get(
+                `https://portfolio-production-8fce.up.railway.app/api/spotify/top-tracks?access_token=${token}`
+            );
+            setTopTracks(trackRes.data)
+
+            const artistRes = await axios.get(
+                `https://portfolio-production-8fce.up.railway.app/api/spotify/top-artists?access_token=${token}`
+            );
+            setTopArtists(artistRes.data)
+        } catch (error){
+            console.error("Error Fetching Spotify Data", error);
+        }
+    };
 
     // Scroll Effect for Horizontal Timeline
     useEffect(() => {
@@ -109,35 +133,50 @@ export default function About() {
             {/* Spotify Section */}
             <section className="about-section spotify-section">
                 <h2>My Favorite Spotify Artists & Songs</h2>
-
-                <h3>Top Artists</h3>
-                <div className="spotify-grid">
-                    {topArtists.length > 0 ? (
-                        topArtists.map((artist, index) => (
-                            <div key={index} className="spotify-item">
-                                <img src={artist.image} alt={artist.name} className="spotify-artist-img"/>
-                                <h3>{artist.name}</h3>
+                {accessToken ? (
+                    <>
+                        {profile && (
+                            <div className="profile">
+                                <h1>Welcome, {profile.display_name}!</h1>
+                                {profile.images[0] && <img src={profile.images[0].url} alt="Profile" />}
                             </div>
-                        ))
-                    ) : (
-                        <p>Loading top artists...</p>
-                    )}
-                </div>
+                        )}
 
-                <h3>Top Tracks</h3>
-                <div className="spotify-grid">
-                    {topTracks.length > 0 ? (
-                        topTracks.map((track, index) => (
-                            <div key={index} className="spotify-item">
-                                <img src={track.cover} alt={track.name} className="spotify-track-img" />
-                                <h3>{track.name}</h3>
-                                <p>{track.artist}</p>
-                            </div>
-                        ))
-                    ) : (
-                        <p>Loading tracks...</p>
-                    )}
-                </div>
+                        <div className="spotify-section">
+                            <h2>🎵 My Top Tracks</h2>
+                            <ul>
+                                {topTracks.length > 0 ? (
+                                    topTracks.map((track, index) => (
+                                        <li key={index}>
+                                            <img src={track.cover} alt={track.name} className="spotify-track-img" />
+                                            {track.name} - {track.artist}
+                                        </li>
+                                    ))
+                                ) : (
+                                    <p>Loading top tracks...</p>
+                                )}
+                            </ul>
+
+                            <h2>🎤 My Top Artists</h2>
+                            <ul>
+                                {topArtists.length > 0 ? (
+                                    topArtists.map((artist, index) => (
+                                        <li key={index}>
+                                            <img src={artist.image} alt={artist.name} className="spotify-artist-img" />
+                                            {artist.name}
+                                        </li>
+                                    ))
+                                ) : (
+                                    <p>Loading top artists...</p>
+                                )}
+                            </ul>
+                        </div>
+                    </>
+                ) : (
+                    <button onClick={() => window.location.href = "https://portfolio-production-8fce.up.railway.app/login"}>
+                        Login with Spotify
+                    </button>
+                )}
             </section>
         </>
     );
