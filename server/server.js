@@ -81,7 +81,13 @@ app.get("/api/spotify/profile", async (req, res) => {
     }
 
     try {
-        const response = await axios.get("https://api.spotify.com/v1/me", error.response?.data || error.message);
+        const response = await axios.get("https://api.spotify.com/v1/me", {
+            headers: {Authorization: `Bearer ${access_token}`},
+        });
+        res.json(response.data);
+
+    } catch (error){
+        console.error("Error fetching Spotify profiles:", error.response?.data || error.message)
         res.status(500).json({ error: "Failed to fetch Spotify profile"});
     }
 });
