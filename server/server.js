@@ -93,7 +93,7 @@ async function ensureAccessToken() {
 app.get("/api/spotify/top-tracks", async (req, res) => {
     await ensureAccessToken();
     if (!accessToken) {
-        return res.status(500).json({error: "Spotify access token is missing"})
+        return res.status(500).json({error: "Spotify access token is missing"});
     }
 
     try{
@@ -112,7 +112,7 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
 app.get("/api/spotify/top-artists", async (req, res) => {
     await ensureAccessToken();
     if (!accessToken) {
-        return res.status(500).json({error: "Spotify access token is missing"})
+        return res.status(500).json({error: "Spotify access token is missing"});
     }
 
     try {
