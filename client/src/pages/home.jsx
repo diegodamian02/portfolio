@@ -24,7 +24,7 @@ export default function Home() {
     return (
         <section className="home">
             <h1 className="hero-title">Diego Damian</h1>
-            <p className="hero-subtitle">Aspiring Software Engineer</p>
+            <p className="hero-subtitle">Let's Make The Impossible Possible!</p>
         </section>
     );
 }

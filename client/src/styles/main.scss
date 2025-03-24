@@ -413,6 +413,7 @@ body {
   color: var(--secondary-text);
 }
 
+
 // Spotify Action
 .spotify-section {
   text-align: center;
@@ -476,6 +477,82 @@ body {
   font-size: 2.1em;
 
 }
+//Contact
+.contact-section {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  padding: 10em 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.contact-container {
+  max-width: 700px;
+  width: 100%;
+}
+
+.contact-title {
+  font-size: 2.5rem;
+  font-weight: 60;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.contact-description {
+  font-size: 1rem;
+  margin-bottom: 3rem;
+  color: grey;
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.form-group input,
+.form-group textarea {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  border: 1px solid grey;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border-radius: 8px;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--secondary-color);
+}
+
+.submit-button {
+  background-color: var(--secondary-color);
+  color: black;
+  padding: 0.75rem 2rem;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.3s;
+  border-radius: 8px;
+}
+
+.submit-button:hover {
+  transform: scale(1.05);
+}
+
 
 // Footer
 .footer {
@@ -508,6 +585,101 @@ body {
 .spotify-icon {
   width: 30px;
   height: 30px;
+}
+
+//portfolio
+.portfolio-section {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  color: var(--text-color);
+}
+
+.portfolio-title {
+  font-size: 4rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  margin-top: 10rem;
+
+}
+
+.portfolio-subtitle {
+  color: var(--secondary-text);
+  font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+/* 🟢 Expandable Sections */
+.portfolio-item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 1rem 0;
+}
+
+.portfolio-header {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 1.3rem;
+  font-family: "Avenir Next", Avenir, "Helvetica Neue", "Helvetica Neue", sans-serif;
+  font-weight: 200;
+  background: none;
+  border: none;
+  color: var(--text-color);
+  text-align: left;
+  cursor: pointer;
+  padding: 1rem 0;
+  transition: all 0.3s ease;
+}
+
+.portfolio-header:hover {
+  opacity: 0.7;
+  color: #C4B1D8;
+  scale: (1.1);
+}
+.portfolio-header .project-title {
+  font-weight: 400;
+}
+
+/* 🟢 Expandable Content */
+.portfolio-details {
+  margin-top: 1rem;
+  padding-left: 1rem;
+  color: var(--secondary-text);
+  justify-content: center;
+  font-size: 1.2rem;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.portfolio-video {
+  width: 100%;
+  max-width: 700px;
+  height: auto;
+  margin-top: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.portfolio-links {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.portfolio-links a {
+  color: var(--text-color);
+  text-decoration: none;
+  font-weight: bold;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 

@@ -39,7 +39,7 @@ export default function Navbar() {
                     ) : (
                         <Link to="/">Home</Link>
                     )}
-                    <a href="#projects" onClick={scrollToProjects}>Projects</a> {/* Stays on same page */}
+                    <Link to ="/project">Projects</Link>
                     <Link to="/about">About</Link> {/* Navigates properly */}
                     <Link to="/contact">Contact</Link> {/* Navigates properly */}
                 </div>

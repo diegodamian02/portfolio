@@ -16,7 +16,7 @@ export default function Projects() {
     useEffect(() => {
         const interval = setInterval(() => {
             setCurrentProject((prev) => (prev + 1) % projects.length);
-        }, 5000); // Change project every 5 seconds
+        }, 3000); // Change project every 3 seconds
 
         return () => clearInterval(interval);
     }, [projects.length]);
