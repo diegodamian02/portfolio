@@ -143,7 +143,7 @@ app.get("/refresh_token", async (req, res) => {
 });
 
 // Start the server
-const PORT = process.env.PORT || 5050;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`🚀 Backend running on port ${PORT}`);
 });
