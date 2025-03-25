@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import axios from "axios";
 import dotenv from "dotenv";
-import querystring from "querystring";  // To handle query parameters
+import querystring from "querystring";
 
 dotenv.config();
 const app = express();
@@ -11,20 +11,15 @@ app.use(cors());
 // Spotify Credentials from environment variables
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
-const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;  // This should match the redirect URI in your Spotify Developer App settings
+const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
 
 let accessToken = "";
 let refreshToken = "";
 
-app.get("/", (req, res) => {
-    res.send("Welcome to the Spotify Authentication App! Please visit /login to authenticate.");
-});
-
-
-// Step 1: Redirect the user to the Spotify authorization page
+// Spotify authentication flow
 app.get("/login", (req, res) => {
     const scope = 'user-top-read';  // Permission to access user's top tracks and artists
-    const state = 'some-random-state';  // Can be used for CSRF protection
+    const state = 'some-random-state';
 
     const authUrl = `https://accounts.spotify.com/authorize?` +
         querystring.stringify({
@@ -38,16 +33,15 @@ app.get("/login", (req, res) => {
     res.redirect(authUrl);
 });
 
-// Step 2: Handle the callback from Spotify and get access token
+// Handle callback and exchange the authorization code for access and refresh tokens
 app.get("/callback", async (req, res) => {
-    const code = req.query.code;  // Get the authorization code from the query
-    const state = req.query.state;  // Optionally check state for CSRF protection
+    const code = req.query.code;
+    const state = req.query.state;
 
     if (state !== 'some-random-state') {
         return res.status(400).send('State mismatch');
     }
 
-    // Exchange the authorization code for an access token and refresh token
     try {
         const response = await axios.post(
             'https://accounts.spotify.com/api/token',
@@ -65,21 +59,18 @@ app.get("/callback", async (req, res) => {
             }
         );
 
-        // Store the access token and refresh token
         accessToken = response.data.access_token;
         refreshToken = response.data.refresh_token;
 
         console.log("✅ New Spotify Access Token:", accessToken);
-
-        // You can now use the access token to make API requests to Spotify
-        res.redirect("/profile");  // Redirect to a profile page or dashboard after login
+        res.redirect("/profile");
     } catch (error) {
         console.error("🚨 Error during token exchange:", error.response?.data || error.message);
         res.status(500).send("Failed to get Spotify access token");
     }
 });
 
-// Step 3: Fetch user's top tracks
+// Fetch top tracks
 app.get("/api/spotify/top-tracks", async (req, res) => {
     if (!accessToken) {
         return res.status(401).json({ error: "Spotify access token is missing" });
@@ -100,7 +91,7 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
     }
 });
 
-// Step 4: Fetch user's top artists
+// Fetch top artists
 app.get("/api/spotify/top-artists", async (req, res) => {
     if (!accessToken) {
         return res.status(401).json({ error: "Spotify access token is missing" });
@@ -142,7 +133,7 @@ app.get("/refresh_token", async (req, res) => {
             }
         );
 
-        accessToken = response.data.access_token;  // Update the access token
+        accessToken = response.data.access_token;
         console.log("✅ Access token refreshed:", accessToken);
         res.json({ access_token: accessToken });
     } catch (error) {
