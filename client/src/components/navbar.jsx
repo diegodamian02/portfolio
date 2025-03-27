@@ -7,6 +7,12 @@ import moonIcon from "../assets/moon.png";
 export default function Navbar() {
     const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
     const location = useLocation();
+    const [isMenuActive, setMenuActive] = useState(false);
+
+    const toggleNavbar = () => {
+        setMenuActive(!isMenuActive);
+    };
+
 
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
@@ -39,15 +45,33 @@ export default function Navbar() {
                     ) : (
                         <Link to="/">Home</Link>
                     )}
-                    <Link to ="/project">Projects</Link>
+                    <Link to="/project">Projects</Link>
                     <Link to="/about">About</Link> {/* Navigates properly */}
                     <Link to="/contact">Contact</Link> {/* Navigates properly */}
                 </div>
                 <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
                     <img src={sunIcon} alt="Sun Icon" className="theme-icon sun"/>
-                    <img src={moonIcon} alt="Moon Icon" className="theme-icon moon" />
+                    <img src={moonIcon} alt="Moon Icon" className="theme-icon moon"/>
                 </button>
             </div>
+
+            {/* Hamburger Icon */}
+            <div className="hamburger" onClick={toggleNavbar}>
+                <div className="bar"></div>
+                <div className="bar"></div>
+                <div className="bar"></div>
+            </div>
+
+            {/* Mobile Navbar */}
+            <div className="navbar-mobile">
+                <div className="navbar-links">
+                    <Link to="/" onClick={scrollToTop}>Home</Link>
+                    <Link to="/project">Projects</Link>
+                    <Link to="/about">About</Link>
+                    <Link to="/contact">Contact</Link>
+                </div>
+            </div>
         </nav>
+
     );
 }
