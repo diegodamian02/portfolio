@@ -1,4 +1,3 @@
-// Default Dark Mode -> Light mode
 :root {
   --bg-color: black;
   --text-color: #fff;
@@ -9,26 +8,24 @@
   --text-color: black;
   --secondary-text: #555;
 }
-
-//html section
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
-
 //body
-body {
+ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   font-family: "Avenir Next", Avenir, "Helvetica Neue", "Helvetica Neue", sans-serif;
   margin: 0;
   padding: 0;
-  transition: background-color 0.4s ease-in-out, color 0.5s ease-in-out;
+  transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out;
 }
 
 // Hero section
 
 .hero {
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -56,8 +53,9 @@ body {
   justify-content: center;
   align-items: center;
   text-align: center;
+  overflow-x: hidden;
   background-color: var(--bg-color);
-  transition: background-color 0.3s ease-in-out;
+  transition: background-color 0.1s ease-in-out;
 }
 
 // Slideshow Section (Full-Screen)
@@ -67,7 +65,8 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  transition: background-color 0.4s ease-in-out;
+  transition: background-color 0.1s ease-in-out;
+  overflow-x: hidden;
 }
 
 // Slideshow Inversion Based on Theme
@@ -90,6 +89,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow-x: hidden;
 }
 
 // Image Wrapper to Prevent Overflow
@@ -139,6 +139,7 @@ body {
   padding: 20px 40px;
   background-color: var(--bg-color);
   z-index: 1000;
+  transition: 0.1s ease-in-out;
 }
 // Navbar links  + toggle bar
 .navbar-right {
@@ -159,7 +160,7 @@ body {
   text-decoration: none;
   margin: 0 15px;
   font-size: 1.2rem;
-  transition: color 0.4s ease;
+  transition: color 0.1s ease;
 }
 
 .navbar-links a:hover {
@@ -214,7 +215,7 @@ body {
   height: 28px;
   position: absolute;
   opacity: 1;
-  transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+  transition: opacity 0.1s ease-in-out, transform 0.4s ease-in-out;
 }
 
 // Hide the inactive  icon smoothly
@@ -284,6 +285,7 @@ body {
   padding: 50px 0;
   background-color: var(--bg-color);
   color: var(--text-color);
+  transition: 0.1s ease-in-out;
 }
 
 //Bio Section
@@ -295,6 +297,7 @@ body {
   padding: 50px 40px;
   background-color: var(--bg-color);
   color: var(--text-color);
+  transition: 0.1s ease-in-out;
 }
 
 .bio-container {
@@ -484,6 +487,7 @@ body {
   padding: 10em 2rem;
   display: flex;
   justify-content: center;
+  transition: 0.1s ease-in-out;
 }
 
 .contact-container {
@@ -530,23 +534,26 @@ body {
   padding: 0.75rem;
   font-size: 1rem;
   border-radius: 8px;
+  transition: 0.1s ease-in-out;
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
   border-color: var(--secondary-color);
+  transition: 0.1s ease-in-out;
 }
 
 .submit-button {
-  background-color: var(--secondary-color);
-  color: black;
+  background-color: var(--bg-color);
+  color: var(--text-color);
   padding: 0.75rem 2rem;
   border: none;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.3s;
   border-radius: 8px;
+
 }
 
 .submit-button:hover {
@@ -562,6 +569,7 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 20px 40px;
+  transition: 0.1s ease-in-out;
 }
 
 
@@ -689,15 +697,244 @@ body {
   color: var(--secondary-text);
 }
 
-//Responsive media 
+.navbar-mobile{
+  display: none;
+}
+.hamburger {
+  display: none;
+}
+
+//Responsive media
 @media (max-width: 768px) {
+
+
+  .logo {
+    font-size: 1.8rem;
+  }
+
+
+  .navbar-links a {
+    font-size: 1rem;
+    margin: 0 10px;
+  }
+
+  /* Home Section */
+  .hero-title {
+    font-size: 4rem;
+  }
+  .hero-subtitle {
+    font-size: 1.2rem;
+  }
+
+  .thank-you {
+    padding: 40px;
+  }
+  .thank-you h2{
+    font-size: 1.2em;
+
+  }
+
+  /* Slideshow Section */
   .project-slideshow {
-    max-width: 90%;
+    height: 250px;
+    max-width: 100%;
+  }
+
+  .image-wrapper {
+    height: 100%;
+  }
+
+  /* Bio Section */
+  .bio-section {
+    display: flex;
+    margin-top: 100px;
+    flex-direction: column;
+    padding: 40px;
     height: auto;
   }
 
-  .slideshow-text {
+  .bio-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .bio-left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .profile-photo {
+    width: 140px;
+    height: 140px;
+  }
+  .university-logo {
+    width: 100px;
+  }
+
+  .bio-right h2 {
+    text-align: center;
+
+  }
+
+  /* Work Experience */
+  .work-experience {
+    padding: 20px;
+    height: auto;
+  }
+
+  .work-experience h2 {
+    display: none;
+  }
+
+  .timeline {
+    flex-direction: column;
+  }
+
+  .timeline-image {
+    height: 200px;
+  }
+
+  /* Portfolio Section */
+  .portfolio-title {
+    font-size: 2.5rem;
+  }
+
+  .portfolio-header {
+    font-size: 1.2rem;
+    align-items: center;
+    justify-content: right;
+
+  }
+
+  .portfolio-list {
+    padding: 10px;
+  }
+
+  .portfolio-details {
+    font-size: 1rem;
+  }
+
+  .portfolio-video {
+    max-width: 100%;
+  }
+
+  /* Spotify Section */
+  .spotify-grid {
+    gap: 10px;
+  }
+
+  .spotify-item {
+    width: 120px;
+  }
+
+  .spotify-artist-img,
+  .spotify-track-img {
+    width: 80px;
+    height: 80px;
+  }
+
+  /* Contact Section */
+  .contact-section {
+    padding: 2rem;
+    height: auto;
+    margin-top: 100px;
+  }
+
+  .contact-container {
+    padding: 0;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 10px 20px;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+
+  .body {
+    overflow-x: hidden;
+  }
+
+  .logo {
     font-size: 1.5rem;
   }
-  
+
+  .navbar-links a {
+    font-size: 0.8rem;
+    margin: 0 5px;
+  }
+
+  /* Home Section */
+  .hero-title {
+    font-size: 3rem;
+  }
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  /* Bio Section */
+  .bio-section {
+    padding: 20px;
+    height: auto;
+  }
+
+  .bio-container {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .bio-left {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .profile-photo {
+    width: 100px;
+    height: 100px;
+  }
+
+  .university-logo {
+    width: 80px;
+  }
+
+  /* Work Experience */
+  .work-experience {
+    padding: 10px;
+  }
+
+  .timeline-image {
+    height: 150px;
+  }
+
+  /* Contact Section */
+  .contact-section {
+    padding: 1rem;
+  }
+
+  /* Spotify Section */
+  .spotify-item {
+    width: 100px;
+  }
+  .spotify-artist-img,
+  .spotify-track-img {
+    width: 60px;
+    height: 60px;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 10px;
+    gap: 5px;
+    flex-direction: column;
+  }
 }

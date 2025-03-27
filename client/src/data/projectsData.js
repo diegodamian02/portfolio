@@ -3,7 +3,7 @@ const projects = [
         id: 1,
         title: "Engage in Democracy: Rutgers Website",
         description: "Develop a website using Drupal Rutgers layout and implementing tabbed grid functionality using JavaScript. The mission of this project was to motivate students to find resources where they can explore new ideas and share their political opinion.",
-        video: "/videos/diegospomodoro.mov",
+        video: "/videos/rutgers-democracy.mov",
         live: "https://democracylab.rutgers.edu/node/48#tab=panel-1",
         role: "Website Developer",
     },
@@ -31,7 +31,7 @@ const projects = [
         title: "Check This Chess",
         description:
             "A fully functional chess game with a GUI, built in Java using JavaFX. Implements chess rules, and basic game functionality.",
-        video: "/videos/check-this-chess.mov",
+        video: "/videos/check-this-chess.webm",
         github: "https://github.com/diegodamian02/check-this-chess",
         role: "Backend Developer",
     },
