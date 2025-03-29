@@ -5,48 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="SPOTIFY FINALLY WORKS">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/eslint.config.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/index.html" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/package-lock.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/package.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/public/videos/check-this-chess.mov" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/public/videos/check-this-chess.webm" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/public/videos/diegospomodoro.mov" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/public/videos/diegospomodoro.webm" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/public/videos/harmoni.mov" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/public/videos/harmoni.webm" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/public/videos/rutgers-democracy.mov" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/public/vite.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/App.jsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/arrow-down.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/arrow.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/arrow_white.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/chess.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/codewiz.jpeg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/diego.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/github.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/github_black.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/harmony-cover.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/linkedin.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/moon.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/peru" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/peru.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/react.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/rutgers.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/spotify_black.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/spotify_white.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/sun.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/trump.jpeg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/assets/usa.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/src/main.jsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/client/vite.config.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/server" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server/.env" beforeDir="false" afterPath="$PROJECT_DIR$/server/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server" beforeDir="false" afterPath="$PROJECT_DIR$/server" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -176,7 +135,7 @@
       <workItem from="1742913628387" duration="780000" />
       <workItem from="1742923133143" duration="13196000" />
       <workItem from="1743048486118" duration="2104000" />
-      <workItem from="1743278829431" duration="154000" />
+      <workItem from="1743278829431" duration="1132000" />
     </task>
     <task id="LOCAL-00001" summary="- initial deployment">
       <option name="closed" value="true" />
@@ -322,7 +281,15 @@
       <option name="project" value="LOCAL" />
       <updated>1743049796440</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="SPOTIFY FINALLY WORKS">
+      <option name="closed" value="true" />
+      <created>1743279234703</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1743279234703</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
