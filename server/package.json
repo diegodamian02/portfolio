@@ -12,6 +12,10 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
+  },
   "dependencies": {
     "@vercel/node": "^5.1.14",
     "axios": "^1.8.4",

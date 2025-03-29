@@ -4,8 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="SPOTIFY FINALLY WORKS">
-      <change beforePath="$PROJECT_DIR$/server" beforeDir="false" afterPath="$PROJECT_DIR$/server" afterDir="false" />
+    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="maybe?">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/server/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -73,6 +74,9 @@
   }
 }</component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/client/src/assets" />
       <recent name="$PROJECT_DIR$/client/src/styles" />
@@ -135,7 +139,8 @@
       <workItem from="1742913628387" duration="780000" />
       <workItem from="1742923133143" duration="13196000" />
       <workItem from="1743048486118" duration="2104000" />
-      <workItem from="1743278829431" duration="1132000" />
+      <workItem from="1743278829431" duration="1402000" />
+      <workItem from="1743282669121" duration="68000" />
     </task>
     <task id="LOCAL-00001" summary="- initial deployment">
       <option name="closed" value="true" />
@@ -289,7 +294,23 @@
       <option name="project" value="LOCAL" />
       <updated>1743279234703</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="oops">
+      <option name="closed" value="true" />
+      <created>1743279995709</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1743279995709</updated>
+    </task>
+    <task id="LOCAL-00021" summary="maybe?">
+      <option name="closed" value="true" />
+      <created>1743280166845</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1743280166845</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -318,7 +339,9 @@
     <MESSAGE value="update 6 - spotify" />
     <MESSAGE value="Merge remote-tracking branch 'origin/main'" />
     <MESSAGE value="SPOTIFY FINALLY WORKS" />
-    <option name="LAST_COMMIT_MESSAGE" value="SPOTIFY FINALLY WORKS" />
+    <MESSAGE value="oops" />
+    <MESSAGE value="maybe?" />
+    <option name="LAST_COMMIT_MESSAGE" value="maybe?" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
