@@ -19,12 +19,6 @@ export default function About() {
     const timelineRef = useRef(null);
     const arrowRef = useRef(null);
 
-    // Trigger login to get a new access token when the page loads
-    useEffect(() => {
-        // Redirect to login route on mount to get a new access token
-        window.location.href = "https://diegosportfolio-3094a3e5fc1b.herokuapp.com/login";
-    }, []);
-
     // Fetch Spotify Profile, Top Tracks & Artists
     const fetchSpotifyData = async () => {
         try {
@@ -137,7 +131,7 @@ export default function About() {
                 {/* Image Next to Top Tracks */}
                 <div className="spotify-track-image">
                    <a href="https://open.spotify.com/user/12182870270?si=630dee87f85a4ced"><img src={spotify_diego} alt="Top Tracks" className="track-image"/></a>
-                    <h2> My Top Tracks</h2>
+                    <h2> My Spotify Journey</h2>
                 </div>
                 <div className="spotify-track-list">
                     {loading ? (
@@ -169,7 +163,7 @@ export default function About() {
                     )}
                 </div>
 
-                <h2>🎤 My Top Artists</h2>
+                <h2> My Favorite Artists</h2>
                 <div className="top-artists-list">
                     {loading ? (
                         <p>Loading top artists...</p>

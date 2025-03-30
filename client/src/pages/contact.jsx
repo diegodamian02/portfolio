@@ -18,6 +18,16 @@ export default function Contact() {
         console.log('Form Submitted:', formData);
         alert("Thank you for reaching out! I'll get back to you soon." );
 
+        // Send form data to the backend
+        axios.post('https://diegosportfolio-3094a3e5fc1b.herokuapp.com//send-email', formData)
+            .then(response => {
+                console.log('Email sent successfully:', response.data);
+            })
+            .catch(error => {
+                console.error('Error sending email:', error);
+                alert('There was an issue sending your message. Please try again later.');
+            });
+
         //Clear the form after submision
         setFormData({
             name: '',

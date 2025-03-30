@@ -2,11 +2,12 @@
   --bg-color: black;
   --text-color: #fff;
   --scondary-text: #b0b0b0;
+  --hover-text: #C4B1D8
 }
 [data-theme= "light"] {
   --bg-color: white;
   --text-color: black;
-  --secondary-text: #555;
+  --secondary-text: #202566;
 }
 html {
   scroll-behavior: smooth;
@@ -164,7 +165,7 @@ html {
 }
 
 .navbar-links a:hover {
-  color: gray;
+  color: var(--hover-text);
 }
 
 // Parallax section
@@ -430,6 +431,8 @@ html {
     font-size: 2rem;
     margin-bottom: 20px;
     font-weight: bold;
+    align-items: center;
+    justify-content: center;
   }
   .spotify-track-image {
     display: flex;
@@ -499,7 +502,7 @@ html {
 
   /* Hover effects for links (optional) */
   .track-name:hover, .track-artist a:hover {
-    color: #777;
+    color: var(--hover-text);
   }
 
 
@@ -512,6 +515,7 @@ html {
     width: 70%;
     padding: 0 20px;
     gap: 10px;
+    align-items: center;
   }
 
   .artist-item {
@@ -540,6 +544,7 @@ html {
 .thank-you {
   height: 100vh;
   display: flex;
+  padding: 40px;
   flex-direction: column;
   justify-content: center;
   align-items: center;
@@ -554,21 +559,28 @@ html {
   display: flex;
   font-weight: 600;
   font-size: 2.1em;
+}
 
+.thank-you a {
+  text-decoration: none;
+  color: #62599E;
 }
 //Contact
 .contact-section {
   background-color: var(--bg-color);
   color: var(--text-color);
-  padding: 10em 2rem;
+  padding: 5em 2rem;
   display: flex;
   justify-content: center;
   transition: 0.1s ease-in-out;
+  min-height: 100vh;
+  overflow: hidden;
 }
 
 .contact-container {
   max-width: 700px;
   width: 100%;
+  padding-top: 6rem;
 }
 
 .contact-title {
@@ -622,7 +634,7 @@ html {
 
 .submit-button {
   background-color: var(--bg-color);
-  color: var(--text-color);
+  color: var(--hover-color);
   padding: 0.75rem 2rem;
   border: none;
   font-weight: 600;
@@ -770,7 +782,7 @@ html {
 // Watermark
 .watermark {
   font-size: 0.9rem;
-  color: var(--secondary-text);
+  color: var(--text-color);
 }
 
 .navbar-mobile{
@@ -783,6 +795,49 @@ html {
 //Responsive media
 @media (max-width: 768px) {
 
+  .spotify-section {
+    margin: 20px 0;  /* Reduce margin on smaller screens */
+    gap: 50px;  /* Adjust space between sections */
+  }
+
+  .spotify-track-list {
+    width: 90%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+
+  }
+
+  .spotify-track-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;  /* Increase gap between track number and details */
+    width: 80%;  /* Make it smaller to fit on smaller screens */
+    margin: 0 auto;
+  }
+
+  .track-image {
+    width: 60px;
+    height: 60px;
+  }
+
+  /* Adjust top artists layout */
+  .top-artists-list {
+    width: 80%;  /* Ensure the artists list takes up full width */
+    justify-content: center;
+    align-items: center
+  }
+
+  .artist-item {
+    width: 80px;  /* Reduce width of artist items */
+  }
+
+  .spotify-artist-img {
+    width: 80px;  /* Reduce the size of the artist image */
+    height: 80px;
+  }
 
   .logo {
     font-size: 1.8rem;
@@ -806,9 +861,13 @@ html {
     padding: 40px;
   }
   .thank-you h2{
-    font-size: 1.2em;
-
+    font-size: 1em;
   }
+  .thank-you a{
+    font-size: 1em;
+    text-decoration: inherit;
+  }
+
 
   /* Slideshow Section */
   .project-slideshow {
@@ -898,98 +957,49 @@ html {
     max-width: 100%;
   }
 
-  .spotify-section {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    margin: 40px 0;
-    gap: 40px; /* Adds space between sections */
-
-    h2 {
-      font-size: 2rem;
-      margin-bottom: 20px;
-    }
-
-    /* Top Tracks styling */
-    .spotify-track-list {
-      display: flex;
-      flex-direction: row;
-      gap: 15px;
-      width: 100%;
-      padding: 0 20px;
-      margin-right: 50px; /* Adds some space between tracks and artists */
-    }
-
-    .spotify-track-item {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      width: 100%;
-      border-bottom: 1px solid #ddd;
-      padding: 10px 0;
-    }
-
-    .track-number {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #fff;
-      background-color: #333;
-      padding: 5px 10px;
-      border-radius: 50%;
-    }
-
-    .track-details {
-      display: flex;
-      flex-direction: row;
-    }
-
-    .track-name {
-      font-size: 1.2rem;
-      font-weight: bold;
-    }
-
-    .track-artist {
-      font-size: 1rem;
-      color: #777;
-    }
-
-    /* Top Artists styling */
-    .top-artists-list {
-      display: flex;
-      justify-content: space-between;
-      gap: 20px;
-      flex-wrap: wrap;
-      margin-top: 20px;
-      width: 100%;
-      padding: 0 20px;
-    }
-
-    .artist-item {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 10px;
-      width: 100px;
-    }
-
-    .spotify-artist-img {
-      width: 100px;
-      height: 80px;
-      object-fit: cover;
-      border-radius: 50%;
-    }
-  }
-
 
   /* Footer */
   .footer {
-    padding: 10px 20px;
+    padding: 20px 20px;
     flex-direction: column;
     gap: 10px;
+    height: auto;
   }
 }
 
 @media only screen and (max-width: 480px) {
+  .spotify-section {
+    gap: 30px;  /* Reduce gap further for smaller screens */
+  }
+
+  .spotify-track-list {
+    width: 80%;
+    align-items: center;/* Make the track list almost full width */
+  }
+
+  .spotify-track-item {
+    gap: 10px;  /* Reduce gap between track number and details */
+  }
+
+  .track-image {
+    width: 60px;  /* Further reduce the image size */
+    height: 60px;
+  }
+
+  .top-artists-list {
+    width: 100%;  /* Full width for artists list */
+    justify-content: space-evenly;
+    align-items: center;
+  }
+
+  .artist-item {
+    width: 60px;  /* Further reduce width of artist items */
+  }
+
+  .spotify-artist-img {
+    width: 60px;  /* Reduce size of artist image */
+    height: 60px;
+  }
 
   .body {
     overflow-x: hidden;
@@ -1069,5 +1079,6 @@ html {
     padding: 10px;
     gap: 5px;
     flex-direction: column;
+    height: auto;
   }
 }
