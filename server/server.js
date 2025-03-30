@@ -107,22 +107,27 @@ const refreshAccessToken = async (req, res) => {
         console.log("✅ Access token refreshed:", accessToken);
     } catch (error) {
         console.error("🚨 Error refreshing access token:", error.response?.data || error.message);
-        throw new Error("Failed to refresh access token");
+        return res.redirect('/login');
     }
 };
 
 // Check if the access token is expired, and refresh it if needed
-const checkAndRefreshToken = async () => {
+const checkAndRefreshToken = async (req, res) => {
     const currentTime = Math.floor(Date.now() / 1000);
     if (currentTime >= accessTokenExpiration) {
         console.log("Access token expired, refreshing...");
-        await refreshAccessToken();
+        await refreshAccessToken(req, res); // Pass req, res to refreshAccessToken
+    }
+
+    if (!accessToken) {
+        console.log("No access token, redirecting to /login...");
+        return res.redirect('/login'); // Redirect to login if token is missing or invalid
     }
 };
 
 // Fetch top tracks
 app.get("/api/spotify/top-tracks", async (req, res) => {
-    await checkAndRefreshToken();  // Ensure token is valid before making the request
+    await checkAndRefreshToken(req, res);  // Ensure token is valid before making the request
 
     if (!accessToken) {
         return res.status(401).json({ error: "Spotify access token is missing" });
@@ -145,7 +150,7 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
 
 // Fetch top artists
 app.get("/api/spotify/top-artists", async (req, res) => {
-    await checkAndRefreshToken();  // Ensure token is valid before making the request
+    await checkAndRefreshToken(req, res);  // Ensure token is valid before making the request
 
     if (!accessToken) {
         return res.status(401).json({ error: "Spotify access token is missing" });
