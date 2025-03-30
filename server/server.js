@@ -117,13 +117,22 @@ const checkAndRefreshToken = async (req, res) => {
     if (currentTime >= accessTokenExpiration) {
         console.log("Access token expired, refreshing...");
         await refreshAccessToken(req, res); // Pass req, res to refreshAccessToken
+        if (!accessToken) {
+            // If token is still not available after refresh attempt, redirect to login
+            if (!res.headersSent) {
+                return res.redirect('/login'); // Ensure headers haven't been sent
+            }
+        }
     }
 
     if (!accessToken) {
         console.log("No access token, redirecting to /login...");
-        return res.redirect('/login'); // Redirect to login if token is missing or invalid
+        if (!res.headersSent) {
+            return res.redirect('/login'); // Ensure headers haven't been sent
+        }
     }
 };
+
 
 // Fetch top tracks
 app.get("/api/spotify/top-tracks", async (req, res) => {
