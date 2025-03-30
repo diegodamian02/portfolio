@@ -34,7 +34,6 @@ app.get("/login", (req, res) => {
     res.redirect(authUrl);
 });
 
-// Handle callback and exchange the authorization code for access and refresh tokens
 app.get("/callback", async (req, res) => {
     const code = req.query.code;
     const state = req.query.state;
@@ -64,7 +63,13 @@ app.get("/callback", async (req, res) => {
         refreshToken = response.data.refresh_token;
         accessTokenExpiration = Math.floor(Date.now() / 1000) + 3600; // Set expiration time (1 hour)
 
+        if (!refreshToken) {
+            console.error("No refresh token received");
+            return res.status(400).send("Refresh token missing");
+        }
+
         console.log("✅ New Spotify Access Token:", accessToken);
+        console.log("✅ New Refresh Token:", refreshToken);
         res.redirect("/profile");
     } catch (error) {
         console.error("🚨 Error during token exchange:", error.response?.data || error.message);
@@ -117,7 +122,6 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
     await checkAndRefreshToken();  // Ensure token is valid before making the request
 
     if (!accessToken) {
-        console.error("No access token available, unable to fetch top tracks");
         return res.status(401).json({ error: "Spotify access token is missing" });
     }
 
@@ -141,7 +145,6 @@ app.get("/api/spotify/top-artists", async (req, res) => {
     await checkAndRefreshToken();  // Ensure token is valid before making the request
 
     if (!accessToken) {
-        console.error("No access token available, unable to fetch top artists");
         return res.status(401).json({ error: "Spotify access token is missing" });
     }
 
