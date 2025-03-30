@@ -17,6 +17,29 @@ let accessToken = "";
 let refreshToken = "";
 let accessTokenExpiration = 0; // In seconds (Unix timestamp)
 
+// email
+app.post('/send-email', (req, res) => {
+    const { name, email, message } = req.body;
+
+    // Compose the email
+    const mailOptions = {
+        from: email,  // Sender's email
+        to: 'diegodamiango02@gmail.com',  // Receiver's email
+        subject: 'New Contact Form Submission',
+        text: `You have a new message from ${name} (${email}):\n\n${message}`,
+    };
+
+    // Send the email
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            console.log(error);
+            return res.status(500).send('Error sending email');
+        }
+        console.log('Email sent: ' + info.response);
+        return res.status(200).send('Email sent successfully');
+    });
+});
+
 // Spotify authentication flow
 app.get("/login", (req, res) => {
     const scope = 'user-top-read';  // Permission to access user's top tracks and artists

@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import '../styles/main.scss'
+import '../styles/main.scss';
+import axios from 'axios';
 
 export default function Contact() {
     const [formData, setFormData] = useState( {
@@ -19,7 +20,7 @@ export default function Contact() {
         alert("Thank you for reaching out! I'll get back to you soon." );
 
         // Send form data to the backend
-        axios.post('https://diegosportfolio-3094a3e5fc1b.herokuapp.com//send-email', formData)
+        axios.post('https://diegosportfolio-3094a3e5fc1b.herokuapp.com/send-email', formData)
             .then(response => {
                 console.log('Email sent successfully:', response.data);
             })
