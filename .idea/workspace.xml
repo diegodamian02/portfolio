@@ -4,7 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="bruh 2">
+    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="back to beggining">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/server/server.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -24,6 +25,8 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="HARD" />
+    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -40,8 +43,7 @@
   <component name="HighlightingSettingsPerFile">
     <setting file="file://$PROJECT_DIR$/client/src/components/navbar.jsx" root0="SKIP_INSPECTION" />
     <setting file="file://$PROJECT_DIR$/client/src/pages/about.jsx" root0="SKIP_INSPECTION" />
-    <setting file="file://$PROJECT_DIR$/client/src/pages/contact.jsx" root0="FORCE_HIGHLIGHTING" />
-    <setting file="file://$PROJECT_DIR$/server/server.js" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/server/server.js" root0="SKIP_INSPECTION" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 0
@@ -142,8 +144,7 @@
       <workItem from="1743048486118" duration="2104000" />
       <workItem from="1743278829431" duration="1402000" />
       <workItem from="1743282669121" duration="12585000" />
-      <workItem from="1743305433525" duration="5458000" />
-      <workItem from="1743346151436" duration="3131000" />
+      <workItem from="1743305433525" duration="4477000" />
     </task>
     <task id="LOCAL-00001" summary="- initial deployment">
       <option name="closed" value="true" />
@@ -369,79 +370,15 @@
       <option name="project" value="LOCAL" />
       <updated>1743302274238</updated>
     </task>
-    <task id="LOCAL-00029" summary="contact functionality added">
+    <task id="LOCAL-00029" summary="back to beggining">
       <option name="closed" value="true" />
-      <created>1743345257876</created>
+      <created>1743351093724</created>
       <option name="number" value="00029" />
       <option name="presentableId" value="LOCAL-00029" />
       <option name="project" value="LOCAL" />
-      <updated>1743345257876</updated>
+      <updated>1743351093724</updated>
     </task>
-    <task id="LOCAL-00030" summary="error1">
-      <option name="closed" value="true" />
-      <created>1743345755855</created>
-      <option name="number" value="00030" />
-      <option name="presentableId" value="LOCAL-00030" />
-      <option name="project" value="LOCAL" />
-      <updated>1743345755855</updated>
-    </task>
-    <task id="LOCAL-00031" summary="error2">
-      <option name="closed" value="true" />
-      <created>1743346037551</created>
-      <option name="number" value="00031" />
-      <option name="presentableId" value="LOCAL-00031" />
-      <option name="project" value="LOCAL" />
-      <updated>1743346037551</updated>
-    </task>
-    <task id="LOCAL-00032" summary="email update">
-      <option name="closed" value="true" />
-      <created>1743346603774</created>
-      <option name="number" value="00032" />
-      <option name="presentableId" value="LOCAL-00032" />
-      <option name="project" value="LOCAL" />
-      <updated>1743346603775</updated>
-    </task>
-    <task id="LOCAL-00033" summary="last update">
-      <option name="closed" value="true" />
-      <created>1743347954220</created>
-      <option name="number" value="00033" />
-      <option name="presentableId" value="LOCAL-00033" />
-      <option name="project" value="LOCAL" />
-      <updated>1743347954220</updated>
-    </task>
-    <task id="LOCAL-00034" summary="get rid of emial">
-      <option name="closed" value="true" />
-      <created>1743348401914</created>
-      <option name="number" value="00034" />
-      <option name="presentableId" value="LOCAL-00034" />
-      <option name="project" value="LOCAL" />
-      <updated>1743348401914</updated>
-    </task>
-    <task id="LOCAL-00035" summary="burh">
-      <option name="closed" value="true" />
-      <created>1743348851926</created>
-      <option name="number" value="00035" />
-      <option name="presentableId" value="LOCAL-00035" />
-      <option name="project" value="LOCAL" />
-      <updated>1743348851926</updated>
-    </task>
-    <task id="LOCAL-00036" summary="burh">
-      <option name="closed" value="true" />
-      <created>1743348932107</created>
-      <option name="number" value="00036" />
-      <option name="presentableId" value="LOCAL-00036" />
-      <option name="project" value="LOCAL" />
-      <updated>1743348932107</updated>
-    </task>
-    <task id="LOCAL-00037" summary="bruh 2">
-      <option name="closed" value="true" />
-      <created>1743349213599</created>
-      <option name="number" value="00037" />
-      <option name="presentableId" value="LOCAL-00037" />
-      <option name="project" value="LOCAL" />
-      <updated>1743349213599</updated>
-    </task>
-    <option name="localTasksCounter" value="38" />
+    <option name="localTasksCounter" value="30" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -474,15 +411,8 @@
     <MESSAGE value="maybe?" />
     <MESSAGE value="frontend" />
     <MESSAGE value="backend, token refresh" />
-    <MESSAGE value="contact functionality added" />
-    <MESSAGE value="error1" />
-    <MESSAGE value="error2" />
-    <MESSAGE value="email update" />
-    <MESSAGE value="last update" />
-    <MESSAGE value="get rid of emial" />
-    <MESSAGE value="burh" />
-    <MESSAGE value="bruh 2" />
-    <option name="LAST_COMMIT_MESSAGE" value="bruh 2" />
+    <MESSAGE value="back to beggining" />
+    <option name="LAST_COMMIT_MESSAGE" value="back to beggining" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -491,12 +421,6 @@
           <url>file://$PROJECT_DIR$/client/src/App.jsx</url>
           <line>7</line>
           <option name="timeStamp" value="1" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="javascript">
-          <url>file://$PROJECT_DIR$/server/server.js</url>
-          <line>164</line>
-          <properties lambdaOrdinal="-1" />
-          <option name="timeStamp" value="2" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

@@ -17,8 +17,6 @@ let accessToken = "";
 let refreshToken = "";
 let accessTokenExpiration = 0; // In seconds (Unix timestamp)
 
-
-
 // Spotify authentication flow
 app.get("/login", (req, res) => {
     const scope = 'user-top-read';  // Permission to access user's top tracks and artists
@@ -83,7 +81,10 @@ app.get("/callback", async (req, res) => {
 const refreshAccessToken = async (req, res) => {
     if (!refreshToken) {
         console.log("No refresh token available");
-        return res.redirect('/login');
+        // If no refresh token, redirect to login only if the response hasn't been sent already
+        if (!res.headersSent) {
+            return res.redirect('/login');
+        }
     }
 
     try {
@@ -107,7 +108,10 @@ const refreshAccessToken = async (req, res) => {
         console.log("✅ Access token refreshed:", accessToken);
     } catch (error) {
         console.error("🚨 Error refreshing access token:", error.response?.data || error.message);
-        return res.redirect('/login');
+        // Ensure that headers haven't been sent before attempting a redirect
+        if (!res.headersSent) {
+            return res.redirect('/login');
+        }
     }
 };
 
@@ -132,7 +136,6 @@ const checkAndRefreshToken = async (req, res) => {
         }
     }
 };
-
 
 // Fetch top tracks
 app.get("/api/spotify/top-tracks", async (req, res) => {
