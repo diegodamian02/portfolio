@@ -78,17 +78,13 @@ const checkAndRefreshToken = async (req, res, next) => {
         await refreshAccessToken(req, res); // Pass req, res to refreshAccessToken
         if (!accessToken) {
             // If token is still not available after refresh attempt, redirect to login
-            if (!res.headersSent) {
-                return res.redirect('/login'); // Ensure headers haven't been sent
-            }
+            return res.redirect('/login'); // Ensure headers haven't been sent
         }
     }
 
     if (!accessToken) {
         console.log("No access token, redirecting to /login...");
-        if (!res.headersSent) {
-            return res.redirect('/login'); // Ensure headers haven't been sent
-        }
+        return res.redirect('/login'); // Ensure headers haven't been sent
     }
     next(); // Continue to the next middleware
 };
