@@ -117,6 +117,7 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
     await checkAndRefreshToken();  // Ensure token is valid before making the request
 
     if (!accessToken) {
+        console.error("No access token available, unable to fetch top tracks");
         return res.status(401).json({ error: "Spotify access token is missing" });
     }
 
@@ -140,6 +141,7 @@ app.get("/api/spotify/top-artists", async (req, res) => {
     await checkAndRefreshToken();  // Ensure token is valid before making the request
 
     if (!accessToken) {
+        console.error("No access token available, unable to fetch top artists");
         return res.status(401).json({ error: "Spotify access token is missing" });
     }
 

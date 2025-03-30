@@ -4,12 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="backend, token refresh">
-      <change afterPath="$PROJECT_DIR$/server/send-email.js" afterDir="false" />
+    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="contact functionality added">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/pages/about.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/about.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/pages/contact.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/contact.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/client/src/styles/main.scss" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/styles/main.scss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/server/server.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -145,7 +143,7 @@
       <workItem from="1743048486118" duration="2104000" />
       <workItem from="1743278829431" duration="1402000" />
       <workItem from="1743282669121" duration="12585000" />
-      <workItem from="1743305433525" duration="4477000" />
+      <workItem from="1743305433525" duration="5055000" />
     </task>
     <task id="LOCAL-00001" summary="- initial deployment">
       <option name="closed" value="true" />
@@ -371,7 +369,15 @@
       <option name="project" value="LOCAL" />
       <updated>1743302274238</updated>
     </task>
-    <option name="localTasksCounter" value="29" />
+    <task id="LOCAL-00029" summary="contact functionality added">
+      <option name="closed" value="true" />
+      <created>1743345257876</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1743345257876</updated>
+    </task>
+    <option name="localTasksCounter" value="30" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -404,7 +410,8 @@
     <MESSAGE value="maybe?" />
     <MESSAGE value="frontend" />
     <MESSAGE value="backend, token refresh" />
-    <option name="LAST_COMMIT_MESSAGE" value="backend, token refresh" />
+    <MESSAGE value="contact functionality added" />
+    <option name="LAST_COMMIT_MESSAGE" value="contact functionality added" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
