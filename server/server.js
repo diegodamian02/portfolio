@@ -1,12 +1,15 @@
-import express from "express";
-import cors from "cors";
-import axios from "axios";
-import dotenv from "dotenv";
-import querystring from "querystring";
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import dotenv from 'dotenv';
+import querystring from 'querystring';
+import nodemailer from 'nodemailer';
+import bodyParser from 'body-parser';
 
 dotenv.config();
 const app = express();
 app.use(cors());
+app.use(bodyParser.json());  // Parse JSON bodies
 
 // Spotify Credentials from environment variables
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
@@ -17,27 +20,13 @@ let accessToken = "";
 let refreshToken = "";
 let accessTokenExpiration = 0; // In seconds (Unix timestamp)
 
-// email
-app.post('/send-email', (req, res) => {
-    const { name, email, message } = req.body;
-
-    // Compose the email
-    const mailOptions = {
-        from: email,  // Sender's email
-        to: 'diegodamiango02@gmail.com',  // Receiver's email
-        subject: 'New Contact Form Submission',
-        text: `You have a new message from ${name} (${email}):\n\n${message}`,
-    };
-
-    // Send the email
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            console.log(error);
-            return res.status(500).send('Error sending email');
-        }
-        console.log('Email sent: ' + info.response);
-        return res.status(200).send('Email sent successfully');
-    });
+// Email sending setup
+const transporter = nodemailer.createTransport({
+    service: 'gmail',  // You can change this to your email provider
+    auth: {
+        user: 'diegodamiango02@gmail.com',  // Use your email
+        pass: '770802Crash',   // Use your email password or app-specific password
+    },
 });
 
 // Spotify authentication flow
@@ -57,6 +46,7 @@ app.get("/login", (req, res) => {
     res.redirect(authUrl);
 });
 
+// Handle callback and exchange the authorization code for access and refresh tokens
 app.get("/callback", async (req, res) => {
     const code = req.query.code;
     const state = req.query.state;
@@ -83,16 +73,10 @@ app.get("/callback", async (req, res) => {
         );
 
         accessToken = response.data.access_token;
-        refreshToken = response.data.refresh_token;
+        refreshToken = response.data.refresh_token;  // Save the refresh token
         accessTokenExpiration = Math.floor(Date.now() / 1000) + 3600; // Set expiration time (1 hour)
 
-        if (!refreshToken) {
-            console.error("No refresh token received");
-            return res.status(400).send("Refresh token missing");
-        }
-
         console.log("✅ New Spotify Access Token:", accessToken);
-        console.log("✅ New Refresh Token:", refreshToken);
         res.redirect("/profile");
     } catch (error) {
         console.error("🚨 Error during token exchange:", error.response?.data || error.message);
@@ -138,14 +122,20 @@ const checkAndRefreshToken = async () => {
         console.log("Access token expired, refreshing...");
         await refreshAccessToken();
     }
+
+    if (!accessToken) {
+        console.log("No access token, redirecting to /login...");
+        return false; // Token is missing or expired and cannot be refreshed
+    }
+    return true; // Token is valid
 };
 
 // Fetch top tracks
 app.get("/api/spotify/top-tracks", async (req, res) => {
-    await checkAndRefreshToken();  // Ensure token is valid before making the request
+    const tokenValid = await checkAndRefreshToken();  // Ensure token is valid before making the request
 
-    if (!accessToken) {
-        return res.status(401).json({ error: "Spotify access token is missing" });
+    if (!tokenValid) {
+        return res.redirect("/login"); // Redirect to login if token is missing or invalid
     }
 
     try {
@@ -165,10 +155,10 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
 
 // Fetch top artists
 app.get("/api/spotify/top-artists", async (req, res) => {
-    await checkAndRefreshToken();  // Ensure token is valid before making the request
+    const tokenValid = await checkAndRefreshToken();  // Ensure token is valid before making the request
 
-    if (!accessToken) {
-        return res.status(401).json({ error: "Spotify access token is missing" });
+    if (!tokenValid) {
+        return res.redirect("/login"); // Redirect to login if token is missing or invalid
     }
 
     try {
@@ -183,6 +173,29 @@ app.get("/api/spotify/top-artists", async (req, res) => {
         console.error("🚨 Error fetching top artists:", error.response?.data || error.message);
         res.status(500).json({ error: "Failed to fetch top artists" });
     }
+});
+
+// Send email functionality
+app.post('/send-email', (req, res) => {
+    const { name, email, message } = req.body;
+
+    // Compose email
+    const mailOptions = {
+        from: email,  // Sender's email
+        to: 'diegodamiango02@gmail.com',  // Receiver's email
+        subject: 'New Contact Form Submission',
+        text: `You have a new message from ${name} (${email}):\n\n${message}`,
+    };
+
+    // Send email
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            console.log(error);
+            return res.status(500).send('Error sending email');
+        }
+        console.log('Email sent: ' + info.response);
+        return res.status(200).send('Email sent successfully');
+    });
 });
 
 // Start the server
