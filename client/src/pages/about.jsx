@@ -22,15 +22,20 @@ export default function About() {
     // Fetch Spotify Profile, Top Tracks & Artists
     const fetchSpotifyData = async () => {
         try {
+
+            const response = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/check-auth");
             setLoading(true); // Set loading to true before starting fetch
 
-            const trackRes = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/top-tracks");
-            setTopTracks(trackRes.data);
+            if (response.status == 200) {
 
-            const artistRes = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/top-artists");
-            setTopArtists(artistRes.data);
+                const trackRes = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/top-tracks");
+                setTopTracks(trackRes.data);
 
-            setLoading(false); // Set loading to false after fetching is done
+                const artistRes = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/top-artists");
+                setTopArtists(artistRes.data);
+
+                setLoading(false); // Set loading to false after fetching is done
+            }
         } catch (error) {
             console.error("Error Fetching Spotify Data", error);
             setLoading(false); // Set loading to false if an error occurs

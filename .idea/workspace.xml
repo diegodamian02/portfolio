@@ -4,8 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="back to beggining">
+    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="fuck 1">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/pages/about.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/about.jsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/server/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/server/server.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -378,7 +379,15 @@
       <option name="project" value="LOCAL" />
       <updated>1743351093724</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="fuck 1">
+      <option name="closed" value="true" />
+      <created>1743351408422</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1743351408422</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -412,7 +421,8 @@
     <MESSAGE value="frontend" />
     <MESSAGE value="backend, token refresh" />
     <MESSAGE value="back to beggining" />
-    <option name="LAST_COMMIT_MESSAGE" value="back to beggining" />
+    <MESSAGE value="fuck 1" />
+    <option name="LAST_COMMIT_MESSAGE" value="fuck 1" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
