@@ -15,6 +15,7 @@ const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
 
 let accessToken = "";
 let refreshToken = "";
+let accessTokenExpiration = 0; // In seconds (Unix timestamp)
 
 // Spotify authentication flow
 app.get("/login", (req, res) => {
@@ -33,9 +34,6 @@ app.get("/login", (req, res) => {
     res.redirect(authUrl);
 });
 
-app.get("/profile", async (req, res) => {
-    console.log("NEW TOKEN GENERATED BABY!");
-})
 // Handle callback and exchange the authorization code for access and refresh tokens
 app.get("/callback", async (req, res) => {
     const code = req.query.code;
@@ -64,6 +62,7 @@ app.get("/callback", async (req, res) => {
 
         accessToken = response.data.access_token;
         refreshToken = response.data.refresh_token;
+        accessTokenExpiration = Math.floor(Date.now() / 1000) + 3600; // Set expiration time (1 hour)
 
         console.log("✅ New Spotify Access Token:", accessToken);
         res.redirect("/profile");
@@ -73,8 +72,50 @@ app.get("/callback", async (req, res) => {
     }
 });
 
+// Refresh Access Token when expired
+const refreshAccessToken = async () => {
+    if (!refreshToken) {
+        throw new Error("No refresh token available");
+    }
+
+    try {
+        const response = await axios.post(
+            'https://accounts.spotify.com/api/token',
+            querystring.stringify({
+                grant_type: 'refresh_token',
+                refresh_token: refreshToken,
+                client_id: CLIENT_ID,
+                client_secret: CLIENT_SECRET,
+            }),
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            }
+        );
+
+        accessToken = response.data.access_token;
+        accessTokenExpiration = Math.floor(Date.now() / 1000) + 3600; // Set expiration time (1 hour)
+        console.log("✅ Access token refreshed:", accessToken);
+    } catch (error) {
+        console.error("🚨 Error refreshing access token:", error.response?.data || error.message);
+        throw new Error("Failed to refresh access token");
+    }
+};
+
+// Check if the access token is expired, and refresh it if needed
+const checkAndRefreshToken = async () => {
+    const currentTime = Math.floor(Date.now() / 1000);
+    if (currentTime >= accessTokenExpiration) {
+        console.log("Access token expired, refreshing...");
+        await refreshAccessToken();
+    }
+};
+
 // Fetch top tracks
 app.get("/api/spotify/top-tracks", async (req, res) => {
+    await checkAndRefreshToken();  // Ensure token is valid before making the request
+
     if (!accessToken) {
         return res.status(401).json({ error: "Spotify access token is missing" });
     }
@@ -96,6 +137,8 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
 
 // Fetch top artists
 app.get("/api/spotify/top-artists", async (req, res) => {
+    await checkAndRefreshToken();  // Ensure token is valid before making the request
+
     if (!accessToken) {
         return res.status(401).json({ error: "Spotify access token is missing" });
     }
@@ -111,37 +154,6 @@ app.get("/api/spotify/top-artists", async (req, res) => {
     } catch (error) {
         console.error("🚨 Error fetching top artists:", error.response?.data || error.message);
         res.status(500).json({ error: "Failed to fetch top artists" });
-    }
-});
-
-// Refresh Access Token when expired
-app.get("/refresh_token", async (req, res) => {
-    if (!refreshToken) {
-        return res.status(401).json({ error: "No refresh token available" });
-    }
-
-    try {
-        const response = await axios.post(
-            'https://accounts.spotify.com/api/token',
-            querystring.stringify({
-                grant_type: 'refresh_token',
-                refresh_token: refreshToken,
-                client_id: CLIENT_ID,
-                client_secret: CLIENT_SECRET,
-            }),
-            {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-            }
-        );
-
-        accessToken = response.data.access_token;
-        console.log("✅ Access token refreshed:", accessToken);
-        res.json({ access_token: accessToken });
-    } catch (error) {
-        console.error("🚨 Error refreshing access token:", error.response?.data || error.message);
-        res.status(500).json({ error: "Failed to refresh access token" });
     }
 });
 
