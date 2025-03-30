@@ -4,6 +4,9 @@ import axios from "axios";
 import dotenv from "dotenv";
 import querystring from "querystring";
 
+dotenv.config();
+const app = express();
+
 // Add CORS headers to allow your frontend domain
 const allowedOrigins = ['https://www.diegodamian.com']; // Replace with your frontend URL
 app.use(cors({
