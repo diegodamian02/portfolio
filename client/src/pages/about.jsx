@@ -23,10 +23,10 @@ export default function About() {
         try {
             setLoading(true); // Set loading to true before starting fetch
 
-            const trackRes = await axios.get("https://portfolio-production-8fce.up.railway.app/api/spotify/top-tracks");
+            const trackRes = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/top-tracks");
             setTopTracks(trackRes.data);
 
-            const artistRes = await axios.get("https://portfolio-production-8fce.up.railway.app/api/spotify/top-artists");
+            const artistRes = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/top-artists");
             setTopArtists(artistRes.data);
 
             setLoading(false); // Set loading to false after fetching is done
