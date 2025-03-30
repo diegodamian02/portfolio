@@ -33,6 +33,9 @@ app.get("/login", (req, res) => {
     res.redirect(authUrl);
 });
 
+app.get("/profile", async (req, res) => {
+    console.log("NEW TOKEN GENERATED BABY!");
+})
 // Handle callback and exchange the authorization code for access and refresh tokens
 app.get("/callback", async (req, res) => {
     const code = req.query.code;

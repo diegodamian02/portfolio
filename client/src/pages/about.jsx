@@ -9,6 +9,7 @@ import codewiz from "../assets/codewiz.jpeg";
 import trump from "../assets/trump.jpeg";
 import arrowBlack from "../assets/arrow.png";
 import arrowWhite from "../assets/arrow_white.png";
+import spotify_diego from "../assets/spotify_diego.jpg"
 
 export default function About() {
     const [topTracks, setTopTracks] = useState([]);
@@ -17,6 +18,12 @@ export default function About() {
     const [loading, setLoading] = useState(true);
     const timelineRef = useRef(null);
     const arrowRef = useRef(null);
+
+    // Trigger login to get a new access token when the page loads
+    useEffect(() => {
+        // Redirect to login route on mount to get a new access token
+        window.location.href = "https://diegosportfolio-3094a3e5fc1b.herokuapp.com/login";
+    }, []);
 
     // Fetch Spotify Profile, Top Tracks & Artists
     const fetchSpotifyData = async () => {
@@ -108,15 +115,17 @@ export default function About() {
                             <img src={codewiz} alt="CodeWiz" className="timeline-image"/>
                             <div className="timeline-content">
                                 <h3>CodeWiz</h3>
-                                <p>Mentored young students in programming and robotics, helping them build real-world projects.</p>
+                                <p>Mentored young students in programming and robotics, helping them build real-world
+                                    projects.</p>
                                 <span className="date">2024 - Present</span>
                             </div>
                         </div>
                         <div className="timeline-item">
-                            <img src={trump} alt="Trump National Golf Club" className="timeline-image" />
+                            <img src={trump} alt="Trump National Golf Club" className="timeline-image"/>
                             <div className="timeline-content">
                                 <h3>Trump National Golf Club</h3>
-                                <p>Worked in hospitality, providing high-quality service and refining my communication skills.</p>
+                                <p>Worked in hospitality, providing high-quality service and refining my communication
+                                    skills.</p>
                                 <span className="date">2022 - 2024</span>
                             </div>
                         </div>
@@ -124,35 +133,62 @@ export default function About() {
                 </div>
             </section>
 
-            {/* Spotify Section */}
             <section className="about-section spotify-section">
-                <h2>🎵 My Top Tracks</h2>
-                <ul>
+                {/* Image Next to Top Tracks */}
+                <div className="spotify-track-image">
+                   <a href="https://open.spotify.com/user/12182870270?si=630dee87f85a4ced"><img src={spotify_diego} alt="Top Tracks" className="track-image"/></a>
+                    <h2> My Top Tracks</h2>
+                </div>
+                <div className="spotify-track-list">
                     {loading ? (
                         <p>Loading top tracks...</p>
                     ) : (
                         topTracks.map((track, index) => (
-                            <li key={index}>
-                                <img src={track.album.images[0]?.url} alt={track.name} className="spotify-track-img"/>
-                                {track.name} - {track.artists.map(artist => artist.name).join(", ")}
-                            </li>
+                            <div key={index} className="spotify-track-item">
+                                <span className="track-number">{index + 1}</span>
+                                <div className="track-details">
+                                    <a href={`https://open.spotify.com/track/${track.id}`} target="_blank"
+                                       rel="noopener noreferrer">
+                                        <p className="track-name">{track.name}</p>
+                                    </a>
+                                    <p className="track-artist">
+                                        {track.artists.map(artist => (
+                                            <a
+                                                key={artist.id}
+                                                href={`https://open.spotify.com/artist/${artist.id}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                {artist.name}
+                                            </a>
+                                        ))}
+                                    </p>
+                                </div>
+                            </div>
                         ))
                     )}
-                </ul>
+                </div>
 
                 <h2>🎤 My Top Artists</h2>
-                <ul>
+                <div className="top-artists-list">
                     {loading ? (
                         <p>Loading top artists...</p>
                     ) : (
                         topArtists.map((artist, index) => (
-                            <li key={index}>
-                                <img src={artist.images[0]?.url} alt={artist.name} className="spotify-artist-img"/>
-                                {artist.name}
-                            </li>
+                            <div key={index} className="artist-item">
+                                <a href={`https://open.spotify.com/artist/${artist.id}`} target="_blank"
+                                   rel="noopener noreferrer">
+                                    <img
+                                        src={artist.images[0]?.url}
+                                        alt={artist.name}
+                                        className="spotify-artist-img"
+                                    />
+                                    <p>{artist.name}</p>
+                                </a>
+                            </div>
                         ))
                     )}
-                </ul>
+                </div>
             </section>
         </>
     );

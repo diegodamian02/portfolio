@@ -4,9 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="maybe?">
+    <list default="true" id="d8a76166-e2e3-4968-a4c5-5194c55639d2" name="Changes" comment="frontend">
+      <change afterPath="$PROJECT_DIR$/client/src/assets/spotify_diego.jpg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client/src/pages/about.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/pages/about.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/client/src/styles/main.scss" beforeDir="false" afterPath="$PROJECT_DIR$/client/src/styles/main.scss" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/server/server.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,30 +54,31 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Node.js.App.jsx.executor&quot;: &quot;Run&quot;,
-    &quot;Node.js.main.jsx.executor&quot;: &quot;Run&quot;,
-    &quot;Node.js.vite.config.js.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/diegodamian/Documents/Documents - Diego’s MacBook Air/Coding Projects/portfolio&quot;,
-    &quot;list.type.of.created.stylesheet&quot;: &quot;SCSS&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;npm.dev http://localhost:5173/.executor&quot;: &quot;Run&quot;,
-    &quot;npm.dev.executor&quot;: &quot;Run&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;/Applications/WebStorm.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Node.js.App.jsx.executor": "Run",
+    "Node.js.main.jsx.executor": "Run",
+    "Node.js.vite.config.js.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/diegodamian/Documents/Documents - Diego’s MacBook Air/Coding Projects/portfolio/client/src/assets",
+    "list.type.of.created.stylesheet": "SCSS",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "npm.dev http://localhost:5173/.executor": "Run",
+    "npm.dev.executor": "Run",
+    "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "/Applications/WebStorm.app/Contents/plugins/javascript-plugin/jsLanguageServicesImpl/external",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/client/src/assets" />
       <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
@@ -140,7 +144,7 @@
       <workItem from="1742923133143" duration="13196000" />
       <workItem from="1743048486118" duration="2104000" />
       <workItem from="1743278829431" duration="1402000" />
-      <workItem from="1743282669121" duration="4559000" />
+      <workItem from="1743282669121" duration="9017000" />
     </task>
     <task id="LOCAL-00001" summary="- initial deployment">
       <option name="closed" value="true" />
@@ -342,7 +346,15 @@
       <option name="project" value="LOCAL" />
       <updated>1743296900823</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="frontend">
+      <option name="closed" value="true" />
+      <created>1743297311322</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1743297311322</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -373,7 +385,8 @@
     <MESSAGE value="SPOTIFY FINALLY WORKS" />
     <MESSAGE value="oops" />
     <MESSAGE value="maybe?" />
-    <option name="LAST_COMMIT_MESSAGE" value="maybe?" />
+    <MESSAGE value="frontend" />
+    <option name="LAST_COMMIT_MESSAGE" value="frontend" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
