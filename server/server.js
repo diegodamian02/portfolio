@@ -4,9 +4,17 @@ import axios from "axios";
 import dotenv from "dotenv";
 import querystring from "querystring";
 
-dotenv.config();
-const app = express();
-app.use(cors());
+// Add CORS headers to allow your frontend domain
+const allowedOrigins = ['https://www.diegodamian.com']; // Replace with your frontend URL
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
+}));
 
 // Spotify Credentials from environment variables
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
@@ -15,7 +23,7 @@ const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
 
 let accessToken = "";
 let refreshToken = "";
-let accessTokenExpiration = 0; // In seconds (Unix timestamp)
+let accessTokenExpiration = 0;
 
 // Check if the user is authenticated
 app.get("/api/spotify/check-auth", (req, res) => {
