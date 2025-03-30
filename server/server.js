@@ -1,47 +1,90 @@
-import express from "express";
-import cors from "cors";
-import axios from "axios";
-import dotenv from "dotenv";
-import querystring from "querystring";
+import express from 'express';  // Import express
+import cors from 'cors';
+import axios from 'axios';
+import dotenv from 'dotenv';
+import querystring from 'querystring';
+
+// Initialize express app
+const app = express();  // <-- Here you initialize the app
 
 dotenv.config();
-const app = express();
-
-// Add CORS headers to allow your frontend domain
-const allowedOrigins = ['https://www.diegodamian.com']; // Replace with your frontend URL
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error("Not allowed by CORS"));
-        }
-    },
-}));
 
 // Spotify Credentials from environment variables
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
 
-let accessToken = "";
-let refreshToken = "";
+let accessToken = '';
+let refreshToken = '';
 let accessTokenExpiration = 0; // In seconds (Unix timestamp)
 
-// Check if the user is authenticated
-app.get("/api/spotify/check-auth", (req, res) => {
-    if (!accessToken || Math.floor(Date.now() / 1000) >= accessTokenExpiration) {
-        // If there's no access token or the token has expired, redirect to /login
-        return res.redirect("/login");
+app.use(cors());  // Add CORS middleware to allow cross-origin requests
+
+// Spotify authentication flow
+app.get('/login', (req, res) => {
+    const scope = 'user-top-read';  // Permission to access user's top tracks and artists
+    const state = 'some-random-state';
+
+    const authUrl = `https://accounts.spotify.com/authorize?` +
+        querystring.stringify({
+            response_type: 'code',
+            client_id: CLIENT_ID,
+            redirect_uri: REDIRECT_URI,
+            scope: scope,
+            state: state,
+        });
+
+    res.redirect(authUrl);
+});
+
+// Callback to handle the response from Spotify OAuth
+app.get('/callback', async (req, res) => {
+    const code = req.query.code;
+    const state = req.query.state;
+
+    if (state !== 'some-random-state') {
+        return res.status(400).send('State mismatch');
     }
 
-    // Otherwise, user is authenticated, return a success status
-    return res.status(200).send('User is authenticated');
+    try {
+        const response = await axios.post(
+            'https://accounts.spotify.com/api/token',
+            querystring.stringify({
+                grant_type: 'authorization_code',
+                code: code,
+                redirect_uri: REDIRECT_URI,
+                client_id: CLIENT_ID,
+                client_secret: CLIENT_SECRET,
+            }),
+            {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            }
+        );
+
+        accessToken = response.data.access_token;
+        refreshToken = response.data.refresh_token;
+        accessTokenExpiration = Math.floor(Date.now() / 1000) + 3600; // Set expiration time (1 hour)
+
+        if (!refreshToken) {
+            console.error('No refresh token received');
+            return res.status(400).send('Refresh token missing');
+        }
+
+        console.log('✅ New Spotify Access Token:', accessToken);
+        console.log('✅ New Refresh Token:', refreshToken);
+        res.redirect('/profile');
+    } catch (error) {
+        console.error('🚨 Error during token exchange:', error.response?.data || error.message);
+        res.status(500).send('Failed to get Spotify access token');
+    }
 });
 
 // Refresh Access Token when expired
 const refreshAccessToken = async (req, res) => {
     if (!refreshToken) {
+        console.log('No refresh token available');
         return res.redirect('/login');
     }
 
@@ -63,9 +106,9 @@ const refreshAccessToken = async (req, res) => {
 
         accessToken = response.data.access_token;
         accessTokenExpiration = Math.floor(Date.now() / 1000) + 3600; // Set expiration time (1 hour)
-        console.log("✅ Access token refreshed:", accessToken);
+        console.log('✅ Access token refreshed:', accessToken);
     } catch (error) {
-        console.error("🚨 Error refreshing access token:", error.response?.data || error.message);
+        console.error('🚨 Error refreshing access token:', error.response?.data || error.message);
         return res.redirect('/login');
     }
 };
@@ -74,25 +117,29 @@ const refreshAccessToken = async (req, res) => {
 const checkAndRefreshToken = async (req, res, next) => {
     const currentTime = Math.floor(Date.now() / 1000);
     if (currentTime >= accessTokenExpiration) {
-        console.log("Access token expired, refreshing...");
+        console.log('Access token expired, refreshing...');
         await refreshAccessToken(req, res); // Pass req, res to refreshAccessToken
         if (!accessToken) {
             // If token is still not available after refresh attempt, redirect to login
-            return res.redirect('/login'); // Ensure headers haven't been sent
+            if (!res.headersSent) {
+                return res.redirect('/login'); // Ensure headers haven't been sent
+            }
         }
     }
 
     if (!accessToken) {
-        console.log("No access token, redirecting to /login...");
-        return res.redirect('/login'); // Ensure headers haven't been sent
+        console.log('No access token, redirecting to /login...');
+        if (!res.headersSent) {
+            return res.redirect('/login'); // Ensure headers haven't been sent
+        }
     }
     next(); // Continue to the next middleware
 };
 
 // Fetch top tracks
-app.get("/api/spotify/top-tracks", checkAndRefreshToken, async (req, res) => {
+app.get('/api/spotify/top-tracks', checkAndRefreshToken, async (req, res) => {
     if (!accessToken) {
-        return res.status(401).json({ error: "Spotify access token is missing" });
+        return res.status(401).json({ error: 'Spotify access token is missing' });
     }
 
     try {
@@ -102,18 +149,18 @@ app.get("/api/spotify/top-tracks", checkAndRefreshToken, async (req, res) => {
             },
         });
 
-        console.log("🎵 Top Tracks Response:", response.data.items);
+        console.log('🎵 Top Tracks Response:', response.data.items);
         res.json(response.data.items);
     } catch (error) {
-        console.error("🚨 Error fetching top tracks:", error.response?.data || error.message);
-        res.status(500).json({ error: "Failed to fetch top tracks" });
+        console.error('🚨 Error fetching top tracks:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Failed to fetch top tracks' });
     }
 });
 
 // Fetch top artists
-app.get("/api/spotify/top-artists", checkAndRefreshToken, async (req, res) => {
+app.get('/api/spotify/top-artists', checkAndRefreshToken, async (req, res) => {
     if (!accessToken) {
-        return res.status(401).json({ error: "Spotify access token is missing" });
+        return res.status(401).json({ error: 'Spotify access token is missing' });
     }
 
     try {
@@ -125,8 +172,8 @@ app.get("/api/spotify/top-artists", checkAndRefreshToken, async (req, res) => {
 
         res.json(response.data.items);
     } catch (error) {
-        console.error("🚨 Error fetching top artists:", error.response?.data || error.message);
-        res.status(500).json({ error: "Failed to fetch top artists" });
+        console.error('🚨 Error fetching top artists:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Failed to fetch top artists' });
     }
 });
 
