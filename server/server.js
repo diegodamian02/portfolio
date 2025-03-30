@@ -82,7 +82,7 @@ app.get("/callback", async (req, res) => {
 // Refresh Access Token when expired
 const refreshAccessToken = async (req, res) => {
     if (!refreshToken) {
-        throw new Error("No refresh token available");
+        console.log("No refresh token available");
         return res.redirect('/login');
     }
 
