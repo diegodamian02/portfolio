@@ -26,7 +26,7 @@ const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
 
 let accessToken = "";
 let refreshToken = "";
-let accessTokenExpiration = 0;
+let accessTokenExpiration = 0; // In seconds (Unix timestamp)
 
 // Check if the user is authenticated
 app.get("/api/spotify/check-auth", (req, res) => {
@@ -71,23 +71,30 @@ const refreshAccessToken = async (req, res) => {
 };
 
 // Check if the access token is expired, and refresh it if needed
-const checkAndRefreshToken = async (req, res) => {
+const checkAndRefreshToken = async (req, res, next) => {
     const currentTime = Math.floor(Date.now() / 1000);
     if (currentTime >= accessTokenExpiration) {
         console.log("Access token expired, refreshing...");
         await refreshAccessToken(req, res); // Pass req, res to refreshAccessToken
+        if (!accessToken) {
+            // If token is still not available after refresh attempt, redirect to login
+            if (!res.headersSent) {
+                return res.redirect('/login'); // Ensure headers haven't been sent
+            }
+        }
     }
 
     if (!accessToken) {
         console.log("No access token, redirecting to /login...");
-        return res.redirect('/login');
+        if (!res.headersSent) {
+            return res.redirect('/login'); // Ensure headers haven't been sent
+        }
     }
+    next(); // Continue to the next middleware
 };
 
 // Fetch top tracks
-app.get("/api/spotify/top-tracks", async (req, res) => {
-    await checkAndRefreshToken(req, res);
-
+app.get("/api/spotify/top-tracks", checkAndRefreshToken, async (req, res) => {
     if (!accessToken) {
         return res.status(401).json({ error: "Spotify access token is missing" });
     }
@@ -108,9 +115,7 @@ app.get("/api/spotify/top-tracks", async (req, res) => {
 });
 
 // Fetch top artists
-app.get("/api/spotify/top-artists", async (req, res) => {
-    await checkAndRefreshToken(req, res);
-
+app.get("/api/spotify/top-artists", checkAndRefreshToken, async (req, res) => {
     if (!accessToken) {
         return res.status(401).json({ error: "Spotify access token is missing" });
     }
