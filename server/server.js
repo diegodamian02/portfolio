@@ -13,6 +13,7 @@ dotenv.config();
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
+const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
 
 let accessToken = '';
 let refreshToken = '';
@@ -74,7 +75,7 @@ app.get('/callback', async (req, res) => {
 
         console.log('✅ New Spotify Access Token:', accessToken);
         console.log('✅ New Refresh Token:', refreshToken);
-        res.redirect('/profile');
+        res.redirect(`${FRONTEND_BASE_URL}/about`);
     } catch (error) {
         console.error('🚨 Error during token exchange:', error.response?.data || error.message);
         res.status(500).send('Failed to get Spotify access token');
@@ -135,6 +136,21 @@ const checkAndRefreshToken = async (req, res, next) => {
     }
     next(); // Continue to the next middleware
 };
+
+// Check auth status for the frontend
+app.get('/api/spotify/check-auth', (req, res) => {
+    const currentTime = Math.floor(Date.now() / 1000);
+    const isExpired = currentTime >= accessTokenExpiration;
+
+    if (!accessToken || isExpired) {
+        return res.status(401).json({
+            authenticated: false,
+            loginUrl: `${process.env.BACKEND_BASE_URL || ''}/login`,
+        });
+    }
+
+    res.json({ authenticated: true });
+});
 
 // Fetch top tracks
 app.get('/api/spotify/top-tracks', checkAndRefreshToken, async (req, res) => {

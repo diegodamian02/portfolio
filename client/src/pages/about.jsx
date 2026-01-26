@@ -20,24 +20,30 @@ export default function About() {
     const arrowRef = useRef(null);
 
     // Fetch Spotify Profile, Top Tracks & Artists
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5050";
+
     const fetchSpotifyData = async () => {
         try {
 
-            const response = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/check-auth");
+            const response = await axios.get(`${apiBaseUrl}/api/spotify/check-auth`);
             setLoading(true); // Set loading to true before starting fetch
 
             if (response.status == 200) {
 
-                const trackRes = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/top-tracks");
+                const trackRes = await axios.get(`${apiBaseUrl}/api/spotify/top-tracks`);
                 setTopTracks(trackRes.data);
 
-                const artistRes = await axios.get("https://diegosportfolio-3094a3e5fc1b.herokuapp.com/api/spotify/top-artists");
+                const artistRes = await axios.get(`${apiBaseUrl}/api/spotify/top-artists`);
                 setTopArtists(artistRes.data);
 
                 setLoading(false); // Set loading to false after fetching is done
             }
         } catch (error) {
             console.error("Error Fetching Spotify Data", error);
+            if (error?.response?.status === 401) {
+                window.location.href = `${apiBaseUrl}/login`;
+                return;
+            }
             setLoading(false); // Set loading to false if an error occurs
         }
     };
