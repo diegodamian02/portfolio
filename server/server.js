@@ -14,7 +14,7 @@ const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI;
 const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
-const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL || 'http://127.0.0.1:5050';
+const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL || 'https://diegos-portfolio-gud6.onrender.com';
 
 let accessToken = '';
 let refreshToken = process.env.SPOTIFY_REFRESH_TOKEN || '';
