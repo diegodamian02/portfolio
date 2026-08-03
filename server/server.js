@@ -20,7 +20,13 @@ let accessToken = '';
 let refreshToken = process.env.SPOTIFY_REFRESH_TOKEN || '';
 let accessTokenExpiration = 0; // In seconds (Unix timestamp)
 
-app.use(cors());  // Add CORS middleware to allow cross-origin requests
+const ALLOWED_ORIGINS = [
+    'https://diegodamian.com',
+    'https://www.diegodamian.com',
+    'http://localhost:5173',
+];
+
+app.use(cors({ origin: ALLOWED_ORIGINS }));
 
 // Spotify authentication flow
 app.get('/login', (req, res) => {
@@ -195,87 +201,17 @@ app.get('/api/spotify/top-artists', checkAndRefreshToken, async (req, res) => {
     }
 });
 
-// ============================================================
-// TEMP — Phase 0 iTunes probe routes (turntable-hero validation)
-// Throwaway diagnostic code. Not part of the app. Remove before
-// building the real feature — do not commit as-is.
-// ============================================================
-
+// iTunes preview-audio proxy — currently unused by the app. Probing (see
+// commit "chore: validate iTunes CORS") confirmed the mzstatic.com preview
+// CDN already sends access-control-allow-origin: *, so the turntable hero
+// fetches preview audio directly and doesn't need this. Kept, host-locked,
+// as the documented fallback if Apple ever tightens CORS on that CDN —
+// don't delete as dead code without re-checking that first.
 const ALLOWED_PROXY_HOSTS = [/(^|\.)mzstatic\.com$/, /(^|\.)itunes\.apple\.com$/];
 
 function isAllowedProxyHost(hostname) {
     return ALLOWED_PROXY_HOSTS.some((re) => re.test(hostname));
 }
-
-async function searchWithRetryOn403(params, retriesLeft) {
-    try {
-        return { res: await axios.get('https://itunes.apple.com/search', { params }), retried: false };
-    } catch (err) {
-        if (err.response?.status === 403 && retriesLeft > 0) {
-            await new Promise((r) => setTimeout(r, 500));
-            const inner = await searchWithRetryOn403(params, retriesLeft - 1);
-            return { ...inner, retried: true };
-        }
-        throw err;
-    }
-}
-
-app.get('/api/itunes/probe', async (req, res) => {
-    const summary = {
-        searchOk: false,
-        searchStatus: null,
-        resultsCount: 0,
-        previewUrlsFound: 0,
-        previewUrl: null,
-        retriedOn403: false,
-        previewStatus: null,
-        previewHeaders: null,
-        corsHeaderPresent: false,
-        error: null,
-    };
-
-    try {
-        const { res: searchRes, retried } = await searchWithRetryOn403(
-            { term: 'daft punk', entity: 'song', limit: 3 },
-            1
-        );
-        summary.retriedOn403 = retried;
-        summary.searchStatus = searchRes.status;
-        summary.searchOk = searchRes.status === 200;
-
-        const results = searchRes.data?.results || [];
-        summary.resultsCount = results.length;
-        summary.previewUrlsFound = results.filter((r) => r.previewUrl).length;
-
-        console.log(`[itunes-probe] search status=${summary.searchStatus} results=${summary.resultsCount} withPreviewUrl=${summary.previewUrlsFound} retriedOn403=${retried}`);
-
-        const previewUrl = results.find((r) => r.previewUrl)?.previewUrl || null;
-        summary.previewUrl = previewUrl;
-
-        if (previewUrl) {
-            let previewRes;
-            try {
-                previewRes = await axios.head(previewUrl);
-            } catch (headErr) {
-                console.log(`[itunes-probe] HEAD failed (${headErr.message}), falling back to ranged GET`);
-                previewRes = await axios.get(previewUrl, { headers: { Range: 'bytes=0-1023' } });
-            }
-
-            summary.previewStatus = previewRes.status;
-            summary.previewHeaders = previewRes.headers;
-            summary.corsHeaderPresent = !!previewRes.headers['access-control-allow-origin'];
-
-            console.log('[itunes-probe] preview response headers:', previewRes.headers);
-            console.log(`[itunes-probe] access-control-allow-origin = ${previewRes.headers['access-control-allow-origin'] || '(absent)'}`);
-        }
-
-        res.json(summary);
-    } catch (error) {
-        console.error('🚨 [itunes-probe] error:', error.response?.status, error.message);
-        summary.error = error.message;
-        res.status(500).json(summary);
-    }
-});
 
 app.get('/api/itunes/preview-proxy', async (req, res) => {
     const { url } = req.query;
@@ -312,108 +248,6 @@ app.get('/api/itunes/preview-proxy', async (req, res) => {
         res.status(502).json({ error: 'Upstream fetch failed' });
     }
 });
-
-const PROBE_TEST_HTML = `<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>iTunes probe</title></head>
-<body style="font-family: monospace; padding: 2rem; max-width: 900px;">
-  <h2>iTunes Tier-1 audio probe</h2>
-  <button id="run">Run automated tests (2a + 2b, raw + proxy)</button>
-  <button id="play-raw" disabled>2c: play+analyze RAW previewUrl</button>
-  <button id="play-proxy" disabled>2c: play+analyze PROXY previewUrl</button>
-  <pre id="out" style="white-space: pre-wrap; background:#111; color:#0f0; padding:1rem; margin-top:1rem;"></pre>
-  <script>
-    const out = document.getElementById('out');
-    const log = (label, data) => { out.textContent += label + ': ' + JSON.stringify(data, null, 2) + '\\n\\n'; };
-
-    let rawUrl = null, proxyUrl = null;
-
-    async function testDirectFetch(url, label) {
-      try {
-        const r = await fetch(url);
-        log(label + ' fetch()', { ok: r.ok, status: r.status, type: r.type });
-        return true;
-      } catch (err) {
-        log(label + ' fetch() FAILED', { message: err.message });
-        return false;
-      }
-    }
-
-    async function testDecodeAudioData(url, label) {
-      try {
-        const r = await fetch(url);
-        const buf = await r.arrayBuffer();
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const audioBuf = await ctx.decodeAudioData(buf.slice(0));
-        log(label + ' decodeAudioData()', { ok: true, durationSec: audioBuf.duration, byteLength: buf.byteLength });
-        return true;
-      } catch (err) {
-        log(label + ' decodeAudioData() FAILED', { message: err.message });
-        return false;
-      }
-    }
-
-    async function testAnalyser(url, label) {
-      return new Promise((resolve) => {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const audio = new Audio();
-        audio.crossOrigin = 'anonymous';
-        audio.src = url;
-        const source = ctx.createMediaElementSource(audio);
-        const analyser = ctx.createAnalyser();
-        source.connect(analyser);
-        analyser.connect(ctx.destination);
-        audio.volume = 0.05;
-        audio.play().then(() => {
-          setTimeout(() => {
-            const data = new Uint8Array(analyser.frequencyBinCount);
-            analyser.getByteFrequencyData(data);
-            const sum = data.reduce((a, b) => a + b, 0);
-            log(label + ' Analyser after 1.2s playback', { sumOfBins: sum, allZero: sum === 0, sample: Array.from(data.slice(0, 10)) });
-            audio.pause();
-            resolve(sum);
-          }, 1200);
-        }).catch((err) => {
-          log(label + ' audio.play() FAILED', { message: err.message });
-          resolve(null);
-        });
-      });
-    }
-
-    document.getElementById('run').addEventListener('click', async () => {
-      out.textContent = '';
-      const probeRes = await fetch('/api/itunes/probe').then((r) => r.json());
-      log('server-side probe summary', probeRes);
-
-      if (!probeRes.previewUrl) { log('ABORT', 'no previewUrl found'); return; }
-      rawUrl = probeRes.previewUrl;
-      proxyUrl = '/api/itunes/preview-proxy?url=' + encodeURIComponent(rawUrl);
-
-      log('--- 2a/2b RAW previewUrl ---', rawUrl);
-      await testDirectFetch(rawUrl, '[raw]');
-      await testDecodeAudioData(rawUrl, '[raw]');
-
-      log('--- 2a/2b PROXY previewUrl ---', proxyUrl);
-      await testDirectFetch(proxyUrl, '[proxy]');
-      await testDecodeAudioData(proxyUrl, '[proxy]');
-
-      document.getElementById('play-raw').disabled = false;
-      document.getElementById('play-proxy').disabled = false;
-    });
-
-    document.getElementById('play-raw').addEventListener('click', () => testAnalyser(rawUrl, '[raw]'));
-    document.getElementById('play-proxy').addEventListener('click', () => testAnalyser(proxyUrl, '[proxy]'));
-  </script>
-</body>
-</html>`;
-
-app.get('/probe-test', (req, res) => {
-    res.type('html').send(PROBE_TEST_HTML);
-});
-
-// ============================================================
-// END TEMP probe routes
-// ============================================================
 
 // Start the server
 const PORT = process.env.PORT || 5050;
