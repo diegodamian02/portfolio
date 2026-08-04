@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import "../styles/main.scss";
 import rutgers from "../assets/rutgers.png";
 import peru from "../assets/peru.png";
@@ -7,46 +6,15 @@ import usa from "../assets/usa.png";
 import diego from "../assets/diego.png";
 import codewiz from "../assets/codewiz.jpeg";
 import trump from "../assets/trump.jpeg";
+import capgemini from "../assets/capgemini.svg";
+import globallogic from "../assets/globallogic.png";
 import arrowBlack from "../assets/arrow.png";
 import arrowWhite from "../assets/arrow_white.png";
-import spotify_diego from "../assets/spotify_diego.jpg"
 
 export default function About() {
-    const [topTracks, setTopTracks] = useState([]);
-    const [topArtists, setTopArtists] = useState([]);
     const [scrollProgress, setScrollProgress] = useState(0);
-    const [loading, setLoading] = useState(true);
     const timelineRef = useRef(null);
     const arrowRef = useRef(null);
-
-    // Fetch Spotify Profile, Top Tracks & Artists
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5050";
-
-    const fetchSpotifyData = async () => {
-        try {
-
-            const response = await axios.get(`${apiBaseUrl}/api/spotify/check-auth`);
-            setLoading(true); // Set loading to true before starting fetch
-
-            if (response.status == 200) {
-
-                const trackRes = await axios.get(`${apiBaseUrl}/api/spotify/top-tracks`);
-                setTopTracks(trackRes.data);
-
-                const artistRes = await axios.get(`${apiBaseUrl}/api/spotify/top-artists`);
-                setTopArtists(artistRes.data);
-
-                setLoading(false); // Set loading to false after fetching is done
-            }
-        } catch (error) {
-            console.error("Error Fetching Spotify Data", error);
-            if (error?.response?.status === 401) {
-                window.location.href = `${apiBaseUrl}/login`;
-                return;
-            }
-            setLoading(false); // Set loading to false if an error occurs
-        }
-    };
 
     // Scroll Effect for Horizontal Timeline
     useEffect(() => {
@@ -74,11 +42,6 @@ export default function About() {
         window.addEventListener("scroll", handleScroll);
 
         return () => window.removeEventListener("scroll", handleScroll); // Cleanup on component unmount
-    }, []);
-
-    // Fetch Spotify data on component mount
-    useEffect(() => {
-        fetchSpotifyData();
     }, []);
 
     return (
@@ -117,12 +80,32 @@ export default function About() {
                 <div className="timeline-container">
                     <div className="timeline" style={{height: `${scrollProgress}%`}}>
                         <div className="timeline-item">
+                            <img src={capgemini} alt="Capgemini" className="timeline-image timeline-logo"/>
+                            <div className="timeline-content">
+                                <h3>Capgemini — Test Engineer</h3>
+                                <p>Run weekly regression cycles of 170+ cases against Archy, an AI-powered drive-thru
+                                    system on GCP, for the McDonald's account. Validate new model and proxy releases
+                                    before nationwide store rollout, and automate kiosk recovery with PowerShell.</p>
+                                <span className="date">Apr. 2026 - Present</span>
+                            </div>
+                        </div>
+                        <div className="timeline-item">
+                            <img src={globallogic} alt="GlobalLogic" className="timeline-image timeline-logo"/>
+                            <div className="timeline-content">
+                                <h3>GlobalLogic — Trainee Test Engineer</h3>
+                                <p>Built end-to-end automated test scripts in Java with Selenium, JUnit, and Cucumber.
+                                    Refactored Gherkin scenarios, improving execution speed 40% and cross-team
+                                    readability.</p>
+                                <span className="date">May 2025 - Aug. 2025</span>
+                            </div>
+                        </div>
+                        <div className="timeline-item">
                             <img src={codewiz} alt="CodeWiz" className="timeline-image"/>
                             <div className="timeline-content">
-                                <h3>CodeWiz</h3>
+                                <h3>CodeWiz — Coding Coach</h3>
                                 <p>Mentored young students in programming and robotics, helping them build real-world
                                     projects.</p>
-                                <span className="date">2024 - Present</span>
+                                <span className="date">Jan. 2025 - Jul. 2025</span>
                             </div>
                         </div>
                         <div className="timeline-item">
@@ -135,64 +118,6 @@ export default function About() {
                             </div>
                         </div>
                     </div>
-                </div>
-            </section>
-
-            <section className="about-section spotify-section">
-                {/* Image Next to Top Tracks */}
-                <div className="spotify-track-image">
-                   <a href="https://open.spotify.com/user/12182870270?si=630dee87f85a4ced"><img src={spotify_diego} alt="Top Tracks" className="track-image"/></a>
-                    <h2> My Spotify Journey</h2>
-                </div>
-                <div className="spotify-track-list">
-                    {loading ? (
-                        <p>Loading top tracks...</p>
-                    ) : (
-                        topTracks.map((track, index) => (
-                            <div key={index} className="spotify-track-item">
-                                <span className="track-number">{index + 1}</span>
-                                <div className="track-details">
-                                    <a href={`https://open.spotify.com/track/${track.id}`} target="_blank"
-                                       rel="noopener noreferrer">
-                                        <p className="track-name">{track.name}</p>
-                                    </a>
-                                    <p className="track-artist">
-                                        {track.artists.map(artist => (
-                                            <a
-                                                key={artist.id}
-                                                href={`https://open.spotify.com/artist/${artist.id}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                {artist.name}
-                                            </a>
-                                        ))}
-                                    </p>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-
-                <h2> My Favorite Artists</h2>
-                <div className="top-artists-list">
-                    {loading ? (
-                        <p>Loading top artists...</p>
-                    ) : (
-                        topArtists.map((artist, index) => (
-                            <div key={index} className="artist-item">
-                                <a href={`https://open.spotify.com/artist/${artist.id}`} target="_blank"
-                                   rel="noopener noreferrer">
-                                    <img
-                                        src={artist.images[0]?.url}
-                                        alt={artist.name}
-                                        className="spotify-artist-img"
-                                    />
-                                    <p>{artist.name}</p>
-                                </a>
-                            </div>
-                        ))
-                    )}
                 </div>
             </section>
         </>

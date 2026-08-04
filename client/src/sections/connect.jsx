@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import '../styles/main.scss';
 import axios from 'axios';
 
-export default function Contact() {
+export default function Connect() {
     const [formData, setFormData] = useState( {
         name: '',
         email: '',
@@ -41,6 +41,7 @@ export default function Contact() {
         <section className="contact-section">
             <div className="contact-container">
                 <h2 className="contact-title">Let's have a coffee talk</h2>
+                <p className="contact-description">Let's connect and build something amazing together — reach me directly at <a href="mailto:diegodamiango02@gmail.com">diegodamiango02@gmail.com</a> or send a message below.</p>
                 <form className="contact-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="name">Name</label>

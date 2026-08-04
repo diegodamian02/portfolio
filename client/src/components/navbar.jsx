@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation} from "react-router-dom"; // Use Link for navigation
 import "../styles/main.scss";
 import sunIcon from "../assets/sun.png";
 import moonIcon from "../assets/moon.png";
+import { SECTIONS } from "../lib/sections.js";
+import { scrollToSection } from "../lib/scroll.js";
 
 export default function Navbar() {
     const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
-    const location = useLocation();
     const [isMenuActive, setMenuActive] = useState(false);
+    const [pastHero, setPastHero] = useState(false);
 
     const toggleNavbar = () => {
         setMenuActive(!isMenuActive);
     };
-
 
     useEffect(() => {
         document.documentElement.setAttribute("data-theme", theme);
@@ -20,38 +20,39 @@ export default function Navbar() {
         window.dispatchEvent(new Event("themeChange"))
     }, [theme]);
 
-    //Scroll to Top
-    const scrollToTop = (e) => {
-        e.preventDefault();
-        window.scrollTo({top: 0, behavior: "smooth"});
-    }
+    // The orbs are the hero's own nav statement — the link list only
+    // shows up once you've scrolled past it, as a slim persistent nav.
+    useEffect(() => {
+        const heroEl = document.getElementById("home");
+        if (!heroEl) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => setPastHero(!entry.isIntersecting),
+            { threshold: 0.1 }
+        );
+        observer.observe(heroEl);
+        return () => observer.disconnect();
+    }, []);
 
-    // Smooth Scroll Function for Projects
-    const scrollToProjects = (e) => {
+    const handleNavClick = (e, id) => {
         e.preventDefault();
-        const projectsSection = document.querySelector(".projects");
-        if (projectsSection) {
-            projectsSection.scrollIntoView({ behavior: "smooth" });
-        }
+        scrollToSection(id);
+        setMenuActive(false);
     };
 
     return (
-        <nav className="navbar">
+        <nav className={`navbar ${pastHero ? "navbar-scrolled" : ""}`}>
             <h1 className="logo">D.</h1>
             <div className="navbar-right">
                 <div className="navbar-links">
-                    {location.pathname === "/" ? (
-                        <a href="#" onClick={scrollToTop}>Home</a>
-                    ) : (
-                        <Link to="/">Home</Link>
-                    )}
-                    <Link to="/project">Projects</Link>
-                    <Link to="/about">About</Link> {/* Navigates properly */}
-                    <Link to="/contact">Contact</Link> {/* Navigates properly */}
+                    {SECTIONS.map((section) => (
+                        <a key={section.id} href={`#${section.id}`} onClick={(e) => handleNavClick(e, section.id)}>
+                            {section.label}
+                        </a>
+                    ))}
                 </div>
                 <button className="theme-toggle" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-                    <img src={sunIcon} alt="Sun Icon" className="theme-icon sun"/>
-                    <img src={moonIcon} alt="Moon Icon" className="theme-icon moon"/>
+                    <span className="theme-icon sun" style={{ "--icon-mask": `url(${sunIcon})` }} role="img" aria-label="Sun Icon" />
+                    <span className="theme-icon moon" style={{ "--icon-mask": `url(${moonIcon})` }} role="img" aria-label="Moon Icon" />
                 </button>
             </div>
 
@@ -65,10 +66,11 @@ export default function Navbar() {
             {/* Mobile Navbar */}
             <div className="navbar-mobile">
                 <div className="navbar-links">
-                    <Link to="/" onClick={scrollToTop}>Home</Link>
-                    <Link to="/project">Projects</Link>
-                    <Link to="/about">About</Link>
-                    <Link to="/contact">Contact</Link>
+                    {SECTIONS.map((section) => (
+                        <a key={section.id} href={`#${section.id}`} onClick={(e) => handleNavClick(e, section.id)}>
+                            {section.label}
+                        </a>
+                    ))}
                 </div>
             </div>
         </nav>
