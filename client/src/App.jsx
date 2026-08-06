@@ -8,11 +8,20 @@ import MyTaste from "./sections/my-taste.jsx";
 import About from "./sections/about.jsx";
 import Connect from "./sections/connect.jsx";
 import Footer from "./components/footer.jsx";
+import { useHashScroll } from "./hooks/use-hash-scroll.js";
+
+// Rendered inside <Router> so it can call useLocation(); keeps a redirected
+// or bookmarked hash (e.g. /about -> /#about) actually scrolled into view.
+function ScrollToHash() {
+    useHashScroll();
+    return null;
+}
 
 export default function App() {
     return (
         <Router>
             <div className="app-container">
+                <ScrollToHash />
                 <LoadingScreen />
                 <Navbar />
                 <div className="content">
