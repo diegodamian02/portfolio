@@ -1,0 +1,9 @@
+# Railway/Nixpacks build plan for the static SPA build.
+#
+# Build and start commands are owned by client/railway.json (single source of
+# truth, and visible in the Railway dashboard's Build/Start Command fields).
+# This file exists only to add Caddy to the Nix environment — Railway's own
+# staticfile provider can't be configured for SPA-fallback routing, and
+# railway.json has no equivalent of nixPkgs for extending the build image.
+[phases.setup]
+nixPkgs = ['...', 'caddy']
