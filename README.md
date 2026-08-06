@@ -28,13 +28,76 @@ the platter, and its 30-second preview plays through a custom Web Audio graph.
 | Env config | dotenv 16.4.7 |
 | Dev reload | nodemon |
 
-### External APIs
-- **Spotify Web API** — OAuth (authorization-code + refresh-token flow), top tracks/artists for the "My Taste" section.
-- **iTunes Search API** — fetched directly client-side (no backend proxy needed). Confirmed via a live browser CORS probe that both `itunes.apple.com/search` and the `mzstatic.com` preview-audio CDN send permissive CORS headers. A host-locked `/api/itunes/preview-proxy` route exists server-side as a documented, currently-unused fallback.
+### External APIs — iTunes vs Spotify
+
+These two APIs are never interchangeable and never conflated in this codebase: iTunes is the
+visitor's music, Spotify is mine. If you're extending either integration, know which one you're
+touching first.
+
+**iTunes Search API — the visitor's music.**
+- Public, no auth, called **directly from the browser** — confirmed via a live CORS probe that
+  both `itunes.apple.com/search` and the `mzstatic.com` preview-audio CDN send permissive CORS
+  headers, so no backend proxy is needed. A host-locked `/api/itunes/preview-proxy` route exists
+  server-side anyway, as a documented, currently-unused fallback in case Apple ever tightens that.
+- Powers the hero: record-crate search + the 30-second preview audio that plays on the turntable.
+- Per-visitor, interactive, real-time — every visitor searches and plays whatever they want.
+
+**Spotify Web API — my music.**
+- Server-side only (`server/server.js`). Powers the `#my-taste` section: **my** top tracks and top
+  artists, nothing else.
+- Exactly **one** authenticated identity — mine. There is no per-visitor Spotify auth anywhere in
+  this app, and visitors never see a Spotify login/consent prompt. `GET /api/spotify/top-tracks`
+  and `GET /api/spotify/top-artists` just return my already-fetched, server-cached data as
+  read-only display content.
+- Auth model: one-time manual authorization-code flow. I visit `/login?key=<SPOTIFY_LOGIN_SECRET>`
+  myself, approve Spotify's consent screen once, and `/callback` mints an access token + a
+  long-lived **refresh token** (persisted as the `SPOTIFY_REFRESH_TOKEN` env var). From then on the
+  server refreshes access tokens on its own — no human, no visitor, ever needs to hit `/login`
+  again unless the refresh token itself gets revoked. `/login` is gated behind
+  `SPOTIFY_LOGIN_SECRET` specifically so a random visitor can't stumble onto it and clobber the
+  cached token by completing their own Spotify consent flow.
+- Caching, deliberately layered: the access token is cached in memory and only refreshed ~60s
+  before its ~1hr expiry (not on every request); the top-tracks/top-artists *responses* are cached
+  server-side for a further 20 minutes on top of that, since this data changes slowly and it
+  protects the shared Development Mode rate limit from a burst of visitors.
+- **Why iTunes handles hero audio instead of Spotify**: Spotify deprecated 30-second `preview_url`
+  responses for any app registered after November 27, 2024 — this app has no working path to
+  track-preview audio via Spotify at all. iTunes was never a compromise; it's the only API here
+  that actually serves that data.
+- Endpoints used — confirmed still supported as of the Nov 2024 and Feb 2026 Spotify Web API
+  changes: `GET /me/top/tracks` and `GET /me/top/artists` ("Get User's Top Items," scope
+  `user-top-read`, `time_range` = `short_term`/`medium_term`/`long_term`). Nothing else is called.
+- Endpoints **not** used here and deprecated for Development Mode apps — don't reach for these:
+  Recommendations, Related Artists, Audio Features, Audio Analysis, Get Featured/Category
+  Playlists (Nov 2024); Get Several Tracks/Artists/Albums, Get an Artist's Top Tracks, Get New
+  Releases, Get Available Markets, another user's Profile/Playlists (Feb 2026, along with fields
+  `available_markets`, `popularity`, `followers`, `country`, `email`, `explicit_content`,
+  `product` being dropped from responses generally). Re-check Spotify's changelog before adding
+  any endpoint beyond Top Items — this API's Development Mode surface has shrunk twice in the last
+  18 months.
+- Quota mode: **Development Mode**, capped at 5 allowlisted users as of Feb 2026 (down from 25) —
+  irrelevant here since only my own account is ever allowlisted. As of the same Feb 2026 change,
+  **Spotify requires the app owner's account to have an active Premium subscription for a
+  Development Mode app to function at all** — keep that subscription active, or the integration
+  stops working regardless of what the code does.
+- Failure handling: any Spotify error (401/403/429, or a network failure) logs the real status
+  server-side and returns a generic `503` to the client. The frontend never surfaces auth mechanics
+  — each of the two lists independently renders its own non-alarming inline message ("my listening
+  data is taking a nap") while the section's heading and layout stay put.
 
 ### Deployment
-- Frontend: Vercel (SPA rewrite config in `vercel.json`).
-- Backend: Render, via a `Procfile` (`web: node server/server.js`).
+Both services deploy to **Railway** as two services from this one repo, each with its Root
+Directory set to `client/` or `server/` respectively:
+- **Backend** (`server/`): plain Nixpacks Node build, `node server.js` (see `server/railway.json`).
+- **Frontend** (`client/`): `vite build`, then served by Caddy for SPA-fallback routing
+  (`client/nixpacks.toml`, `client/Caddyfile`) — Railway's static-file provider can't be configured
+  for client-side-routing fallback, so a hard refresh on `/about` etc. would 404 without it.
+- **DNS/TLS**: Cloudflare in front of both (proxied), since Railway doesn't publish a static IP —
+  apex/root domains need CNAME flattening, which Cloudflare provides for free. Cloudflare SSL/TLS
+  mode must be **Full**, not **Full (Strict)** — Railway serves its shared default cert to
+  Cloudflare's edge on proxied domains rather than the domain-specific Let's Encrypt cert, which
+  fails hostname validation under Strict mode.
+- Previously: frontend on Vercel, backend on Render (`Procfile`) — both retired 2026-08-05.
 
 ## Project Structure
 
@@ -97,8 +160,18 @@ the platter, and the 30-second preview plays — a literal "welcome to my playgr
 **Deferred / backlog:** contact form (dead Heroku endpoint), animated SVG+GSAP theme-toggle morph,
 About-page timeline migration to `ScrollTrigger`, mobile hamburger menu (currently non-functional).
 
-**Standing action item:** rotate the Spotify client secret on the Spotify developer dashboard
-(flagged due to prior public-repo exposure).
+**Standing action items:**
+- ~~Rotate the Spotify client secret on the Spotify developer dashboard~~ — done, secret rotated
+  and migrated to the new env vars (2026-08-05).
+- Finish the Railway DNS cutover: point `diegodamian.com`/`www` and a `api.diegodamian.com`
+  (or similar) subdomain through Cloudflare at the two Railway services, then update
+  `SPOTIFY_REDIRECT_URI` in both the Spotify dashboard and Railway's env vars to the new backend
+  domain once it's live.
+- Set `SPOTIFY_LOGIN_SECRET` in Railway's env vars for the `server/` service before it goes live —
+  without it, `/login` is unauthenticated (fine for local dev, not for production).
+- Confirm the Spotify account this app authenticates as has an active **Premium** subscription —
+  Spotify made this a hard requirement for Development Mode apps in Feb 2026 (see External APIs
+  section); without it the `#my-taste` section has no working data path regardless of the code.
 
 ## Development Log
 
@@ -117,6 +190,7 @@ committed).
 | 2026-08-03 00:20 | Rebuilt the loading screen as a cursor-leads typewriter effect (GSAP timeline, session-gated, scroll-locked while active). |
 | 2026-08-03 01:11–23:00 | Built the turntable deck shell (`turntable.jsx`, `strobe-ring.jsx`) across five review passes: material/contrast pass, tonearm anatomy correction, plinth-ratio and platter-proportion rebalance, strobe-ring moiré diagnosis and fix, tonearm reseat + control-cluster alignment. Every geometry change (tonearm reach, rest angle, strobe radii) was computed via law-of-cosines trigonometry and verified empirically with Playwright + `getBoundingClientRect()`, not eyeballed. |
 | 2026-08-03 23:35–23:48 | Built the record crate search UI (`record-crate.jsx`): roasted-maple expanding panel, direct iTunes Search API integration, 400ms-debounced search, keyboard nav, ARIA combobox/listbox, reduced-motion support. Restructured `.home` from flex to CSS Grid so the crate can reorder below the deck on mobile without changing DOM/tab order. Fixed three bugs found during verification: a grain pattern that read as barcode stripes, a mobile panel that opened directly on top of the turntable, and a clipping risk from the hero section's own `overflow:hidden` (solved by portaling the panel to `document.body`). |
-
-*This log reflects the state of the working tree as of the last update. Commit the current
-session's changes (turntable + record crate) to fold this work into `git log` proper.*
+| 2026-08-03 23:59 | Committed the full turntable hero + record crate (all of the above, plus the previously-uncommitted orb-nav hero it replaces) in `582f5a0`. |
+| 2026-08-05 | **Railway migration prep**: removed dead Vercel/Render deploy artifacts (root `package.json` — a leftover Render install shim with unused `nodemailer`/`body-parser` deps, `Procfile`, both `vercel.json` files); added Railway config-as-code (`server/railway.json`, `client/railway.json`), a Caddy-based SPA static server for the frontend service (`client/nixpacks.toml`, `client/Caddyfile`); made backend CORS origins overridable via an `ALLOWED_ORIGINS` env var and removed the dead hardcoded Render URL fallback; bumped `server/` Node engine target from 18.x (EOL) to 20.x. |
+| 2026-08-05 | **Client routing fix**: added a hash-scroll effect (`hooks/use-hash-scroll.js`) so landing on `/about`-style redirect routes (used by the Spotify OAuth callback) actually scrolls to the target section — `<Navigate>` was updating the URL but never the scroll position. |
+| 2026-08-05 | **Spotify integration hardening + iTunes/Spotify architecture split documented**: audited the repo for hardcoded credentials (none found; `.env` was never committed); added `server/.env.example` and `client/.env.example`; fixed the OAuth `state` param (was a hardcoded literal — no real CSRF protection — now a random value checked once); gated `/login` behind a new `SPOTIFY_LOGIN_SECRET` so a visitor can no longer clobber the cached token by completing their own Spotify consent flow; removed the frontend's auto-redirect-to-`/login` on a failed fetch (visitors must never be routed into Spotify auth); added a 20-minute server-side cache plus a 60s pre-expiry refresh buffer on top of the existing access-token cache; unified Spotify error handling so 401/403/429/network failures all log the real status server-side and return one generic, visitor-safe `503`; `my-taste.jsx` now fetches tracks/artists independently, each with its own loading/error/empty state, so a Spotify outage degrades gracefully instead of breaking the section. |
