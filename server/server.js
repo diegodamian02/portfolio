@@ -4,6 +4,7 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import querystring from 'querystring';
 import crypto from 'crypto';
+import dns from 'dns';
 import nodemailer from 'nodemailer';
 
 // Initialize express app
@@ -322,17 +323,37 @@ setInterval(() => {
     }
 }, CONTACT_RATE_WINDOW_MS).unref();
 
-let mailTransporter = null;
-function getTransporter() {
-    if (!mailTransporter) {
-        mailTransporter = nodemailer.createTransport({
-            host: SMTP_HOST,
-            port: SMTP_PORT,
-            secure: SMTP_PORT === 465, // 465 is implicit TLS; 587 upgrades via STARTTLS
-            auth: { user: SMTP_USER, pass: SMTP_PASS },
-        });
+// Gmail publishes both A and AAAA records, and nodemailer picks one of the
+// resolved addresses *at random* per connection (formatDNSValue in
+// nodemailer/lib/shared/index.js). Its IPv6-support check only asks whether
+// any non-internal interface has an IPv6 address — and the link-local fe80::
+// entries every macOS machine has pass that test even when there is no IPv6
+// default route at all. Net effect: sends fail with ENETUNREACH on roughly
+// half of all attempts, non-deterministically.
+//
+// Resolving an A record ourselves removes the coin flip. nodemailer skips DNS
+// entirely when host is already an IP literal, and tls.servername keeps
+// certificate validation pointed at the real hostname rather than the address.
+// Resolved per send rather than cached at startup so a long-running instance
+// can't pin a stale address.
+async function createTransport() {
+    let host = SMTP_HOST;
+    try {
+        const [ipv4] = await dns.promises.resolve4(SMTP_HOST);
+        if (ipv4) host = ipv4;
+    } catch (err) {
+        // An IPv6-only SMTP host would land here. Fall back to the hostname
+        // and let nodemailer resolve it as it normally would.
+        console.warn(`[contact] IPv4 lookup for ${SMTP_HOST} failed (${err.code}) — falling back to hostname`);
     }
-    return mailTransporter;
+
+    return nodemailer.createTransport({
+        host,
+        port: SMTP_PORT,
+        secure: SMTP_PORT === 465, // 465 is implicit TLS; 587 upgrades via STARTTLS
+        auth: { user: SMTP_USER, pass: SMTP_PASS },
+        tls: { servername: SMTP_HOST },
+    });
 }
 
 // Cloudflare sets CF-Connecting-IP itself and strips any inbound copy, so it's
@@ -408,7 +429,8 @@ app.post('/api/contact', async (req, res) => {
     recordContactAttempt(ip);
 
     try {
-        await getTransporter().sendMail({
+        const transport = await createTransport();
+        await transport.sendMail({
             from: `"Portfolio contact" <${SMTP_USER}>`,
             to: CONTACT_TO_EMAIL,
             replyTo: `"${value.name}" <${value.email}>`,
