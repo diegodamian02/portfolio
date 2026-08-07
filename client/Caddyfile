@@ -1,6 +1,15 @@
 # Serves the Vite production build with client-side-routing fallback so a
 # hard refresh on any React Router route (e.g. /about) doesn't 404.
 # {$PORT} is injected by Railway at runtime.
+
+# Caddy's admin API (port 2019 by default) is unauthenticated out of the box
+# and we never use it (no dynamic reconfiguration here) — turn it off rather
+# than leave an extra listener sitting in the container for no reason. This
+# is also why Railway's port detection was showing two candidate ports.
+{
+	admin off
+}
+
 :{$PORT} {
 	root * dist
 	encode gzip
