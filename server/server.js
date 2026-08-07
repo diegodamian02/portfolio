@@ -4,8 +4,7 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import querystring from 'querystring';
 import crypto from 'crypto';
-import dns from 'dns';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 // Initialize express app
 const app = express();  // <-- Here you initialize the app
@@ -298,14 +297,27 @@ app.get('/api/spotify/top-artists', async (req, res) => {
 //      been dead since the free tier ended — every message sent through it was
 //      lost, and the sender was told it worked.
 //   2. It must not be usable as an open spam relay (honeypot + rate limit).
-//   3. Replying must be one click. Gmail's SMTP rewrites the From header to the
-//      authenticated account regardless of what we set, so the visitor's
-//      address goes in replyTo — that's what makes "Reply" in Gmail work.
-const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
-const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
-const SMTP_USER = process.env.SMTP_USER || '';
-const SMTP_PASS = process.env.SMTP_PASS || '';
-const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || SMTP_USER;
+//   3. Replying must be one click, so the visitor's address goes in replyTo.
+//
+// Delivery goes over Resend's HTTPS API rather than SMTP, and that is not a
+// preference — Railway blocks outbound SMTP (ports 25/465/587/2525) on every
+// plan below Pro, so a Nodemailer transport hangs until the request times out
+// and Cloudflare returns its own 502. See:
+// https://docs.railway.com/networking/outbound-networking
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+
+// Resend's sandbox sender needs no domain verification. Its one restriction —
+// it can only deliver to the Resend account owner's own address — happens to
+// be exactly this form's delivery model, so no verified-domain slot is spent.
+// Override with a verified domain sender if that ever changes.
+const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'onboarding@resend.dev';
+
+// While the sandbox sender above is in use this MUST be the Resend account
+// owner's own address — it is the only address Resend will deliver to, and a
+// mismatch is rejected rather than silently dropped. Defaulted here so it's
+// one less env var to forget on a fresh deploy. Once send.diegodamian.com is
+// verified this restriction lifts and it can be any address.
+const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'diegodamiango02@gmail.com';
 
 const CONTACT_MAX = { name: 100, email: 254, message: 5000 };
 const CONTACT_RATE_MAX = 5;
@@ -323,37 +335,10 @@ setInterval(() => {
     }
 }, CONTACT_RATE_WINDOW_MS).unref();
 
-// Gmail publishes both A and AAAA records, and nodemailer picks one of the
-// resolved addresses *at random* per connection (formatDNSValue in
-// nodemailer/lib/shared/index.js). Its IPv6-support check only asks whether
-// any non-internal interface has an IPv6 address — and the link-local fe80::
-// entries every macOS machine has pass that test even when there is no IPv6
-// default route at all. Net effect: sends fail with ENETUNREACH on roughly
-// half of all attempts, non-deterministically.
-//
-// Resolving an A record ourselves removes the coin flip. nodemailer skips DNS
-// entirely when host is already an IP literal, and tls.servername keeps
-// certificate validation pointed at the real hostname rather than the address.
-// Resolved per send rather than cached at startup so a long-running instance
-// can't pin a stale address.
-async function createTransport() {
-    let host = SMTP_HOST;
-    try {
-        const [ipv4] = await dns.promises.resolve4(SMTP_HOST);
-        if (ipv4) host = ipv4;
-    } catch (err) {
-        // An IPv6-only SMTP host would land here. Fall back to the hostname
-        // and let nodemailer resolve it as it normally would.
-        console.warn(`[contact] IPv4 lookup for ${SMTP_HOST} failed (${err.code}) — falling back to hostname`);
-    }
-
-    return nodemailer.createTransport({
-        host,
-        port: SMTP_PORT,
-        secure: SMTP_PORT === 465, // 465 is implicit TLS; 587 upgrades via STARTTLS
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
-        tls: { servername: SMTP_HOST },
-    });
+let resendClient = null;
+function getResend() {
+    if (!resendClient) resendClient = new Resend(RESEND_API_KEY);
+    return resendClient;
 }
 
 // Cloudflare sets CF-Connecting-IP itself and strips any inbound copy, so it's
@@ -406,8 +391,8 @@ function validateContact(body) {
 }
 
 app.post('/api/contact', async (req, res) => {
-    if (!SMTP_USER || !SMTP_PASS) {
-        console.error('🚨 [contact] SMTP_USER/SMTP_PASS not set — refusing submissions rather than dropping them.');
+    if (!RESEND_API_KEY) {
+        console.error('🚨 [contact] RESEND_API_KEY not set — refusing submissions rather than dropping them.');
         return res.status(503).json({ error: "The form isn't available right now — please email me directly." });
     }
 
@@ -429,20 +414,31 @@ app.post('/api/contact', async (req, res) => {
     recordContactAttempt(ip);
 
     try {
-        const transport = await createTransport();
-        await transport.sendMail({
-            from: `"Portfolio contact" <${SMTP_USER}>`,
+        const { data, error: sendError } = await getResend().emails.send({
+            from: `Portfolio contact <${CONTACT_FROM_EMAIL}>`,
             to: CONTACT_TO_EMAIL,
-            replyTo: `"${value.name}" <${value.email}>`,
+            replyTo: `${value.name} <${value.email}>`,
             subject: `Portfolio contact from ${value.name}`,
             // Plain text only, deliberately: visitor input never gets
             // interpolated into HTML, so there's no escaping to get wrong.
             text: `${value.name} <${value.email}> wrote:\n\n${value.message}\n`,
         });
-        console.log(`✉️  [contact] message relayed from ${value.email}`);
+
+        // The SDK resolves with { data, error } instead of throwing, so an
+        // unchecked call would report success on a rejected send — exactly
+        // the failure this endpoint exists to eliminate.
+        if (sendError) {
+            console.error(`🚨 [contact] Resend rejected the send: ${sendError.name} — ${sendError.message}`);
+            return res.status(502).json({ error: "That didn't go through — please try again, or email me directly." });
+        }
+
+        // The Resend id is what you search on at resend.com/emails to see
+        // delivery/bounce status for a specific message.
+        console.log(`✉️  [contact] message relayed from ${value.email} (resend id ${data?.id})`);
         res.json({ ok: true });
     } catch (err) {
-        console.error('🚨 [contact] sendMail failed:', err.message);
+        // Network-level failure reaching Resend at all.
+        console.error('🚨 [contact] send failed:', err.message);
         res.status(502).json({ error: "That didn't go through — please try again, or email me directly." });
     }
 });
