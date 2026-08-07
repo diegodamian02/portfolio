@@ -4,6 +4,7 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import querystring from 'querystring';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 // Initialize express app
 const app = express();  // <-- Here you initialize the app
@@ -66,6 +67,17 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
     : DEFAULT_ALLOWED_ORIGINS;
 
 app.use(cors({ origin: ALLOWED_ORIGINS }));
+
+// Needed for the contact form's POST body — nothing parsed JSON before this,
+// so req.body was undefined on any POST. The cap is deliberately tiny: the
+// only body this server accepts is a three-field contact form.
+app.use(express.json({ limit: '10kb' }));
+
+// Cloudflare -> Railway -> here, so the socket address is always a proxy's.
+// Without this, express's req.ip is the proxy and every visitor would share
+// one rate-limit bucket. See clientIp() below for why CF-Connecting-IP is
+// still preferred over the X-Forwarded-For chain this enables.
+app.set('trust proxy', true);
 
 // Spotify authentication flow — owner-only, see architecture note above.
 app.get('/login', (req, res) => {
@@ -275,6 +287,141 @@ app.get('/api/spotify/top-artists', async (req, res) => {
         res.json(items);
     } catch (error) {
         respondSpotifyError(error, res, 'top artists');
+    }
+});
+
+// === Contact form ===
+// Visitor-facing and unauthenticated, which drives every decision here:
+//   1. It must never silently succeed. The previous implementation alert()ed
+//      "thank you" *before* firing the request, at a Heroku endpoint that had
+//      been dead since the free tier ended — every message sent through it was
+//      lost, and the sender was told it worked.
+//   2. It must not be usable as an open spam relay (honeypot + rate limit).
+//   3. Replying must be one click. Gmail's SMTP rewrites the From header to the
+//      authenticated account regardless of what we set, so the visitor's
+//      address goes in replyTo — that's what makes "Reply" in Gmail work.
+const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
+const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || SMTP_USER;
+
+const CONTACT_MAX = { name: 100, email: 254, message: 5000 };
+const CONTACT_RATE_MAX = 5;
+const CONTACT_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const contactAttempts = new Map(); // ip -> timestamp[]
+
+// Bounded so a long-running instance can't accumulate an entry per unique IP
+// forever. unref() so this timer never holds the process open on its own.
+setInterval(() => {
+    const cutoff = Date.now() - CONTACT_RATE_WINDOW_MS;
+    for (const [ip, hits] of contactAttempts) {
+        const live = hits.filter((t) => t > cutoff);
+        if (live.length) contactAttempts.set(ip, live);
+        else contactAttempts.delete(ip);
+    }
+}, CONTACT_RATE_WINDOW_MS).unref();
+
+let mailTransporter = null;
+function getTransporter() {
+    if (!mailTransporter) {
+        mailTransporter = nodemailer.createTransport({
+            host: SMTP_HOST,
+            port: SMTP_PORT,
+            secure: SMTP_PORT === 465, // 465 is implicit TLS; 587 upgrades via STARTTLS
+            auth: { user: SMTP_USER, pass: SMTP_PASS },
+        });
+    }
+    return mailTransporter;
+}
+
+// Cloudflare sets CF-Connecting-IP itself and strips any inbound copy, so it's
+// trustworthy here in a way a raw X-Forwarded-For chain isn't — the Railway
+// *.up.railway.app origin is still directly reachable, so a spoofed XFF could
+// otherwise let someone dodge the rate limit.
+function clientIp(req) {
+    return req.get('CF-Connecting-IP') || req.ip || 'unknown';
+}
+
+// Read-only check. Deliberately does NOT record the attempt: a visitor who
+// mistypes their email five times would otherwise be locked out for an hour
+// without ever having sent a message. Pruning expired hits here doubles as
+// the per-IP cleanup, and never creates an entry for an unseen IP.
+function isRateLimited(ip) {
+    const cutoff = Date.now() - CONTACT_RATE_WINDOW_MS;
+    const hits = (contactAttempts.get(ip) || []).filter((t) => t > cutoff);
+    if (hits.length) contactAttempts.set(ip, hits);
+    else contactAttempts.delete(ip);
+    return hits.length >= CONTACT_RATE_MAX;
+}
+
+// Recorded only once a submission is valid and about to be delivered, so the
+// budget tracks real outbound mail rather than typos. Called before the send
+// rather than after success, so a failing SMTP server can't be hammered.
+function recordContactAttempt(ip) {
+    const hits = contactAttempts.get(ip) || [];
+    hits.push(Date.now());
+    contactAttempts.set(ip, hits);
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateContact(body) {
+    const read = (key) => (typeof body?.[key] === 'string' ? body[key].trim() : '');
+    // CR/LF stripped from the two fields that land in mail *headers* — a
+    // newline there is the classic header-injection vector.
+    const name = read('name').replace(/[\r\n]/g, ' ');
+    const email = read('email').replace(/[\r\n]/g, '');
+    const message = read('message');
+
+    if (!name || !email || !message) return { error: 'Name, email, and message are all required.' };
+    if (name.length > CONTACT_MAX.name) return { error: 'That name is too long.' };
+    if (email.length > CONTACT_MAX.email || !EMAIL_RE.test(email)) {
+        return { error: "That email address doesn't look right." };
+    }
+    if (message.length > CONTACT_MAX.message) return { error: 'That message is too long.' };
+
+    return { value: { name, email, message } };
+}
+
+app.post('/api/contact', async (req, res) => {
+    if (!SMTP_USER || !SMTP_PASS) {
+        console.error('🚨 [contact] SMTP_USER/SMTP_PASS not set — refusing submissions rather than dropping them.');
+        return res.status(503).json({ error: "The form isn't available right now — please email me directly." });
+    }
+
+    // Honeypot: a field hidden from humans via CSS. Anything that fills it is
+    // automated. Return 200 so the bot has no signal that it was caught.
+    if (typeof req.body?.website === 'string' && req.body.website.trim() !== '') {
+        console.warn('[contact] honeypot tripped — dropping silently');
+        return res.json({ ok: true });
+    }
+
+    const ip = clientIp(req);
+    if (isRateLimited(ip)) {
+        return res.status(429).json({ error: "You've sent several messages already — try again a little later." });
+    }
+
+    const { error, value } = validateContact(req.body);
+    if (error) return res.status(400).json({ error });
+
+    recordContactAttempt(ip);
+
+    try {
+        await getTransporter().sendMail({
+            from: `"Portfolio contact" <${SMTP_USER}>`,
+            to: CONTACT_TO_EMAIL,
+            replyTo: `"${value.name}" <${value.email}>`,
+            subject: `Portfolio contact from ${value.name}`,
+            // Plain text only, deliberately: visitor input never gets
+            // interpolated into HTML, so there's no escaping to get wrong.
+            text: `${value.name} <${value.email}> wrote:\n\n${value.message}\n`,
+        });
+        console.log(`✉️  [contact] message relayed from ${value.email}`);
+        res.json({ ok: true });
+    } catch (err) {
+        console.error('🚨 [contact] sendMail failed:', err.message);
+        res.status(502).json({ error: "That didn't go through — please try again, or email me directly." });
     }
 });
 
