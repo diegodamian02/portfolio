@@ -19,7 +19,7 @@ export default function Footer() {
     }, []);
     return(
         <footer className="footer">
-            <p className="watermark">© 2025 | Diego Damian</p>
+            <p className="watermark">© {new Date().getFullYear()} | Diego Damian</p>
             <div className="footer-links">
                 <a href="https://www.linkedin.com/in/diegodamian02/" target="_blank" rel="noopener noreferrer">
                     <img className="linkedin-icon" src={linkedinWhite} alt="LinkedIn"/>

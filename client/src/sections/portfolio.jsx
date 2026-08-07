@@ -28,8 +28,8 @@ export default function Portfolio() {
                             <div className="portfolio-details">
                                 <p>{project.description}</p>
                                 {project.video && (
-                                    <video controls className="portfolio-video">
-                                        <source src={project.video} type="video/mp4" />
+                                    <video controls preload="metadata" className="portfolio-video">
+                                        <source src={project.video} type="video/webm" />
                                         Your browser does not support the video tag.
                                     </video>
                                 )}
