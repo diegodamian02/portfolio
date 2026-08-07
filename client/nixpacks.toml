@@ -1,15 +1,38 @@
 # Railway/Nixpacks build plan for the static SPA build.
 #
-# Build and start commands are owned by client/railway.json (single source of
-# truth, and visible in the Railway dashboard's Build/Start Command fields).
-# This file exists only to add Caddy to the Nix environment — Railway's own
-# staticfile provider can't be configured for SPA-fallback routing, and
-# railway.json has no equivalent of nixPkgs for extending the build image.
+# Serves the Vite production build with Caddy for SPA-fallback routing —
+# Railway's own staticfile provider can't be configured for that, so a hard
+# refresh on a client-side route (e.g. /about) would 404 without it.
 #
-# Deliberately NOT using nixPkgs = ['...', 'caddy'] here — merging an
-# auto-detected package list with an explicit addition can pull `caddy` in
-# from two different nixpkgs snapshots at once, which nix-env then refuses
-# to install ("conflict for the following files: .../caddy.fish") since both
-# try to provide the same completions file. Being fully explicit avoids that.
-[phases.setup]
-nixPkgs = ['nodejs_20', 'caddy']
+# Caddy is downloaded directly as a prebuilt binary rather than installed via
+# nixPkgs. Nixpacks auto-detects a Caddyfile in the project and injects its
+# OWN Caddy install phase regardless of anything declared here — adding
+# `caddy` to nixPkgs on top of that caused it to be installed twice from two
+# different nixpkgs snapshots, which nix-env then refused to merge:
+#   "error: Unable to build profile. There is a conflict for the following
+#    files: .../caddy-2.9.0/bin/caddy .../<snapshot>-env/bin/caddy"
+# Downloading the binary directly sidesteps the Nix package system for Caddy
+# entirely, avoiding that class of conflict. This is the pattern several
+# community Railway+Vite+Caddy templates use for the same reason.
+#
+# Node itself is still auto-detected from package.json (install + build,
+# i.e. `npm ci` / `npm run build`) — only Caddy needs this manual phase.
+[variables]
+CADDY_VERSION = '2.11.4'
+
+[phases.caddy]
+dependsOn = ['setup']
+cmds = [
+  'curl -fsSLo caddy.tar.gz "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_amd64.tar.gz"',
+  'tar -zxvf caddy.tar.gz caddy',
+  'chmod +x caddy',
+]
+
+[phases.fmt]
+dependsOn = ['caddy']
+cmds = ['./caddy fmt --overwrite Caddyfile']
+
+[start]
+runImage = 'ubuntu:24.04'
+onlyIncludeFiles = ['caddy', 'Caddyfile', 'dist']
+cmd = './caddy run --config Caddyfile --adapter caddyfile'
