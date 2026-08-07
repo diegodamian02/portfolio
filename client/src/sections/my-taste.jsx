@@ -3,7 +3,12 @@ import axios from "axios";
 import "../styles/main.scss";
 import spotify_diego from "../assets/spotify_diego.jpg";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5050";
+// Trailing-slash-safe: VITE_API_BASE_URL + "/api/..." would otherwise collide
+// into "//api/..." if the env var has a trailing slash, which Express treats
+// as a different, unregistered path (a plain 404, not our JSON error
+// handler). Stripping it here means the env var's exact formatting can never
+// silently break every request.
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
 
 // This section shows MY Spotify listening data — one fixed identity, fetched
 // and cached server-side, served to every visitor as read-only content.
