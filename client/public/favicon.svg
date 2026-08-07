@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Diego Damian">
+  <!-- Matches the navbar "D." logo and the site's accent token (#6f9bff).
+       The D is a path rather than a text element, so it renders identically
+       without depending on any font being available to the browser. -->
+  <rect width="64" height="64" rx="14" fill="#6f9bff"/>
+  <path fill="#0a0e1a" fill-rule="evenodd" d="M18 15h15c12.2 0 19 6.8 19 17s-6.8 17-19 17H18V15zm11 9v16h4c6.4 0 9.6-2.9 9.6-8s-3.2-8-9.6-8h-4z"/>
+</svg>

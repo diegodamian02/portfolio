@@ -3,7 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Diego's Portfolio</title>
+
+  <title>Diego Damian — Software Engineer</title>
+  <meta name="description" content="Software engineer building full-stack web apps. Rutgers CS with a Music Technology minor. Welcome to my playground." />
+  <meta name="author" content="Diego Damian" />
+  <link rel="canonical" href="https://diegodamian.com/" />
+
+  <!-- Icons. The SVG is the primary favicon (crisp at any size); the PNG is
+       for iOS home-screen bookmarks, which don't accept SVG. -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <!-- Browser chrome follows the site's own theme tokens. -->
+  <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)" />
+
+  <!-- Open Graph / Facebook / LinkedIn / iMessage. og:image MUST be an
+       absolute URL — crawlers do not resolve relative paths, which is the
+       usual reason a preview silently renders blank. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Diego Damian" />
+  <meta property="og:url" content="https://diegodamian.com/" />
+  <meta property="og:title" content="Diego Damian — Software Engineer" />
+  <meta property="og:description" content="Software engineer building full-stack web apps. Rutgers CS with a Music Technology minor. Welcome to my playground." />
+  <meta property="og:image" content="https://diegodamian.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Diego Damian — Software Engineer. Welcome to my playground." />
+  <meta property="og:locale" content="en_US" />
+
+  <!-- Twitter/X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Diego Damian — Software Engineer" />
+  <meta name="twitter:description" content="Software engineer building full-stack web apps. Rutgers CS with a Music Technology minor. Welcome to my playground." />
+  <meta name="twitter:image" content="https://diegodamian.com/og-image.png" />
+  <meta name="twitter:image:alt" content="Diego Damian — Software Engineer. Welcome to my playground." />
+
+  <!-- Helps search engines tie the domain to the person rather than treating
+       it as a generic page — relevant for name searches. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Diego Damian",
+    "url": "https://diegodamian.com/",
+    "jobTitle": "Software Engineer",
+    "alumniOf": {
+      "@type": "CollegeOrUniversity",
+      "name": "Rutgers University - New Brunswick"
+    },
+    "sameAs": [
+      "https://github.com/diegodamian02",
+      "https://www.linkedin.com/in/diegodamian02/"
+    ]
+  }
+  </script>
 </head>
 <body>
 <div id="root"></div>
