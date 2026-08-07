@@ -5,5 +5,11 @@
 # This file exists only to add Caddy to the Nix environment — Railway's own
 # staticfile provider can't be configured for SPA-fallback routing, and
 # railway.json has no equivalent of nixPkgs for extending the build image.
+#
+# Deliberately NOT using nixPkgs = ['...', 'caddy'] here — merging an
+# auto-detected package list with an explicit addition can pull `caddy` in
+# from two different nixpkgs snapshots at once, which nix-env then refuses
+# to install ("conflict for the following files: .../caddy.fish") since both
+# try to provide the same completions file. Being fully explicit avoids that.
 [phases.setup]
-nixPkgs = ['...', 'caddy']
+nixPkgs = ['nodejs_20', 'caddy']
