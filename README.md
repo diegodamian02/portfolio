@@ -163,12 +163,18 @@ About-page timeline migration to `ScrollTrigger`, mobile hamburger menu (current
 **Standing action items:**
 - ~~Rotate the Spotify client secret on the Spotify developer dashboard~~ — done, secret rotated
   and migrated to the new env vars (2026-08-05).
-- Finish the Railway DNS cutover: point `diegodamian.com`/`www` and a `api.diegodamian.com`
-  (or similar) subdomain through Cloudflare at the two Railway services, then update
-  `SPOTIFY_REDIRECT_URI` in both the Spotify dashboard and Railway's env vars to the new backend
-  domain once it's live.
-- Set `SPOTIFY_LOGIN_SECRET` in Railway's env vars for the `server/` service before it goes live —
-  without it, `/login` is unauthenticated (fine for local dev, not for production).
+- ~~Finish the Railway DNS cutover~~ — done (2026-08-07): `diegodamian.com`/`www` and
+  `api.diegodamian.com` are live through Cloudflare (`Full` SSL mode) at the two Railway services.
+- ~~Set `SPOTIFY_LOGIN_SECRET` in Railway's env vars~~ — done.
+- **Recurring, every ~6 months**: Spotify refresh tokens have a fixed 6-month lifetime no matter
+  how active the site is — confirmed in Spotify's own docs, not something this code can work
+  around. When `SPOTIFY_REFRESH_TOKEN` expires (or is otherwise invalidated — e.g. rotating the
+  client secret may do this too, unconfirmed), the server logs will show
+  `invalid_grant: Invalid refresh token` on every refresh attempt and `#my-taste` will degrade to
+  its "taking a nap" state. Fix: visit `https://api.diegodamian.com/login?key=<SPOTIFY_LOGIN_SECRET>`
+  while logged into the site owner's Spotify account, approve the consent screen, then copy the
+  new token from Railway's **server** deploy logs (`✅ New Refresh Token...`) into the
+  `SPOTIFY_REFRESH_TOKEN` env var on Railway. Last minted: 2026-08-07.
 - Confirm the Spotify account this app authenticates as has an active **Premium** subscription —
   Spotify made this a hard requirement for Development Mode apps in Feb 2026 (see External APIs
   section); without it the `#my-taste` section has no working data path regardless of the code.
@@ -194,3 +200,4 @@ committed).
 | 2026-08-05 | **Railway migration prep**: removed dead Vercel/Render deploy artifacts (root `package.json` — a leftover Render install shim with unused `nodemailer`/`body-parser` deps, `Procfile`, both `vercel.json` files); added Railway config-as-code (`server/railway.json`, `client/railway.json`), a Caddy-based SPA static server for the frontend service (`client/nixpacks.toml`, `client/Caddyfile`); made backend CORS origins overridable via an `ALLOWED_ORIGINS` env var and removed the dead hardcoded Render URL fallback; bumped `server/` Node engine target from 18.x (EOL) to 20.x. |
 | 2026-08-05 | **Client routing fix**: added a hash-scroll effect (`hooks/use-hash-scroll.js`) so landing on `/about`-style redirect routes (used by the Spotify OAuth callback) actually scrolls to the target section — `<Navigate>` was updating the URL but never the scroll position. |
 | 2026-08-05 | **Spotify integration hardening + iTunes/Spotify architecture split documented**: audited the repo for hardcoded credentials (none found; `.env` was never committed); added `server/.env.example` and `client/.env.example`; fixed the OAuth `state` param (was a hardcoded literal — no real CSRF protection — now a random value checked once); gated `/login` behind a new `SPOTIFY_LOGIN_SECRET` so a visitor can no longer clobber the cached token by completing their own Spotify consent flow; removed the frontend's auto-redirect-to-`/login` on a failed fetch (visitors must never be routed into Spotify auth); added a 20-minute server-side cache plus a 60s pre-expiry refresh buffer on top of the existing access-token cache; unified Spotify error handling so 401/403/429/network failures all log the real status server-side and return one generic, visitor-safe `503`; `my-taste.jsx` now fetches tracks/artists independently, each with its own loading/error/empty state, so a Spotify outage degrades gracefully instead of breaking the section. |
+| 2026-08-07 | **Live on Railway + Cloudflare**: `fetchTopItems` now serves stale cached data instead of erroring when a live Spotify refresh fails (`ensureAccessToken` no longer gates the route as middleware, so a dead token doesn't block a still-valid cache hit). Fixed a real multi-day Railway deploy saga: the client service's Root Directory wasn't set, so it was building/running the *server's* start command (`Cannot find module '/app/server.js'`); `caddy` installed via `nixPkgs` collided with Nixpacks' own auto-injected Caddy phase from detecting the `Caddyfile` (`nix-env` conflict on `/bin/caddy` from two different nixpkgs snapshots) — fixed by downloading the Caddy binary directly instead of going through Nix packages at all, and disabling Caddy's unauthenticated admin API (`:2019`) since it was showing up as a spurious second port; `client/railway.json`'s manually-set start command (`caddy run` — no `./`) was overriding `nixpacks.toml`'s corrected one, so it was stripped down to just builder+restart-policy; a `nixpacks.toml [variables]` block's value wasn't reaching the shell running its phase's `cmds` in this Nixpacks version, so the Caddy version is hardcoded directly instead. Separately, `VITE_API_BASE_URL` with a trailing slash produced a `//api/...` request path that Express treated as an unregistered route (plain 404, not our JSON handler) — fixed defensively in code (strip trailing slashes) in addition to the env var itself. Cloudflare is now live in front of both services (`Full` SSL mode); `api.diegodamian.com`'s Railway env vars needed the same `SPOTIFY_*` values as local `.env` (they don't carry over automatically), and the first refresh token minted there came back `invalid_grant` — re-ran `/login` against the production domain to mint a fresh one. |
