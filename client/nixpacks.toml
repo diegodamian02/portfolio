@@ -17,13 +17,16 @@
 #
 # Node itself is still auto-detected from package.json (install + build,
 # i.e. `npm ci` / `npm run build`) — only Caddy needs this manual phase.
-[variables]
-CADDY_VERSION = '2.11.4'
-
+#
+# Version is hardcoded directly rather than via [variables] — that block's
+# value wasn't actually reaching the shell running these cmds in this
+# Nixpacks version (${CADDY_VERSION} resolved to empty, producing a curl
+# request to ".../v/caddy__linux_amd64.tar.gz" and a 404). Confirmed this
+# exact release asset resolves before pinning it: v2.11.4, linux_amd64.
 [phases.caddy]
 dependsOn = ['setup']
 cmds = [
-  'curl -fsSLo caddy.tar.gz "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_amd64.tar.gz"',
+  'curl -fsSLo caddy.tar.gz "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_linux_amd64.tar.gz"',
   'tar -zxvf caddy.tar.gz caddy',
   'chmod +x caddy',
 ]
