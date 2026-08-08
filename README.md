@@ -21,12 +21,19 @@ the platter, and its 30-second preview plays through a custom Web Audio graph.
 ### Backend (`server/`)
 | Layer | Choice |
 |---|---|
-| Runtime | Node.js 18.x |
+| Runtime | Node.js 20.x (bumped from 18.x — EOL — during the 2026-08-05 Railway migration prep) |
 | Framework | Express 4.21.2 |
 | CORS | `cors` 2.8.5, locked to an explicit origin allowlist (`diegodamian.com`, `www.diegodamian.com`, `localhost:5173`) |
 | HTTP | Axios 1.8.4 |
+| Transactional email | `resend` 6.18.1 — HTTPS API, powers the contact form. **Not** SMTP/nodemailer; see below |
 | Env config | dotenv 16.4.7 |
 | Dev reload | nodemon |
+
+**Why Resend's HTTPS API and not nodemailer/SMTP:** Railway blocks outbound SMTP
+(ports 25/465/587/2525) on every plan below Pro, to protect its IP reputation. An SMTP
+transport there doesn't fail cleanly — it *hangs* until the request times out and
+Cloudflare returns its own 502. Any future mail work on this host has to go over
+HTTPS. See <https://docs.railway.com/networking/outbound-networking>.
 
 ### External APIs — iTunes vs Spotify
 
@@ -105,13 +112,24 @@ Directory set to `client/` or `server/` respectively:
 client/src/
   sections/        one <section> per anchor: home, projects, my-taste, about, connect
   components/       navbar, loading-screen, turntable, vinyl-record, strobe-ring, record-crate, ...
-  hooks/            use-reduced-motion
+  hooks/            use-reduced-motion, use-hash-scroll
   lib/              gsap.js (central plugin registration), scroll.js, sections.js
   styles/main.scss  design tokens + all component styles
 
 server/
-  server.js         Express app — Spotify OAuth routes, iTunes preview-proxy fallback, CORS lockdown
+  server.js         Express app — Spotify OAuth routes, contact form (Resend),
+                    iTunes preview-proxy fallback, CORS lockdown
+
+design-review/     design/build planning, readable by a chat with no repo access
+  ROADMAP.md        order of work (Stages 0–8) — authoritative for sequencing
+  FINDINGS.md       design analysis: numbered bugs B1–B8, design problems D1–D7
+  STATUS.md         goal scorecard, commit changelog, decisions already made
+  screenshots/      current state at desktop/mobile/light — regenerate with
+                    capture-screenshots.mjs
 ```
+
+`design-review/` is not deployed — Railway builds from the `client/` and `server/`
+root directories, so nothing there reaches production or affects bundle size.
 
 ## Getting Started
 
@@ -127,6 +145,17 @@ so the backend correctly resolves its `.env` relative to `server/` while the fro
 
 ## Roadmap
 
+> **The current plan lives in [`design-review/ROADMAP.md`](design-review/ROADMAP.md)**
+> (Stages 0–8), which supersedes the phase sequencing below as of 2026-08-08. The
+> Part 3 table is kept as the record of what the turntable work involved and which
+> phases are done — but read the roadmap for *order of work*.
+>
+> Two changes worth knowing without opening it: the turntable moved from last to
+> **Stage 1**, on the argument that a working hero is design information the sections
+> beneath it depend on; and **Phases 11–12 are folded into Stage 0**, since navbar
+> reversion and deleting the orphaned orb components touch nothing the turntable
+> needs.
+
 ### Part 1 — Shipped
 - **Experience timeline correction** (`about.jsx`): added Capgemini/GlobalLogic roles, corrected CodeWiz dates.
 - **Loading screen + orb-nav hero** (superseded, see Part 3): ink-navy/cool-white palette tokens, single-page shell (`App.jsx`, `pages/` → `sections/`), GSAP+SplitText loading screen gated to once per session, 5 draggable glowing orbs as the hero's nav.
@@ -138,8 +167,14 @@ abandoned before any implementation — no `three`/`@react-three/*` packages wer
 Superseded entirely by Part 3.
 
 ### Part 3 — Turntable hero (current)
-The hero is a working turntable: empty platter on load, search the crate for a song, drop it on
-the platter, and the 30-second preview plays — a literal "welcome to my playground."
+The intent: empty platter on load, search the crate for a song, drop it on the platter, and the
+30-second preview plays — a literal "welcome to my playground."
+
+**As of 2026-08-08 the hero does not yet do this.** Search works and places artwork on the disc,
+but `previewUrl` is captured from the iTunes response and discarded, there is no `AudioContext`
+anywhere in the codebase, the platter never spins, and the tonearm is `aria-hidden` decoration.
+The copy "put a record on…" is currently a promise the page doesn't keep — which is why
+`design-review/ROADMAP.md` promotes Phases 6 + 7 to **Stage 1**.
 
 | Phase | Status | Description |
 |---|---|---|
@@ -149,20 +184,42 @@ the platter, and the 30-second preview plays — a literal "welcome to my playgr
 | 3 | ✅ Done | GSAP `Draggable` + `InertiaPlugin` registered in `lib/gsap.js` |
 | 4 | ✅ Done | Turntable visual shell — plinth, platter, tonearm, strobe ring, pitch fader, control cluster (5 review passes: material contrast, tonearm geometry via law-of-cosines, plinth layout balance, strobe-ring moiré fix, control-cluster alignment) |
 | 5 | ✅ Done | Record crate search UI — roasted-maple expanding panel, iTunes search, keyboard nav, ARIA combobox/listbox, ships portaled to `<body>` to escape the hero's `overflow:hidden` |
-| 6 | ⏳ Not started | Drop-record & tonearm animations (needle swings from rest onto the outer groove / label) |
-| 7 | ⏳ Not started | Audio playback engine — `AudioContext` → `GainNode` → `AudioBufferSourceNode` |
-| 8 | ⏳ Not started | Scratch interaction — `Draggable(type:"rotation")` + `InertiaPlugin` on the platter |
-| 9 | ⏳ Not started | Pitch fader — ±8% `playbackRate`, `preservesPitch = false` |
-| 10 | ⏳ Not started | Scroll-linked ducking + persistent mute button |
-| 11 | ⏳ Not started | Navbar reversion — remove the hide-during-hero link gating (the turntable doesn't double as nav) |
-| 12 | ⏳ Not started | Cleanup — delete `nav-orb.jsx`/`orb-field.jsx` + CSS, remove `@react-spring/web`/`@use-gesture/react` |
+| 6 | ⏳ Not started → **Stage 1** | Drop-record & tonearm animations (needle swings from rest onto the outer groove / label) |
+| 7 | ⏳ Not started → **Stage 1** | Audio playback engine — `AudioContext` → `GainNode` → `AudioBufferSourceNode` |
+| 8 | ⏳ Not started → Stage 6 | Scratch interaction — `Draggable(type:"rotation")` + `InertiaPlugin` on the platter |
+| 9 | ⏳ Not started → Stage 6 | Pitch fader — ±8% `playbackRate`, `preservesPitch = false` |
+| 10 | ⏳ Not started → Stage 6 | Scroll-linked ducking + persistent mute button |
+| 11 | ⏳ Not started → **Stage 0** | Navbar reversion — remove the hide-during-hero link gating (the turntable doesn't double as nav) |
+| 12 | ⏳ Not started → **Stage 0** | Cleanup — delete `nav-orb.jsx`/`orb-field.jsx` + CSS, remove `@react-spring/web`/`@use-gesture/react` |
 
-**Deferred / backlog:** contact form (dead Heroku endpoint), animated SVG+GSAP theme-toggle morph,
-About-page timeline migration to `ScrollTrigger`, mobile hamburger menu (currently non-functional).
+Stage numbers refer to [`design-review/ROADMAP.md`](design-review/ROADMAP.md) §3. Phases 6 + 7
+alone discharge the hero's promise; 8–10 are delight and were deliberately pushed back.
+
+**Shipped since this table was written:**
+- ~~contact form (dead Heroku endpoint)~~ — **rebuilt on Resend's HTTPS API** (`ba70f10`,
+  2026-08-08). The old form `alert()`ed a thank-you *before* firing the request, at an endpoint
+  dead since Heroku's free tier ended; every message sent through it was lost while the sender
+  was told it worked.
+
+**Deferred / backlog:** animated SVG+GSAP theme-toggle morph, About-page timeline migration to
+`ScrollTrigger` (now Stage 3), mobile hamburger menu — still non-functional, and now tracked as
+**B4** in `design-review/FINDINGS.md`: `isMenuActive` is set but never applied to a className,
+and `.hamburger` is `display:none` with no media query re-enabling it, so phones get the wrapped
+desktop link row.
 
 **Standing action items:**
+- **Set `RESEND_API_KEY`** on the Railway **server** service. The contact form returns a clean
+  503 ("please email me directly") until it's set — it never accepts a message it can't deliver.
+  This is the only required var; `CONTACT_FROM_EMAIL` and `CONTACT_TO_EMAIL` have working
+  defaults in `server.js`.
+- **Revoke the Gmail app password** at <https://myaccount.google.com/apppasswords> and delete
+  `SMTP_USER`/`SMTP_PASS` from `server/.env` and Railway. Dead since the Resend migration, and it
+  grants send-as access to a personal Gmail.
+- **Update the GitHub repo's "About" website link** — it still points at the retired Vercel URL
+  instead of `https://diegodamian.com`. Repo Settings → About → Website. Not a code change; has
+  to be done in GitHub's UI.
 - ~~Rotate the Spotify client secret on the Spotify developer dashboard~~ — done, secret rotated
-  and migrated to the new env vars (2026-08-05).
+  and migrated to the new env vars (2026-08-05); re-confirmed still done 2026-08-08.
 - ~~Finish the Railway DNS cutover~~ — done (2026-08-07): `diegodamian.com`/`www` and
   `api.diegodamian.com` are live through Cloudflare (`Full` SSL mode) at the two Railway services.
 - ~~Set `SPOTIFY_LOGIN_SECRET` in Railway's env vars~~ — done.
@@ -201,3 +258,8 @@ committed).
 | 2026-08-05 | **Client routing fix**: added a hash-scroll effect (`hooks/use-hash-scroll.js`) so landing on `/about`-style redirect routes (used by the Spotify OAuth callback) actually scrolls to the target section — `<Navigate>` was updating the URL but never the scroll position. |
 | 2026-08-05 | **Spotify integration hardening + iTunes/Spotify architecture split documented**: audited the repo for hardcoded credentials (none found; `.env` was never committed); added `server/.env.example` and `client/.env.example`; fixed the OAuth `state` param (was a hardcoded literal — no real CSRF protection — now a random value checked once); gated `/login` behind a new `SPOTIFY_LOGIN_SECRET` so a visitor can no longer clobber the cached token by completing their own Spotify consent flow; removed the frontend's auto-redirect-to-`/login` on a failed fetch (visitors must never be routed into Spotify auth); added a 20-minute server-side cache plus a 60s pre-expiry refresh buffer on top of the existing access-token cache; unified Spotify error handling so 401/403/429/network failures all log the real status server-side and return one generic, visitor-safe `503`; `my-taste.jsx` now fetches tracks/artists independently, each with its own loading/error/empty state, so a Spotify outage degrades gracefully instead of breaking the section. |
 | 2026-08-07 | **Live on Railway + Cloudflare**: `fetchTopItems` now serves stale cached data instead of erroring when a live Spotify refresh fails (`ensureAccessToken` no longer gates the route as middleware, so a dead token doesn't block a still-valid cache hit). Fixed a real multi-day Railway deploy saga: the client service's Root Directory wasn't set, so it was building/running the *server's* start command (`Cannot find module '/app/server.js'`); `caddy` installed via `nixPkgs` collided with Nixpacks' own auto-injected Caddy phase from detecting the `Caddyfile` (`nix-env` conflict on `/bin/caddy` from two different nixpkgs snapshots) — fixed by downloading the Caddy binary directly instead of going through Nix packages at all, and disabling Caddy's unauthenticated admin API (`:2019`) since it was showing up as a spurious second port; `client/railway.json`'s manually-set start command (`caddy run` — no `./`) was overriding `nixpacks.toml`'s corrected one, so it was stripped down to just builder+restart-policy; a `nixpacks.toml [variables]` block's value wasn't reaching the shell running its phase's `cmds` in this Nixpacks version, so the Caddy version is hardcoded directly instead. Separately, `VITE_API_BASE_URL` with a trailing slash produced a `//api/...` request path that Express treated as an unregistered route (plain 404, not our JSON handler) — fixed defensively in code (strip trailing slashes) in addition to the env var itself. Cloudflare is now live in front of both services (`Full` SSL mode); `api.diegodamian.com`'s Railway env vars needed the same `SPOTIFY_*` values as local `.env` (they don't carry over automatically), and the first refresh token minted there came back `invalid_grant` — re-ran `/login` against the production domain to mint a fresh one. |
+| 2026-08-07 | **Production bug sweep**: three visitor-facing bugs that had been live. `projectsData.js` used the key `live:` while `portfolio.jsx` read `project.liveDemo`, so the Rutgers and **diegospomodoro.com** links silently never rendered — only Harmoni's did. Project videos were `.mov` files declared as `type="video/mp4"`; Chrome and Firefox won't decode QuickTime, so **3 of 4 demos were dead** — repointed to the existing `.webm` encodes, corrected the MIME type, added `preload="metadata"` so expanding a card no longer pulls the whole file before the visitor presses play. Footer copyright was hardcoded `2025`, now derived from the clock. |
+| 2026-08-07 | **Deploy weight: 152MB → 9.6MB**. The built output was 152MB, of which **137MB was `.mov` files no browser can play** — Railway uploaded and served all of it on every deploy. Transcoded `rutgers-democracy.mov` (61MB, the only clip lacking a `.webm` twin) to VP9 1920×934 at 3.3MB, verified full duration and clean decode, then deleted all four `.mov` files. Images 11MB → 1.7MB by resizing to what the CSS actually renders: `codewiz.jpeg` was a **7952×5304 (42-megapixel) camera original** displayed as a 400px-tall timeline thumbnail (7.9MB → 181KB), and `usa.png` was 1600px wide for a flag rendered at 20×15px. One trap worth remembering: `sips -Z` sets the *max* dimension, so it silently **upscaled** the 827px-wide `trump.jpeg` to 1200px and made the file *larger* — caught in the before/after size table, redone as recompress-only. Shrinks the deploy, not the 91MB `.git`; the `.mov` blobs are still in history and reclaiming that needs a rewrite. |
+| 2026-08-07 | **SEO, favicon, and link previews**: `index.html` was 12 lines with no description, no social tags, and no favicon — pasting the URL anywhere produced a blank grey box. Added Open Graph + Twitter card tags with an **absolute** `og:image` URL (crawlers don't resolve relative paths — the usual cause of a silently blank preview), a 1200×630 `og-image.png` generated from the site's own tokens and Avenir Next with a vinyl motif, `favicon.svg` drawn as a **path** rather than a `<text>` element so it doesn't depend on a font being available, `apple-touch-icon.png` for iOS, `robots.txt`, `sitemap.xml`, dual light/dark `theme-color`, canonical URL, and JSON-LD `Person` schema. Two bugs caught only by validating rather than assuming: `--accent` inside an XML comment in the favicon is an illegal double hyphen (browsers would have shown no icon at all), and the sitemap `xmlns` was wrong — both now pass `xmllint`. |
+| 2026-08-08 | **Contact form rebuilt on Resend**. The form had been posting to a Heroku endpoint dead since the free tier ended, and `alert()`ed "Thank you for reaching out!" *before* firing the request — every message was lost while the sender was told it worked. First attempt used nodemailer over Gmail SMTP: worked locally, then failed in production. Two distinct bugs, one masking the other. **(a)** Locally, sends failed ~half the time with `ENETUNREACH` — nodemailer picks one resolved address *at random* (`formatDNSValue`, `lib/shared/index.js`) and decides IPv6 is usable if *any* non-internal interface has an IPv6 address, which the link-local `fe80::` entries every Mac has satisfy even with no IPv6 route. **(b)** The real blocker: **Railway blocks outbound SMTP on every plan below Pro**, so the transport didn't fail, it *hung* until Cloudflare returned its own 502 — a submission that spun for two minutes and died, while the validation path on the same route answered in 118ms. Rewrote on Resend's HTTPS API. Uses the sandbox sender, which needs no verified domain; its only restriction (delivery solely to the Resend account owner's address) is exactly this form's model, so no domain slot is consumed. Note the SDK resolves with `{ data, error }` rather than throwing — an unchecked call reports success on a rejected send, so the error is checked explicitly. Server side also gained the `express.json()` middleware that **had never existed** (any POST would have had `req.body === undefined`), a honeypot, a per-IP rate limit read from `CF-Connecting-IP`, and CR/LF stripping on the fields that reach mail headers. Rate-limit budget is consumed only by sends that actually reach delivery, so a visitor mistyping their email five times isn't locked out for an hour. |
+| 2026-08-08 | **Design review + roadmap**: added `design-review/` — 13 Playwright screenshots across desktop/mobile/light theme, plus `FINDINGS.md` (numbered bugs B1–B8, design problems D1–D7), `STATUS.md` (goal scorecard, changelog, decisions already made), and `ROADMAP.md` (Stages 0–8, now authoritative for sequencing). Written self-contained because design research happens in a separate chat with no repo access. Headline finding: the "Work Experience" heading sits at **~1.04:1 contrast in *both* themes** — `.work-experience` inverts its background via `--bg-inverted` while `.work-title` keeps `--text-color`, and both tokens flip together, so the text is invisible either way. Also found: nav links scroll their target *under* the fixed navbar (`scrollIntoView` with no offset), and `#my-taste` mobile detaches track numbers from their titles. The roadmap rejected both design directions originally proposed — the body doesn't need the hero's skeuomorphic material, it needs a shared design system — and promoted the turntable from last to Stage 1, since a working hero is design information the sections beneath it depend on. |
