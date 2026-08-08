@@ -7,8 +7,11 @@ has no access to this repository. Screenshots are separate image files in
 `screenshots/` — attach the relevant ones alongside it.
 
 > **Scope:** this file covers *design* — what's wrong and what should change. For
-> project state, the changelog of recent work, outstanding manual tasks, and the
-> remaining roadmap, see [`STATUS.md`](./STATUS.md).
+> project state and the changelog, see [`STATUS.md`](./STATUS.md). For **order of
+> work**, see [`ROADMAP.md`](./ROADMAP.md).
+>
+> **§8 (open questions) is now answered and §9 (sequencing) is superseded** —
+> `ROADMAP.md` is authoritative for both. Sections 1–7 remain current.
 
 ---
 
@@ -181,6 +184,23 @@ the slideshow. Two sources of truth for the same content, already out of sync.
 
 ### B7 — Rutgers logo is clipped in the bio section.
 
+### B8 — `#my-taste` mobile layout is visibly broken
+
+Verified in `my-taste-mobile.png`:
+
+- **Track numbers detach from their tracks.** Each number is centered on its own line
+  *above* the title rather than sitting beside it, so "1" reads as a heading rather
+  than a label for "Just Like Heaven".
+- **Divider rules don't align to their content.** They start and end at arbitrary
+  offsets rather than matching the text column.
+- **The artist grid misaligns on wrap.** Two-line names ("Red Hot Chili Peppers",
+  "Stone Temple Pilots") push their row out of alignment with the single-line ones,
+  and the fifth artist is orphaned alone on the final row.
+
+Reads as a rendering fault to any visitor. Note this is separate from the `#my-taste`
+*redesign* (`ROADMAP.md` Stage 4) — this is making the current layout not-broken,
+which is worth doing independently because the redesign is several stages away.
+
 ---
 
 ## 5. Design problems — these need a direction decision
@@ -258,50 +278,34 @@ large empty lower third, some readers will not realise there is more.
 
 ---
 
-## 8. Open questions — decide before building
+## 8. Open questions — **ANSWERED**
 
-**Q1. Which direction?**
+All four were resolved on 2026-08-08. Full reasoning in [`ROADMAP.md`](./ROADMAP.md) §1.
 
-- **(a) Extend the hero's material language downward.** Project entries as record
-  sleeves, the timeline as something physical, the contact form as a piece of
-  equipment. Highest ceiling, most work, and Diego has already proven he can execute
-  at this level.
-- **(b) Pull the hero back toward a cleaner conventional site.** Optimises for a
-  recruiter skimming in 30 seconds. Lower ceiling, much less work, and it discards
-  the site's only genuinely memorable element.
+| | Question | Answer |
+|---|---|---|
+| **Q1** | Which design direction? | **Neither option offered.** The body doesn't need *material* — it needs a **shared design system** (one type scale, spacing rhythm, alignment logic, section-header pattern). The hero stays a bespoke object. `#connect` already works with no material at all; `#my-taste` fails because it was never designed, not for lack of texture. **Exception:** `#my-taste` alone gets the material language, since records and crates are content-appropriate there |
+| **Q2** | Decorative or functional turntable? | **Functional** — and not genuinely open. "put a record on…" is a promise; not keeping it violates goal #1. Discharged by Phases 6 + 7 only |
+| **Q3** | Does the slideshow survive? | **No — delete it.** Removes a duplicate, a missing project, 80vh of one rotating image, and a second source of truth |
+| **Q4** | Inverted bands? | **Deferred** into the design-system pass, where section rhythm gets decided |
 
-Everything downstream depends on this.
+### What this changed about the diagnosis
 
-**Q2. Does the turntable stay decorative, or does it become functional?**
-Phases 6–12 of the roadmap (audio playback, drop animation, scratch, pitch) are
-unbuilt. If the answer is "decorative", the hero should stop implying otherwise —
-"put a record on…" is currently a promise the page does not keep.
-
-**Q3. Does the slideshow survive?**
-It duplicates the project list beneath it, is missing a project, and occupies 80vh
-for a single rotating image. Options: delete it, merge it into the list as
-thumbnails, or give it a real reason to exist.
-
-**Q4. What happens to the inverted bands?**
-Commit to inversion as a deliberate rhythm, or drop it and keep one continuous
-surface.
+§3 above says the hero and body are "two different websites." That still holds. But
+§3 implied the fix was to spread the hero's *material* downward — and that's wrong.
+The body's problem is the absence of a system, not the absence of texture. §3 should
+be read with that correction.
 
 ---
 
-## 9. Suggested sequencing
+## 9. Sequencing — **SUPERSEDED**
 
-**Stage 0 — bug fixes (no design input needed).** B1–B7. Roughly half a day.
-Independent of every design decision, and B1/B4 are actively embarrassing.
+The staging that was here has been replaced by [`ROADMAP.md`](./ROADMAP.md) §3.
 
-**Stage 1 — answer Q1.** Written direction. This is a taste call, not a research task.
+The substantive change: the turntable moved from last to **Stage 1**, on two
+arguments — it leaves the site's central premise unfulfilled longest if deferred, and
+a working hero is itself *design information* that the sections beneath it need
+before they can be designed properly.
 
-**Stage 2 — section-by-section redesign** in the chosen direction, in this order:
-`#about` work experience (weakest), `#projects` (redundancy), `#connect`, `#my-taste`.
-
-**Stage 3 — mobile.** Deliberately deferred: the mobile treatment falls out of the
-layout, so building it before Stage 2 means building it twice. Includes B4.
-
-**Stage 4 — turntable Phases 6–12,** if Q2 says functional.
-
-**Stage 5 — cleanup.** Delete `nav-orb.jsx` / `orb-field.jsx`, drop
-`@react-spring/web` and `@use-gesture/react`, clear the 18 remaining ESLint errors.
+Stage 0 (bugs B1–B7, plus a newly found **B8** in `#my-taste` mobile, plus a resume
+link) is unchanged and still blocks nothing.

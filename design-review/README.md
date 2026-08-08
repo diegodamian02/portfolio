@@ -11,24 +11,31 @@ attachments rather than embedded.
 
 ```
 design-review/
-  FINDINGS.md              design analysis: bugs, design problems, open questions
-  STATUS.md                project state: goal scorecard, changelog, what's missing
+  ROADMAP.md               order of work — AUTHORITATIVE for sequencing
+  FINDINGS.md              design analysis: numbered bugs (B1–B8), design problems (D1–D7)
+  STATUS.md                project state: goal scorecard, changelog, decisions made
   screenshots/             what the site actually looks like
   capture-screenshots.mjs  regenerates screenshots/
 ```
 
 **Which doc to share.** They answer different questions and are deliberately separate:
 
-- **`FINDINGS.md`** — *what is wrong with the design and what should change.* Send
-  this for design/UX research. Self-contained: stack constraints, design tokens,
-  numbered bugs (B1–B7) and design problems (D1–D7).
-- **`STATUS.md`** — *where the project stands and what is left.* Send this when the
-  question is scope, sequencing, or priorities. Includes a goal scorecard, a
-  changelog of recent commits with the reasoning behind each, outstanding manual
-  tasks, and a decisions-already-made list so settled questions don't get reopened.
+- **`ROADMAP.md`** — *what to build, in what order, and why.* Start here. Answers the
+  four design questions and defines Stages 0–8. **Supersedes the sequencing in both
+  other files.**
+- **`FINDINGS.md`** — *what is wrong with the design.* Send this for design/UX
+  research. Self-contained: stack constraints, design tokens, numbered bugs and
+  design problems. Its §8/§9 are superseded; §1–7 are current.
+- **`STATUS.md`** — *where the project stands.* Send this for scope and priority
+  questions. Goal scorecard, changelog with the reasoning behind each commit,
+  outstanding manual tasks, and a decisions-already-made list so settled questions
+  don't get reopened. Its §5 is superseded; §1–4 are current.
 
-Send both when the other chat needs to propose *what to build next* rather than
-*how a section should look*.
+Send all three when the other chat needs to propose *what to build next*.
+
+**Precedence, when they disagree:** `ROADMAP.md` > `STATUS.md` > `FINDINGS.md`.
+Superseded sections are marked in place rather than deleted, so the reasoning behind
+a reversal stays readable.
 
 ## Workflow
 

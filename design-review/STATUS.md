@@ -2,8 +2,12 @@
 
 **Updated:** 2026-08-08 · **HEAD:** `5d72292` · **Live:** https://diegodamian.com
 
-Companion to [`FINDINGS.md`](./FINDINGS.md), which covers design analysis. This file
-covers **where the project stands, what recently changed, and what is still missing.**
+Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
+[`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
+stands and what recently changed.**
+
+> **§5 below is superseded by [`ROADMAP.md`](./ROADMAP.md) §3.** Read the roadmap for
+> sequencing. §1–4 remain current.
 
 ---
 
@@ -11,17 +15,22 @@ covers **where the project stands, what recently changed, and what is still miss
 
 A portfolio that does six things. Current standing on each:
 
-| # | Goal | Status |
-|---|---|---|
-| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Mostly. Contact form fixed; mobile nav still absent, contrast bugs live |
-| 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy |
-| 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD |
-| 4 | **Delivers the "playground" premise** — the turntable actually plays | 🔴 Not started. Hero is inert |
-| 5 | **Reads as one coherent design** | 🔴 Hero and body are two different visual languages |
-| 6 | **Converts recruiter attention** | 🟡 Contact works; no resume link anywhere |
+| # | Goal | Status | Addressed by |
+|---|---|---|---|
+| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form fixed; mobile nav absent, contrast bugs live, `#my-taste` mobile broken | Stage 0 |
+| 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
+| 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
+| 4 | **Delivers the "playground" premise** — the turntable actually plays | 🔴 Hero is inert. `previewUrl` is captured and discarded | **Stage 1** |
+| 5 | **Reads as one coherent design** | 🔴 Hero and body are two different visual languages | Stage 3 |
+| 6 | **Converts recruiter attention** | 🟡 Contact works; **no resume link anywhere** | Stage 0 |
 
-Goals 1–3 were the focus of this session's work. **Goals 4–6 are the remaining
-project**, and goal 5 is blocked on a direction decision (`FINDINGS.md` §8, Q1).
+Goals 1–3 were the focus of the 2026-08-07/08 session. **Goals 4–6 are the remaining
+project.**
+
+Goal 5 is **no longer blocked** — the direction question was answered on 2026-08-08
+(`ROADMAP.md` §1, Q1): the body needs a shared *design system*, not the hero's
+material language. And goal 4 moved from last to **Stage 1**, on the argument that a
+working hero is design information the sections beneath it need.
 
 ---
 
@@ -119,7 +128,12 @@ root `README.md`.
 
 ---
 
-## 5. What's missing to reach the goal
+## 5. What's missing to reach the goal — **SUPERSEDED**
+
+> **[`ROADMAP.md`](./ROADMAP.md) §3 is authoritative for sequencing.** The stage list
+> below is kept only as the inventory of *what* remains; the *order* changed on
+> 2026-08-08 — most notably the turntable moved from Stage 4 to Stage 1, and the
+> design direction is no longer a blocking decision.
 
 Ordered by dependency, not importance.
 
