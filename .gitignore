@@ -2,3 +2,12 @@
 node_modules
 .env*
 !.env.example
+
+# IDE / editor local state. .idea/workspace.xml is per-user session state
+# (open tabs, change lists, run configs) and was tracked until 2026-08-08.
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
