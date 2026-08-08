@@ -6,6 +6,10 @@ This document is written to be **self-contained**. It can be pasted into a chat 
 has no access to this repository. Screenshots are separate image files in
 `screenshots/` — attach the relevant ones alongside it.
 
+> **Scope:** this file covers *design* — what's wrong and what should change. For
+> project state, the changelog of recent work, outstanding manual tasks, and the
+> remaining roadmap, see [`STATUS.md`](./STATUS.md).
+
 ---
 
 ## 1. What the site is
