@@ -3,7 +3,6 @@ import LoadingScreen from "./components/loading-screen.jsx";
 import Navbar from "./components/navbar.jsx";
 import Home from "./sections/home.jsx";
 import Portfolio from "./sections/portfolio.jsx";
-import Projects from "./sections/projects.jsx";
 import MyTaste from "./sections/my-taste.jsx";
 import About from "./sections/about.jsx";
 import Connect from "./sections/connect.jsx";
@@ -28,10 +27,7 @@ export default function App() {
                     <Routes>
                         <Route path="/" element={<>
                             <section id="home"><Home /></section>
-                            <section id="projects">
-                                <Projects />
-                                <Portfolio />
-                            </section>
+                            <section id="projects"><Portfolio /></section>
                             <section id="my-taste"><MyTaste /></section>
                             <section id="about"><About /></section>
                             <section id="connect"><Connect /></section>

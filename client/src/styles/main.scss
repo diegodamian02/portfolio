@@ -845,70 +845,6 @@ html {
 .nav-orb:nth-of-type(4) { --orb-color: var(--orb-4); }
 .nav-orb:nth-of-type(5) { --orb-color: var(--orb-5); }
 
-// Slideshow Section (Full-Screen)
-.project-slideshow-section {
-  height: 80vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  transition: background-color 0.1s ease-in-out;
-  overflow-x: hidden;
-}
-
-// Slideshow Inversion Based on Theme
-.project-slideshow-section {
-  background-color: var(--bg-inverted);
-  color: var(--text-inverted);
-}
-
-// Slideshow Container
-.project-slideshow {
-  width: 90%;
-  max-width: 1200px;
-  height: 400px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow-x: hidden;
-}
-
-// Image Wrapper to Prevent Overflow
-.image-wrapper {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border-radius: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-// Slideshow Image - Scaled Properly
-.slideshow-image {
-  width: 100%;
-  height: auto;
-  max-height: 100%;
-  border-radius: 20px;
-  object-fit: contain;
-  transition: opacity 1s ease-in-out;
-}
-
-// Slideshow Title
-.slideshow-title {
-  position: absolute;
-  align-items: center;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--secondary-text);
-  padding: 10px 20px;
-  margin-bottom: 500px;
-
-}
-
 //Navbar section
 .navbar {
   position: fixed;
@@ -1771,16 +1707,6 @@ html {
     text-decoration: inherit;
   }
 
-
-  /* Slideshow Section */
-  .project-slideshow {
-    height: 250px;
-    max-width: 100%;
-  }
-
-  .image-wrapper {
-    height: 100%;
-  }
 
   /* Bio Section */
   .bio-section {
