@@ -8,7 +8,7 @@ import { scrollToSection } from "../lib/scroll.js";
 export default function Navbar() {
     const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
     const [isMenuActive, setMenuActive] = useState(false);
-    const [pastHero, setPastHero] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
 
     const toggleNavbar = () => {
         setMenuActive(!isMenuActive);
@@ -20,17 +20,15 @@ export default function Navbar() {
         window.dispatchEvent(new Event("themeChange"))
     }, [theme]);
 
-    // The orbs are the hero's own nav statement — the link list only
-    // shows up once you've scrolled past it, as a slim persistent nav.
+    // Drives only the navbar's own background: transparent over the hero,
+    // solid once you've scrolled. The links themselves are always visible —
+    // the hide-during-hero gating belonged to the superseded orb-nav hero,
+    // where the orbs were the hero's navigation. The turntable isn't.
     useEffect(() => {
-        const heroEl = document.getElementById("home");
-        if (!heroEl) return;
-        const observer = new IntersectionObserver(
-            ([entry]) => setPastHero(!entry.isIntersecting),
-            { threshold: 0.1 }
-        );
-        observer.observe(heroEl);
-        return () => observer.disconnect();
+        const onScroll = () => setScrolled(window.scrollY > 8);
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
     }, []);
 
     const handleNavClick = (e, id) => {
@@ -40,7 +38,7 @@ export default function Navbar() {
     };
 
     return (
-        <nav className={`navbar ${pastHero ? "navbar-scrolled" : ""}`}>
+        <nav className={`navbar ${scrolled ? "navbar-scrolled" : ""}`}>
             <h1 className="logo">D.</h1>
             <div className="navbar-right">
                 <div className="navbar-links">

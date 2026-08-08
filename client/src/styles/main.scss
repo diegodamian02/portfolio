@@ -6,11 +6,6 @@
   --bg-inverted: #f6f7fb;
   --text-inverted: #0d1220;
   --spotify-green: #1DB954;
-  --orb-1: #6f9bff;
-  --orb-2: #8fb0ff;
-  --orb-3: #5a7fe0;
-  --orb-4: #7a95e8;
-  --orb-5: #93a8f2;
 
   // Record crate — roasted maple fretboard. The board is a fixed warm
   // material, not a themed surface: it stays roughly the same amber in
@@ -39,11 +34,6 @@
   --accent: #1f3fae;
   --bg-inverted: #0a0e1a;
   --text-inverted: #eef1f8;
-  --orb-1: #1f3fae;
-  --orb-2: #3355c2;
-  --orb-3: #16307d;
-  --orb-4: #2846b8;
-  --orb-5: #4560c9;
 
   // Less contrast between the maple and #f6f7fb than against navy —
   // compensate with a stronger shadow, not a darker/different wood.
@@ -795,56 +785,6 @@ html {
   text-overflow: ellipsis;
 }
 
-// Legacy orb-nav (unused since the turntable hero — CSS kept until Phase 12 cleanup)
-.orb-field {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(20px, 4vw, 56px);
-  flex-wrap: wrap;
-  padding: 40px 0;
-  position: relative;
-  z-index: 1;
-}
-
-.nav-orb {
-  --orb-glow: 0;
-  position: relative;
-  width: clamp(64px, 9vw, 96px);
-  height: clamp(64px, 9vw, 96px);
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  cursor: grab;
-  background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--orb-color) 70%, white 30%), var(--orb-color) 65%);
-  box-shadow:
-    0 8px 24px -8px var(--orb-color),
-    0 0 calc(10px + var(--orb-glow) * 40px) calc(var(--orb-glow) * 14px) var(--orb-color);
-  touch-action: none;
-  transition: box-shadow 0.15s ease;
-}
-
-.nav-orb:active {
-  cursor: grabbing;
-}
-
-.nav-orb-label {
-  position: absolute;
-  top: calc(100% + 14px);
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-size: 0.85rem;
-  color: var(--text-color);
-  pointer-events: none;
-}
-
-.nav-orb:nth-of-type(1) { --orb-color: var(--orb-1); }
-.nav-orb:nth-of-type(2) { --orb-color: var(--orb-2); }
-.nav-orb:nth-of-type(3) { --orb-color: var(--orb-3); }
-.nav-orb:nth-of-type(4) { --orb-color: var(--orb-4); }
-.nav-orb:nth-of-type(5) { --orb-color: var(--orb-5); }
-
 //Navbar section
 .navbar {
   position: fixed;
@@ -864,18 +804,6 @@ html {
   background-color: var(--bg-color);
 }
 
-.navbar-links {
-  opacity: 0;
-  transform: translateY(-6px);
-  pointer-events: none;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.navbar.navbar-scrolled .navbar-links {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
 // Navbar links  + toggle bar
 .navbar-right {
   display: flex;
