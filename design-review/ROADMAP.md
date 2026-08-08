@@ -93,8 +93,8 @@ The site is live and is being used for a job search. These are visible failures.
 - **B3** nav links scroll their target under the fixed navbar
 - **B4** **mobile has no navigation at all** — most recruiter traffic is mobile
 - **B5** `client/.env` missing URL scheme, breaks local `#my-taste`
-- **B6** slideshow duplicates the project list and is missing a project — resolved by
-  deleting the slideshow entirely (Q3)
+- ~~**B6** slideshow duplicates the project list and is missing a project~~ —
+  **DONE 2026-08-08** (`4ebaaaf`), deleted entirely per Q3
 - **B7** Rutgers logo clipped
 - **B8 — `#my-taste` mobile layout is visibly broken.** Verified in
   `my-taste-mobile.png`: track numbers are centered on their own line *above* the
@@ -106,10 +106,13 @@ The site is live and is being used for a job search. These are visible failures.
 - **Add a resume/CV link.** Currently absent entirely. For a site whose job is
   converting recruiter attention this is a larger gap than any unfinished animation.
 
-Also fold in the trivial cleanup while in these files: delete `nav-orb.jsx` /
+~~Also fold in the trivial cleanup while in these files: delete `nav-orb.jsx` /
 `orb-field.jsx` and their CSS, drop `@react-spring/web` and `@use-gesture/react`
 (orphaned), and remove the navbar's hide-during-hero link gating (Phases 11–12 —
-they touch nothing the turntable depends on).
+they touch nothing the turntable depends on).~~ — **DONE 2026-08-08** (`f7911ac`).
+Nav links are now usable from the top of the page. Note the dependency removal did
+**not** shrink the bundle — those libraries were already tree-shaken out, since
+nothing imported them. See `STATUS.md` for the numbers.
 
 ### Stage 1 — Make the hero keep its promise *(Phases 6 + 7)*
 

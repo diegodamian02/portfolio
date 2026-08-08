@@ -211,11 +211,17 @@ No `https://` scheme, and pointing at an old Railway subdomain rather than
 `api.diegodamian.com`. Without a scheme, axios treats it as a *relative* path, so
 `#my-taste` fails locally. Production is unaffected (Railway supplies its own value).
 
-### B6 — Slideshow duplicates the project list, and drifts from it
+### B6 — Slideshow duplicates the project list, and drifts from it — **FIXED 2026-08-08**
 
-`projects.jsx` hardcodes its own array of three projects instead of reading
-`data/projectsData.js`, which has four. The Rutgers project is silently missing from
+`projects.jsx` hardcoded its own array of three projects instead of reading
+`data/projectsData.js`, which has four. The Rutgers project was silently missing from
 the slideshow. Two sources of truth for the same content, already out of sync.
+
+**Resolved by deleting the slideshow entirely** (`ROADMAP.md` Q3). `projectsData.js`
+is now the single source of truth, and the section lists all four projects. Removed
+`sections/projects.jsx`, its CSS, and three PNGs it alone referenced. Verified: the
+heading and intro line are intact and the leading/trailing gaps where it sat both
+measure 0px.
 
 ### B7 — Rutgers logo is clipped in the bio section.
 

@@ -100,6 +100,38 @@ The `design-review/` folder (screenshots, `FINDINGS.md`, `STATUS.md`, `ROADMAP.m
 `capture-screenshots.mjs`), a README brought current with this session, and untracking
 `.idea/` — IDE session state that had been committed since 2025-03-30.
 
+### `4ebaaaf` / `f7911ac` — Stage 0 Task 2: deletions
+Two removal-only commits, no bug fixes or restyling.
+
+**Slideshow deleted (B6, `ROADMAP.md` Q3).** It duplicated the project list directly
+beneath it while hardcoding its own three-project array, so Rutgers was silently
+missing and the two lists had already drifted. `projectsData.js` is now the single
+source of truth; the section lists all four. Leading/trailing gaps where it sat both
+measure 0px.
+
+**Orb-nav remnants removed (Phases 11 + 12).** `nav-orb.jsx` / `orb-field.jsx`, their
+CSS, `--orb-1..5` in both themes, and the `@react-spring/web` +
+`@use-gesture/react` dependencies. `navbar.jsx`'s IntersectionObserver became a plain
+scroll listener driving only the navbar background — the link list is no longer gated
+during the hero, so nav is usable from the top of the page.
+
+| | Before | After |
+|---|---|---|
+| `main.scss` | 1,980 lines | **1,834** (−146) |
+| CSS bundle | 26.96 kB / 5.99 gz | **24.60 kB / 5.50 gz** |
+| JS bundle | 411.33 kB | 410.59 kB |
+
+**The JS number is the interesting one.** Dropping two animation libraries moved it
+almost nothing, because they were never in the bundle: `nav-orb.jsx` was unreachable
+from the entry point, so Vite had already tree-shaken the subtree. Deleting the
+slideshow — actual live code — accounted for 0.71 kB of the 0.74 kB total. The gain
+from the dependency removal is install time and supply-chain surface, not bytes
+shipped. Worth remembering before assuming an unused dependency costs users anything.
+
+Two items in the task brief didn't match the tree: `.slideshow-title` used
+`var(--secondary-text)` (defined), not a `var(--seconday-color)` typo; and
+`.theme-transition { transition: ba; }` does not exist anywhere in `src/`.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
