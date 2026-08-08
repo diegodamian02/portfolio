@@ -443,6 +443,90 @@ app.post('/api/contact', async (req, res) => {
     }
 });
 
+// === iTunes search proxy ===
+// Apple's Search API inspects the User-Agent. On an iOS UA it answers a search
+// with a 301 to `musics://mzstoreservices-st.itunes.apple.com/search?...` — a
+// custom-scheme deep link into the Music app — instead of returning JSON. A
+// browser fetch cannot follow a redirect to a non-HTTP scheme, so the request
+// dies with ERR_FAILED and every iPhone/iPad visitor saw an empty record crate.
+//
+// Phase 0's "direct client-side fetch confirmed, no proxy needed" probe was run
+// from a desktop User-Agent, so it never covered this. Viewport is irrelevant —
+// a desktop browser sending an iOS UA fails identically, and a phone sending a
+// desktop UA succeeds.
+//
+// Proxying through Node fixes it: axios sends its own User-Agent, so Apple
+// returns ordinary JSON. Apple's response is passed through untouched, so the
+// client's existing parsing is unchanged.
+const ITUNES_SEARCH_URL = 'https://itunes.apple.com/search';
+const ITUNES_TERM_MAX = 100;
+const ITUNES_CACHE_TTL_MS = 10 * 60 * 1000;
+const ITUNES_CACHE_MAX = 200; // bounded so varied terms can't grow this forever
+const itunesCache = new Map(); // `${term}:${limit}` -> { body, expiresAt }
+
+// Generous by human standards (a visitor types a handful of queries), tight
+// enough that this can't be used as a free general-purpose iTunes proxy.
+const ITUNES_RATE_MAX = 30;
+const ITUNES_RATE_WINDOW_MS = 60 * 1000;
+const itunesHits = new Map(); // ip -> timestamp[]
+
+function itunesRateLimited(ip) {
+    const cutoff = Date.now() - ITUNES_RATE_WINDOW_MS;
+    const hits = (itunesHits.get(ip) || []).filter((t) => t > cutoff);
+    if (hits.length >= ITUNES_RATE_MAX) {
+        itunesHits.set(ip, hits);
+        return true;
+    }
+    hits.push(Date.now());
+    itunesHits.set(ip, hits);
+    return false;
+}
+
+setInterval(() => {
+    const cutoff = Date.now() - ITUNES_RATE_WINDOW_MS;
+    for (const [ip, hits] of itunesHits) {
+        const live = hits.filter((t) => t > cutoff);
+        if (live.length) itunesHits.set(ip, live);
+        else itunesHits.delete(ip);
+    }
+}, ITUNES_RATE_WINDOW_MS).unref();
+
+app.get('/api/itunes/search', async (req, res) => {
+    const term = typeof req.query.term === 'string' ? req.query.term.trim() : '';
+    if (!term) return res.status(400).json({ error: 'Missing term' });
+    if (term.length > ITUNES_TERM_MAX) return res.status(400).json({ error: 'Term too long' });
+
+    const limit = Math.min(Math.max(Number(req.query.limit) || 15, 1), 25);
+    const cacheKey = `${term.toLowerCase()}:${limit}`;
+
+    const cached = itunesCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+        return res.json(cached.body);
+    }
+
+    if (itunesRateLimited(clientIp(req))) {
+        return res.status(429).json({ error: 'Too many searches — slow down a moment.' });
+    }
+
+    try {
+        const { data } = await axios.get(ITUNES_SEARCH_URL, {
+            params: { media: 'music', entity: 'song', limit, term },
+            timeout: 8000,
+        });
+
+        if (itunesCache.size >= ITUNES_CACHE_MAX) {
+            // Map preserves insertion order, so the first key is the oldest.
+            itunesCache.delete(itunesCache.keys().next().value);
+        }
+        itunesCache.set(cacheKey, { body: data, expiresAt: Date.now() + ITUNES_CACHE_TTL_MS });
+
+        res.json(data);
+    } catch (error) {
+        console.error('🚨 [itunes-search] failed:', error.response?.status || error.message);
+        res.status(502).json({ error: 'Search is unavailable right now' });
+    }
+});
+
 // iTunes preview-audio proxy — currently unused by the app. Probing (see
 // commit "chore: validate iTunes CORS") confirmed the mzstatic.com preview
 // CDN already sends access-control-allow-origin: *, so the turntable hero

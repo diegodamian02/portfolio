@@ -9,6 +9,14 @@ const DEBOUNCE_MS = 400;
 const MOBILE_BREAKPOINT = 768;
 const PANEL_GAP = 10;
 
+// Search goes through our own backend rather than calling Apple directly.
+// Apple's Search API inspects the User-Agent and, on iOS, 301-redirects to a
+// `musics://` deep link instead of returning JSON — which a browser fetch
+// cannot follow, so every iPhone/iPad visitor got an empty crate. See the
+// /api/itunes/search handler in server/server.js for the full explanation.
+// Trailing-slash-safe for the same reason as my-taste.jsx.
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
+
 function toTrack(result) {
     return {
         id: result.trackId,
@@ -43,7 +51,7 @@ export default function RecordCrate({ onSelect }) {
         const reqId = ++requestIdRef.current;
         setStatus("loading");
         try {
-            const url = `https://itunes.apple.com/search?media=music&entity=song&limit=${FETCH_LIMIT}&term=${encodeURIComponent(term)}`;
+            const url = `${apiBaseUrl}/api/itunes/search?limit=${FETCH_LIMIT}&term=${encodeURIComponent(term)}`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`bad status ${res.status}`);
             const data = await res.json();

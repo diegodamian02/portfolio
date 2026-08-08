@@ -166,7 +166,42 @@ both `display: none` with no media query re-enabling them.
 Confirmed in `home-mobile.png`: only the "D." logo and a theme toggle. No links, no
 hamburger. Phone visitors have no navigation at all.
 
-### B5 — `client/.env` breaks local development
+### B9 — iPhone visitors got zero search results — **FIXED 2026-08-08**
+
+The record crate returned "couldn't reach the crate — try again" for every query on
+iPhone. Root cause: **Apple's iTunes Search API inspects the User-Agent** and, for an
+`iPhone` UA, answers with a `301` to
+`musics://mzstoreservices-st.itunes.apple.com/search?…` — a custom-scheme deep link
+into the Music app. A browser `fetch` cannot follow a redirect to a non-HTTP scheme,
+so it fails with `net::ERR_FAILED`.
+
+Measured across five device profiles. **It is iPhone-specific, not mobile-generally:**
+
+| Device | Direct fetch to Apple |
+|---|---|
+| Pixel 5, Galaxy S9+, Galaxy Tab S4 (Android) | ✅ 200 |
+| iPad (gen 7) | ✅ 200 |
+| **iPhone 13** | ❌ `Failed to fetch` |
+
+Viewport is irrelevant — a 1440px desktop sending an iPhone UA fails identically, and
+a 390px viewport sending a desktop UA succeeds.
+
+**Fix:** search now routes through `GET /api/itunes/search` on our own backend. Node
+sends its own User-Agent, so Apple returns ordinary JSON. Response is passed through
+untouched. Includes a 10-minute bounded cache (repeat query 234ms → 2ms) and a
+30/minute per-IP limit so it can't be used as a general-purpose iTunes proxy.
+
+**The lesson worth keeping:** the README claimed *"Phase 0 — CORS/iTunes probe —
+confirmed direct client-side search, no backend proxy needed."* That probe ran from a
+desktop User-Agent. A single-UA probe does not establish that a third-party API
+behaves the same for all clients.
+
+### B5 — `client/.env` breaks local development — **FIXED 2026-08-08**
+
+> Corrected to `http://localhost:5050`. Severity was higher than originally recorded:
+> once B9's fix routed search through the backend, a malformed `VITE_API_BASE_URL`
+> broke **the record crate as well as `#my-taste`**. Production is unaffected —
+> Railway supplies `https://api.diegodamian.com`.
 
 ```
 VITE_API_BASE_URL=server-production-4a86.up.railway.app

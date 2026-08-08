@@ -42,10 +42,24 @@ visitor's music, Spotify is mine. If you're extending either integration, know w
 touching first.
 
 **iTunes Search API — the visitor's music.**
-- Public, no auth, called **directly from the browser** — confirmed via a live CORS probe that
-  both `itunes.apple.com/search` and the `mzstatic.com` preview-audio CDN send permissive CORS
-  headers, so no backend proxy is needed. A host-locked `/api/itunes/preview-proxy` route exists
-  server-side anyway, as a documented, currently-unused fallback in case Apple ever tightens that.
+- Public, no auth. **Search is proxied through our backend; preview audio is fetched
+  directly from the browser.** The two are deliberately different — see below.
+- **Search → `GET /api/itunes/search` (server-side).** Apple's Search API inspects the
+  User-Agent: for an `iPhone` UA it answers with a `301` to
+  `musics://mzstoreservices-st.itunes.apple.com/search?…`, a custom-scheme deep link into
+  the Music app. A browser `fetch` cannot follow a redirect to a non-HTTP scheme, so it dies
+  with `ERR_FAILED` and **every iPhone visitor saw an empty record crate**. Measured: Android
+  (Pixel 5, Galaxy S9+, Galaxy Tab S4) and iPad are all fine; only iPhone is affected, and
+  viewport is irrelevant — a desktop browser sending an iPhone UA fails identically. Node
+  sends its own User-Agent, so proxying returns ordinary JSON. The route caches for 10
+  minutes (bounded at 200 entries) and rate-limits to 30/min per IP.
+- **Preview audio → still direct from the browser.** The `mzstatic.com` CDN sends
+  `access-control-allow-origin: *` and does not do the UA redirect. A host-locked
+  `/api/itunes/preview-proxy` route exists server-side as a documented, currently-unused
+  fallback if Apple ever tightens that too.
+- **Lesson from the Phase 0 probe:** it tested from a desktop User-Agent only and concluded
+  "no backend proxy needed." That held for preview audio and was wrong for search. A
+  single-UA probe does not establish how a third-party API behaves for all clients.
 - Powers the hero: record-crate search + the 30-second preview audio that plays on the turntable.
 - Per-visitor, interactive, real-time — every visitor searches and plays whatever they want.
 
@@ -118,7 +132,7 @@ client/src/
 
 server/
   server.js         Express app — Spotify OAuth routes, contact form (Resend),
-                    iTunes preview-proxy fallback, CORS lockdown
+                    iTunes search proxy, iTunes preview-proxy fallback, CORS lockdown
 
 design-review/     design/build planning, readable by a chat with no repo access
   ROADMAP.md        order of work (Stages 0–8) — authoritative for sequencing
@@ -178,7 +192,7 @@ The copy "put a record on…" is currently a promise the page doesn't keep — w
 
 | Phase | Status | Description |
 |---|---|---|
-| 0 | ✅ Done | CORS/iTunes probe — confirmed direct client-side search + preview-audio fetch, no backend proxy needed |
+| 0 | ⚠️ Partly wrong | CORS/iTunes probe — concluded direct client-side search + preview-audio fetch needed no backend proxy. **The search half was incorrect** (see below); preview audio still fetches directly |
 | 1 | ✅ Done | Hero layout proposal — two-column split-stage/studio-desk hybrid, deck bleeds off the right edge |
 | 2 | ✅ Done | Backend CORS lockdown (host-locked preview-proxy kept as documented fallback) |
 | 3 | ✅ Done | GSAP `Draggable` + `InertiaPlugin` registered in `lib/gsap.js` |
@@ -263,3 +277,4 @@ committed).
 | 2026-08-07 | **SEO, favicon, and link previews**: `index.html` was 12 lines with no description, no social tags, and no favicon — pasting the URL anywhere produced a blank grey box. Added Open Graph + Twitter card tags with an **absolute** `og:image` URL (crawlers don't resolve relative paths — the usual cause of a silently blank preview), a 1200×630 `og-image.png` generated from the site's own tokens and Avenir Next with a vinyl motif, `favicon.svg` drawn as a **path** rather than a `<text>` element so it doesn't depend on a font being available, `apple-touch-icon.png` for iOS, `robots.txt`, `sitemap.xml`, dual light/dark `theme-color`, canonical URL, and JSON-LD `Person` schema. Two bugs caught only by validating rather than assuming: `--accent` inside an XML comment in the favicon is an illegal double hyphen (browsers would have shown no icon at all), and the sitemap `xmlns` was wrong — both now pass `xmllint`. |
 | 2026-08-08 | **Contact form rebuilt on Resend**. The form had been posting to a Heroku endpoint dead since the free tier ended, and `alert()`ed "Thank you for reaching out!" *before* firing the request — every message was lost while the sender was told it worked. First attempt used nodemailer over Gmail SMTP: worked locally, then failed in production. Two distinct bugs, one masking the other. **(a)** Locally, sends failed ~half the time with `ENETUNREACH` — nodemailer picks one resolved address *at random* (`formatDNSValue`, `lib/shared/index.js`) and decides IPv6 is usable if *any* non-internal interface has an IPv6 address, which the link-local `fe80::` entries every Mac has satisfy even with no IPv6 route. **(b)** The real blocker: **Railway blocks outbound SMTP on every plan below Pro**, so the transport didn't fail, it *hung* until Cloudflare returned its own 502 — a submission that spun for two minutes and died, while the validation path on the same route answered in 118ms. Rewrote on Resend's HTTPS API. Uses the sandbox sender, which needs no verified domain; its only restriction (delivery solely to the Resend account owner's address) is exactly this form's model, so no domain slot is consumed. Note the SDK resolves with `{ data, error }` rather than throwing — an unchecked call reports success on a rejected send, so the error is checked explicitly. Server side also gained the `express.json()` middleware that **had never existed** (any POST would have had `req.body === undefined`), a honeypot, a per-IP rate limit read from `CF-Connecting-IP`, and CR/LF stripping on the fields that reach mail headers. Rate-limit budget is consumed only by sends that actually reach delivery, so a visitor mistyping their email five times isn't locked out for an hour. |
 | 2026-08-08 | **Design review + roadmap**: added `design-review/` — 13 Playwright screenshots across desktop/mobile/light theme, plus `FINDINGS.md` (numbered bugs B1–B8, design problems D1–D7), `STATUS.md` (goal scorecard, changelog, decisions already made), and `ROADMAP.md` (Stages 0–8, now authoritative for sequencing). Written self-contained because design research happens in a separate chat with no repo access. Headline finding: the "Work Experience" heading sits at **~1.04:1 contrast in *both* themes** — `.work-experience` inverts its background via `--bg-inverted` while `.work-title` keeps `--text-color`, and both tokens flip together, so the text is invisible either way. Also found: nav links scroll their target *under* the fixed navbar (`scrollIntoView` with no offset), and `#my-taste` mobile detaches track numbers from their titles. The roadmap rejected both design directions originally proposed — the body doesn't need the hero's skeuomorphic material, it needs a shared design system — and promoted the turntable from last to Stage 1, since a working hero is design information the sections beneath it depend on. |
+| 2026-08-08 | **iPhone search fix — the record crate was dead on iPhone.** Every query returned "couldn't reach the crate". Apple's iTunes Search API inspects the User-Agent: for an `iPhone` UA it answers a search with a `301` to `musics://mzstoreservices-st.itunes.apple.com/search?…`, a custom-scheme deep link into the Music app. A browser `fetch` cannot follow a redirect to a non-HTTP scheme, so it fails with `ERR_FAILED`. Isolated with a Playwright matrix: **iPhone is the only affected client** — Pixel 5, Galaxy S9+, Galaxy Tab S4 and iPad all returned 200 from a direct fetch — and **viewport is irrelevant**, since a 1440px desktop sending an iPhone UA fails identically while a 390px viewport sending a desktop UA succeeds. Fixed by routing search through a new `GET /api/itunes/search`, where Node's own User-Agent gets ordinary JSON back; Apple's response is passed through untouched so client parsing is unchanged. Added a 10-minute bounded cache (repeat query 234ms → 2ms) and a 30/min per-IP limit so the route can't be used as a free general-purpose iTunes proxy. Verified end-to-end at 5 rows on all five device profiles, down to a 320px-wide Galaxy S9+. This also invalidates half of Phase 0's conclusion: that probe ran from a desktop UA only, which held for preview audio and was never true for search. Fixed `client/.env` in the same pass — it had no URL scheme (`server-production-4a86.up.railway.app`), which axios treats as a relative path; harmless before, but load-bearing now that search depends on the backend. |

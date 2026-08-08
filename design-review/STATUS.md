@@ -95,8 +95,29 @@ Also replaced the old form's `alert("Thank you for reaching out!")` that fired
 **before** the request, aimed at a Heroku endpoint dead since the free tier ended.
 Every message sent through it was lost while the sender was told it worked.
 
-### `5d72292` — design-review folder
-Screenshots, `FINDINGS.md`, `capture-screenshots.mjs`, and the workflow README.
+### `5d72292` / `8f7fca0` / `4cdfa3a` / `5a01a59` / `89354bb` — docs and hygiene
+The `design-review/` folder (screenshots, `FINDINGS.md`, `STATUS.md`, `ROADMAP.md`,
+`capture-screenshots.mjs`), a README brought current with this session, and untracking
+`.idea/` — IDE session state that had been committed since 2025-03-30.
+
+### iTunes search proxy — **iPhone visitors had a dead record crate**
+Every search on iPhone returned "couldn't reach the crate". Apple's Search API
+inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
+custom-scheme deep link into the Music app — which a browser `fetch` cannot follow.
+
+Isolated with a Playwright device matrix. **iPhone is the only affected client:**
+Pixel 5, Galaxy S9+, Galaxy Tab S4, and iPad all returned 200 from a direct fetch. And
+**viewport is irrelevant** — a 1440px desktop sending an iPhone UA fails identically,
+while a 390px viewport sending a desktop UA succeeds.
+
+Fixed with `GET /api/itunes/search`, where Node's own User-Agent gets ordinary JSON.
+10-minute bounded cache (repeat query 234ms → 2ms), 30/min per-IP limit. Verified at
+5 result rows across all five device profiles, down to a 320px Galaxy S9+.
+
+Also invalidates half of Phase 0's conclusion — that probe ran from a desktop UA only,
+which held for preview audio and was never true for search. **B5 fixed in the same
+pass** and its severity re-rated: a malformed `VITE_API_BASE_URL` now breaks the record
+crate too, not just `#my-taste`.
 
 ---
 
