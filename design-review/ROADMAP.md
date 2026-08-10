@@ -87,9 +87,13 @@ Ordered by *what is costing us now* → *what raises the ceiling*.
 
 The site is live and is being used for a job search. These are visible failures.
 
-- **B1** "Work Experience" heading invisible (~1.04:1) — one line
-- **B2** timeline card text, same token-inversion root cause — audit every
-  `--bg-inverted` rule and confirm its text tokens invert with it
+- ~~**B1** "Work Experience" heading invisible (~1.04:1)~~ — **DONE 2026-08-08**,
+  now 17.44:1 dark / 17.03:1 light
+- ~~**B2** timeline card text, same token-inversion root cause — audit every
+  `--bg-inverted` rule and confirm its text tokens invert with it~~ —
+  **DONE 2026-08-08**. The offender was `.date`, not `.timeline-content`; fixed with a
+  new `--secondary-text-inverted` token (2.34:1 → 7.7:1). Audit found only one
+  `--bg-inverted` region remaining, since Task 2 deleted the other
 - **B3** nav links scroll their target under the fixed navbar
 - **B4** **mobile has no navigation at all** — most recruiter traffic is mobile
 - **B5** `client/.env` missing URL scheme, breaks local `#my-taste`
@@ -143,8 +147,9 @@ section transition, pin, scrub, and the scroll-linked volume ducking sits on it.
 Retrofitting reduced-motion afterward is painful.
 
 Prerequisites, both verified present in `client/src/styles/main.scss`:
-- Remove `html { scroll-behavior: smooth }` (line 53) — it fights Lenis.
-- Drop `background-attachment: fixed` from `.section` (line 976) — janky on mobile.
+- Remove `html { scroll-behavior: smooth }` (main.scss line 50) — it fights Lenis.
+- Drop `background-attachment: fixed` from `.section` (main.scss line 847) — janky on mobile.
+  *(Line numbers re-verified 2026-08-08; they shifted when Task 2 removed 146 lines.)*
 
 ### Stage 3 — The design system, applied *(the Q1 answer)*
 

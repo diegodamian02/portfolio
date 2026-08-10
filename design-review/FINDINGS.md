@@ -121,7 +121,11 @@ costs more than any single unfinished animation.
 
 ## 4. Bugs — fixable now, no design decisions required
 
-### B1 — "Work Experience" heading is invisible in *both* themes
+### B1 — "Work Experience" heading is invisible in *both* themes — **FIXED 2026-08-08**
+
+> Fixed by `.work-title { color: var(--text-inverted); }`. Measured from the rendered
+> DOM: **17.44:1 dark / 17.03:1 light**, against a 3:1 requirement for large text.
+> Full audit and the B2 fix below.
 
 `.work-experience` sets `background-color: var(--bg-inverted)`, but `.work-title`
 sets `color: var(--text-color)`. Both tokens flip together with the theme, so the
@@ -138,14 +142,51 @@ WCAG AA requires 3:1 for large text. Visible in both `about-desktop.png` and
 `.project-slideshow-section` already pairs `--bg-inverted` with `--text-inverted`
 correctly, so this is an oversight rather than a pattern.
 
-### B2 — Timeline card text has the same root cause
+### B2 — Timeline date text has the same root cause — **FIXED 2026-08-08**
 
-`.timeline-content` uses `--secondary-text` on the inverted background. Readable in
-dark theme, poor in light. Same class of bug as B1: **the background inverts but the
-text tokens don't follow.**
+> **Correction:** this originally named `.timeline-content` as the culprit. That was
+> wrong — `.timeline-content` sets only `text-align` and correctly *inherits*
+> `--text-inverted`. The offender is **`.date`**. The original reading came from a
+> `grep -A10` that ran past the block and caught the following rule.
 
-Worth auditing every rule that sets `--bg-inverted` and confirming its text colors
-invert with it.
+`.date` used `--secondary-text` on the inverted background: **2.35:1 dark / 2.33:1
+light**, against 4.5:1 for body text. Same root cause as B1 — the background inverts
+but the text token doesn't follow.
+
+**Fix:** added a `--secondary-text-inverted` token, defined in both themes as the
+opposite theme's `--secondary-text`, completing the inverted trio alongside
+`--bg-inverted` / `--text-inverted`. Result: **7.71:1 dark / 7.65:1 light.**
+
+Chosen over the alternative (`--text-inverted` at reduced opacity) because opacity
+composites differently against a light vs dark backdrop, so one alpha yields
+**asymmetric contrast between themes** — 0.65 gives 5.68:1 dark but 7.52:1 light. The
+explicit token lands at 7.71 / 7.65, near-identical in both.
+
+### The full `--bg-inverted` audit
+
+Every rule setting `--bg-inverted`, and every text/border colour beneath it:
+
+| Selector | Colour source | Verdict |
+|---|---|---|
+| `.work-experience` | `--bg-inverted` bg + `--text-inverted` | ✅ already correct |
+| `.work-title` | ~~`--text-color`~~ → `--text-inverted` | **B1, fixed** |
+| `.date` | ~~`--secondary-text`~~ → `--secondary-text-inverted` | **B2, fixed** |
+| `.timeline-container`, `.timeline`, `.timeline-item` | no colour → inherits | ✅ |
+| `.timeline-content` | `text-align` only → inherits `--text-inverted` | ✅ |
+| `.timeline-content h3` / `p` | no colour → inherits | ✅ |
+| `.timeline-image` | `border-radius` only, no colour | ✅ n/a |
+
+**The audit surface is now a single region.** `.project-slideshow-section` was the only
+other `--bg-inverted` rule and Task 2 deleted it, so `.work-experience` is the sole
+inverted band and is now the reference pattern. No borders, links, or hover states
+exist inside it, and `.date` is used nowhere else in the app.
+
+**One note, not a contrast bug:** `.timeline-logo` sets a fixed `background: #fff`.
+In dark theme that white card sits on the `#f6f7fb` inverted band — nearly the same
+lightness, so the Capgemini and GlobalLogic cards lose their edge and read as floating
+logos. That's a *decorative* boundary rather than text contrast, and resolving it means
+choosing a card treatment, so it belongs with the Stage 3 design-system work as part
+of **D5** — not here.
 
 ### B3 — Nav links scroll their own target under the navbar
 

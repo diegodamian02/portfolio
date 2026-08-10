@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-08 · **HEAD:** `5d72292` · **Live:** https://diegodamian.com
+**Updated:** 2026-08-08 · **HEAD:** `1b83e98`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -17,7 +17,7 @@ A portfolio that does six things. Current standing on each:
 
 | # | Goal | Status | Addressed by |
 |---|---|---|---|
-| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form fixed; mobile nav absent, contrast bugs live, `#my-taste` mobile broken | Stage 0 |
+| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form, iPhone search and contrast fixed; mobile nav still absent, `#my-taste` mobile broken | Stage 0 |
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🔴 Hero is inert. `previewUrl` is captured and discarded | **Stage 1** |
@@ -99,6 +99,31 @@ Every message sent through it was lost while the sender was told it worked.
 The `design-review/` folder (screenshots, `FINDINGS.md`, `STATUS.md`, `ROADMAP.md`,
 `capture-screenshots.mjs`), a README brought current with this session, and untracking
 `.idea/` — IDE session state that had been committed since 2025-03-30.
+
+### Stage 0 Task 3 — contrast and token inversion (B1, B2)
+
+Several rules set `background-color: var(--bg-inverted)` while leaving their text on
+`--text-color` or `--secondary-text`. Both token sets flip together with the theme, so
+that text landed on a background of near-identical lightness in **both** themes.
+
+| Element | Before (dark / light) | After (dark / light) | Need |
+|---|---|---|---|
+| `.work-title` | 1.06 / 1.03 ❌ | **17.44 / 17.03** ✅ | 3:1 |
+| `.date` | 2.35 / 2.33 ❌ | **7.71 / 7.65** ✅ | 4.5:1 |
+
+Added `--secondary-text-inverted` (both themes) rather than using `--text-inverted` at
+reduced opacity: alpha composites differently against light vs dark backdrops, so one
+value gives asymmetric results across themes (0.65 → 5.68 dark but 7.52 light).
+
+The audit found the surface is now a **single** region — `.project-slideshow-section`
+was the only other `--bg-inverted` rule and Task 2 deleted it. Everything else under
+`.work-experience` correctly inherits `--text-inverted`; no borders, links, or hover
+states exist inside it. Ratios measured from the rendered DOM in both themes, not
+eyeballed from screenshots.
+
+Corrected a mistake in FINDINGS.md while here: B2 named `.timeline-content` as the
+culprit, but that rule sets only `text-align` and inherits correctly. The offender was
+`.date`.
 
 ### `4ebaaaf` / `f7911ac` — Stage 0 Task 2: deletions
 Two removal-only commits, no bug fixes or restyling.

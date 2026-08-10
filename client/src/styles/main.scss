@@ -5,6 +5,12 @@
   --accent: #6f9bff;
   --bg-inverted: #f6f7fb;
   --text-inverted: #0d1220;
+  // Muted text for use ON --bg-inverted. Completes the inverted trio: any
+  // region that flips its background must flip every text token with it, or
+  // the text lands on a background of near-identical lightness in BOTH
+  // themes (both token sets flip together). Value is the opposite theme's
+  // --secondary-text.
+  --secondary-text-inverted: #454e68;
   --spotify-green: #1DB954;
 
   // Record crate — roasted maple fretboard. The board is a fixed warm
@@ -34,6 +40,7 @@
   --accent: #1f3fae;
   --bg-inverted: #0a0e1a;
   --text-inverted: #eef1f8;
+  --secondary-text-inverted: #9aa3bd;
 
   // Less contrast between the maple and #f6f7fb than against navy —
   // compensate with a stronger shadow, not a darker/different wood.
@@ -1040,7 +1047,10 @@ html {
   top: 50px;
   font-size: 2.5rem;
   font-weight: bold;
-  color: var(--text-color);
+  // NOT --text-color: this heading sits on .work-experience's inverted
+  // background, and both token sets flip together, so --text-color put it at
+  // ~1.05:1 in both themes — invisible either way.
+  color: var(--text-inverted);
 }
 
 // bg inversion
@@ -1085,7 +1095,10 @@ html {
 
 .date {
   font-size: 0.9rem;
-  color: var(--secondary-text);
+  // Same reason as .work-title — .date only ever renders inside
+  // .work-experience, so it needs the inverted muted token, not --secondary-text
+  // (which sat at 2.35:1 in dark and 2.33:1 in light).
+  color: var(--secondary-text-inverted);
 }
 
 // Spotify Action
