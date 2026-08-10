@@ -54,7 +54,7 @@ One scrolling page, five anchored sections:
 
 **Practical implication for any design proposal:** GSAP is already paid for in the
 bundle and is the natural tool for new motion work. Adding a second animation
-library needs to justify its weight. The JS bundle is currently 411 kB (150 kB
+library needs to justify its weight. The JS bundle is currently 410.99 kB (150.32 kB
 gzipped).
 
 ### Design tokens (from `client/src/styles/main.scss`)

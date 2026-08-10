@@ -150,15 +150,41 @@ gesture. `audio.play()` must land exactly on needle contact.
 `previewUrl` is currently captured from the iTunes search and **thrown away**. There
 is no `AudioContext` anywhere in the codebase.
 
-Audio tier is expected to be **Tier 1, no proxy**: the Phase 0 probe confirmed
-`itunes.apple.com/search` and the `mzstatic.com` preview CDN both send
-`access-control-allow-origin: *`, so direct browser `fetch` works. The host-locked
-`/api/itunes/preview-proxy` route stays in the codebase, dormant, as fallback.
+**Two different Apple hosts, two different architectures. Do not conflate them.**
 
-> **Unverified as of this writing:** that `decodeAudioData` succeeds and `AnalyserNode`
-> returns non-zero data on an iTunes preview. The CORS probe confirmed header access,
-> not the full decode path. **Stage 7 depends entirely on this**, so verify it as the
-> first task of Stage 1 rather than discovering it late.
+| | Host | Path | Status |
+|---|---|---|---|
+| **Search** (text → track list) | `itunes.apple.com/search` | `GET /api/itunes/search` — **server-side** | Live path, not a fallback |
+| **Preview audio** (30s `.m4a`) | `audio-ssl.itunes.apple.com` / `*.mzstatic.com` CDN | **Direct browser `fetch`** | Tier 1, unchanged |
+
+- **Search is proxied, permanently.** Apple's Search API inspects the User-Agent and
+  `301`s an `iPhone` UA to a `musics://` deep link, which a browser `fetch` cannot
+  follow. This is *the* live path for every visitor on every device, not a contingency.
+- **Preview audio is still Tier 1 direct.** The preview CDN sends
+  `access-control-allow-origin: *` and does **not** do the UA redirect. Stage 1's audio
+  engine fetches Apple's CDN **directly from the browser** — 30s `.m4a` files do **not**
+  stream through Railway, and nothing here adds bandwidth or latency on our host.
+- `/api/itunes/preview-proxy` stays dormant as a fallback **for the audio path only**.
+  It has nothing to do with search.
+
+So: proxying search did *not* change the audio architecture. If a future session reads
+"iTunes is proxied" and routes preview audio through Railway too, that is a regression.
+
+> **Verified during Phase 0, but re-verify as Stage 1's first task.** `decodeAudioData`
+> returned a buffer at **29.98s**, and `<audio crossorigin="anonymous">` →
+> `MediaElementAudioSourceNode` → `AnalyserNode` returned real non-zero frequency data
+> (sums **2990 / 3082** — not the zeros a tainted stream produces). So the decode path
+> is known to work.
+>
+> Re-verify anyway, for two reasons: **(a)** Phase 0 ran on a **desktop UA only**, and
+> its search conclusion turned out to be UA-dependent and wrong — treat every Phase 0
+> result as desktop-only until re-confirmed on real devices; **(b) Stage 7 depends
+> entirely on this**, so discovering a break late is expensive.
+
+**Watch the shared rate-limit budget** once the hero drives real search traffic — see
+the README's *External APIs* section. Proxying moved every visitor's search onto one
+Railway egress IP, so the whole site now shares a single Apple budget. Low risk today,
+but it is a known limitation rather than a solved problem.
 
 ### Stage 2 — Scroll foundation
 
@@ -245,7 +271,7 @@ the top makes the entire scroll reactive to *their* taste meeting Diego's.
 ### Stage 8 — Remaining polish
 
 Accessibility (`FINDINGS.md` §6): theme-toggle `aria-label`, hamburger as a real
-`<button>`, single `<h1>`, skip-link. Clear the 18 ESLint errors. Animated theme
+`<button>`, single `<h1>`, skip-link. Clear the 16 ESLint errors. Animated theme
 toggle. Consider a `.git` history rewrite (91MB → ~5MB).
 
 ---

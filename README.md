@@ -57,6 +57,25 @@ touching first.
   `access-control-allow-origin: *` and does not do the UA redirect. A host-locked
   `/api/itunes/preview-proxy` route exists server-side as a documented, currently-unused
   fallback if Apple ever tightens that too.
+- **Rate limiting — two different risks, only one of them mitigated.** These are easy to
+  confuse, so be explicit about which is which:
+  - *Inbound, per-visitor — mitigated.* The route's **30/min per-IP** limit stops one
+    abusive visitor from turning our backend into a free general-purpose iTunes proxy.
+    This is the limit the code implements, and it does its job.
+  - *Outbound, shared — **not** mitigated.* This is the one that actually changed when we
+    started proxying. Previously each visitor's browser called Apple **from their own IP**,
+    so Apple's ~20 req/min applied per visitor and was effectively unhittable. Now all
+    search traffic leaves from **one Railway egress IP**, so the entire site shares a
+    single Apple budget. Apple is also documented to return **spurious `403`s even below
+    the stated limit**.
+
+  The 10-minute cache reduces *repeat* queries, and search is 400ms-debounced, but
+  **distinct queries from concurrent visitors still stack against the shared budget** — a
+  cache cannot help with queries it has never seen. At current traffic this is low risk
+  and needs no action. Record it as a **known limitation, not a solved problem**: if the
+  crate ever returns empty results for everyone at once, suspect this before suspecting
+  the code. Mitigations if it ever bites: a short negative-result cache, a global (not
+  per-IP) outbound throttle, or falling back to the client's own IP for non-iPhone UAs.
 - **Lesson from the Phase 0 probe:** it tested from a desktop User-Agent only and concluded
   "no backend proxy needed." That held for preview audio and was wrong for search. A
   single-UA probe does not establish how a third-party API behaves for all clients.

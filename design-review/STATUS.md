@@ -218,8 +218,9 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | 411 KB / 150 KB gz |
-| ESLint errors | 21 | **18** |
+| JS bundle | 407 KB / 147 KB gz | 410.99 kB / 150.32 kB gz |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **24.94 kB / 5.58 kB gz** |
+| ESLint errors | 21 | **16** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
 ---
@@ -294,7 +295,7 @@ never spins; the tonearm is `aria-hidden` decoration.
   goal 6.
 - Accessibility: theme-toggle `aria-label`, hamburger as a real `<button>`, single
   `<h1>`, skip-link (`FINDINGS.md` §6).
-- Clear the 18 ESLint errors.
+- Clear the 16 ESLint errors.
 - Migrate the About timeline's unthrottled scroll handler to `ScrollTrigger`.
 - Consider a `.git` history rewrite to reclaim 91MB → ~5MB.
 
