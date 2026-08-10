@@ -13,6 +13,22 @@
   --secondary-text-inverted: #454e68;
   --spotify-green: #1DB954;
 
+  // Layout — the fixed navbar's measured height. .navbar is position: fixed,
+  // so it covers the top of the document and every scroll-into-view has to
+  // clear it. This is the ONE place that number lives; --scroll-offset derives
+  // from it, so the offset can never drift from the bar.
+  //
+  // The value is measured, not declared: .navbar's height is content-driven
+  // (40px vertical padding + the .logo h1's line box + its default margins),
+  // and .logo's font-size shrinks at 768px and 480px. Those two breakpoints
+  // are mirrored below — they are the only things that change this number.
+  // Rounded up to the next multiple of 4 from the measured 143.44px.
+  --navbar-height: 144px;
+
+  // Breathing room past the navbar's bottom edge. Landing a heading flush
+  // against the bar reads as cramped even when it is technically visible.
+  --scroll-offset: calc(var(--navbar-height) + 24px);
+
   // Record crate — roasted maple fretboard. The board is a fixed warm
   // material, not a themed surface: it stays roughly the same amber in
   // both themes (per spec), so these live only in :root. --text-inverted
@@ -46,9 +62,33 @@
   // compensate with a stronger shadow, not a darker/different wood.
   --crate-shadow-strength: 0.55;
 }
+// --navbar-height, redefined at the two breakpoints where .logo's font-size
+// drops (see the .logo overrides in the responsive blocks at the bottom of
+// this file). Kept here beside the base token rather than down in those
+// blocks so all three values are readable at once — measured 118.56px and
+// 105.16px respectively, rounded up to the next multiple of 4.
+@media (max-width: 768px) {
+  :root { --navbar-height: 120px; }
+}
+@media only screen and (max-width: 480px) {
+  :root { --navbar-height: 108px; }
+}
+
 html {
   scroll-behavior: smooth;
   overflow-x: hidden;
+}
+
+// B3 — nav links used to scroll their target flush to the viewport top, i.e.
+// underneath the fixed navbar (#my-taste's heading landed ~49px ABOVE the
+// bar's bottom edge and was simply not visible). scroll-margin-top is
+// preferred over computing offsetTop - navbarHeight in JS because it is
+// honoured by EVERY way a section can be scrolled to — scrollToSection()'s
+// scrollIntoView(), a fresh load on /#about, the <Navigate> redirect routes,
+// browser back/forward, and find-in-page — not just the one code path that
+// remembered to subtract.
+.content > section {
+  scroll-margin-top: var(--scroll-offset);
 }
 //body
  body {
@@ -1626,6 +1666,8 @@ html {
     height: 80px;
   }
 
+  // Changing this changes .navbar's height. Re-measure and update
+  // --navbar-height for this breakpoint at the top of the file.
   .logo {
     font-size: 1.8rem;
   }
@@ -1775,6 +1817,7 @@ html {
     overflow-x: hidden;
   }
 
+  // Same as at 768px — this drives --navbar-height for this breakpoint.
   .logo {
     font-size: 1.5rem;
   }
