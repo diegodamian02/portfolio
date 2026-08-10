@@ -62,6 +62,23 @@ Deleting it is a net design improvement *and* removes a bug class. Free win.
 
 Not a standalone decision. It resolves as part of establishing section rhythm.
 
+> **Interim state, recorded 2026-08-10 — deliberate, not a bug.**
+>
+> `.work-experience` is currently the **only** inverted section on the site. It used to
+> be half of an alternating rhythm; `.project-slideshow-section` was the other half,
+> and Q3 deleted it (`4ebaaaf`). So what reads today as a single unexplained light band
+> in the middle of a dark page is the *residue of a pattern whose other half is gone*,
+> not a section that was designed to stand alone.
+>
+> It is being left that way **on purpose until Stage 3.** Restoring the rhythm means
+> deciding which sections invert and why — exactly the section-rhythm question Q4 defers
+> — and guessing at it now would mean redoing it. Stage 0's contrast work (B1/B2) only
+> made the existing band *legible*; it took no position on whether the band belongs.
+>
+> Anyone reviewing the live site before Stage 3 should read that band as a known,
+> accepted interim state. See also `FINDINGS.md` **D4** (rhythm) and **D5** (the
+> white logo cards inside it, which have the same "decide the treatment first" shape).
+
 ---
 
 ## 2. Why the order changed
@@ -94,7 +111,13 @@ The site is live and is being used for a job search. These are visible failures.
   **DONE 2026-08-08**. The offender was `.date`, not `.timeline-content`; fixed with a
   new `--secondary-text-inverted` token (2.34:1 → 7.7:1). Audit found only one
   `--bg-inverted` region remaining, since Task 2 deleted the other
-- **B3** nav links scroll their target under the fixed navbar
+- ~~**B3** nav links scroll their target under the fixed navbar~~ — **DONE 2026-08-10**.
+  `scroll-margin-top: var(--scroll-offset)` on the sections, driven by a single
+  `--navbar-height` token redefined at the two breakpoints where `.logo` shrinks.
+  Every section now clears the bar by ~25px at 1440/1024/768/480. Fixing it surfaced
+  **B3b** (direct hash landings missed by 811px because `#my-taste` grows when its
+  Spotify data lands — pre-existing, also fixed) and **B3c** (nav clicks never update
+  the URL — left open, it's navbar behaviour, pairs with B4)
 - **B4** **mobile has no navigation at all** — most recruiter traffic is mobile
 - **B5** `client/.env` missing URL scheme, breaks local `#my-taste`
 - ~~**B6** slideshow duplicates the project list and is missing a project~~ —
@@ -147,9 +170,25 @@ section transition, pin, scrub, and the scroll-linked volume ducking sits on it.
 Retrofitting reduced-motion afterward is painful.
 
 Prerequisites, both verified present in `client/src/styles/main.scss`:
-- Remove `html { scroll-behavior: smooth }` (main.scss line 50) — it fights Lenis.
-- Drop `background-attachment: fixed` from `.section` (main.scss line 847) — janky on mobile.
-  *(Line numbers re-verified 2026-08-08; they shifted when Task 2 removed 146 lines.)*
+- Remove `html { scroll-behavior: smooth }` (main.scss line 78) — it fights Lenis.
+- Drop `background-attachment: fixed` from `.section` (main.scss line 887) — janky on mobile.
+  *(Line numbers re-verified 2026-08-10; they shifted again when Task 4 added the
+  navbar-height tokens.)*
+
+**Also reconcile with Stage 0's B3 fix when Lenis lands.** Lenis takes over scrolling
+from the browser, and `scroll-margin-top` is a *native* CSS feature — Lenis'
+`scrollTo` does not read it. Two things need doing together in this stage:
+
+- Removing `html { scroll-behavior: smooth }` is required *and* safe: `scrollIntoView`
+  falls back to instant, and `--scroll-offset` keeps working because scroll-margin is
+  independent of scroll behaviour. Do not remove it before Lenis is wired, though —
+  section jumps become abrupt in the meantime.
+- `scrollToSection()` will need to call `lenis.scrollTo(target, { offset: -X })`, where
+  `X` is read from the **same `--scroll-offset` custom property** via
+  `getComputedStyle(document.documentElement)`. Do not hardcode a second copy of the
+  number — the whole point of the token is that the navbar height lives in exactly one
+  place. `use-hash-scroll.js`'s settle-window logic (B3b) stays as is; only the
+  underlying scroll call changes.
 
 ### Stage 3 — The design system, applied *(the Q1 answer)*
 

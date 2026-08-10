@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-08 · **HEAD:** `1b83e98`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-10 · **HEAD:** `694732a`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -17,7 +17,7 @@ A portfolio that does six things. Current standing on each:
 
 | # | Goal | Status | Addressed by |
 |---|---|---|---|
-| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form, iPhone search and contrast fixed; mobile nav still absent, `#my-taste` mobile broken | Stage 0 |
+| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form, iPhone search, contrast and nav scroll offset fixed; mobile nav still absent, `#my-taste` mobile broken | Stage 0 |
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🔴 Hero is inert. `previewUrl` is captured and discarded | **Stage 1** |
@@ -156,6 +156,40 @@ shipped. Worth remembering before assuming an unused dependency costs users anyt
 Two items in the task brief didn't match the tree: `.slideshow-title` used
 `var(--secondary-text)` (defined), not a `var(--seconday-color)` typo; and
 `.theme-transition { transition: ba; }` does not exist anywhere in `src/`.
+
+### Stage 0 Task 4 — nav scroll offset (B3, B3b)
+Two commits. Nav links landed every section's top edge flush at the viewport top,
+behind the fixed navbar. `#my-taste` was the visible failure: its heading and photo
+were scrolled clean out of view, dropping the visitor mid-section onto a subheading
+above a row of half-cut artist photos (`screenshots/b3-nav-offset-before.png`).
+
+Fixed in CSS rather than JS — `scroll-margin-top: var(--scroll-offset)` on the
+sections, with a single `--navbar-height` token redefined at the two breakpoints where
+`.logo`'s font-size drops. CSS was chosen because it covers every route into a
+section, not just the one function that remembers to subtract.
+
+| Width | navbar (measured) | section lands at | clears bar by |
+|---|---|---|---|
+| 1440 / 1024 | 143.44px | 168px | 24.6px |
+| 768 | 118.56px | 144px | 25.4px |
+| 480 | 105.16px | 132px | 26.8px |
+
+**The second bug was the more serious one.** Verifying the `use-hash-scroll.js` path
+showed direct hash landings missing by **811px** — `/#about`, and therefore the
+Spotify OAuth callback's own return route. `useHashScroll` scrolled one frame after
+mount, but `#my-taste` grows 875px → 1686px when its Spotify data resolves ~300ms
+later, moving everything below it. Confirmed pre-existing by re-running the probe
+against the code before the B3 fix: the same 811px shortfall, unchanged.
+
+Fixed with a bounded 2s `ResizeObserver` settle window that re-issues the scroll as
+layout changes, cancelled the moment the visitor scrolls. That guard needed a second
+piece: a wheel gesture does **not** reliably abort an in-flight smooth scroll — the
+first version measured the visitor scrolling up 400px and the page gliding straight
+back down — so it also pins the page with `scrollTo({ behavior: "instant" })`.
+
+Left open deliberately: **B3c**, nav clicks never update the URL (`preventDefault` and
+scroll, no history entry), so sections aren't linkable and Back exits the site. It's
+navbar behaviour, so it pairs with B4 rather than a scroll-offset task.
 
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API

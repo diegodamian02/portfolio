@@ -188,15 +188,92 @@ logos. That's a *decorative* boundary rather than text contrast, and resolving i
 choosing a card treatment, so it belongs with the Stage 3 design-system work as part
 of **D5** — not here.
 
-### B3 — Nav links scroll their own target under the navbar
+### B3 — Nav links scroll their own target under the navbar — **FIXED 2026-08-10**
 
-`scrollToSection()` calls `element.scrollIntoView()` with no offset, while the navbar
-is `position: fixed` and roughly 100px tall. Clicking any nav link lands the section
-heading *behind* the navbar. Affects `client/src/lib/scroll.js` and
-`client/src/hooks/use-hash-scroll.js`.
+`scrollToSection()` called `element.scrollIntoView()` with no offset, while the navbar
+is `position: fixed`. Every section's top edge landed flush at the viewport top, i.e.
+*behind* the bar. Worst case was `#my-taste`: its "My Spotify Journey" heading and
+profile photo were scrolled entirely out of sight, so clicking "My Taste" dropped the
+visitor mid-section onto the "My Favorite Tracks" subheading, above a row of
+half-sliced artist photos. See `screenshots/b3-nav-offset-before.png` vs
+`b3-nav-offset-after.png`.
 
-**Fix:** scroll to `element.offsetTop - navbarHeight`, or add `scroll-margin-top` to
-the section elements.
+The navbar is taller than the "roughly 100px" this finding originally estimated, and
+its height is **content-driven** — 40px of vertical padding plus the `.logo` `h1`'s
+line box and default margins — so it changes at the two breakpoints where `.logo`'s
+font-size drops. Measured: **143.44px** at ≥769px, **118.56px** at 768px, **105.16px**
+at 480px.
+
+**Fixed with `scroll-margin-top`, not a JS offset.** One token, one rule:
+
+```scss
+:root { --navbar-height: 144px; --scroll-offset: calc(var(--navbar-height) + 24px); }
+@media (max-width: 768px) { :root { --navbar-height: 120px; } }
+@media only screen and (max-width: 480px) { :root { --navbar-height: 108px; } }
+
+.content > section { scroll-margin-top: var(--scroll-offset); }
+```
+
+CSS was preferred over `offsetTop - navbarHeight` because it is honoured by *every*
+route into a section — `scrollIntoView()`, a cold load on `/#about`, the `<Navigate>`
+redirect routes, back/forward, find-in-page — rather than only the one code path that
+remembers to subtract.
+
+Measured after, at all four widths. Every section's top edge now clears the navbar's
+bottom edge by a consistent **~25px**:
+
+| Width | navbar | section top lands at | clearance |
+|---|---|---|---|
+| 1440 / 1024 | 143.44px | 168px | 24.6px |
+| 768 | 118.56px | 144px | 25.4px |
+| 480 | 105.16px | 132px | 26.8px |
+
+`#home` is unaffected: it sits at document top, so the offset clamps to 0 and the hero
+still starts flush with no gap above it (verified, `scrollY = 0`).
+
+> **Known coupling.** `--navbar-height` is a *measured* constant, not a derived one —
+> `.navbar` has no explicit height, so nothing forces the two to agree. The `.logo`
+> font-size rules carry comments pointing back at the token. The durable fix is
+> `.navbar { height: var(--navbar-height) }`, deliberately deferred: restyling the
+> navbar was out of scope here and it belongs with **B4** / Stage 3.
+
+### B3b — Direct hash landings missed by ~811px — **FIXED 2026-08-10**
+
+Found while verifying B3 on the `use-hash-scroll.js` path, and **pre-existing**, not
+introduced by the B3 fix — the same 811px miss is measurable on the code before it
+(`/#about` landed at `y=3027` where 3838 was correct; after B3, `y=2859` where 3670
+was correct — an identical shortfall, just shifted by the new offset).
+
+**Cause:** `useHashScroll` scrolled once, one animation frame after mount. But
+`#my-taste` renders its Spotify content asynchronously and **grows from 875px to
+1686px** when the data resolves ~300ms later, pushing `#about` and `#connect` down by
+811px. The scroll had already committed to the pre-data layout.
+
+This mattered because it was the *Spotify OAuth callback's* own return path: `/about`,
+`/project` and `/contact` all `<Navigate>` to a hash, and all three inherited the race.
+
+**Fix:** re-issue the scroll on a `ResizeObserver` of `document.body` for a bounded
+2s window after the hash changes. The correction lands while the first smooth scroll
+is still animating, so it reads as one continuous movement. A `wheel` / `touchstart` /
+`keydown` cancels it, so the page never fights a visitor who scrolls themselves —
+and because a wheel gesture does *not* reliably abort an in-flight smooth scroll
+(measured: scrolled up 400px, page glided straight back to the target), the handler
+also pins the page with `scrollTo({ top: scrollY, behavior: "instant" })`.
+
+All eight paths now land at exactly the token offset — see the B3 table.
+
+### B3c — Nav clicks never update the URL — **open, not fixed**
+
+`handleNavClick` calls `e.preventDefault()` and then scrolls, so the address bar stays
+at `/` no matter which section you are on. Consequences: sections can't be linked or
+shared from the site itself, browser Back after clicking through the nav leaves the
+site entirely rather than returning to the previous section, and no nav item can be
+highlighted as "current".
+
+Not fixed here — it changes `navbar.jsx`'s behaviour, which was out of scope for the
+scroll-offset task. Natural companion to **B4**, since both are navbar work.
+(Back/forward across hashes *does* work correctly when the hash is set by other means
+— verified.)
 
 ### B4 — Mobile navigation does not exist
 
