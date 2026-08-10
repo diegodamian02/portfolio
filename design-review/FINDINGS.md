@@ -262,27 +262,79 @@ also pins the page with `scrollTo({ top: scrollY, behavior: "instant" })`.
 
 All eight paths now land at exactly the token offset — see the B3 table.
 
-### B3c — Nav clicks never update the URL — **open, not fixed**
+### B3c — Nav clicks never update the URL — **FIXED 2026-08-10**
 
-`handleNavClick` calls `e.preventDefault()` and then scrolls, so the address bar stays
-at `/` no matter which section you are on. Consequences: sections can't be linked or
-shared from the site itself, browser Back after clicking through the nav leaves the
-site entirely rather than returning to the previous section, and no nav item can be
-highlighted as "current".
+`handleNavClick` called `e.preventDefault()` and then scrolled, so the address bar
+stayed at `/` no matter which section you were on. Sections couldn't be linked or
+shared, and no nav item could be marked `aria-current`.
 
-Not fixed here — it changes `navbar.jsx`'s behaviour, which was out of scope for the
-scroll-offset task. Natural companion to **B4**, since both are navbar work.
-(Back/forward across hashes *does* work correctly when the hash is set by other means
-— verified.)
+**Chose `replaceState` over `pushState`.** `pushState` would make Back walk backwards
+through sections, which sounds like orientation but on a five-section one-pager means a
+visitor who clicked through everything needs **five Back presses to leave the site** —
+history trapping. `replaceState` delivers the actual goal (a copyable link straight to
+`#projects`) while Back keeps meaning "leave", which is what a visitor expects here.
+Verified: four nav clicks add **0** history entries.
 
-### B4 — Mobile navigation does not exist
+It also removes the double-scroll risk by construction. Raw `history.replaceState`
+never notifies react-router, so `location.hash` doesn't change, so `useHashScroll`
+cannot re-fire on top of the scroll already running. Measured **0 scroll-direction
+reversals** on a nav click, i.e. one continuous movement.
 
-`navbar.jsx` tracks `isMenuActive` and the hamburger toggles it, but that state is
-**never applied to any className**. Separately, `.hamburger` and `.navbar-mobile` are
-both `display: none` with no media query re-enabling them.
+`aria-current="page"` now marks the active item, seeded from the URL so a shared link
+arrives with the right item highlighted, and synced on `hashchange` so back/forward
+keep it accurate.
 
-Confirmed in `home-mobile.png`: only the "D." logo and a theme toggle. No links, no
-hamburger. Phone visitors have no navigation at all.
+> **Known limitation:** this tracks *navigation*, not scroll position — the highlight
+> does not follow you as you scroll past sections. A true scroll-spy needs
+> `ScrollTrigger`, which arrives in Stage 2.
+
+### B4 — Mobile navigation — **FIXED 2026-08-10**
+
+> **Correction to the original finding.** It read *"only the 'D.' logo and a theme
+> toggle. No links, no hamburger. Phone visitors have no navigation at all."* That was
+> true when `home-mobile.png` was captured, but **stale by the time it was fixed**:
+> Task 2 (`f7911ac`) removed the navbar's hide-during-hero link gating, so the desktop
+> links had been rendering at mobile ever since. The real state at 390px was *worse
+> than missing* — five links wrapping onto two lines with **"About Me" split across the
+> break** ("About" on line 1, "Me" on line 2) and colliding with the logo. Broken
+> navigation that looks deliberate is harder to excuse than none.
+
+The rest of the finding held: `isMenuActive` was never applied to any className, and
+`.hamburger` / `.navbar-mobile` were both `display: none` with no media query anywhere
+to re-enable them.
+
+**Where the links actually stopped fitting, measured:** one line down to 480px, wrapping
+at 390px and below. But fitting is the wrong test — at ≤768px they render at 1rem/0.8rem
+with ~19px tap targets, far under the 44px minimum. Hence the breakpoint choice.
+
+**Fixed** with a slide-down panel below 768px:
+
+- `.navbar-right` (links + toggle) is replaced by a hamburger at ≤768px.
+- The panel drops from under the bar on `--bg-color`, so it reads as an extension of
+  the navbar and themes for free. The turntable stays visible below it.
+- Five destinations plus the theme toggle, every row ≥44px, full-row tap targets.
+- Escape closes, outside click closes, focus returns to the hamburger, `Tab` is
+  contained to the panel, body scroll locks while open and releases on close.
+- Selecting a destination closes the panel and scrolls with the Task 4
+  `--scroll-offset`. Verified landing at **24px clearance at 768 / 480 / 390px**.
+
+Screenshots: `b4-nav-{1440,1024,768,480}-{dark,light}-{closed,open}.png`.
+
+### B4a — Accessibility of the hamburger (FINDINGS §6) — **FIXED 2026-08-10**
+
+The hamburger was a `<div>` with `onClick`: not focusable, not keyboard-operable. It is
+now a real `<button type="button">` with `aria-expanded`, `aria-controls`, and an
+`aria-label` that flips between "Open menu" and "Close menu".
+
+Keyboard-only pass verified end to end: one `Tab` reaches the hamburger, `Enter` opens,
+`Tab` cycles Home → Projects → My Taste → About Me → Let's Connect → theme toggle →
+back to the hamburger without escaping into the page, `Enter` navigates, `Escape`
+closes and returns focus to the hamburger.
+
+> The remaining §6 items — the theme toggle's missing `aria-label`, the two `role="img"`
+> spans, the duplicate `<h1>`, and the skip-link — were **deliberately left alone**.
+> They are Stage 8. The toggle's markup was moved into a shared helper so it could
+> render in both the bar and the panel, but its attributes are byte-identical to before.
 
 ### B9 — iPhone visitors got zero search results — **FIXED 2026-08-08**
 
@@ -415,11 +467,15 @@ large empty lower third, some readers will not realise there is more.
 
 - Theme toggle has no `aria-label`; it exposes two `role="img"` spans labelled "Sun
   Icon" and "Moon Icon", so a screen reader announces both and says nothing about
-  what the control does.
-- The hamburger is a `<div>` with `onClick` — not focusable, not keyboard-operable.
-- Two `<h1>` elements on the page (the "D." logo and the hero name).
-- No skip-to-content link.
-- Contrast failures B1 and B2 above.
+  what the control does. *(Still open — Stage 8. Note the toggle now renders twice,
+  once in the desktop bar and once in the mobile panel, so a fix applies to both.)*
+- ~~The hamburger is a `<div>` with `onClick` — not focusable, not keyboard-operable.~~
+  **FIXED 2026-08-10** — real `<button>` with `aria-expanded` / `aria-controls` /
+  `aria-label`, full keyboard operation and focus containment. See **B4a**.
+- Two `<h1>` elements on the page (the "D." logo and the hero name). *(Still open.)*
+- No skip-to-content link. *(Still open — and now more valuable: keyboard users reach
+  the hamburger on the first Tab, but there is still no way past the nav to content.)*
+- ~~Contrast failures B1 and B2 above.~~ **FIXED 2026-08-08.**
 
 ---
 

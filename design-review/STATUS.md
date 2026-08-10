@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-10 · **HEAD:** `694732a`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-10 · **HEAD:** `679e56c`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -17,7 +17,7 @@ A portfolio that does six things. Current standing on each:
 
 | # | Goal | Status | Addressed by |
 |---|---|---|---|
-| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form, iPhone search, contrast and nav scroll offset fixed; mobile nav still absent, `#my-taste` mobile broken | Stage 0 |
+| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form, iPhone search, contrast, scroll offset and **mobile nav** fixed; `#my-taste` mobile layout still broken | Stage 0 |
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🔴 Hero is inert. `previewUrl` is captured and discarded | **Stage 1** |
@@ -191,6 +191,47 @@ Left open deliberately: **B3c**, nav clicks never update the URL (`preventDefaul
 scroll, no history entry), so sections aren't linkable and Back exits the site. It's
 navbar behaviour, so it pairs with B4 rather than a scroll-offset task.
 
+### Stage 0 Task 5 — mobile navigation (B4, B4a, B3c, `--navbar-height`)
+Below 768px the inline link row is replaced by a hamburger and a slide-down panel on
+`--bg-color`, so it reads as an extension of the bar and themes for free.
+
+**The finding's premise was stale.** B4 said phone visitors had "no navigation at all",
+but Task 2 had already removed the hide-during-hero gating, so the desktop links *were*
+rendering — wrapping onto two lines with **"About Me" split across the break** and
+colliding with the logo. Broken navigation that looks intentional, rather than absent
+navigation. Same fix, worse starting point than recorded.
+
+Breakpoint chosen on measurement: the links fit on one line down to 480px, but at
+≤768px they render at 1rem/0.8rem with ~19px tap targets — far under the 44px minimum.
+Fitting is not the same as usable.
+
+`--navbar-height` is now **authoritative** rather than observational:
+`.navbar { height: var(--navbar-height) }`. This needed `box-sizing: border-box`, which
+the brief didn't anticipate — nothing in the file sets a global reset, so content-box
+would have added the 40px of vertical padding on top and rendered a 184px bar while the
+token claimed 144, breaking the very contract being established. It also fixed the bar
+overflowing the viewport by its own 80px of horizontal padding at every width.
+`.navbar-right`'s `margin-right` dropped 100px → 20px to keep desktop pixel-identical.
+
+| Width | navbar width (was) | now | height | token | clearance on nav |
+|---|---|---|---|---|---|
+| 1440 | 1520 | **1440** | 144 | 144 ✅ | 24px |
+| 1024 | 1104 | **1024** | 144 | 144 ✅ | 24px |
+| 768 | 848 | **768** | 120 | 120 ✅ | 24px |
+| 480 | 560 | **480** | 108 | 108 ✅ | 24px |
+
+Clearance is now exactly 24px everywhere, where Task 4 measured 24.6/25.4/26.8 — the
+enforced height removed the rounding slack.
+
+**B3c fixed with `replaceState`, not `pushState`.** Pushing would trap a visitor who
+clicked through all five sections behind five Back presses. Verified: four nav clicks
+add 0 history entries, and because raw history never notifies react-router,
+`useHashScroll` can't re-fire — measured 0 scroll-direction reversals.
+
+50 automated checks across four widths, both themes, keyboard-only, and cold-loaded
+shared URLs. One real bug caught mid-task: `aria-current` was seeded at mount but never
+synced, so back/forward left the highlight stale — fixed with a `hashchange` listener.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -218,8 +259,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | 410.99 kB / 150.32 kB gz |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **24.94 kB / 5.58 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | 412.52 kB / 150.83 kB gz |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **26.90 kB / 6.01 kB gz** |
 | ESLint errors | 21 | **16** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

@@ -118,7 +118,15 @@ The site is live and is being used for a job search. These are visible failures.
   **B3b** (direct hash landings missed by 811px because `#my-taste` grows when its
   Spotify data lands — pre-existing, also fixed) and **B3c** (nav clicks never update
   the URL — left open, it's navbar behaviour, pairs with B4)
-- **B4** **mobile has no navigation at all** — most recruiter traffic is mobile
+- ~~**B4** **mobile has no navigation at all** — most recruiter traffic is mobile~~ —
+  **DONE 2026-08-10**. Slide-down panel below 768px: hamburger (a real `<button>` with
+  `aria-expanded`/`aria-controls`), five destinations plus the theme toggle, all rows
+  ≥44px, Escape/outside-click/focus-return, body scroll lock, and navigation landing at
+  the Task 4 offset. Note the finding's premise was **stale** — the links weren't
+  missing, they were wrapping with "About Me" split across two lines, because Task 2 had
+  already un-gated them. Fixed **B3c** (URL now updates, via `replaceState`) and the §6
+  hamburger accessibility item in the same pass, and made `--navbar-height` authoritative
+  (`.navbar { height: var(--navbar-height) }` + `box-sizing: border-box`)
 - **B5** `client/.env` missing URL scheme, breaks local `#my-taste`
 - ~~**B6** slideshow duplicates the project list and is missing a project~~ —
   **DONE 2026-08-08** (`4ebaaaf`), deleted entirely per Q3

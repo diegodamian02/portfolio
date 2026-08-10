@@ -13,16 +13,18 @@
   --secondary-text-inverted: #454e68;
   --spotify-green: #1DB954;
 
-  // Layout — the fixed navbar's measured height. .navbar is position: fixed,
-  // so it covers the top of the document and every scroll-into-view has to
-  // clear it. This is the ONE place that number lives; --scroll-offset derives
-  // from it, so the offset can never drift from the bar.
+  // Layout — the fixed navbar's height. .navbar is position: fixed, so it
+  // covers the top of the document and every scroll-into-view has to clear it.
   //
-  // The value is measured, not declared: .navbar's height is content-driven
-  // (40px vertical padding + the .logo h1's line box + its default margins),
-  // and .logo's font-size shrinks at 768px and 480px. Those two breakpoints
-  // are mirrored below — they are the only things that change this number.
-  // Rounded up to the next multiple of 4 from the measured 143.44px.
+  // This token DRIVES the bar: `.navbar { height: var(--navbar-height) }` with
+  // box-sizing: border-box. It is not a recorded measurement of a
+  // content-driven box any more, so the bar and --scroll-offset below cannot
+  // drift apart — change this number and both move together.
+  //
+  // The three values started as measurements of the old content-driven height
+  // (143.44 / 118.56 / 105.16px at the widths where .logo's font-size steps
+  // down), rounded up to a multiple of 4, so enforcing them changed the
+  // rendered bar by under 3px at every breakpoint.
   --navbar-height: 144px;
 
   // Breathing room past the navbar's bottom edge. Landing a heading flush
@@ -62,11 +64,10 @@
   // compensate with a stronger shadow, not a darker/different wood.
   --crate-shadow-strength: 0.55;
 }
-// --navbar-height, redefined at the two breakpoints where .logo's font-size
-// drops (see the .logo overrides in the responsive blocks at the bottom of
-// this file). Kept here beside the base token rather than down in those
-// blocks so all three values are readable at once — measured 118.56px and
-// 105.16px respectively, rounded up to the next multiple of 4.
+// --navbar-height per breakpoint, kept beside the base token so all three
+// values are readable at once. These are now declarations, not observations:
+// the bar is whatever this says. 768px and 480px are where .logo's font-size
+// steps down, so they remain the natural places for the bar to get shorter.
 @media (max-width: 768px) {
   :root { --navbar-height: 120px; }
 }
@@ -837,7 +838,20 @@ html {
   position: fixed;
   top: 0;
   width: 100%;
-  margin-right: 100px;
+
+  // border-box is load-bearing, not tidiness. Nothing in this file sets a
+  // global box-sizing reset, so the default content-box would add the 40px of
+  // vertical padding ON TOP of `height` — the bar would render 184px while
+  // --navbar-height claims 144, silently breaking the scroll offset that token
+  // exists to drive. It also stops the bar overflowing the viewport by its own
+  // 80px of horizontal padding, which it did at every width before this.
+  box-sizing: border-box;
+
+  // The token is now the SOURCE of the navbar's height rather than a recorded
+  // measurement of it. Change --navbar-height and the bar and the scroll offset
+  // move together; they can no longer drift.
+  height: var(--navbar-height);
+
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -845,6 +859,14 @@ html {
   background-color: transparent;
   z-index: 1000;
   transition: background-color 0.3s ease-in-out;
+}
+
+// Keeps the logo and hamburger above the scrim and panel, which are children of
+// .navbar and would otherwise paint over them (positive z-index beats auto).
+.logo,
+.hamburger {
+  position: relative;
+  z-index: 3;
 }
 
 .navbar.navbar-scrolled {
@@ -855,7 +877,11 @@ html {
 .navbar-right {
   display: flex;
   align-items: center;
-  margin-right: 100px;
+  // Was 100px, when .navbar was content-box and overflowed the viewport by its
+  // own 80px of padding. border-box removed that overflow, so this drops to 20px
+  // to land the right-hand content in exactly the same place: 40px padding +
+  // 20px = the 60px gap from the viewport edge it has always had.
+  margin-right: 20px;
   gap: 15px;
 }
 
@@ -1558,11 +1584,154 @@ html {
   color: var(--text-color);
 }
 
-.navbar-mobile{
-  display: none;
-}
+// ── Mobile navigation (B4) ───────────────────────────────────────────────────
+// Both of these were `display: none` with no media query anywhere to re-enable
+// them, so the hamburger and its menu never rendered at any width. Desktop keeps
+// the inline link row; below 768px that row is replaced by the hamburger and the
+// slide-down panel defined here.
+
 .hamburger {
-  display: none;
+  display: none; // switched to flex at <=768px
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+
+  // Strip the default button chrome without losing the button semantics.
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+
+  // 44x44 minimum touch target, larger than the 26px bars it contains.
+  width: 44px;
+  height: 44px;
+
+  .bar {
+    display: block;
+    width: 26px;
+    height: 2px;
+    border-radius: 2px;
+    background-color: var(--text-color);
+    transition: transform 0.25s ease, opacity 0.2s ease;
+  }
+}
+
+// Bars collapse into an X. gap 5px + 2px bars puts the outer bars exactly 7px
+// off centre, so translateY(±7px) lands both on the middle one.
+.navbar-menu-open .hamburger .bar {
+  &:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  &:nth-child(2) { opacity: 0; }
+  &:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+}
+
+.hamburger:focus-visible,
+.navbar-links a:focus-visible,
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.navbar-mobile {
+  display: none; // switched to block at <=768px
+}
+
+@media (max-width: 768px) {
+  // The inline row (links + theme toggle) gives way to the hamburger. Below this
+  // width the links still technically fit on one line down to ~480px, but at
+  // 1rem/0.8rem with 10px/5px margins their tap targets are ~19px tall — well
+  // under the 44px minimum. Fitting is not the same as being usable.
+  .navbar-right { display: none; }
+  .hamburger { display: flex; }
+
+  // Covers everything below the bar. Sits inside .navbar's stacking context
+  // (z-index 1000), so it lands above all page content without a global z-index.
+  .navbar-scrim {
+    position: fixed;
+    inset: var(--navbar-height) 0 0 0;
+    z-index: 1;
+    background-color: rgba(0, 0, 0, 0.45);
+  }
+
+  .navbar-mobile {
+    display: block;
+    position: fixed;
+    top: var(--navbar-height);
+    left: 0;
+    right: 0;
+    z-index: 2;
+
+    // Same surface the bar itself uses once scrolled, so the panel reads as an
+    // extension of the navbar rather than a separate floating card. Themed for
+    // free — no new tokens.
+    background-color: var(--bg-color);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
+    padding: 8px 0 16px;
+
+    // Closed state. visibility (not just opacity) so the links are not
+    // focusable while hidden; `inert` on the element covers older engines.
+    transform: translateY(-8px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.22s ease, opacity 0.22s ease, visibility 0.22s;
+
+    &.is-open {
+      transform: translateY(0);
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .navbar-links {
+      display: flex;
+      flex-direction: column;
+    }
+
+    // Full-width rows: the whole row is the target, not just the text.
+    .navbar-links a {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      margin: 0;
+      padding: 0 40px;
+      font-size: 1.15rem;
+    }
+
+    .navbar-links a[aria-current="page"] {
+      color: var(--accent);
+    }
+  }
+
+  .navbar-mobile-footer {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    // Margin rather than padding on the sides so the rule starts and ends at
+    // the same 40px inset as the link labels above it, instead of running the
+    // full width of the panel.
+    margin: 8px 40px 0;
+    padding-top: 8px;
+    // Full-strength --secondary-text reads as a hard division between two
+    // regions; this is a light separator between items in one panel.
+    border-top: 1px solid color-mix(in srgb, var(--secondary-text) 32%, transparent);
+
+    .theme-toggle {
+      width: 44px;
+      height: 44px;
+      // Cancel the row inset for the control itself, so the icon lines up on
+      // the same left edge as the link labels.
+      margin-left: -8px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar-mobile,
+  .hamburger .bar {
+    transition: none;
+  }
 }
 
 //Responsive media
@@ -1666,8 +1835,6 @@ html {
     height: 80px;
   }
 
-  // Changing this changes .navbar's height. Re-measure and update
-  // --navbar-height for this breakpoint at the top of the file.
   .logo {
     font-size: 1.8rem;
   }
@@ -1817,7 +1984,6 @@ html {
     overflow-x: hidden;
   }
 
-  // Same as at 768px — this drives --navbar-height for this breakpoint.
   .logo {
     font-size: 1.5rem;
   }
