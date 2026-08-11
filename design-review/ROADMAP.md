@@ -173,6 +173,34 @@ gesture. `audio.play()` must land exactly on needle contact.
 `previewUrl` is currently captured from the iTunes search and **thrown away**. There
 is no `AudioContext` anywhere in the codebase.
 
+> **Read the hero components from the tree before writing a line of animation code.**
+> This is not boilerplate caution — it is the single most repeated lesson of Stage 0.
+> Four separate tasks found this document, or the task brief quoting it, describing a
+> state that no longer existed:
+>
+> - **B4** said mobile had no navigation. Task 2 had already un-gated the links, so the
+>   real bug was different *and worse* — they were wrapping mid-label.
+> - **B7** described a clipped logo. It renders perfectly; the fixed navbar was
+>   overlaying the screenshot.
+> - **Task 2's brief** cited a `var(--seconday-color)` typo and a `.theme-transition`
+>   rule. Neither existed.
+> - **Phase 0's** own "no proxy needed" conclusion was desktop-UA-only and wrong for
+>   iPhone search.
+>
+> Start by reading these three, verified present 2026-08-10:
+>
+> | File | Size then |
+> |---|---|
+> | `client/src/sections/home.jsx` | 22 lines |
+> | `client/src/components/turntable.jsx` | 57 lines |
+> | `client/src/components/record-crate.jsx` | 265 lines |
+>
+> Also present and relevant: `components/vinyl-record.jsx` and
+> `components/strobe-ring.jsx`. Confirm what each actually renders, what state it
+> already holds, and where `previewUrl` currently dies — **then** plan the animation.
+> Line counts above are a staleness check: if they differ, the file changed after this
+> was written and nothing here should be trusted about it.
+
 **Two different Apple hosts, two different architectures. Do not conflate them.**
 
 | | Host | Path | Status |
