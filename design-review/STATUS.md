@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-10 · **HEAD:** `679e56c`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-10 · **HEAD:** `407409a`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -17,12 +17,12 @@ A portfolio that does six things. Current standing on each:
 
 | # | Goal | Status | Addressed by |
 |---|---|---|---|
-| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form, iPhone search, contrast, scroll offset, mobile nav and **`#my-taste` layout** all fixed; B7 did not reproduce. Only the missing resume link remains | Stage 0 |
+| 1 | **Works correctly** — nothing broken or lying to visitors | 🟢 **Stage 0 complete.** Contact form, iPhone search, contrast, scroll offset, mobile nav, `#my-taste` layout all fixed; B7 did not reproduce | — |
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🔴 Hero is inert. `previewUrl` is captured and discarded | **Stage 1** |
 | 5 | **Reads as one coherent design** | 🔴 Hero and body are two different visual languages | Stage 3 |
-| 6 | **Converts recruiter attention** | 🟡 Contact works; **no resume link anywhere** | Stage 0 |
+| 6 | **Converts recruiter attention** | 🟡 Contact form works and the resume is linked from three places; the hero still does not deliver its premise | Stage 1 |
 
 Goals 1–3 were the focus of the 2026-08-07/08 session. **Goals 4–6 are the remaining
 project.**
@@ -277,6 +277,50 @@ Also logged, not fixed: **D8** (navbar's 0.3s background transition lags body's 
 ~200ms on theme switch — Stage 3, when motion becomes tokens) and **D9** (navbar has no
 entrance or scroll-linked motion — Stage 2, once Lenis and ScrollTrigger exist).
 
+### Stage 0 Task 7 — resume link *(closes Stage 0)*
+
+`client/public/Diego-Damian-Resume.pdf`, 36 KB, copied to `dist/` verbatim by Vite.
+Linked from the desktop navbar, the mobile menu and `#connect`, opening in a new tab
+with `rel="noopener noreferrer"` rather than forcing a download.
+
+Kept out of `SECTIONS` deliberately: that array drives `scrollToSection()`,
+`aria-current` and the `hashchange` sync, so a document link inside it would try to
+scroll to a section that doesn't exist. Verified across all three locations —
+`aria-current` null, no scroll fired, URL hash untouched.
+
+**The Caddy question, answered by testing rather than assumption.** Ran the real
+`Caddyfile` under the exact production Caddy (v2.11.4) against a real build:
+
+| Request | Result |
+|---|---|
+| `/Diego-Damian-Resume.pdf` (present) | 200 `application/pdf`, body `%PDF-` ✅ |
+| `/about` (SPA route) | 200 `text/html` ✅ |
+| a `.pdf` that does **not** exist | **200 `text/html`** ⚠️ |
+
+`try_files {path} /index.html` matches the real file first, so the link works. But the
+third row is a standing trap: **a missing PDF returns 200 with the site's HTML, not a
+404.** If the file ever fails to deploy the link breaks silently. Any post-deploy check
+must assert `Content-Type: application/pdf`, not just a 200.
+
+**A regression this caused, and its fix.** The sixth nav item pushed the inline link row
+past its fit — measured, it wraps below ~840px and fits 840–860px with *zero* slack, so
+comfortable fit starts ~880. The hamburger breakpoint moved **768 → 900px**, in its own
+media block: the shared 768px block also carries `#my-taste` and bio rules, and widening
+its condition would have dragged those to 900px too. `--navbar-height` still steps at
+768/480 because that tracks `.logo`'s font-size — the two thresholds answer different
+questions.
+
+**Two source-file catches worth recording.** The first file selected was
+`diegos_resume (3).pdf` (newest on disk, 2026-07-05) — rendering it showed it **predates
+the Capgemini role entirely**, so publishing it would have put a resume missing the
+current employer on a live job-search site. Dates on disk did not identify the current
+version; only rendering the page did. The replacement was then dropped in as
+`diegos_resume.pdf` with mode `600`, and was renamed and normalised to 644.
+
+Not added to `sitemap.xml`: listing PDFs is conventional and valid, but the file carries
+a phone number and the nav link already makes it discoverable, so a sitemap entry mostly
+just accelerates indexing. `robots.txt` is unchanged.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -304,8 +348,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | 412.52 kB / 150.83 kB gz |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **27.00 kB / 6.05 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | 412.94 kB / 150.97 kB gz |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **27.50 kB / 6.16 kB gz** |
 | ESLint errors | 21 | **16** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

@@ -145,8 +145,16 @@ The site is live and is being used for a job search. These are visible failures.
   is dead code, beaten on specificity by the base rules nested under `.spotify-section`
   — which is *why* B8 existed, since `flex-direction` was the one property that got
   through. Stage 4 should delete that block rather than repair it
-- **Add a resume/CV link.** Currently absent entirely. For a site whose job is
-  converting recruiter attention this is a larger gap than any unfinished animation.
+- ~~**Add a resume/CV link.** Currently absent entirely. For a site whose job is
+  converting recruiter attention this is a larger gap than any unfinished animation.~~
+  — **DONE 2026-08-10.** `client/public/Diego-Damian-Resume.pdf` (36 KB), linked from
+  the desktop navbar, the mobile menu and `#connect`, opening in a new tab. Kept out of
+  `SECTIONS` so it can never take an `aria-current` highlight or trigger a scroll.
+  Adding a sixth nav item pushed the inline row past its fit, so the hamburger
+  breakpoint moved 768 → 900px. Deliberately **not** added to `sitemap.xml` — the PDF
+  carries a phone number and the nav link already makes it discoverable
+
+**Stage 0 is complete.** See `STATUS.md` for the close-out.
 
 ~~Also fold in the trivial cleanup while in these files: delete `nav-orb.jsx` /
 `orb-field.jsx` and their CSS, drop `@react-spring/web` and `@use-gesture/react`

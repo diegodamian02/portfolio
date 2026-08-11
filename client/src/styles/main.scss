@@ -903,6 +903,51 @@ html {
   color: var(--accent);
 }
 
+// The resume is a peer of the nav destinations but leaves the page, so it gets
+// a quiet outward arrow to say so before it's clicked. Deliberately restrained:
+// a button treatment here would outrank the actual navigation.
+.navbar-resume {
+  &::after {
+    content: "↗";
+    display: inline-block;
+    margin-left: 0.35em;
+    font-size: 0.85em;
+    // Sits slightly high next to cap-height text without it.
+    transform: translateY(-0.05em);
+  }
+}
+
+// #connect — same link, given room to read as a call to action next to the
+// email address.
+.contact-resume {
+  margin: 0 0 8px;
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+
+    &::after {
+      content: "↗";
+      margin-left: 0.35em;
+      font-size: 0.85em;
+    }
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+}
+
 // Parallax section
 .section {
   height: 100vh;
@@ -1682,14 +1727,25 @@ html {
 }
 
 .navbar-mobile {
-  display: none; // switched to block at <=768px
+  display: none; // switched to block at <=900px
 }
 
-@media (max-width: 768px) {
+// The navbar's own breakpoint. Task 5 put the hamburger at 768px with five
+// links; adding the resume made six, and six no longer fit — measured, the row
+// wraps below ~840px and fits 840–860px with *zero* slack. Comfortable fit
+// starts around 880px, so this moved to 900px.
+//
+// It stays a dedicated block rather than folding into the general 768px block
+// further down: that one is shared with #my-taste, the bio section and others,
+// so widening its condition would drag all of them to 900px too.
+//
+// --navbar-height still steps at 768/480, because that tracks .logo's font-size
+// rather than this swap. The two thresholds answer different questions and are
+// not required to agree.
+@media (max-width: 900px) {
   // The inline row (links + theme toggle) gives way to the hamburger. Below this
-  // width the links still technically fit on one line down to ~480px, but at
-  // 1rem/0.8rem with 10px/5px margins their tap targets are ~19px tall — well
-  // under the 44px minimum. Fitting is not the same as being usable.
+  // width the links would wrap, and even where they fit their tap targets are
+  // ~19px tall — well under the 44px minimum. Fitting is not being usable.
   .navbar-right { display: none; }
   .hamburger { display: flex; }
 
