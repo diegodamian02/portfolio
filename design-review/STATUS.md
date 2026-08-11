@@ -17,7 +17,7 @@ A portfolio that does six things. Current standing on each:
 
 | # | Goal | Status | Addressed by |
 |---|---|---|---|
-| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form, iPhone search, contrast, scroll offset and **mobile nav** fixed; `#my-taste` mobile layout still broken | Stage 0 |
+| 1 | **Works correctly** — nothing broken or lying to visitors | 🟡 Contact form, iPhone search, contrast, scroll offset, mobile nav and **`#my-taste` layout** all fixed; B7 did not reproduce. Only the missing resume link remains | Stage 0 |
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🔴 Hero is inert. `previewUrl` is captured and discarded | **Stage 1** |
@@ -232,6 +232,51 @@ add 0 history entries, and because raw history never notifies react-router,
 shared URLs. One real bug caught mid-task: `aria-current` was seeded at mount but never
 synced, so back/forward left the highlight stale — fixed with a `hashchange` listener.
 
+### Stage 0 Task 6 — layout bugs (B7 does not reproduce, B8 fixed, D10 found)
+
+**B7 was not a bug.** The Rutgers logo renders complete and undistorted at every width
+— measured natural aspect 1.13, rendered image aspect 1.13. The "slicing" in
+`about-desktop.png` / `about-mobile.png` is the **fixed navbar overlaying the element
+capture**, the artifact `FINDINGS.md` §2 already warns about: the opaque bar sits across
+the middle of `.bio-left`, hiding the centre of the "R" and leaving its legs showing as
+two red bars. Scroll it clear, or delete `.navbar` before capturing, and it is fine.
+
+`.university-logo` *does* use content-box `width: 150px; padding: 50px`, so it occupies
+250×233 for a 150px logo — the same pattern Task 5 found on `.navbar`. But here it makes
+**dead space, not clipping**: no ancestor constrains or hides overflow. Resizing it "to
+balance the 200px photo" is a judgement about visual weight with no defect behind it, so
+per the task's own instruction it was reported rather than decided. Of the other bio
+elements, `.profile-photo` and `.flag` are correct and `.timeline-logo` already sets
+`box-sizing: border-box`.
+
+**B8 reproduced exactly and is fixed** — alignment only:
+
+| Defect | Cause | Fix | Verified |
+|---|---|---|---|
+| Numbers on their own line (mobile) | `flex-direction: column` at 768 | removed | beside title, all widths |
+| Number centred on the block, not the title | `align-items: center` | `baseline` | **0.0px** delta, incl. wrapped titles |
+| Dividers offset from content | `.track-number` `padding: 5px 10px` | `padding: 0` + `min-width` | **0.0px** |
+| Artist grid stepping + orphans | flex `space-between` + `align-items: center` | grid, `align-items: start` | 5 cols desktop, 3+2 mobile |
+
+Column counts are arithmetic, not taste: the server hardcodes `limit=5`, so with 5 items
+only 5 or 3 columns avoid stranding one. `auto-fit` resolved to 4 at 768px and 2 at
+480px — **4+1** and **2+2+1**, the orphan being removed — so explicit counts replaced it.
+
+**D10, found while fixing B8, is the reason B8 existed.** Every `#my-taste` responsive
+override is dead code: the base rules are nested under `.spotify-section` (0,2,0) while
+every media-query override is written bare (0,1,0), and media queries add no
+specificity. A CSSOM audit found **11 dead declarations** — `.spotify-artist-img`
+computed to **100px at 480px** where the override says 60px. The single property that
+always got through was `flex-direction`, because the base never declares one. That is
+exactly why B8's first defect was the only one of these rules with a visible effect.
+
+Only the override B8 needed was corrected; the remaining ~9 were left dead deliberately,
+since fixing their specificity would activate sizing that has never once rendered.
+
+Also logged, not fixed: **D8** (navbar's 0.3s background transition lags body's 0.1s by
+~200ms on theme switch — Stage 3, when motion becomes tokens) and **D9** (navbar has no
+entrance or scroll-linked motion — Stage 2, once Lenis and ScrollTrigger exist).
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -260,7 +305,7 @@ crate too, not just `#my-taste`.
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
 | JS bundle | 407 KB / 147 KB gz | 412.52 kB / 150.83 kB gz |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **26.90 kB / 6.01 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **27.00 kB / 6.05 kB gz** |
 | ESLint errors | 21 | **16** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

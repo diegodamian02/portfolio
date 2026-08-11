@@ -130,14 +130,21 @@ The site is live and is being used for a job search. These are visible failures.
 - **B5** `client/.env` missing URL scheme, breaks local `#my-taste`
 - ~~**B6** slideshow duplicates the project list and is missing a project~~ —
   **DONE 2026-08-08** (`4ebaaaf`), deleted entirely per Q3
-- **B7** Rutgers logo clipped
-- **B8 — `#my-taste` mobile layout is visibly broken.** Verified in
-  `my-taste-mobile.png`: track numbers are centered on their own line *above* the
-  title rather than beside it, so the number detaches from the track it labels;
-  divider rules don't align to the content they separate; and the artist grid
-  misaligns whenever a name wraps to two lines, leaving the final item orphaned on
-  its own row. Not in the original `FINDINGS.md` list; reads as a rendering bug to
-  any visitor.
+- ~~**B7** Rutgers logo clipped~~ — **DOES NOT REPRODUCE 2026-08-10.** The logo renders
+  complete and undistorted at every width; the "slicing" in `about-*.png` is the fixed
+  navbar overlaying the element capture (the artifact `FINDINGS.md` §2 warns about).
+  Resizing it for visual balance against the profile photo is a design decision with no
+  defect behind it — moved to Stage 3 / D5
+- ~~**B8 — `#my-taste` mobile layout is visibly broken.**~~ — **DONE 2026-08-10.**
+  All three defects reproduced and are fixed, alignment only: numbers sit beside their
+  titles on the title's baseline (0.0px delta at every width), dividers start at the
+  content's left edge, and the artist list is a grid with `align-items: start` so images
+  share a top edge. Column counts are arithmetic — the server hardcodes `limit=5`, and
+  only 5 or 3 columns avoid an orphan, so `auto-fit` (which gave 4+1 and 2+2+1) was
+  replaced by explicit counts. Surfaced **D10**: every `#my-taste` responsive override
+  is dead code, beaten on specificity by the base rules nested under `.spotify-section`
+  — which is *why* B8 existed, since `flex-direction` was the one property that got
+  through. Stage 4 should delete that block rather than repair it
 - **Add a resume/CV link.** Currently absent entirely. For a site whose job is
   converting recruiter attention this is a larger gap than any unfinished animation.
 

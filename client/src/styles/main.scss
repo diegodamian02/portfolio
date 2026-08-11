@@ -1211,7 +1211,11 @@ html {
 
   .spotify-track-item {
     display: flex;
-    align-items: center;
+    // baseline, not center: center aligned the number against the midpoint of
+    // the whole two-line block, so "1" floated between "Just Like Heaven" and
+    // "The Cure" instead of labelling the title. baseline puts it on the track
+    // title's own baseline, which is the line it actually refers to.
+    align-items: baseline;
     gap: 40px;
     width: 80%;
     border-bottom: 1px solid var(--text-color);
@@ -1222,7 +1226,13 @@ html {
     font-size: 1.2rem;
     font-weight: bold;
     color: var(--text-color);
-    padding: 5px 10px;
+    // Was `padding: 5px 10px`, which started the number 10px inside the row's
+    // own border-bottom — the rule and the content it separates began at
+    // different offsets. Zero padding puts the number's left edge on the rule's
+    // left edge; the fixed width keeps every title in one column.
+    padding: 0;
+    flex: none;
+    min-width: 1.25em;
   }
 
   .track-details {
@@ -1257,27 +1267,65 @@ html {
 
 
   /* Top Artists styling */
+  // Was flex with `justify-content: space-between` + `flex-wrap`, which threw a
+  // short final row out to the container's two edges, and `align-items: center`,
+  // which made any item with a two-line name ("Red Hot Chili Peppers") sit at a
+  // different vertical offset than its single-line neighbours — so the row of
+  // circles stepped up and down instead of sharing a top edge.
+  //
+  // Grid fixes both mechanically: columns are fixed, so a short last row stays
+  // column-aligned rather than spreading, and `align-items: start` puts every
+  // image on the same line regardless of how many lines its name takes.
+  // Explicit column counts, not auto-fit. The server hardcodes `limit=5`
+  // (server.js /me/top/:type), so there are always exactly 5 artists, and with
+  // 5 items only 5 columns (one row) or 3 columns (3+2) avoid stranding one
+  // alone on the last row. auto-fit resolved to 4 at 768px and 2 at 480px,
+  // giving 4+1 and 2+2+1 — the orphan this task exists to remove. That is
+  // arithmetic, not a design choice; revisit the counts if the limit changes.
   .top-artists-list {
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    display: grid;
+    // minmax(0, 1fr), not 1fr: a bare 1fr floors at min-content, so the columns
+    // could not shrink below the 100px image and 5 of them overflowed the
+    // container at mobile widths. The 0 minimum lets the track shrink and the
+    // image follow it.
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-items: center;
+    align-items: start;
+    gap: 28px 12px;
     margin-top: 40px;
     width: 70%;
     padding: 0 20px;
-    gap: 10px;
-    align-items: center;
   }
 
   .artist-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 100px;
+    // Fills its grid track, capped at the original 100px so desktop is
+    // unchanged. Fixed widths here can't respond to the track shrinking.
+    width: 100%;
+    max-width: 100px;
+
+    // The item's only child is the <a> wrapping image + name, so it has to do
+    // the stacking; otherwise the name's alignment depends on inherited
+    // text-align rather than the item's own box.
+    a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
   }
 
+  // Scales with its grid track instead of a fixed 100px. The breakpoint
+  // overrides for this element (80px / 60px) have never actually applied — see
+  // the specificity note on the responsive block — so sizing has to be handled
+  // here to work at mobile widths at all. Caps at 100px, so desktop is
+  // pixel-identical to before.
   .spotify-artist-img {
-    width: 100px;
-    height: 100px;
+    width: 100%;
+    aspect-ratio: 1;
+    height: auto;
     object-fit: cover;
     border-radius: 50%;
   }
@@ -1806,10 +1854,13 @@ html {
 
   }
 
+  // `flex-direction: column` was the whole of B8's first defect: it stacked the
+  // number ABOVE the title and, with the list's align-items: center, centred it
+  // on its own line — so "1" read as a heading rather than a label for "Just
+  // Like Heaven". The row direction from the base rule is correct at every
+  // width; only the gap needs to come down.
   .spotify-track-item {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;  /* Increase gap between track number and details */
+    gap: 16px;
     width: 80%;  /* Make it smaller to fit on smaller screens */
     margin: 0 auto;
   }
@@ -1820,10 +1871,15 @@ html {
   }
 
   /* Adjust top artists layout */
-  .top-artists-list {
-    width: 80%;  /* Ensure the artists list takes up full width */
-    justify-content: center;
-    align-items: center
+  // NOTE the selector: it must carry `.spotify-section` to outrank the base
+  // rule, which is nested under it. Every other override in this responsive
+  // block is written bare and therefore loses to the base and does nothing —
+  // see FINDINGS D10. Only rules the base does not declare have ever applied.
+  //
+  // 5 across is too cramped below this width, and 4 or 2 columns would strand
+  // the 5th artist alone on the last row. 3 gives a clean 3+2.
+  .spotify-section .top-artists-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .artist-item {
@@ -1965,10 +2021,9 @@ html {
     height: 60px;
   }
 
+  // Same as at 768px — grid now, so the flex alignment props are dropped.
   .top-artists-list {
     width: 100%;  /* Full width for artists list */
-    justify-content: space-evenly;
-    align-items: center;
   }
 
   .artist-item {

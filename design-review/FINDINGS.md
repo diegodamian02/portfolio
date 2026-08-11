@@ -393,24 +393,147 @@ is now the single source of truth, and the section lists all four projects. Remo
 heading and intro line are intact and the leading/trailing gaps where it sat both
 measure 0px.
 
-### B7 — Rutgers logo is clipped in the bio section.
+### B7 — Rutgers logo is clipped in the bio section — **DOES NOT REPRODUCE 2026-08-10**
 
-### B8 — `#my-taste` mobile layout is visibly broken
+**No bug here. Nothing changed.** Re-verified from the tree and fresh captures at
+1440 / 1024 / 768 / 480 in both themes: the logo renders **complete and undistorted at
+every width.**
 
-Verified in `my-taste-mobile.png`:
+What made it look sliced in `about-desktop.png` / `about-mobile.png` is the **fixed
+navbar overlaying the element capture** — the artifact this file already warns about in
+§2. The navbar's opaque band sits across the middle of `.bio-left`, hiding the centre of
+the "R" and leaving only the bottom of its legs visible as two red bars. Scroll the logo
+clear of the bar, or delete `.navbar` before capturing, and the full R is there.
 
-- **Track numbers detach from their tracks.** Each number is centered on its own line
-  *above* the title rather than sitting beside it, so "1" reads as a heading rather
-  than a label for "Just Like Heaven".
-- **Divider rules don't align to their content.** They start and end at arbitrary
-  offsets rather than matching the text column.
-- **The artist grid misaligns on wrap.** Two-line names ("Red Hot Chili Peppers",
-  "Stone Temple Pilots") push their row out of alignment with the single-line ones,
-  and the fifth artist is orphaned alone on the final row.
+Measured, which is what settles it:
 
-Reads as a rendering fault to any visitor. Note this is separate from the `#my-taste`
-*redesign* (`ROADMAP.md` Stage 4) — this is making the current layout not-broken,
-which is worth doing independently because the redesign is several stages away.
+| | value |
+|---|---|
+| natural | 496×439 (aspect **1.13**) |
+| rendered image | 150×132.75 (aspect **1.13** — no distortion) |
+| element box | 250×232.8 |
+| `object-fit` | `fill` (harmless: height is `auto`, so aspect is preserved) |
+
+**On the content-box question the task raised:** `.university-logo` *does* use
+`width: 150px; padding: 50px` under `content-box`, so the padding adds outside the
+declared width and the element occupies 250×233 for a 150px logo. That is the same
+pattern Task 5 found on `.navbar`, but here it produces **dead space, not clipping** —
+there is nothing to clip against, because no ancestor constrains or hides overflow
+(`.bio-section`, `.bio-container` and `.bio-left` are all `overflow: visible`).
+
+**Left unfixed deliberately.** Resizing the logo "so it balances against the 200px
+photo" is a judgement about visual weight with no defect behind it — a design decision,
+which this task says to stop and report rather than make. It belongs with the Stage 3
+design-system pass, alongside **D5**.
+
+**The rest of the bio audit, as requested** — only `.university-logo` has the
+content-box padding pattern, and nothing else is broken:
+
+| Selector | Declared | Rendered | Verdict |
+|---|---|---|---|
+| `.profile-photo` | 200×200, no padding | 200×200 | ✅ |
+| `.flag` | 20×15, `object-fit: cover` | 20×15 | ✅ crops by design (natural 1.5 → 1.33) |
+| `.timeline-logo` | `padding: 60px 40px` | 507×400 | ✅ already sets `box-sizing: border-box` |
+| `.university-logo` | 150px + 50px padding | 250×233 | ⚠️ dead space, renders fine |
+
+### B8 — `#my-taste` mobile layout is visibly broken — **FIXED 2026-08-10**
+
+All three defects reproduced exactly as recorded, and all three are fixed. Alignment
+only — no restyling, no new hierarchy, no material treatment. The Stage 4 redesign
+still replaces this section wholesale.
+
+**1. Track numbers detached from their tracks.** Cause was exactly as predicted:
+`.spotify-track-item { flex-direction: column }` in the 768px block, which stacked the
+number above the title while the list's `align-items: center` centred it on its own
+line. Removed — the base rule's row direction is correct at every width.
+
+**2. Number aligned to the block's centre, not the title (desktop).**
+`align-items: center` centred the number against the midpoint of the whole two-line
+block, so "1" floated between "Just Like Heaven" and "The Cure". Changed to
+`baseline`, which puts it on the track title's own baseline. Verified **0.0px delta**
+at all five widths, including rows where the title wraps to two lines.
+
+**3. Dividers not aligned to their content.** `.track-number` had `padding: 5px 10px`,
+starting the number 10px inside the row's own `border-bottom`. Zeroed the horizontal
+padding and gave the number a fixed `min-width` so titles share one column. Verified
+**0.0px** between the rule's left edge and the content's.
+
+**4. Artist grid stepping and orphans.** `display: flex` with
+`justify-content: space-between` + `flex-wrap` threw a short final row out to the
+container's edges, and `align-items: center` made two-line names ("Red Hot Chili
+Peppers") sit at a different vertical offset than their neighbours. Replaced with a
+grid using `align-items: start`, so every image shares a top edge.
+
+> **Column counts are arithmetic, not taste.** The server hardcodes `limit=5`
+> (`/me/top/:type`), so there are always exactly 5 artists — and with 5 items only
+> **5 columns (one row)** or **3 columns (3+2)** avoid stranding one alone. An
+> `auto-fit` grid resolved to 4 columns at 768px and 2 at 480px, producing **4+1** and
+> **2+2+1** — the orphan this was meant to remove. Explicit counts instead: 5 above
+> 768px, 3 below. Revisit if that limit ever changes.
+
+Verified at 1440 / 1024 / 768 / 480 / 390, both themes, and no horizontal overflow down
+to 320px.
+
+### D10 — every `#my-taste` responsive override is dead code — **partially fixed**
+
+Found while fixing B8, and it is the *reason* B8 existed.
+
+The base `#my-taste` rules are nested under `.spotify-section`, so they compile to
+`.spotify-section .spotify-artist-img` (specificity 0,2,0). Every override in the 768px
+and 480px blocks is written **bare** — `.spotify-artist-img` (0,1,0). **Media queries
+add no specificity**, so the base wins and the override does nothing.
+
+Measured, before this task: `.spotify-artist-img` computed to **100px at 480px**, where
+the override says 60px. An audit of the rendered CSSOM found **11 dead declarations**,
+all inside `.spotify-section`:
+
+| Breakpoint | Selector | Dead properties |
+|---|---|---|
+| 768 | `.spotify-track-list` | width, margin-right, display, flex-direction, gap, align-items |
+| 768 | `.spotify-track-item` | gap, width |
+| 768 | `.track-image` | width, height |
+| 768 | `.artist-item` | width |
+| 768 | `.spotify-artist-img` | width, height |
+| 480 | `.spotify-track-list` | width, align-items |
+| 480 | `.spotify-track-item` | gap |
+| 480 | `.track-image` | width, height |
+| 480 | `.top-artists-list` | width |
+| 480 | `.artist-item` | width |
+| 480 | `.spotify-artist-img` | width, height |
+
+**The one property that always got through was `flex-direction`** — because the base
+rule declares only `display: flex` and never a direction, so there was nothing to lose
+to. That is precisely why B8's first defect was the *only* one of these overrides with
+any visible effect.
+
+**Partially fixed:** the one override B8 needed (`.top-artists-list`'s column count) is
+now written as `.spotify-section .top-artists-list` so it wins, and artist image sizing
+was made fluid (`width: 100%` + `aspect-ratio`, capped at the original 100px) so it
+responds without depending on the dead rules at all.
+
+**Deliberately NOT fixed:** the remaining ~9 declarations. Correcting their specificity
+would suddenly activate sizing that has *never once rendered* — track images at 60px,
+list widths at 90%/80% — changing the layout in ways nobody has seen or approved. That
+is a design decision, so it is logged here instead. Whoever does the Stage 4 redesign
+should delete this block rather than repair it.
+
+### D8 — theme toggle desyncs from the page it themes
+
+`body` transitions `background-color` over **0.1s** while `.navbar` transitions over
+**0.3s**, so on a theme switch the page flips and the navbar visibly lags it by roughly
+200ms before catching up. Reads as a rendering stutter rather than a deliberate stagger.
+
+Belongs to **Stage 3**, where motion durations become tokens instead of per-rule
+literals — fixing it here would just move a magic number.
+
+### D9 — the navbar has no entrance or scroll-linked motion
+
+It is simply present at full opacity from the first frame, and its only state change is
+an abrupt background swap past 8px of scroll. Nothing about its appearance responds to
+the page.
+
+Belongs to **Stage 2**, once Lenis and `ScrollTrigger` exist. Hand-rolling scroll-linked
+navbar motion now would mean rewriting it against `ScrollTrigger` immediately after.
 
 ---
 
