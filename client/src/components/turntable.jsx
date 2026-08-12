@@ -23,6 +23,10 @@ const ARM_REST = 20.5;
 // playing angle, because increasing rotation moves the stylus inward.
 const ARM_LIFT = 18.5;
 
+// Reduced motion has no spin to pin the audio to, so transport gets a plain
+// gain fade at this length instead of a pitch bend.
+const REDUCED_FADE_SECONDS = 0.15;
+
 export default function Turntable({ track = null }) {
     const reduced = useReducedMotion();
 
@@ -132,7 +136,8 @@ export default function Turntable({ track = null }) {
 
         if (span < 0.005) {
             tween.timeScale(target);
-            if (target === 0) tween.pause();
+            if (target === 0) { tween.pause(); audio.stop(); }
+            else audio.settleSpin(target);
             return;
         }
 
@@ -144,7 +149,15 @@ export default function Turntable({ track = null }) {
             // alternation never converges inside the window the invariant allows.
             duration: seconds * span,
             ease,
-            onComplete: () => { if (target === 0) tween.pause(); },
+            // The audio rides the platter's ACTUAL timeScale rather than a
+            // parallel tween of its own, so the pitch bend and fade can never
+            // drift from the thing they are supposed to be following — and the
+            // proportional duration above is inherited for free.
+            onUpdate: () => audio.followSpin(tween.timeScale(), { stopAtFloor: target === 0 }),
+            onComplete: () => {
+                if (target === 0) { tween.pause(); audio.stop(); }
+                else audio.settleSpin(target);
+            },
         });
     }, [reduced]);
 
@@ -170,10 +183,10 @@ export default function Turntable({ track = null }) {
     // Synchronous fast path for the needle-contact beat. Falls through to the
     // async path when the buffer isn't warm yet (slow network), which starts
     // audio a little late rather than not at all.
-    const startAudioSync = useCallback((offset = 0) => {
+    const startAudioSync = useCallback((offset = 0, fadeSeconds) => {
         const t = trackRef.current;
         if (!t?.previewUrl) return false;
-        const started = audio.playCached({ previewUrl: t.previewUrl, trackId: t.id, offset });
+        const started = audio.playCached({ previewUrl: t.previewUrl, trackId: t.id, offset, fadeSeconds });
         if (started) {
             applyDeckState(DECK.PLAYING);
             setErrorMessage(null);
@@ -203,6 +216,10 @@ export default function Turntable({ track = null }) {
             const tl = gsap.timeline();
             tl.to(armRef.current, { rotation: ARM_LIFT, duration: 0.25, ease: "power2.out" }, 0);
             tl.to(armRef.current, { rotation: ARM_REST, duration: 0.6, ease: "power2.inOut" }, 0.25);
+            // The brake runs, but there is nothing left to bend: the source has
+            // already reached the end of the buffer, which is what fired this.
+            // Unlinking here leaves the rate at 1 for the replay that follows.
+            audio.endSpinLink();
             spinDown(SPIN_END_SECONDS);
             applyDeckState(DECK.STOPPED_LOADED);
         });
@@ -233,6 +250,11 @@ export default function Turntable({ track = null }) {
         // Guard overlap: a rapid second pick must not stack timelines or leave
         // two audio sources running.
         if (timelineRef.current) { timelineRef.current.kill(); timelineRef.current = null; }
+        // A needle drop, not a resume: the deck is treated as already at speed,
+        // so playback starts at pitch with Task 2's slow fade-in rather than
+        // bending up from the rate floor. Also clears any rate a previous
+        // power-down left behind.
+        audio.endSpinLink();
         audio.stop();
         isBusyRef.current = true;
         applyDeckState(DECK.LOADING);
@@ -320,15 +342,42 @@ export default function Turntable({ track = null }) {
         const state = deckStateRef.current;
 
         if (state === DECK.PLAYING) {
-            // Pause: audio stops, spin brakes, arm STAYS DOWN.
-            audio.stop();
-            spinDown();
+            // Pause: the platter brakes and the audio rides it DOWN — the pitch
+            // sags and the level fades on the brake's own curve, then cuts at
+            // the rate floor where it is already silent. The arm stays down.
+            //
+            // Reduced motion has no brake to follow, so it gets a plain short
+            // fade instead. Not an abrupt cut: silence arriving in one sample is
+            // the harsher of the two, and it is not a motion concern.
+            if (reduced) {
+                audio.fadeOutAndStop(REDUCED_FADE_SECONDS);
+            } else {
+                audio.beginSpinLink();
+                spinDown();
+            }
             applyDeckState(DECK.PAUSED);
             return;
         }
 
         if (state === DECK.PAUSED) {
+            if (reduced) {
+                const offset = audio.getElapsed();
+                if (!startAudioSync(offset, REDUCED_FADE_SECONDS)) startAudio(offset);
+                return;
+            }
+
+            audio.beginSpinLink();
             spinUp();
+
+            // If the brake never reached the floor the record never actually
+            // stopped — let the wind-up carry it back up rather than tearing the
+            // source down and restarting it, which would both lose the groove
+            // position and risk a click at non-zero gain.
+            if (audio.getState().isPlaying) {
+                applyDeckState(DECK.PLAYING);
+                return;
+            }
+
             const offset = audio.getElapsed();
             // Synchronous first, same reason as needle contact: startAudioSync
             // sets PLAYING in THIS tick, so a press landing one frame later
@@ -344,6 +393,10 @@ export default function Turntable({ track = null }) {
             // distinguishes "swinging back to the outer groove" from
             // STOPPED_LOADED, so without this a second press would start a
             // second swing from a half-travelled arm.
+            //
+            // Unlinked: a replay is a needle drop, so it starts at pitch with
+            // the slow fade-in rather than bending up from the floor.
+            audio.endSpinLink();
             audio.reset();
             isBusyRef.current = true;
             spinUp();
@@ -351,7 +404,7 @@ export default function Turntable({ track = null }) {
             tl.to(armRef.current, { rotation: outerGrooveAngle, duration: 0.6, ease: "power2.inOut" }, 0);
             tl.call(() => { if (!startAudioSync(0)) startAudio(0); }, null, 0.6);
         }
-    }, [spinUp, spinDown, startAudio, startAudioSync, outerGrooveAngle, applyDeckState]);
+    }, [spinUp, spinDown, startAudio, startAudioSync, outerGrooveAngle, applyDeckState, reduced]);
 
     const transportLabel =
         deckState === DECK.PLAYING ? "Pause" :

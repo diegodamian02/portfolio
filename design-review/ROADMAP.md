@@ -306,6 +306,44 @@ but it is a known limitation rather than a solved problem.
 > state, fits naturally in Phase 8) and D12 (the mat is a ~1.5% ring once a record is on
 > — Stage 4 should decide whether the record shrinks or the mat simplifies).
 
+> **Stage 1, Task 5 — power-down audio + D8.** Also done, 2026-08-12. Decisions:
+>
+> - **The audio is pinned to the platter, not tweened alongside it.** `setSpin`'s tween
+>   drives `audio.followSpin(tween.timeScale())` from its own `onUpdate`, so rate and gain
+>   ride the real curve and inherit Task 4's proportional durations. Phases 8 (scratch)
+>   and 9 (pitch) should extend `followSpin`/`setRate` rather than writing
+>   `playbackRate` directly — `setRate` also owns the piecewise elapsed integration, and
+>   bypassing it silently corrupts the resume position.
+> - **`RATE_FLOOR = 0.2`** is where playback cuts; `spinGain()` reaches 0 exactly there so
+>   the cut lands on silence. Phase 8's scratch will want to go below the floor
+>   *deliberately* — that is a different mode, not a reason to lower this.
+> - **The needle drop is NOT spin-linked.** A drop and a replay start at pitch with Task
+>   2's slow fade-in. Only transport bends.
+> - **`--theme-transition` is the first motion token.** Stage 3 extends this set — it does
+>   not invent a parallel one. `--theme-transition-ease` is deliberately separate from the
+>   duration so non-colour motion can reuse the curve.
+> - **Never `setTargetAtTime` when a parameter must actually ARRIVE.** It approaches
+>   asymptotically; measured, a fade stalled at ≈ −26 dB and stayed there. Use
+>   `linearRampToValueAtTime` wherever a value has to reach its target by a known instant.
+
+### Deferred together — the deck's material pass *(Stage 3)*
+
+Three findings about the deck's surfaces are **deliberately not being fixed piecemeal**.
+They interact, and fixing any one alone risks flattening the others — which already
+happened once, in Task 4, where deepening the light-theme ground cost 2.4 L\* on the
+`rim → mat` boundary without touching the mat at all.
+
+| | What |
+|---|---|
+| **Light-theme deck colour** | Diego wants to revisit it. Task 4 took the plinth from 11.7 to 28.5 L\* against the page, which fixed the "dissolves into the background" problem, but the resulting silver-grey is a design judgement, not a settled answer |
+| **D12** | The mat shows as a **~1.5% ring** once a record is on the platter (mat radius 0.935 of the platter, record radius 0.920). Either the record shrinks so the mat reads as a real layer, or the mat simplifies because it is almost never seen |
+| **Task 4's weak boundary** | `platter rim → mat` sits at **6.4 L\***, the weakest step on the deck, and only after a `--deck-well-shadow` token paid part of it back |
+
+`--deck-ground` is the lever for all three: every deck surface mixes against it, so the
+whole stack moves together. **D3 (dark theme) belongs in the same pass** — its
+record-vs-mat contrast is 1.15–2.07:1 across the five pressings, and the same token
+fixes it from the other direction.
+
 ### Stage 2 — Scroll foundation
 
 Lenis + `ScrollTrigger` wired properly, with `gsap.matchMedia` reduced-motion paths

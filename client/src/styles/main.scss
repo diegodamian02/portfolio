@@ -13,6 +13,32 @@
   --secondary-text-inverted: #454e68;
   --spotify-green: #1DB954;
 
+  // MOTION TOKENS — the first entry in the set Stage 3 extends.
+  //
+  // Every theme-driven colour change uses this one duration and easing.
+  // Measured before it existed (D8), a single theme toggle rippled across the
+  // page over a 36x range: the whole deck, the record, the strobe dots and all
+  // body text snapped in ONE FRAME (9-12ms) while the page background took
+  // 126ms and the navbar 324ms. The page did not switch, it swept.
+  //
+  // 180ms is chosen, not inherited. A light<->dark change animates background
+  // and text together, so mid-transition both sit near the same mid-grey and
+  // text contrast dips toward 1:1 — the duration IS the length of that
+  // unreadable window. 180ms keeps it to roughly 100ms while still reading as
+  // a crossfade rather than a flash; 100ms reads as a jarring snap on a
+  // full-viewport luminance flip, and 300ms leaves text muddy long enough to
+  // notice. It also happens to match the transport button's existing 0.18s
+  // hover feel, so that control is unchanged.
+  //
+  // Kept ON under prefers-reduced-motion: a crossfade is not motion, and an
+  // instant full-viewport luminance flip is the more uncomfortable of the two.
+  //
+  // Split into parts so Stage 3 can reuse the easing for non-colour motion
+  // rather than inventing a parallel curve.
+  --theme-transition-duration: 180ms;
+  --theme-transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --theme-transition: var(--theme-transition-duration) var(--theme-transition-ease);
+
   // Layout — the fixed navbar's height. .navbar is position: fixed, so it
   // covers the top of the document and every scroll-into-view has to clear it.
   //
@@ -82,7 +108,15 @@
   // theme, which is why the highlight is a token rather than an expression.
   --deck-bevel: color-mix(in srgb, var(--text-color) 18%, transparent);
   --deck-edge: transparent;
-  --deck-shadow: 0 40px 80px -24px rgba(0, 0, 0, 0.6);
+  // Three layers, two of them fully transparent, so this is visually identical
+  // to the single shadow it replaces. The count has to MATCH light theme's
+  // three: box-shadow only interpolates between lists of equal length, and with
+  // 3 layers here against 5 there the plinth's shadow would snap while its
+  // background crossfaded — the D8 ripple reintroduced inside one element.
+  --deck-shadow:
+    0 3px 6px rgba(0, 0, 0, 0),
+    0 16px 28px -10px rgba(0, 0, 0, 0),
+    0 40px 80px -24px rgba(0, 0, 0, 0.6);
 
   // The platter's recessed well. A fixed black alpha does less absolute work
   // the darker the surface under it, so deepening the light-theme deck
@@ -177,7 +211,7 @@ html {
   font-family: "Avenir Next", Avenir, "Helvetica Neue", "Helvetica Neue", sans-serif;
   margin: 0;
   padding: 0;
-  transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out;
+  transition: background-color var(--theme-transition), color var(--theme-transition);
 }
 
 // Loading screen
@@ -244,7 +278,7 @@ html {
   position: relative;
   background-color: var(--bg-color);
   padding: 120px 0 60px;
-  transition: background-color 0.1s ease-in-out;
+  transition: background-color var(--theme-transition);
 }
 
 .hero-content {
@@ -301,6 +335,36 @@ html {
   // even corner margins, leaving less room before the crop line — cut
   // from 5% to keep clearance between the bearing and the crop edge.
   transform: translateX(3%);
+}
+
+// D8 — the deck's theme transition. It previously had NONE.
+//
+// Measured: every surface on the deck (plinth, platter, mat, record, strobe
+// dots, controls) plus all body text reached its new colour in a SINGLE FRAME
+// (9-12ms) while the page background behind it took 126ms and the navbar 324ms.
+// That one-frame snap against a still-moving background is the most visible
+// part of the ripple — more so than the navbar lag D8 originally described.
+//
+// A scoped descendant selector rather than ~20 individual rules: every surface
+// here paints from --deck-ground or --text-color, so every one of them changes
+// on a theme flip and none of them may lag the others.
+//
+// transform and opacity are deliberately ABSENT. GSAP owns both on this subtree
+// and in the crate — the platter's rotation, the tonearm's swing, the record's
+// drop, the play/pause glyph crossfade, the crate panel's reveal — and a CSS
+// transition on a property GSAP is tweening re-eases it every frame. That is
+// exactly the trap that removed `transition: transform` from the tonearm rotor.
+.turntable,
+.turntable *,
+.record-crate,
+.record-crate * {
+  transition:
+    background-color var(--theme-transition),
+    background-image var(--theme-transition),
+    border-color var(--theme-transition),
+    box-shadow var(--theme-transition),
+    color var(--theme-transition),
+    fill var(--theme-transition);
 }
 
 .turntable-plinth {
@@ -667,10 +731,21 @@ html {
   width: var(--start-button-size);
   height: var(--start-button-size);
   border-radius: 50%;
-  background: radial-gradient(
+  // Split deliberately: the theme-dependent part is the background-COLOR, and
+  // the dome highlight is a fixed white alpha that never changes.
+  //
+  // Two reasons. `background-image` does not interpolate when its colours come
+  // from a custom property — verified, even a plain two-stop linear-gradient
+  // snaps — so a gradient built from --text-color/--deck-ground could never
+  // crossfade on a theme change, only jump. And the highlight was previously
+  // mixed from --text-color, which INVERTS between themes: it lit the dome from
+  // above in dark theme and made it read concave in light. A white alpha over a
+  // themed base is both transitionable and correctly lit in both.
+  background-color: color-mix(in srgb, var(--text-color) 19%, var(--deck-ground));
+  background-image: radial-gradient(
       circle at 50% 32%,
-      color-mix(in srgb, var(--text-color) 26%, var(--deck-ground)),
-      color-mix(in srgb, var(--text-color) 16%, var(--deck-ground)) 70%
+      rgba(255, 255, 255, 0.13),
+      rgba(255, 255, 255, 0) 70%
     );
   box-shadow:
     inset 0 2px 0 color-mix(in srgb, var(--text-color) 22%, transparent),
@@ -684,7 +759,8 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.18s ease, box-shadow 0.18s ease;
+  // Hover/active feedback rides the shared token now (it was already 0.18s,
+  // so the feel is unchanged) — see the `.turntable *` rule above.
 
   // Hit area floor. Redundant at the 44px base size and load-bearing at the
   // mobile step below, where the dial shrinks but the target must not:
@@ -716,11 +792,7 @@ html {
   }
 
   &:not(:disabled):hover {
-    background: radial-gradient(
-      circle at 50% 32%,
-      color-mix(in srgb, var(--text-color) 34%, var(--deck-ground)),
-      color-mix(in srgb, var(--text-color) 22%, var(--deck-ground)) 70%
-    );
+    background-color: color-mix(in srgb, var(--text-color) 27%, var(--deck-ground));
   }
 
   &:not(:disabled):active {
@@ -799,11 +871,22 @@ html {
   // white/black instead of the theme's text/bg tokens because those flip with
   // the theme, which would invert groove contrast on a record whose colour did
   // not flip with it.
-  background: repeating-radial-gradient(
+  // The pressing colour is a background-COLOR and the grooves are a fixed
+  // black/white alpha pattern over it, rather than one gradient whose stops are
+  // each color-mix'd with the base.
+  //
+  // Mathematically identical — compositing rgba(0,0,0,0.22) over the base gives
+  // 0.78 x base, which is exactly what color-mix(#000 22%, base) computes — but
+  // only this form can crossfade on a theme change. `background-image` does not
+  // interpolate when its colours derive from a custom property (verified), so
+  // the old single-gradient form made the record the one deck surface that
+  // still snapped while everything around it faded.
+  background-color: var(--vinyl-base);
+  background-image: repeating-radial-gradient(
     circle,
-    color-mix(in srgb, #ffffff 6%, var(--vinyl-base)) 0px,
-    color-mix(in srgb, #000000 22%, var(--vinyl-base)) 2px,
-    color-mix(in srgb, #000000 22%, var(--vinyl-base)) 4px
+    rgba(255, 255, 255, 0.06) 0px,
+    rgba(0, 0, 0, 0.22) 2px,
+    rgba(0, 0, 0, 0.22) 4px
   );
   display: flex;
   align-items: center;
@@ -906,7 +989,8 @@ html {
   gap: 10px;
   border-bottom: 1px solid color-mix(in srgb, var(--text-color) 25%, transparent);
   padding-bottom: 8px;
-  transition: border-color 0.2s ease;
+  // Border colour is theme-derived (color-mix on --text-color) as well as a
+  // focus affordance — both ride the shared token via the .record-crate rule.
 
   &:focus-within {
     border-bottom-color: var(--accent);
@@ -1138,7 +1222,7 @@ html {
   padding: 20px 40px;
   background-color: transparent;
   z-index: 1000;
-  transition: background-color 0.3s ease-in-out;
+  transition: background-color var(--theme-transition);
 }
 
 // Keeps the logo and hamburger above the scrim and panel, which are children of
@@ -1176,7 +1260,7 @@ html {
   text-decoration: none;
   margin: 0 15px;
   font-size: 1.2rem;
-  transition: color 0.1s ease;
+  transition: color var(--theme-transition);
 }
 
 .navbar-links a:hover {
@@ -1261,7 +1345,12 @@ html {
   .theme-icon {
     width: 28px;
     height: 28px;
-    transition: transform 0.4s ease-in-out, opacity 0.4s ease-in-out;
+    // The sun/moon crossfade IS the theme change, so its opacity rides the
+    // shared token — this rule is more specific than the `.theme-icon` block
+    // below and was overriding it back to 0.4s, leaving the toggle's own icon
+    // as the last thing on the page still catching up. The 0.4s transform is
+    // the control's deliberate rotate flourish and stays.
+    transition: transform 0.4s ease-in-out, opacity var(--theme-transition);
   }
 
 }
@@ -1282,7 +1371,7 @@ html {
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
   mask-position: center;
-  transition: opacity 0.1s ease-in-out, transform 0.4s ease-in-out, background-color 0.1s ease-in-out;
+  transition: opacity var(--theme-transition), transform 0.4s ease-in-out, background-color var(--theme-transition);
 }
 
 // Hide the inactive  icon smoothly
@@ -1352,7 +1441,7 @@ html {
   padding: 50px 0;
   background-color: var(--bg-color);
   color: var(--text-color);
-  transition: 0.1s ease-in-out;
+  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
 }
 
 //Bio Section
@@ -1364,7 +1453,7 @@ html {
   padding: 50px 40px;
   background-color: var(--bg-color);
   color: var(--text-color);
-  transition: 0.1s ease-in-out;
+  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
 }
 
 .bio-container {
@@ -1695,7 +1784,7 @@ html {
   padding: 5em 2rem;
   display: flex;
   justify-content: center;
-  transition: 0.1s ease-in-out;
+  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
   min-height: 100vh;
   overflow: hidden;
 }
@@ -1749,14 +1838,14 @@ html {
   padding: 0.75rem;
   font-size: 1rem;
   border-radius: 8px;
-  transition: 0.1s ease-in-out;
+  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
   border-color: var(--accent);
-  transition: 0.1s ease-in-out;
+  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
 }
 
 .submit-button {
@@ -1829,7 +1918,7 @@ html {
   justify-content: space-between;
   align-items: center;
   padding: 20px 40px;
-  transition: 0.1s ease-in-out;
+  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
 }
 
 
@@ -1896,7 +1985,10 @@ html {
   text-align: left;
   cursor: pointer;
   padding: 1rem 0;
-  transition: all 0.3s ease;
+  // Was `all 0.3s`. Narrowed to the properties that actually change here
+  // (colour on theme, colour + opacity on :hover) — `all` also caught layout
+  // properties and made this the second-slowest surface in a theme change.
+  transition: color var(--theme-transition), opacity var(--theme-transition);
 }
 
 .portfolio-header:hover {
@@ -2451,4 +2543,40 @@ html {
     flex-direction: column;
     height: auto;
   }
+}
+
+// D8 — the catch-all, in effect ONLY while a toggle is in flight.
+//
+// Routing the known surfaces through --theme-transition fixed the big ones, but
+// every element that re-declares its own `color` or `background-color` still
+// snapped: `body`'s transition animates body's colour, and a descendant with
+// its own declaration never inherits that animated value. Measured, .hero-name
+// changed in 16ms while the page behind it took 218ms.
+//
+// Enumerating every such element is the fragile thing this token exists to
+// avoid, so this covers them all — but only during the switch. navbar.jsx adds
+// .is-theme-switching for the token's own duration and removes it after; a
+// PERMANENT universal transition would make every hover, focus and active state
+// on the site 180ms and would fire on class changes unrelated to theming.
+//
+// No !important, and this sits last on purpose. Specificity ties with
+// element-level rules are broken by source order, so this wins over anything
+// that has no theme transition of its own and loses to the rules that do — and
+// since those already reference the same token, the duration is 180ms either
+// way.
+//
+// transform, opacity and background-image are deliberately absent: GSAP owns
+// the first two across the deck and the crate, and the third does not
+// interpolate from a custom property regardless.
+.is-theme-switching,
+.is-theme-switching *,
+.is-theme-switching *::before,
+.is-theme-switching *::after {
+  transition:
+    background-color var(--theme-transition),
+    border-color var(--theme-transition),
+    box-shadow var(--theme-transition),
+    color var(--theme-transition),
+    fill var(--theme-transition),
+    stroke var(--theme-transition);
 }

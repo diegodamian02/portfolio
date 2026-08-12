@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-11 · **HEAD:** `ea6c527`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-12 · **HEAD:** `05998da`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -555,6 +555,109 @@ reduced motion, matching the load path which already declined to spin.
 > source start is **0.3–0.9ms**, with the synchronous path taken on every run. On Task 3's
 > own metric with a light loop it is **15.7–16.6ms** (Task 3 read 19–20ms). No regression.
 
+### Stage 1 Task 5 — power-down audio, and D8 *(2026-08-12)*
+
+**Transport now bends the pitch instead of cutting.** The audio is pinned to the
+platter: `setSpin`'s tween drives `audio.followSpin(tween.timeScale())` from its own
+`onUpdate`, so the rate and level ride the *actual* spin curve rather than a parallel
+approximation — and Task 4's proportional durations are inherited for free, which is what
+makes pausing from a half-speed platter produce a correspondingly shorter power-down.
+
+Measured off the live `AudioBufferSourceNode` and `GainNode`, not the deck's own
+bookkeeping:
+
+| | rate | gain | platter |
+|---|---|---|---|
+| power-down | 1 → 0.25 (monotonic) | 0.65 → 0 | 3.4 → 0 °/frame |
+| spin-up | 0.2 → 1 | 0 → 0.65 | 0 → 3.4 °/frame |
+
+Playback cuts at `RATE_FLOOR = 0.2` — below that the resampler produces aliasing rather
+than a slower record. `spinGain()` is a smoothstep reaching 0 exactly *at* the floor, so
+the cut lands on silence.
+
+**Adversarial test extended to the audio.** Task 4's invariant was "PLAYING ⇒ the platter
+turns at 200°/s". The new one adds "⇒ rate is back at 1 and gain back at target".
+**291 presses across 30 randomised sequences: 30/30 on both.** PLAYING rate 1.000–1.000,
+PLAYING gain 0.650–0.650, stopped gain 0.000. No console errors.
+
+Three things found while building it:
+
+- **`stop()`'s gain ramp was never audible.** It called `setTargetAtTime(0, …)` and then
+  `teardownSource()` in the same tick, so the source was killed before the fade could
+  sound. That is *why* the deck cut abruptly. Reduced motion now uses a real
+  `fadeOutAndStop()` that schedules `source.stop(now + seconds)` and retires the node.
+- **`setTargetAtTime` never arrives.** The exponential approach stalled the reduced-motion
+  fade around 0.03 (≈ −26 dB) and left it there. Replaced with
+  `linearRampToValueAtTime(0, now + seconds)`, which lands on exactly 0 at exactly the
+  moment the source is scheduled to stop. Verified: **gain → 0 at 150ms.**
+- **`getElapsed()` was wrong the moment the rate stopped being constant.** It multiplies
+  the whole span since the last start by one rate. Every rate change now banks the
+  previous segment first (`commitElapsed`, piecewise integration). Verified with a
+  discriminating test: after playing 2.0s at pitch and powering down, the groove advanced
+  **0.603s during a brake that occupied 0.716s of wall clock** — slower than realtime, as
+  it must be. The two failure modes would have given 0.54s total (unintegrated) or 0.716s
+  (rate ignored).
+
+The needle drop is deliberately **not** spin-linked: the deck is treated as already at
+speed, so a drop and a replay start at pitch with Task 2's slow fade-in rather than
+bending up from the floor. Verified — `playbackRate` is 1 across every traced frame.
+End-of-track brakes as before but has nothing to bend; the source has already ended.
+Needle-contact timing re-measured at **0.4–1.2ms** (Task 4: 0.3–0.9ms).
+
+### D8 — one theme duration for the whole page
+
+The audit found it was worse than logged. It was not a navbar-lags-body problem:
+
+| | before | after |
+|---|---|---|
+| the entire deck, record, strobe dots, **all body text** | **9–12ms (one frame — no transition at all)** | 180ms |
+| `body`, `.home`, sections, footer | 126ms | 180ms |
+| `.navbar` | 324ms | 180ms |
+| **spread** | **9 → 324ms (36×)** | **one declared value** |
+
+The deck had *no* theme transition whatsoever, and text snapping against a
+still-moving background is the most visible part of the ripple.
+
+`--theme-transition-duration: 180ms` / `--theme-transition-ease: cubic-bezier(0.4, 0, 0.2, 1)`,
+split so Stage 3 can reuse the easing. **180ms is chosen, not inherited:** a light↔dark
+change animates background and text together, so mid-transition both sit near the same
+mid-grey and text contrast dips toward 1:1 — the duration *is* the length of that
+unreadable window. It also happens to match the transport button's existing 0.18s hover
+feel, so that control is unchanged.
+
+Two structural fixes were needed to get there:
+
+- **`background-image` does not interpolate from a custom property.** Verified in
+  isolation — even a plain two-stop `linear-gradient` snaps. Both the vinyl grooves and
+  the button dome were gradients whose stops were `color-mix`'d with a themed token, so
+  they could only ever jump. Both were split into a themed `background-color` plus a
+  **fixed** black/white alpha overlay. Mathematically identical (compositing
+  `rgba(0,0,0,0.22)` over a base *is* `color-mix(#000 22%, base)`), and now transitionable.
+  This also fixed a latent inversion: the button's highlight was mixed from
+  `--text-color`, so it lit the dome from above in dark theme and read **concave** in
+  light. Now measured lighter at the top in both (40.3 vs 33.3 L\*, 65.0 vs 61.2 L\*).
+- **Every element that re-declares its own `color` still snapped**, because `body`'s
+  transition animates body's colour and a descendant with its own declaration never
+  inherits the animated value. Enumerating them is the fragile thing the token exists to
+  avoid, so `navbar.jsx` adds `.is-theme-switching` for the token's own duration (read
+  *from* the token, not repeated) and a last-in-file catch-all covers everything. Not
+  permanent: that would make every hover and focus state on the site 180ms.
+
+**Verified: 2021 of 2021 element-property pairs declare 0.18s**, at both 1440 and 480 —
+one duration, no exceptions — with the class present mid-toggle and removed after. Across
+12 toggles in both directions at both widths, all 13 sampled surfaces interpolate through
+6–12 intermediate frames and **none snap**.
+
+> **Three measurement attempts were wrong before this one, and the pattern is worth
+> keeping.** Computed colours come back in *three* notations: `rgb()` in 0–255 for plain
+> colours, `color(srgb …)` in 0–1 for `color-mix` at rest, and **`oklab(…)` mid-transition**
+> because that is where the interpolation happens. Metrics built on parsed channels
+> compared numbers across all three and reported, confidently, that surfaces which ramp
+> smoothly "snapped in 24ms". The metric that survives parses nothing — it compares value
+> strings for inequality. A separate trap: `.navbar-links a` declares 0.18s correctly but
+> is display-hidden behind the mobile menu at 480, and transitions do not run on
+> non-rendered elements, so it "settled" in 24ms invisibly. Filter to rendered elements.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -582,8 +685,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **421.40 kB / 153.83 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **30.80 kB / 6.86 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **423.23 kB / 154.51 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **32.02 kB / 6.99 kB gz** |
 | ESLint errors | 21 | **16** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

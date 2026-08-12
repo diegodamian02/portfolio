@@ -135,6 +135,142 @@ export async function load(previewUrl) {
     return buffer;
 }
 
+// ---- spin linkage ------------------------------------------------------
+//
+// Pins playback to the platter so a pause is a power-DOWN, not a cut: as the
+// brake ramps timeScale toward 0 the pitch sags with it and the level fades,
+// and a resume winds both back up. The turntable drives this from the spin
+// tween's own onUpdate, so the audio rides the EXACT curve the platter is on —
+// including Task 4's proportional durations, which is what makes pausing from a
+// half-speed platter produce a correspondingly shorter power-down for free.
+
+// Below this the resampler produces aliasing garbage rather than a slower
+// record, so playback is cut here instead of being ridden to zero.
+export const RATE_FLOOR = 0.2;
+
+// Full volume at and above this timeScale. Between here and the floor the
+// record fades, so it reaches silence exactly AT the floor and the cut lands on
+// silence — a cut at audible level would click.
+const GAIN_FULL_AT = 0.85;
+
+// Short enough that the parameter tracks the tween within a frame, long enough
+// to avoid zipper noise from 60 discrete writes a second.
+const SPIN_FOLLOW_TAU = 0.012;
+
+let spinLinked = false;
+
+// Sources that are fading out but still sounding. Held so a rapid press can
+// hard-stop them instead of letting several overlap.
+const retiring = new Set();
+
+function hardStopRetiring() {
+    for (const source of retiring) {
+        try { source.stop(); } catch { /* already stopped */ }
+        try { source.disconnect(); } catch { /* already disconnected */ }
+    }
+    retiring.clear();
+}
+
+function spinGain(timeScale) {
+    const u = Math.min(1, Math.max(0, (timeScale - RATE_FLOOR) / (GAIN_FULL_AT - RATE_FLOOR)));
+    return TARGET_VOLUME * u * u * (3 - 2 * u); // smoothstep — no corner at either end
+}
+
+/**
+ * Hands gain and playback rate to the platter. Called before a transport ramp.
+ *
+ * The needle drop deliberately does NOT use this: there the deck is treated as
+ * already up to speed, so the record starts at pitch with the slow fade-in from
+ * Task 2 rather than bending up from the floor.
+ */
+export function beginSpinLink() { spinLinked = true; }
+export function endSpinLink() {
+    spinLinked = false;
+    // Back to pitch, so the next needle drop or replay does not inherit
+    // whatever rate the last power-down left behind.
+    setRate(1);
+}
+export function isSpinLinked() { return spinLinked; }
+
+/**
+ * Drives rate and gain from the platter's current timeScale.
+ *
+ * `stopAtFloor` is true only while braking. On a wind-up the same low timeScale
+ * values are passed through on the way UP, and cutting there would kill the
+ * playback that is just starting.
+ */
+export function followSpin(timeScale, { stopAtFloor = false } = {}) {
+    if (!spinLinked || !ctx || !masterGain) return;
+    const t = Math.max(0, timeScale);
+
+    if (t <= RATE_FLOOR) {
+        if (stopAtFloor) {
+            // spinGain() has been targeting 0 on the way down, but
+            // setTargetAtTime approaches asymptotically and never arrives —
+            // measured, the cut landed at 0.015 (about -33dB). Inaudible in
+            // practice, but a 30ms fade makes the teardown provably silent
+            // rather than probably silent.
+            if (isPlaying) fadeOutAndStop(0.03);
+        } else {
+            masterGain.gain.setTargetAtTime(0, ctx.currentTime, SPIN_FOLLOW_TAU);
+            setRate(RATE_FLOOR);
+        }
+        return;
+    }
+
+    setRate(t);
+    masterGain.gain.setTargetAtTime(spinGain(t), ctx.currentTime, SPIN_FOLLOW_TAU);
+}
+
+/** Lands rate and gain exactly, so a ramp can't leave them a hair off target. */
+export function settleSpin(timeScale) {
+    if (!ctx || !masterGain) return;
+    if (timeScale <= 0) return;
+    setRate(timeScale);
+    if (spinLinked) {
+        masterGain.gain.setTargetAtTime(spinGain(timeScale), ctx.currentTime, SPIN_FOLLOW_TAU);
+    }
+}
+
+/**
+ * Fade to silence, then stop — for reduced motion, where there is no brake to
+ * follow and an abrupt cut is the only alternative.
+ *
+ * stop() cannot do this: it tears the source down in the same tick, so its gain
+ * ramp never becomes audible. That is why the deck cut abruptly.
+ */
+export function fadeOutAndStop(seconds = 0.15) {
+    if (!ctx || !masterGain || !currentSource) return stop();
+    const elapsed = getElapsed();
+    const source = currentSource;
+
+    // A LINEAR ramp, not setTargetAtTime: the exponential approaches zero
+    // asymptotically and never arrives — measured, it stalled around 0.03
+    // (about -26dB) and stayed there. A linear ramp lands on exactly 0 at
+    // exactly the moment the source below is scheduled to stop, so the fade and
+    // the teardown cannot disagree.
+    masterGain.gain.cancelScheduledValues(ctx.currentTime);
+    masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0, ctx.currentTime + seconds);
+
+    // Detach the bookkeeping NOW so the deck counts as stopped and a new press
+    // can start a fresh source, but let this node keep sounding until the fade
+    // lands. onended is cleared so the retirement can't read as end-of-track.
+    source.onended = null;
+    currentSource = null;
+    isPlaying = false;
+    startOffset = elapsed;
+
+    try { source.stop(ctx.currentTime + seconds); } catch { /* already stopped */ }
+    retiring.add(source);
+    setTimeout(() => {
+        try { source.disconnect(); } catch { /* already disconnected */ }
+        retiring.delete(source);
+    }, seconds * 1000 + 80);
+
+    return elapsed;
+}
+
 function teardownSource() {
     if (!currentSource) return;
     stoppingIntentionally = true;
@@ -146,8 +282,9 @@ function teardownSource() {
 }
 
 // Shared by playCached() and play() so the two can never drift apart.
-function startBuffer(buffer, url, trackId, offset) {
+function startBuffer(buffer, url, trackId, offset, fadeSeconds) {
     teardownSource();
+    hardStopRetiring();
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -174,8 +311,18 @@ function startBuffer(buffer, url, trackId, offset) {
     lastError = null;
 
     // Ramp rather than jump — assigning gain.value produces an audible click.
-    masterGain.gain.cancelScheduledValues(ctx.currentTime);
-    masterGain.gain.setTargetAtTime(TARGET_VOLUME, ctx.currentTime, RAMP_TAU);
+    //
+    // Skipped entirely while spin-linked: there the platter owns the gain, and
+    // a ramp to full volume here would immediately be fought by followSpin()
+    // writing the speed-derived value on the very next frame.
+    if (!spinLinked) {
+        masterGain.gain.cancelScheduledValues(ctx.currentTime);
+        masterGain.gain.setTargetAtTime(
+            TARGET_VOLUME,
+            ctx.currentTime,
+            (fadeSeconds ? fadeSeconds / 3 : RAMP_TAU),
+        );
+    }
 
     return { duration: buffer.duration };
 }
@@ -190,13 +337,13 @@ function startBuffer(buffer, url, trackId, offset) {
  * needle contact even with the buffer warm. This closes that gap by starting the
  * source in the same tick as the timeline callback.
  */
-export function playCached({ previewUrl, trackId, offset = 0 } = {}) {
+export function playCached({ previewUrl, trackId, offset = 0, fadeSeconds } = {}) {
     if (!ctx || !masterGain) return false;
     const url = previewUrl ?? currentUrl;
     const buffer = url && bufferCache.get(url);
     if (!buffer) return false;
     if (ctx.state === "suspended") ctx.resume(); // fire-and-forget, don't await
-    startBuffer(buffer, url, trackId, offset);
+    startBuffer(buffer, url, trackId, offset, fadeSeconds);
     return true;
 }
 
@@ -204,7 +351,7 @@ export function playCached({ previewUrl, trackId, offset = 0 } = {}) {
  * Starts playback from `offset` seconds. Always builds a fresh source —
  * AudioBufferSourceNodes are single-use and cannot be restarted.
  */
-export async function play({ previewUrl, trackId, offset = 0 } = {}) {
+export async function play({ previewUrl, trackId, offset = 0, fadeSeconds } = {}) {
     if (!ctx) init();
     if (!ctx) throw new Error("No AudioContext.");
     if (ctx.state === "suspended") await ctx.resume();
@@ -222,7 +369,7 @@ export async function play({ previewUrl, trackId, offset = 0 } = {}) {
         throw err;
     }
 
-    return startBuffer(buffer, url, trackId, offset);
+    return startBuffer(buffer, url, trackId, offset, fadeSeconds);
 }
 
 /** Stops playback and returns the offset reached, for a later resume. */
@@ -250,6 +397,22 @@ export function getElapsed() {
     return startOffset + (ctx.currentTime - startedAtCtxTime) * playbackRate;
 }
 
+/**
+ * Banks the time played at the CURRENT rate before the rate changes.
+ *
+ * getElapsed() multiplies the whole span since the last start by one rate, which
+ * is only correct while that rate is constant. Once the platter bends the pitch
+ * it is not, so every rate change closes off the previous segment first —
+ * piecewise integration. Without this, pausing mid-power-down and resuming would
+ * pick up at the wrong point in the track.
+ */
+function commitElapsed() {
+    if (!ctx || !isPlaying) return;
+    const now = ctx.currentTime;
+    startOffset += (now - startedAtCtxTime) * playbackRate;
+    startedAtCtxTime = now;
+}
+
 /** Volume changes always go through the GainNode — iOS ignores element volume. */
 export function setVolume(value, timeConstant = 0.05) {
     if (!ctx || !masterGain) return;
@@ -257,10 +420,23 @@ export function setVolume(value, timeConstant = 0.05) {
     masterGain.gain.setTargetAtTime(v, ctx.currentTime, timeConstant);
 }
 
-/** Exposed for Phase 9 (pitch fader). Default 1. */
+/**
+ * Also used by the spin linkage above, and by Phase 9 (pitch fader). Default 1.
+ *
+ * The lower bound is RATE_FLOOR rather than 0.5 because a power-down runs the
+ * rate down to the floor; 0.5 would have silently clamped the bottom half of
+ * every brake to a constant pitch.
+ */
 export function setRate(rate) {
-    playbackRate = Math.max(0.5, Math.min(2, rate));
-    if (currentSource) currentSource.playbackRate.value = playbackRate;
+    const next = Math.max(RATE_FLOOR, Math.min(2, rate));
+    if (next === playbackRate) return;
+    commitElapsed();
+    playbackRate = next;
+    if (currentSource) {
+        // Ramped, not assigned: 60 discrete writes a second is audible as
+        // stepping on a sustained note.
+        currentSource.playbackRate.setTargetAtTime(playbackRate, ctx.currentTime, SPIN_FOLLOW_TAU);
+    }
 }
 
 export function onEnded(fn) {

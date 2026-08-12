@@ -106,6 +106,14 @@ in the same place in every capture.
 | `t4-button-{EMPTY,PLAYING,PAUSED}-{dark,light}.png` | Transport button in each state |
 | `t4-deck-1440-dark.png` / `t4-deck-480-dark.png` | Button proportion at both size tiers (44px / 36px) |
 
+**Stage 1 Task 5 set** (2026-08-12).
+
+| File | Shows |
+|---|---|
+| `t5-deck-dark.png` / `t5-deck-light.png` | The deck after the gradient split — button dome now lit from above in BOTH themes |
+| `t5-button-dark.png` / `t5-button-light.png` | Transport button close-up, same |
+| `t5-deck-theme-dark.png` / `t5-deck-theme-light.png` | Theme endpoints, deck only |
+
 A fixed navbar overlays these captures wherever it happened to sit during scroll.
 That is a screenshot artifact, not a layout bug — but see finding **B3**, which is
 a real bug in the same area.
@@ -529,14 +537,36 @@ list widths at 90%/80% — changing the layout in ways nobody has seen or approv
 is a design decision, so it is logged here instead. Whoever does the Stage 4 redesign
 should delete this block rather than repair it.
 
-### D8 — theme toggle desyncs from the page it themes
+### D8 — theme toggle desyncs from the page it themes — **FIXED (Stage 1, Task 5)**
 
-`body` transitions `background-color` over **0.1s** while `.navbar` transitions over
-**0.3s**, so on a theme switch the page flips and the navbar visibly lags it by roughly
-200ms before catching up. Reads as a rendering stutter rather than a deliberate stagger.
+The original note said `body` at 0.1s versus `.navbar` at 0.3s. The audit found that
+understated it, and misidentified the worst part: **the deck, the record, the strobe dots
+and all body text had no theme transition at all** and changed in a single frame
+(9–12ms) while the background behind them took 126ms and the navbar 324ms. A **36×
+spread**. Text snapping against a still-moving background is what actually reads as
+broken; the navbar lag is the least of it.
 
-Belongs to **Stage 3**, where motion durations become tokens instead of per-rule
-literals — fixing it here would just move a magic number.
+Fixed with `--theme-transition-duration: 180ms` +
+`--theme-transition-ease: cubic-bezier(0.4, 0, 0.2, 1)`, split so Stage 3 can reuse the
+easing. Verified at **2021 of 2021 element-property pairs declaring 0.18s**, at 1440 and
+480. Full reasoning and the two structural fixes it needed are in `STATUS.md`.
+
+Three things worth carrying forward:
+
+- **`background-image` never interpolates from a custom property.** Verified in
+  isolation: even a plain two-stop `linear-gradient` snaps. A gradient whose stops are
+  `color-mix`'d with a themed token cannot crossfade — split it into a themed
+  `background-color` plus a fixed-alpha overlay. That form is mathematically identical
+  (compositing `rgba(0,0,0,0.22)` over a base **is** `color-mix(#000 22%, base)`).
+- **`color-mix(… var(--text-color) N% …)` inverts between themes.** It bit twice now —
+  the button's disabled fill in Task 4, and its dome highlight here, which lit from above
+  in dark and read *concave* in light. Mix toward `black`/`white` for anything that must
+  darken or lighten in both.
+- **Computed colours come back in three notations** — `rgb()` 0–255, `color(srgb …)` 0–1
+  for `color-mix` at rest, and **`oklab(…)` mid-transition**. Any measurement that parses
+  channels will silently compare across spaces. Compare value *strings* instead, and
+  filter to rendered elements: a display-hidden element reports its declared transition
+  but does not run it.
 
 ### D9 — the navbar has no entrance or scroll-linked motion
 

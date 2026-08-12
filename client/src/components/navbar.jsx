@@ -37,12 +37,38 @@ export default function Navbar() {
     const hamburgerRef = useRef(null);
     const menuRef = useRef(null);
 
+    // This effect also runs on mount, where it applies the stored theme. That
+    // application must NOT crossfade — the page would visibly fade in from the
+    // wrong theme on every load.
+    const themeApplied = useRef(false);
+
     const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
     useEffect(() => {
-        document.documentElement.setAttribute("data-theme", theme);
+        const root = document.documentElement;
+        let timer;
+
+        // D8 — every surface changes on one duration. Enumerating each element
+        // that sets its own colour is the fragile approach; instead a class
+        // enables a catch-all transition (see main.scss, last rule) for exactly
+        // as long as the switch takes, so nothing else on the site inherits a
+        // permanent 180ms transition on hover and focus.
+        if (themeApplied.current) {
+            root.classList.add("is-theme-switching");
+            // Read from the token rather than repeating the number here, so the
+            // class can never outlive or undercut the transition it enables.
+            const ms = parseFloat(
+                getComputedStyle(root).getPropertyValue("--theme-transition-duration"),
+            ) || 180;
+            timer = setTimeout(() => root.classList.remove("is-theme-switching"), ms + 60);
+        }
+        themeApplied.current = true;
+
+        root.setAttribute("data-theme", theme);
         localStorage.setItem("theme", theme);
-        window.dispatchEvent(new Event("themeChange"))
+        window.dispatchEvent(new Event("themeChange"));
+
+        return () => clearTimeout(timer);
     }, [theme]);
 
     // Drives only the navbar's own background: transparent over the hero,
