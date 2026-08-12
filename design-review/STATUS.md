@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-10 · **HEAD:** `407409a`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-11 · **HEAD:** `90e270f` · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -20,7 +20,7 @@ A portfolio that does six things. Current standing on each:
 | 1 | **Works correctly** — nothing broken or lying to visitors | 🟢 **Stage 0 complete.** Contact form, iPhone search, contrast, scroll offset, mobile nav, `#my-taste` layout all fixed; B7 did not reproduce | — |
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
-| 4 | **Delivers the "playground" premise** — the turntable actually plays | 🔴 Hero is inert. `previewUrl` is captured and discarded | **Stage 1** |
+| 4 | **Delivers the "playground" premise** — the turntable actually plays | 🟢 **It plays.** Record drops, platter spins up, arm swings, audio starts at needle contact (24ms). Transport, swap and end-of-track all work | Stage 1 ✅ Phases 6+7 |
 | 5 | **Reads as one coherent design** | 🔴 Hero and body are two different visual languages | Stage 3 |
 | 6 | **Converts recruiter attention** | 🟡 Contact form works and the resume is linked from three places; the hero still does not deliver its premise | Stage 1 |
 
