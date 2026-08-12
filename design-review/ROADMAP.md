@@ -281,9 +281,10 @@ the README's *External APIs* section. Proxying moved every visitor's search onto
 Railway egress IP, so the whole site now shares a single Apple budget. Low risk today,
 but it is a known limitation rather than a solved problem.
 
-> **Stage 1 is DONE** — Tasks 1–4, 2026-08-11. The hero plays, the transport is labelled
-> and survives adversarial input, and the deck reads as an object in both themes. Full
-> measurements in `STATUS.md`.
+> **Stage 1 is DONE** — Tasks 1–5, 2026-08-11/12. The hero plays, the transport is
+> labelled and survives adversarial input, bends pitch on pause/resume, the deck reads as
+> an object in both themes, and a theme toggle changes every surface on one 180ms curve.
+> Full measurements in `STATUS.md`.
 >
 > **Decisions made in Task 4 — do not relitigate:**
 >
@@ -354,10 +355,12 @@ section transition, pin, scrub, and the scroll-linked volume ducking sits on it.
 Retrofitting reduced-motion afterward is painful.
 
 Prerequisites, both verified present in `client/src/styles/main.scss`:
-- Remove `html { scroll-behavior: smooth }` (main.scss line 78) — it fights Lenis.
-- Drop `background-attachment: fixed` from `.section` (main.scss line 887) — janky on mobile.
-  *(Line numbers re-verified 2026-08-10; they shifted again when Task 4 added the
-  navbar-height tokens.)*
+- Remove `html { scroll-behavior: smooth }` (main.scss line 192) — it fights Lenis.
+- Drop `background-attachment: fixed` from `.section` (main.scss line 1322) — janky on mobile.
+  *(Line numbers re-verified 2026-08-12, after Tasks 3–5 added ~450 lines to the file —
+  they had drifted by over 400 lines since the 2026-08-10 count. Re-verify again before
+  editing rather than trusting these; this file has now been wrong about its own line
+  numbers on every prior check.)*
 
 **Also reconcile with Stage 0's B3 fix when Lenis lands.** Lenis takes over scrolling
 from the browser, and `scroll-margin-top` is a *native* CSS feature — Lenis'
