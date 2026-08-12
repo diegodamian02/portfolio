@@ -50,6 +50,21 @@
   --crate-row-hover: rgba(255, 248, 232, 0.32);
   --crate-sleeve-shadow: rgba(60, 35, 10, 0.45);
   --crate-shadow-strength: 0.4;
+
+  // Vinyl colourways — the "special pressing" feel of a record store. Chosen
+  // per track by a hash of its id (see vinyl-record.jsx), never at random, so a
+  // song always arrives on the same pressing.
+  //
+  // All five are deep and desaturated enough to read as VINYL rather than flat
+  // UI colour, and all are set against the plinth — which is
+  // color-mix(text 14%, bg), i.e. roughly #26292f in this theme. Anything close
+  // to that value would disappear into the deck, which is why the smoke pressing
+  // sits lighter than the plinth rather than just below it.
+  --vinyl-1: #0d1016; // classic black
+  --vinyl-2: #6b3d0f; // translucent amber
+  --vinyl-3: #4a121f; // oxblood
+  --vinyl-4: #131f42; // midnight blue
+  --vinyl-5: #454a52; // marbled smoke
 }
 [data-theme="light"] {
   --bg-color: #f6f7fb;
@@ -63,6 +78,15 @@
   // Less contrast between the maple and #f6f7fb than against navy —
   // compensate with a stronger shadow, not a darker/different wood.
   --crate-shadow-strength: 0.55;
+
+  // Same five pressings, deepened. The plinth here is ~#d8dae0, so every
+  // colourway has plenty of separation — these are richer rather than lighter,
+  // since a light record on a light deck is the failure mode in this theme.
+  --vinyl-1: #101319;
+  --vinyl-2: #7a4712;
+  --vinyl-3: #571422;
+  --vinyl-4: #16244d;
+  --vinyl-5: #3d424a;
 }
 // --navbar-height per breakpoint, kept beside the base token so all three
 // values are readable at once. These are now declarations, not observations:
@@ -653,15 +677,45 @@ html {
   width: 92%;
   height: 92%;
   border-radius: 50%;
+
+  // Set per track by vinyl-record.jsx, which assigns var(--vinyl-N) — the
+  // component never names a colour itself. This default keeps the record black
+  // if the inline property is ever missing.
+  --vinyl-base: var(--vinyl-1);
+
+  // Grooves are mixed against the pressing colour rather than the page
+  // background, so they stay legible on every colourway. The mix is toward pure
+  // white/black instead of the theme's text/bg tokens because those flip with
+  // the theme, which would invert groove contrast on a record whose colour did
+  // not flip with it.
   background: repeating-radial-gradient(
     circle,
-    color-mix(in srgb, var(--text-color) 6%, var(--bg-color)) 0px,
-    color-mix(in srgb, var(--text-color) 10%, var(--bg-color)) 2px,
-    color-mix(in srgb, var(--text-color) 10%, var(--bg-color)) 4px
+    color-mix(in srgb, #ffffff 6%, var(--vinyl-base)) 0px,
+    color-mix(in srgb, #000000 22%, var(--vinyl-base)) 2px,
+    color-mix(in srgb, #000000 22%, var(--vinyl-base)) 4px
   );
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+// Was an empty, unstyled div. Now the sheen — without it the record reads as a
+// flat disc rather than a lit physical object. It sits inside the spin group, so
+// the highlight sweeps as the record turns, which is what real vinyl does.
+.vinyl-record-grooves {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.045) 22%,
+    rgba(255, 255, 255, 0) 42%,
+    rgba(255, 255, 255, 0) 58%,
+    rgba(255, 255, 255, 0.05) 78%,
+    rgba(255, 255, 255, 0.13) 100%
+  );
 }
 
 .vinyl-record-label {

@@ -6,6 +6,7 @@ import VinylRecord from "./vinyl-record.jsx";
 import StrobeRing from "./strobe-ring.jsx";
 import * as audio from "../lib/turntable-audio.js";
 import { DECK } from "../lib/deck-state.js";
+import { armAngleForRadius, RADIUS_OUTER_GROOVE, ARM_OUTER_GROOVE_FALLBACK } from "../lib/tonearm-geometry.js";
 
 // 33⅓ RPM is 1.8s per revolution. Linear, because a real platter's speed is
 // genuinely constant — any easing reads as wobble.
@@ -16,8 +17,11 @@ const SPIN_END_SECONDS = 1.0;
 
 // Tonearm angles, degrees. Rest matches the CSS resting transform.
 const ARM_REST = 20.5;
-const ARM_OUTER_GROOVE = 6.5;
-const ARM_LIFT = 1.6; // small lift before travelling, so it clears the record
+// Rest parks the stylus just OUTSIDE the record edge (~107% of its radius).
+// Lift moves a little further out again before the arm swings inward, which
+// reads as raising the arm clear before it travels. Both sit outboard of the
+// playing angle, because increasing rotation moves the stylus inward.
+const ARM_LIFT = 18.5;
 
 export default function Turntable({ track = null }) {
     const reduced = useReducedMotion();
@@ -25,7 +29,9 @@ export default function Turntable({ track = null }) {
     const rootRef = useRef(null);
     const spinRef = useRef(null);
     const armRef = useRef(null);
+    const needleRef = useRef(null);
     const recordWrapRef = useRef(null);
+    const platterRef = useRef(null);
 
     // The continuous rotation, built once and left paused. Every choreography
     // beat manipulates its timeScale rather than starting/stopping it, so the
@@ -43,6 +49,20 @@ export default function Turntable({ track = null }) {
     trackRef.current = track;
 
     const isBusyRef = useRef(false);
+
+    // Evaluated at TWEEN START (GSAP accepts function values), not at build
+    // time, so the record has finished dropping and the geometry is settled.
+    const outerGrooveAngle = useCallback(() => {
+        const a = armAngleForRadius(
+            armRef.current,
+            needleRef.current,
+            // Queried rather than ref'd: VinylRecord takes no ref prop, and
+            // adding one would mean propTypes plumbing this repo doesn't use.
+            platterRef.current?.querySelector(".vinyl-record"),
+            platterRef.current,
+            RADIUS_OUTER_GROOVE);
+        return a === null ? ARM_OUTER_GROOVE_FALLBACK : a;
+    }, []);
 
     // ---- spin control ------------------------------------------------------
 
@@ -165,7 +185,7 @@ export default function Turntable({ track = null }) {
         // simply appears and plays. Fully functional, just static.
         if (reduced) {
             gsap.set(recordWrapRef.current, { opacity: 1, y: 0, scale: 1, rotation: 0 });
-            gsap.set(armRef.current, { rotation: ARM_OUTER_GROOVE });
+            gsap.set(armRef.current, { rotation: outerGrooveAngle() });
             isBusyRef.current = false;
             startAudio(0);
             return;
@@ -200,7 +220,7 @@ export default function Turntable({ track = null }) {
 
         // 3. Arm lifts, swings to the outer groove, lowers.
         tl.to(armRef.current, { rotation: ARM_LIFT, duration: 0.3, ease: "power2.out" }, dropAt + 0.6);
-        tl.to(armRef.current, { rotation: ARM_OUTER_GROOVE, duration: 0.7, ease: "power2.inOut" }, dropAt + 0.9);
+        tl.to(armRef.current, { rotation: outerGrooveAngle, duration: 0.7, ease: "power2.inOut" }, dropAt + 0.9);
 
         // 4. Audio starts EXACTLY at needle contact.
         //
@@ -247,10 +267,10 @@ export default function Turntable({ track = null }) {
             audio.reset();
             const tl = gsap.timeline();
             spinUp(tl, 0);
-            tl.to(armRef.current, { rotation: ARM_OUTER_GROOVE, duration: 0.6, ease: "power2.inOut" }, 0);
+            tl.to(armRef.current, { rotation: outerGrooveAngle, duration: 0.6, ease: "power2.inOut" }, 0);
             tl.call(() => startAudio(0), null, 0.6);
         }
-    }, [deckState, spinUp, spinDown, startAudio]);
+    }, [deckState, spinUp, spinDown, startAudio, outerGrooveAngle]);
 
     const transportLabel =
         deckState === DECK.PLAYING ? "Pause" :
@@ -293,10 +313,10 @@ export default function Turntable({ track = null }) {
                 <div className="turntable-arm-rest" aria-hidden="true" />
 
                 <div className="turntable-platter-mount">
-                    <div className="turntable-platter">
+                    <div className="turntable-platter" ref={platterRef}>
                         {/* Platter, strobe ring and record all live inside the
                             spin group so they rotate as one object. */}
-                        <div className="turntable-platter-spin" ref={spinRef}>
+                        <div className="turntable-platter-spin" ref={spinRef} data-platter="">
                             <StrobeRing />
                             <div className="turntable-mat" aria-hidden="true" />
                             <div className="vinyl-record-wrap" ref={recordWrapRef}>
@@ -315,7 +335,7 @@ export default function Turntable({ track = null }) {
                         <div className="turntable-tonearm-counterweight" />
                         <div className="turntable-tonearm-arm">
                             <div className="turntable-tonearm-head">
-                                <div className="turntable-tonearm-needle" />
+                                <div className="turntable-tonearm-needle" ref={needleRef} />
                             </div>
                         </div>
                     </div>

@@ -403,6 +403,47 @@ frame GSAP wrote and desync the needle-contact callback.
 **Still unverified: iOS autoplay/gesture policy.** Built to the constraint regardless.
 Needs a real-device iPhone test before Stage 7.
 
+### Stage 1 Task 3 — needle contact geometry + vinyl colourways *(2026-08-11)*
+
+**The stylus was swinging the wrong way.** `ARM_OUTER_GROOVE = 6.5°` moved the arm
+*away* from the record. Sweeping the rotation and measuring settled it: this pivot sits
+outboard of the platter, so **increasing** the CSS rotation moves the stylus **inward** —
+30° → 81.9% of the record radius, 25° → 94.4%, 20.5° (rest) → ~107% (just off the edge,
+correct for a parked arm), 6.5° → **~145%**.
+
+The angle is now solved at runtime by law of cosines from the rendered geometry,
+`cos θ = (L² + d² − r²) / (2·L·d)`, evaluated at tween start. It lands at 94.2–94.3% of
+the record radius at 1440 / 1024 / 768 / 480, with the arm self-adjusting to
+25.04° / 25.49° / 24.83° / 24.83° — different at every size, which is the proof no fixed
+constant could have worked. `ARM_LIFT` moved 1.6° → 18.5° for the same reason.
+
+> **A measurement trap that made the bug look milder than it was.** The first diagnosis
+> reported 104–111% of the record radius. That was wrong: `.vinyl-record` is a square
+> element inside the *spinning* group, so `getBoundingClientRect()` inflates by up to √2
+> as it rotates. Radius must come from `offsetWidth` (layout box, transform-independent).
+> The true error was ~145%, and the same artifact made the record's measured radius drift
+> 249.8 → 257px between identical runs.
+
+**The arm cannot reach 35% of the radius.** Measured, the stylus radius bottoms out at
+**~39.3%** and then travels back *outward* as the angle keeps increasing. The curve is
+**not monotonic**, so a naive solve for 35% returns a nonsense angle on the far side of
+the minimum instead of failing. `RADIUS_INNER_GROOVE` is now 0.42 with
+`RADIUS_MIN_REACHABLE = 0.393` recorded beside it — Phase 8's scratch would otherwise
+have trusted an unreachable target.
+
+**Five vinyl colourways**, tokens `--vinyl-1..5` under both themes; `vinyl-record.jsx`
+names no colour, only picks a token. Selection is a hash of the track id — deterministic
+across re-renders, reloads and theme switches (verified). Two bugs found while verifying:
+a plain `% 5` clustered real iTunes ids (5, 5, 5, 3, 4, since ids are allocated in runs),
+and the avalanche step's bare `^=` returned a **signed** int, so `n % 5` went negative and
+produced `var(--vinyl--1)` — an undefined token that silently fell back to black. Both
+fixed; every step now re-coerces with `>>> 0`.
+
+`.vinyl-record-grooves` was an empty unstyled div and there was **no sheen at all**; it
+now carries the highlight so the record reads as a lit object.
+
+Task 2's needle-contact timing re-measured at **19–20ms**, unchanged.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
