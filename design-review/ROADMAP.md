@@ -348,7 +348,7 @@ fixes it from the other direction.
 ### Stage 2 — Scroll foundation
 
 Lenis + `ScrollTrigger` wired properly, with `gsap.matchMedia` reduced-motion paths
-established from the start. *(Lenis is not currently a dependency — this stage adds one.)*
+established from the start.
 
 Nothing ships visibly here, which is exactly why it is tempting to skip. Every
 section transition, pin, scrub, and the scroll-linked volume ducking sits on it.
@@ -363,19 +363,48 @@ Prerequisites, both verified present in `client/src/styles/main.scss`:
   numbers on every prior check.)*
 
 **Also reconcile with Stage 0's B3 fix when Lenis lands.** Lenis takes over scrolling
-from the browser, and `scroll-margin-top` is a *native* CSS feature — Lenis'
-`scrollTo` does not read it. Two things need doing together in this stage:
+from the browser, and `scroll-margin-top` is a *native* CSS feature.
 
 - Removing `html { scroll-behavior: smooth }` is required *and* safe: `scrollIntoView`
   falls back to instant, and `--scroll-offset` keeps working because scroll-margin is
   independent of scroll behaviour. Do not remove it before Lenis is wired, though —
   section jumps become abrupt in the meantime.
-- `scrollToSection()` will need to call `lenis.scrollTo(target, { offset: -X })`, where
-  `X` is read from the **same `--scroll-offset` custom property** via
-  `getComputedStyle(document.documentElement)`. Do not hardcode a second copy of the
-  number — the whole point of the token is that the navbar height lives in exactly one
-  place. `use-hash-scroll.js`'s settle-window logic (B3b) stays as is; only the
-  underlying scroll call changes.
+- `scrollToSection()` will need to call `lenis.scrollTo(target)`. `use-hash-scroll.js`'s
+  settle-window logic (B3b) stays as is; only the underlying scroll call changes.
+
+> **Correction, done — this premise was wrong.** Lenis's own `scrollTo(target)`
+> **already reads `getComputedStyle(target).scrollMarginTop`** when given an element or
+> selector, not just an element. Passing `{ offset: -X }` read from
+> `getComputedStyle(document.documentElement)` would have worked, but it's a second,
+> unnecessary read of a value Lenis already resolves itself — and worse, the custom
+> property doesn't resolve its own `calc()` when queried directly (`--scroll-offset`
+> returns the literal string `"calc(144px + 24px)"`, not a number; verified by injecting
+> Lenis into the live page). `scrollToSection()` passes no offset at all. Full writeup in
+> `STATUS.md`.
+
+> **Stage 2 is DONE** — 2026-08-12. Lenis wired via `gsap.matchMedia()` (not
+> `lenis/react` — its `<ReactLenis root>` needs children to construct anything, which
+> would have split the reduced-motion gate across two mechanisms), driven by
+> `gsap.ticker`, `ScrollTrigger.update` subscribed to Lenis's scroll event. Full
+> measurements and the touch-settings rationale in `STATUS.md`.
+>
+> **Decisions made — do not relitigate:**
+>
+> - **`gsap.matchMedia()` is the reduced-motion pattern for any media-query-gated
+>   subsystem**, not only tweens — `.add(query, setup)` runs `setup` on match and
+>   auto-reverts whatever it returns on unmatch. Stage 3/6/7 should reuse this shape
+>   rather than a React hook for "should X exist" plus a separate matchMedia call for
+>   the GSAP side.
+> - **`lib/scroll.js` holds a module-level `activeLenis` reference** (`setActiveLenis` /
+>   `getActiveLenis`), same shape as `turntable-audio.js`'s `AudioContext` singleton.
+>   Anything needing the Lenis instance outside `smooth-scroll.jsx` reads it from there,
+>   not through props or context.
+> - **`syncTouch: false`** (Lenis's default) — touch drags scroll natively, Lenis only
+>   smooths wheel input. Deliberate, not an oversight: see `STATUS.md` for why.
+> - **Anything that programmatically cancels a scroll must be Lenis-aware when Lenis is
+>   active.** Native `window.scrollTo({top: window.scrollY, behavior:'instant'})` does
+>   NOT stop Lenis — it writes the position again on its next RAF tick. Use
+>   `lenis.scrollTo(lenis.animatedScroll, { immediate: true })` instead.
 
 ### Stage 3 — The design system, applied *(the Q1 answer)*
 

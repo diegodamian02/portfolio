@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { scrollToSection } from "../lib/scroll.js";
+import { scrollToSection, getActiveLenis } from "../lib/scroll.js";
 
 // How long after a hash change we keep correcting for late-arriving layout.
 // #my-taste's Spotify data lands ~300ms in; 2s covers a slow API round trip
@@ -53,9 +53,29 @@ export function useHashScroll() {
             // gesture does not reliably abort a smooth scroll that is already
             // animating (measured: the visitor scrolls up 400px, and the page
             // glides right back down to the target anyway), so pin the page
-            // where they left it. Same-position + instant is the documented
-            // way to cancel an in-flight smooth scroll.
-            window.scrollTo({ top: window.scrollY, behavior: "instant" });
+            // where they left it.
+            //
+            // With Lenis active, the native pin below is not enough on its
+            // own: Lenis writes the scroll position itself every RAF tick
+            // toward its OWN remembered target, which pinning the native
+            // scrollTop does not touch — the very next tick would glide the
+            // page right back, same failure as the one this comment already
+            // describes, one layer up. lenis.scrollTo(currentPosition,
+            // { immediate: true }) is the Lenis-native equivalent: it collapses
+            // animatedScroll/targetScroll onto where the page already is and
+            // stops its animate loop (verified against
+            // node_modules/lenis/dist/lenis.mjs — scrollTo's immediate branch
+            // calls reset(), which calls animate.stop()).
+            const lenis = getActiveLenis();
+            if (lenis) {
+                lenis.scrollTo(lenis.animatedScroll, { immediate: true });
+            } else {
+                // No Lenis instance: either reduced motion (never constructed
+                // one) or a takeover landing in the brief window before it
+                // mounted. Same-position + instant is the documented native
+                // way to cancel an in-flight smooth scroll.
+                window.scrollTo({ top: window.scrollY, behavior: "instant" });
+            }
         };
 
         const go = () => {

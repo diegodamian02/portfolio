@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-12 · **HEAD:** `05998da`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-12 · **HEAD:** `3a9ed1c`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -658,6 +658,112 @@ one duration, no exceptions — with the class present mid-toggle and removed af
 > is display-hidden behind the mobile menu at 480, and transitions do not run on
 > non-rendered elements, so it "settled" in 24ms invisibly. Filter to rendered elements.
 
+### Stage 2 — scroll foundation: Lenis + GSAP ticker *(2026-08-12)*
+
+**Verified first, per the standing note.** No `lenis` dependency existed. Of the four
+plugins `lib/gsap.js` registers, only `SplitText` (loading-screen.jsx) had a real
+caller — `ScrollTrigger`, `Draggable` and `InertiaPlugin` were registered but **unused**;
+`navbar.jsx` only *mentions* ScrollTrigger in a comment, it never imports it. The two
+prerequisite line numbers had drifted again: `html { scroll-behavior: smooth }` was at
+192 (not 78), `.section`'s `background-attachment: fixed` at 1322 (not 887) — over 400
+lines of drift since the 2026-08-10 count, from Tasks 3–5. Re-verified a third time
+immediately before editing and both held.
+
+`npm install lenis` (1.3.26 — confirmed current; `@studio-freight/lenis` is deprecated
+and its own install warns you to switch).
+
+**Wired manually, not via `lenis/react`.** `<ReactLenis root>` requires children to
+construct anything at all (`if (!children) return null`, confirmed in the package's
+compiled source), which means the reduced-motion gate would have to be expressed twice —
+once in JSX (mount/don't) and once for the ticker wiring. `gsap.matchMedia()` does both in
+one place: `.add("(prefers-reduced-motion: no-preference)", () => {…construct Lenis, wire
+the ticker…; return () => {…destroy…}})`. It isn't tween-specific — `.add()` runs arbitrary
+setup with automatic revert-on-unmatch, which is exactly "construct this subsystem under
+one condition, tear it down under the other." **This is the reduced-motion pattern
+Stage 3/6/7 should reuse** — one mechanism per media-query-gated subsystem, not a React
+hook for the mount decision and a second matchMedia call for anything GSAP-side.
+
+Wired exactly to spec: `lenis.on('scroll', ScrollTrigger.update)`,
+`gsap.ticker.add((t) => lenis.raf(t * 1000))` (ticker gives seconds, Lenis wants ms),
+`gsap.ticker.lagSmoothing(0)`. `autoRaf: false` on the Lenis instance — two RAF loops
+on one scroll would drift.
+
+**`lib/scroll.js` now holds a module-level Lenis reference** (`setActiveLenis` /
+`getActiveLenis`), the same shape as `turntable-audio.js`'s `AudioContext` singleton —
+`scrollToSection()` is called from two plain functions outside any component that owns
+Lenis (navbar's click handler, `use-hash-scroll.js`'s ResizeObserver callback), so a
+shared reference is more honest than threading it through context for two call sites.
+
+> **The brief asked for the offset to be read via `getComputedStyle(documentElement)`.
+> Built something better instead, and verified why the literal ask would have failed.**
+> Custom properties do not resolve their own `calc()`: querying `--scroll-offset` directly
+> returned the **literal string** `"calc(144px + 24px)"`, not a number — confirmed by
+> injecting Lenis into the live page and reading it both ways. `parseFloat()` on that is
+> `NaN`. The value only resolves when applied to a real typed property (a hidden probe
+> element's `top`, `168px`).
+>
+> Better fix: **Lenis's own `scrollTo(target)` already reads `getComputedStyle(target).
+> scrollMarginTop`** when given an element — verified empirically (168.0px measured,
+> matching `--scroll-offset` at 1440 exactly, -0.03px float noise) — the *identical* CSS
+> property Stage 0's B3 fix set. So `scrollToSection()` passes **no offset argument at
+> all**. Not a workaround for the calc() gotcha; a route that never needed the gotcha's
+> value in the first place. One CSS declaration is now the only place the navbar height
+> exists, with nothing in JS re-deriving it — closer to Stage 0's actual goal than the
+> literal instruction would have landed.
+
+**The cancellation risk the brief flagged was real and reproduced.** Native
+`window.scrollTo({top: window.scrollY, behavior:'instant'})` does not stop Lenis: Lenis
+writes the scroll position itself every RAF tick toward its own remembered target, so
+pinning the native scrollTop is undone on the very next frame. Fixed by making
+`use-hash-scroll.js`'s `takeOver()` Lenis-aware — `lenis.scrollTo(lenis.animatedScroll,
+{ immediate: true })` collapses `animatedScroll`/`targetScroll` onto the current position
+and stops Lenis's animate loop (traced through `node_modules/lenis/dist/lenis.mjs`:
+the `immediate` branch calls `reset()`, which calls `animate.stop()`). Confirmed Lenis
+doesn't swallow the wheel/touchstart/keydown events the existing guard listens for
+first — it calls `preventDefault()`, not `stopPropagation()`, on wheel/touch, and never
+touches keydown at all.
+
+**Touch: left at Lenis's default (`syncTouch: false`).** Touch drags scroll natively;
+Lenis never intercepts them, only wheel input gets its smoothing. Deliberately
+conservative — it sidesteps the touch-specific gotchas Lenis's own docs warn about
+(added latency, momentum mismatches vs. native) by not engaging Lenis for touch at all.
+Programmatic `scrollTo()` (nav clicks, hash landings) animates on touch devices
+regardless of this setting; confirmed on an emulated iPhone 13 context. Genuine
+finger-drag "feel" cannot be exercised through Playwright — synthetic `TouchEvent`
+dispatch never reaches a browser's native scroll physics, on any site — so that specific
+claim rides on the existing real-device iPhone check already queued before Stage 7.
+
+**Verified:**
+
+| Check | Result |
+|---|---|
+| Nav-link clearance, 4 breakpoints × 4 sections | **23–25px**, matching Stage 0's ~24px exactly |
+| Cold `/#about` load, settle-window correction (B3b) | Visibly corrects 65→30→25→**24px** (1440), 92→…→**24px** (480), holds flat 2.4s |
+| Wheel / touchstart / keydown mid-scroll cancellation | All 3 hold near the interrupt point; none glide to the original target |
+| B3c: history entries added by 2 nav clicks | **0** (replaceState, confirmed via `history.length`) |
+| Reduced motion | No Lenis DOM markers; nav clicks jump in **one frame** (no glide); cold hash landing flat at 24px from the first sample; scroll-margin path is the only mechanism running |
+| Console/page errors, 4 breakpoints × 2 themes, scroll+toggle | **0** across all 8 runs |
+| Stage 1 Task 4 adversarial transport | See below — one divergence found, confirmed **pre-existing**, not caused by this stage |
+
+> **A stress-test artifact worth recording, not a Stage 2 bug.** Re-running Task 4's
+> 30-sequence adversarial press test (253 presses) surfaced one divergence at run 23 —
+> platter measured at 18.6°/s while `data-deck-state="STOPPED_LOADED"`. Reproduced
+> identically on the **unmodified pre-Stage-2 code** (24.8°/s at the same run), so it
+> predates this stage. Isolating run 23's exact 14-press sequence on a fresh page
+> converges cleanly at 200.9°/s with no divergence at all — the failure only appears
+> after ~22 prior runs' worth of real wall-clock time lets the 30-second iTunes preview
+> reach its **natural end** mid-sequence, triggering `onEnded`'s `SPIN_END_SECONDS = 1.0`
+> brake (longer than a press-triggered one), which the 1250ms settle window doesn't quite
+> cover if a press lands close to when it starts. Given 750ms more, it's back at
+> 200–203°/s. Self-resolving, not a freeze — the bug Task 4 actually fixed stayed fixed.
+> A real visitor would need to press transport 250+ times against one unchanged 30-second
+> preview to hit this. Left as a loose end for whenever `DECK.CUEING` (D11) is built,
+> not fixed here — Stage 2 is scroll only.
+
+Bundle: JS 423.23 → **443.82 kB** (154.51 → **160.18 kB gz**, +5.67 kB gz — Lenis).
+CSS 32.02 → **31.97 kB** (net negligible; comments are stripped, and the only ruleset
+change was two removed lines). Lint holds at **16 errors, 0 warnings**.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -685,8 +791,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **423.23 kB / 154.51 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **32.02 kB / 6.99 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **443.82 kB / 160.18 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **31.97 kB / 6.96 kB gz** |
 | ESLint errors | 21 | **16** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

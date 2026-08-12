@@ -189,7 +189,13 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  // scroll-behavior: smooth REMOVED (Stage 2) — it fought Lenis, which owns
+  // scrolling now: the browser's native smooth-scroll and Lenis's own RAF-driven
+  // writes both animating scrollTop produced visible stutter. Safe to remove
+  // only alongside the Lenis wiring (smooth-scroll.jsx) landing in the SAME
+  // change, not before — scrollToSection()'s scrollIntoView() fallback path
+  // (used under reduced motion, and in the brief window before Lenis mounts)
+  // now passes an explicit { behavior } per call instead of relying on this.
   overflow-x: hidden;
 }
 
@@ -1313,13 +1319,19 @@ html {
 }
 
 // Parallax section
+//
+// Confirmed dead — .section matches no element in any current JSX (checked
+// every className in App.jsx and sections/*.jsx). background-attachment: fixed
+// removed regardless (Stage 2 prerequisite, janky on mobile and incompatible
+// with Lenis-driven scroll even where it did apply), kept as a no-op change
+// rather than deleting the block outright — that's a bigger edit than this
+// stage's scope covers.
 .section {
   height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  background-attachment: fixed;
   background-size: cover;
 }
 
