@@ -94,6 +94,18 @@ Typeface throughout is **Avenir Next**.
 | `connect-desktop.png` | Contact form |
 | `connect-mobile.png` | Same, 390px |
 
+**Stage 1 Task 4 set** (2026-08-11). Colourway and amber shots have the platter pinned to
+0° so the sheen and the translucency glow — both gradients in the *record's* frame — land
+in the same place in every capture.
+
+| File | Shows |
+|---|---|
+| `t4-deck-light-BEFORE.png` / `t4-deck-light-AFTER.png` | The D3b fix. Plinth vs page 11.7 → 28.5 L\* |
+| `t4-amber-BEFORE-dark.png` / `t4-amber-AFTER-dark.png` | Chocolate brown → translucent amber |
+| `t4-colorway-{1..5}-{dark,light}.png` | All five pressings against the new plinth |
+| `t4-button-{EMPTY,PLAYING,PAUSED}-{dark,light}.png` | Transport button in each state |
+| `t4-deck-1440-dark.png` / `t4-deck-480-dark.png` | Button proportion at both size tiers (44px / 36px) |
+
 A fixed navbar overlays these captures wherever it happened to sit during scroll.
 That is a screenshot artifact, not a layout bug — but see finding **B3**, which is
 a real bug in the same area.
@@ -535,6 +547,29 @@ the page.
 Belongs to **Stage 2**, once Lenis and `ScrollTrigger` exist. Hand-rolling scroll-linked
 navbar motion now would mean rewriting it against `ScrollTrigger` immediately after.
 
+### D11 — replaying a finished preview swallows presses for 0.6s
+
+`handleTransport`'s `STOPPED_LOADED` / `ERROR` branch swings the arm back to the outer
+groove over 0.6s before starting audio, and holds `isBusyRef` for that window so a second
+press can't start a second swing from a half-travelled arm. The deck has no state that
+distinguishes "swinging back" from "stopped", which is why the guard is a ref rather than
+a state.
+
+It converges correctly and only applies after a preview has finished, so it was left as
+is. The real fix is a `DECK.CUEING` state, which belongs with **Phase 8** (scratch) since
+that phase needs to know whether the arm is mid-travel anyway.
+
+### D12 — the mat is nearly invisible once a record is on the platter
+
+`.turntable-mat` is `inset: 6.5%` of the platter (radius 0.935) and `.vinyl-record` is
+92% of the same box (radius 0.920), so with a record loaded the slipmat shows as a **~1.5%
+ring** — about 3px at a 400px platter. All the material work on the mat is only visible on
+an empty deck.
+
+Not a bug, but it means "the mat" is effectively a loading-state surface. Worth deciding
+in **Stage 4** whether the record should shrink (say 86%) so the mat reads as a real
+layer, or whether the mat should be simplified because it is almost never seen.
+
 ---
 
 ## 5. Design problems — these need a direction decision
@@ -558,6 +593,35 @@ never realise the turntable is usable.
 Dark grey on near-black. Beautiful on a calibrated monitor; nearly invisible on a
 phone at reduced brightness, which is where most traffic arrives from. The strobe
 ring dots are currently the only element with real separation from the background.
+
+> **Still open for DARK theme.** The light-theme counterpart (D3b below) was fixed in
+> Stage 1 Task 4; dark theme was explicitly left alone. Measured dark-theme record-vs-mat
+> contrast is **1.15–2.07:1** across the five pressings — i.e. the record barely separates
+> from the surface it sits on. The `--deck-ground` token added in Task 4 is the lever:
+> setting it *lighter* than `--bg-color` in `:root` would move the whole dark deck's
+> material stack together, exactly as light theme now does, without touching any
+> individual surface.
+
+### D3b — light-theme deck dissolved into the page — **FIXED (Stage 1, Task 4)**
+
+The inverse of D3. The plinth was `color-mix(--text-color 14%, --bg-color)` ≈ `#d4d6db`
+against a `#f6f7fb` page — **11.7 L\*, 1.36:1**, below the ~15 L\* needed to read as an
+edge — so the deck lost its silhouette and stopped reading as an object on a surface.
+
+Fixed by giving the deck its own ground (`--deck-ground`) that every deck surface mixes
+against, so the whole stack moves together: **28.5 L\*, 2.23:1**. Plus a contact shadow
+the old single wide blur never had. See `STATUS.md` for the full boundary table and the
+`t4-deck-light-BEFORE/AFTER.png` pair.
+
+Two things worth carrying forward:
+
+- **Fixed-alpha black shadows do less absolute work on a darker base.** Deepening the
+  ground flattened `rim → mat` from 8.8 to 5.6 L\* with no change to the mat at all.
+  Anything that re-tones a surface must re-measure the boundaries *around* it.
+- **`color-mix(… var(--text-color) N% …)` flips direction between themes.** The button's
+  disabled fill at `text 9%` was darker than the plinth in dark theme and *lighter* in
+  light theme, so the inert control read as a raised pale disc rather than a recessed
+  well. Mixing toward `black` instead is a darkening in both.
 
 ### D4 — The inverted bands read as accidental
 

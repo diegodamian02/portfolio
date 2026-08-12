@@ -281,6 +281,31 @@ the README's *External APIs* section. Proxying moved every visitor's search onto
 Railway egress IP, so the whole site now shares a single Apple budget. Low risk today,
 but it is a known limitation rather than a solved problem.
 
+> **Stage 1 is DONE** — Tasks 1–4, 2026-08-11. The hero plays, the transport is labelled
+> and survives adversarial input, and the deck reads as an object in both themes. Full
+> measurements in `STATUS.md`.
+>
+> **Decisions made in Task 4 — do not relitigate:**
+>
+> - **`setSpin` is the single writer for the platter's `timeScale`.** Nothing else may
+>   touch it or pause/play the spin tween. Three separate freeze bugs came from having
+>   more than one writer; Phases 8 (scratch) and 9 (pitch) both want to drive platter
+>   speed and **must** go through it rather than adding their own tweens.
+> - **Anything that schedules a state change on a delay must own its own cancellation.**
+>   The worst bug of the task was a `tl.call(() => tween.pause())` scheduled 800ms out,
+>   surviving the timeline that scheduled it and landing on top of a later wind-up.
+>   Putting it in the tween's `onComplete` means `killTweensOf` cancels both together.
+> - **Transport reads deck state from a ref, not the state variable.** Two presses inside
+>   one frame otherwise take the same branch.
+> - **Deck surfaces mix against `--deck-ground`, never `--bg-color`.** That token is the
+>   single lever for the deck's whole material stack per theme — it is also how D3 (dark
+>   theme) should be fixed when its turn comes.
+> - **Reduced motion keeps the platter still**, consistently across load *and* transport.
+>
+> **Carried forward:** D11 (replay swallows presses for 0.6s — wants a `DECK.CUEING`
+> state, fits naturally in Phase 8) and D12 (the mat is a ~1.5% ring once a record is on
+> — Stage 4 should decide whether the record shrinks or the mat simplifies).
+
 ### Stage 2 — Scroll foundation
 
 Lenis + `ScrollTrigger` wired properly, with `gsap.matchMedia` reduced-motion paths

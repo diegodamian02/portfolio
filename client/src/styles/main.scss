@@ -61,10 +61,34 @@
   // to that value would disappear into the deck, which is why the smoke pressing
   // sits lighter than the plinth rather than just below it.
   --vinyl-1: #0d1016; // classic black
-  --vinyl-2: #6b3d0f; // translucent amber
+  --vinyl-2: #a3590c; // translucent amber
   --vinyl-3: #4a121f; // oxblood
   --vinyl-4: #131f42; // midnight blue
   --vinyl-5: #454a52; // marbled smoke
+
+  // Deck materials.
+  //
+  // Every surface on the turntable is mixed against --deck-ground instead of
+  // --bg-color. In dark theme the two are the same value, so this is a
+  // pass-through and nothing about the dark deck changes. In light theme the
+  // ground is set DARKER than the page below, which moves the plinth, platter,
+  // mat, arm and controls together — the whole hierarchy shifts as one and the
+  // steps between the layers stay the same size. Recolouring only the plinth
+  // would have pushed it past the platter and inverted the stack.
+  --deck-ground: var(--bg-color);
+
+  // Top bevel. In dark theme --text-color is light, so mixing it into
+  // transparent gives a lit top edge. That flips to a dark smear in light
+  // theme, which is why the highlight is a token rather than an expression.
+  --deck-bevel: color-mix(in srgb, var(--text-color) 18%, transparent);
+  --deck-edge: transparent;
+  --deck-shadow: 0 40px 80px -24px rgba(0, 0, 0, 0.6);
+
+  // The platter's recessed well. A fixed black alpha does less absolute work
+  // the darker the surface under it, so deepening the light-theme deck
+  // measurably flattened the rim -> mat boundary (8.8 -> 5.6 L*) even though
+  // nothing about the mat changed. Tokenised so light theme can pay that back.
+  --deck-well-shadow: rgba(0, 0, 0, 0.5);
 }
 [data-theme="light"] {
   --bg-color: #f6f7fb;
@@ -83,10 +107,41 @@
   // colourway has plenty of separation — these are richer rather than lighter,
   // since a light record on a light deck is the failure mode in this theme.
   --vinyl-1: #101319;
-  --vinyl-2: #7a4712;
+  --vinyl-2: #96500a;
   --vinyl-3: #571422;
   --vinyl-4: #16244d;
   --vinyl-5: #3d424a;
+
+  // The deck sat at ~#d5d7dc against a #f6f7fb page — measured 11 L* points
+  // apart, which is under the ~15 needed to read as an edge, so the plinth
+  // dissolved into the ground and the turntable stopped looking like an object
+  // resting on a surface. Dropping the ground the deck is mixed against takes
+  // the plinth to a proper silver-grey without touching the page behind it.
+  --deck-ground: #bdc1cb;
+
+  // A LIT top edge, not the dark one the dark-theme expression produces here.
+  --deck-bevel: rgba(255, 255, 255, 0.62);
+  // Plus a hairline outer edge: on a light ground the silhouette needs a
+  // terminator, where in dark theme the surrounding darkness supplies one.
+  --deck-edge: rgba(20, 27, 48, 0.18);
+
+  // Three stacked shadows rather than one wide blur. The old single
+  // `0 40px 80px -24px` had no contact layer at all, and a contact shadow is
+  // what actually sells "sitting on a surface" — the wide ambient one only
+  // reads as depth once something tight anchors the bottom edge.
+  //
+  // The ambient layer is deliberately no weaker than what it replaced
+  // (0.55 blue-black vs 0.6 pure black, at a wider -18px spread), so the two
+  // tighter layers are added density rather than a redistribution of it.
+  // Tinted toward blue-black: pure black greys out against a cool page.
+  --deck-shadow:
+    0 3px 6px rgba(20, 27, 48, 0.22),
+    0 16px 28px -10px rgba(20, 27, 48, 0.32),
+    0 46px 74px -18px rgba(20, 27, 48, 0.55);
+
+  // Pays back the rim -> mat contrast lost to the darker ground — see the
+  // token's declaration in :root.
+  --deck-well-shadow: rgba(16, 22, 40, 0.66);
 }
 // --navbar-height per breakpoint, kept beside the base token so all three
 // values are readable at once. These are now declarations, not observations:
@@ -253,10 +308,11 @@ html {
   width: 100%;
   height: 100%;
   border-radius: 24px;
-  background: color-mix(in srgb, var(--text-color) 14%, var(--bg-color));
+  background: color-mix(in srgb, var(--text-color) 14%, var(--deck-ground));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--text-color) 18%, transparent),
-    0 40px 80px -24px rgba(0, 0, 0, 0.6);
+    inset 0 1px 0 var(--deck-bevel),
+    inset 0 0 0 1px var(--deck-edge),
+    var(--deck-shadow);
 }
 
 // height:55% previously ran flush into the control cluster below it
@@ -275,7 +331,7 @@ html {
   justify-content: center;
   padding: 8px 0;
   border-radius: 6px;
-  background: color-mix(in srgb, black 25%, color-mix(in srgb, var(--text-color) 14%, var(--bg-color)));
+  background: color-mix(in srgb, black 25%, color-mix(in srgb, var(--text-color) 14%, var(--deck-ground)));
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.5),
     inset 0 0 0 1px color-mix(in srgb, var(--text-color) 8%, transparent);
@@ -340,10 +396,10 @@ html {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--text-color) 22%, var(--bg-color));
+  background: color-mix(in srgb, var(--text-color) 22%, var(--deck-ground));
   box-shadow:
     inset 0 0 0 2px color-mix(in srgb, var(--text-color) 30%, transparent),
-    inset 0 6px 20px rgba(0, 0, 0, 0.5),
+    inset 0 6px 20px var(--deck-well-shadow),
     0 16px 36px -12px rgba(0, 0, 0, 0.5);
 }
 
@@ -382,7 +438,7 @@ html {
   position: absolute;
   inset: 6.5%;
   border-radius: 50%;
-  background: color-mix(in srgb, black 20%, color-mix(in srgb, var(--text-color) 22%, var(--bg-color)));
+  background: color-mix(in srgb, black 20%, color-mix(in srgb, var(--text-color) 22%, var(--deck-ground)));
   box-shadow: inset 0 3px 10px rgba(0, 0, 0, 0.4);
 
   &::after {
@@ -410,7 +466,7 @@ html {
   transform: translate(-50%, -50%);
   z-index: 1;
   background: color-mix(in srgb, white 40%, var(--text-color) 60%);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bg-color) 85%, transparent), 0 2px 3px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--deck-ground) 85%, transparent), 0 2px 3px rgba(0, 0, 0, 0.45);
 }
 
 // Tonearm geometry — computed via law of cosines, not eyeballed. Pass 5:
@@ -445,8 +501,8 @@ html {
   border-radius: 6px;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--text-color) 20%, var(--bg-color)),
-    color-mix(in srgb, var(--text-color) 8%, var(--bg-color))
+    color-mix(in srgb, var(--text-color) 20%, var(--deck-ground)),
+    color-mix(in srgb, var(--text-color) 8%, var(--deck-ground))
   );
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
 }
@@ -458,7 +514,7 @@ html {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--text-color) 55%, var(--bg-color) 45%);
+  background: color-mix(in srgb, var(--text-color) 55%, var(--deck-ground) 45%);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   z-index: 2;
 }
@@ -486,7 +542,7 @@ html {
   left: -1px;
   width: 2px;
   height: 24px;
-  background: color-mix(in srgb, var(--text-color) 45%, var(--bg-color));
+  background: color-mix(in srgb, var(--text-color) 45%, var(--deck-ground));
 }
 
 .turntable-tonearm-counterweight {
@@ -499,9 +555,9 @@ html {
   border-radius: 3px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--text-color) 32%, var(--bg-color)),
+    color-mix(in srgb, var(--text-color) 32%, var(--deck-ground)),
     color-mix(in srgb, var(--text-color) 68%, white 10%) 50%,
-    color-mix(in srgb, var(--text-color) 32%, var(--bg-color))
+    color-mix(in srgb, var(--text-color) 32%, var(--deck-ground))
   );
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
 }
@@ -515,9 +571,9 @@ html {
   border-radius: 2.5px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--text-color) 35%, var(--bg-color)),
+    color-mix(in srgb, var(--text-color) 35%, var(--deck-ground)),
     color-mix(in srgb, var(--text-color) 70%, white 15%) 45%,
-    color-mix(in srgb, var(--text-color) 35%, var(--bg-color))
+    color-mix(in srgb, var(--text-color) 35%, var(--deck-ground))
   );
 }
 
@@ -531,7 +587,7 @@ html {
   width: 14px;
   height: 6px;
   border-radius: 1px 3px 3px 1px;
-  background: color-mix(in srgb, var(--text-color) 55%, var(--bg-color) 45%);
+  background: color-mix(in srgb, var(--text-color) 55%, var(--deck-ground) 45%);
   transform: rotate(23deg);
   transform-origin: 50% 0%;
 }
@@ -544,7 +600,7 @@ html {
   width: 2px;
   height: 2px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--text-color) 85%, var(--bg-color) 15%);
+  background: color-mix(in srgb, var(--text-color) 85%, var(--deck-ground) 15%);
 }
 
 // Arm rest / clip — where the headshell parks at rest, matching the
@@ -556,7 +612,7 @@ html {
   width: 14px;
   height: 8px;
   border-radius: 2px;
-  background: color-mix(in srgb, black 15%, color-mix(in srgb, var(--text-color) 14%, var(--bg-color)));
+  background: color-mix(in srgb, black 15%, color-mix(in srgb, var(--text-color) 14%, var(--deck-ground)));
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
@@ -595,56 +651,111 @@ html {
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--text-color) 20%, var(--bg-color));
+  background: color-mix(in srgb, var(--text-color) 20%, var(--deck-ground));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--text-color) 25%, transparent),
     0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-// The deck's transport control — a real <button> now, not a decorative div.
+// The deck's transport control. Was a 22px dial with no icon — the only
+// transport on the deck, and nothing said so. Now 44px: the largest control in
+// the cluster, which is what a start/stop button is on a real deck (the speed
+// buttons beside it are 10px, the fader well 5% of the plinth width). 44px is
+// also exactly the touch minimum, so the visual and the hit target coincide.
 .turntable-start-button {
-  // Visual stays 22px: it is proportioned to the plinth and growing it would
-  // throw off the deck's mechanical scale.
-  width: 22px;
-  height: 22px;
+  --start-button-size: 44px;
+  width: var(--start-button-size);
+  height: var(--start-button-size);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--text-color) 18%, var(--bg-color));
+  background: radial-gradient(
+      circle at 50% 32%,
+      color-mix(in srgb, var(--text-color) 26%, var(--deck-ground)),
+      color-mix(in srgb, var(--text-color) 16%, var(--deck-ground)) 70%
+    );
   box-shadow:
     inset 0 2px 0 color-mix(in srgb, var(--text-color) 22%, transparent),
-    0 2px 4px rgba(0, 0, 0, 0.35);
+    inset 0 -2px 3px color-mix(in srgb, black 22%, transparent),
+    0 3px 6px rgba(0, 0, 0, 0.35);
 
   padding: 0;
   border: none;
   cursor: pointer;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
 
-  // Hit area only. 22px is well under the 44px minimum held to throughout, so
-  // the target is expanded with a pseudo-element instead of by resizing the
-  // button — the touch target grows, the dial does not.
+  // Hit area floor. Redundant at the 44px base size and load-bearing at the
+  // mobile step below, where the dial shrinks but the target must not:
+  // max() keeps it at whichever is larger.
   &::before {
     content: "";
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 44px;
-    height: 44px;
+    width: max(44px, 100%);
+    height: max(44px, 100%);
     transform: translate(-50%, -50%);
     border-radius: 50%;
   }
 
+  // EMPTY deck — nothing to play. Reads inert: the raised bevel flattens to an
+  // inset well, so it looks like a recessed button rather than a dimmed one.
   &:disabled {
     cursor: default;
-    opacity: 0.55;
+    // Darkened FROM the plinth rather than mixed toward --text-color: a
+    // text-percentage mix flips direction with the theme, so `text 9%` came out
+    // lighter than the plinth in light theme and the inert button read as a
+    // raised pale disc instead of a recessed well. Mixing toward black is
+    // always a darkening, so the well reads as a well in both themes.
+    background: color-mix(in srgb, black 12%, color-mix(in srgb, var(--text-color) 14%, var(--deck-ground)));
+    box-shadow: inset 0 1px 3px color-mix(in srgb, black 30%, transparent);
+
+    .turntable-start-button-glyph { opacity: 0.32; }
   }
 
   &:not(:disabled):hover {
-    background: color-mix(in srgb, var(--text-color) 26%, var(--bg-color));
+    background: radial-gradient(
+      circle at 50% 32%,
+      color-mix(in srgb, var(--text-color) 34%, var(--deck-ground)),
+      color-mix(in srgb, var(--text-color) 22%, var(--deck-ground)) 70%
+    );
+  }
+
+  &:not(:disabled):active {
+    box-shadow:
+      inset 0 2px 4px color-mix(in srgb, black 35%, transparent),
+      0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 6px;
   }
+}
+
+.turntable-start-button-glyph {
+  width: 42%;
+  height: 42%;
+  // Both glyphs occupy the same cell so the crossfade happens in place rather
+  // than shifting; GSAP owns opacity and scale from here.
+  fill: color-mix(in srgb, var(--text-color) 88%, var(--deck-ground));
+  overflow: visible;
+
+  .turntable-glyph-play,
+  .turntable-glyph-pause {
+    // Percentage transform-origin on an SVG child resolves against the whole
+    // user-coordinate viewport unless the box is redefined — fill-box makes
+    // "center" mean the glyph's own centre, so the crossfade scales in place
+    // instead of drifting toward the corner.
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  // Starting state matches deckState EMPTY (play glyph). Declared here rather
+  // than left to the first tween so there is no flash of both glyphs on mount.
+  .turntable-glyph-pause { opacity: 0; }
 }
 
 // Lit while the platter is turning — the deck's own "playing" tell.
@@ -716,6 +827,56 @@ html {
     rgba(255, 255, 255, 0.05) 78%,
     rgba(255, 255, 255, 0.13) 100%
   );
+}
+
+// Colourway 2 is a TRANSLUCENT pressing. That is a property of the record, not
+// a colour, which is why it lives here scoped to the pressing rather than in
+// vinyl-record.jsx — the component still names nothing and only picks a token.
+//
+// A flat amber swatch read as brown no matter how the base value was tuned,
+// because what makes amber vinyl look amber is light coming THROUGH it: an
+// uneven warm lift with the grooves still visible inside it, not a lighter
+// colour. `screen` is what preserves the groove structure — it lightens
+// proportionally, so the dark groove lines stay relatively dark instead of
+// being painted over by a flat translucent wash.
+.vinyl-record[data-colorway="2"] {
+  // Contains the blend. Without it the backdrop is the platter and the mat
+  // underneath, so the record would screen against the deck rather than
+  // against its own pressing.
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+    mix-blend-mode: screen;
+
+    // Behind the label. Without this the glow painted OVER the artwork — the
+    // ::before is positioned and .vinyl-record-label is in normal flow, so the
+    // pseudo-element won on paint order and tinted the album art warm
+    // (measured: the same artwork sampled #867054 on this pressing against
+    // #383f43 on every other one). A negative z-index inside the isolated
+    // stacking context puts it after the record's own background but before
+    // in-flow descendants, which is also the physically correct order: light
+    // through the vinyl, then the label sitting on it, then the surface sheen
+    // crossing both.
+    z-index: -1;
+
+    background:
+      radial-gradient(
+        circle at 34% 30%,
+        rgba(255, 184, 84, 0.52) 0%,
+        rgba(255, 150, 40, 0.24) 36%,
+        rgba(255, 138, 20, 0) 64%
+      ),
+      radial-gradient(
+        circle at 70% 74%,
+        rgba(255, 166, 60, 0.3) 0%,
+        rgba(255, 144, 26, 0) 52%
+      );
+  }
 }
 
 .vinyl-record-label {
@@ -2012,6 +2173,13 @@ html {
   .turntable {
     width: min(420px, 90vw);
     aspect-ratio: 4 / 3;
+  }
+
+  // The deck is roughly 40% narrower here, so a 44px dial that reads as a
+  // proper transport at 1440 reads as oversized. Steps down to 36px; the
+  // ::before keeps the touch target at 44px regardless.
+  .turntable-start-button {
+    --start-button-size: 36px;
   }
 
   .spotify-section {

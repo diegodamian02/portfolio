@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-11 · **HEAD:** `90e270f` · **Live:** https://diegodamian.com
+**Updated:** 2026-08-11 · **HEAD:** `ea6c527`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -20,7 +20,7 @@ A portfolio that does six things. Current standing on each:
 | 1 | **Works correctly** — nothing broken or lying to visitors | 🟢 **Stage 0 complete.** Contact form, iPhone search, contrast, scroll offset, mobile nav, `#my-taste` layout all fixed; B7 did not reproduce | — |
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
-| 4 | **Delivers the "playground" premise** — the turntable actually plays | 🟢 **It plays.** Record drops, platter spins up, arm swings, audio starts at needle contact (24ms). Transport, swap and end-of-track all work | Stage 1 ✅ Phases 6+7 |
+| 4 | **Delivers the "playground" premise** — the turntable actually plays | 🟢 **It plays.** Record drops, platter spins up, arm swings, audio starts at needle contact (0.3–0.9ms from the arm landing). Transport is labelled, survives 253 rapid presses, and the deck reads as an object in both themes | Stage 1 ✅ Phases 6+7 |
 | 5 | **Reads as one coherent design** | 🔴 Hero and body are two different visual languages | Stage 3 |
 | 6 | **Converts recruiter attention** | 🟡 Contact form works and the resume is linked from three places; the hero still does not deliver its premise | Stage 1 |
 
@@ -444,6 +444,117 @@ now carries the highlight so the record reads as a lit object.
 
 Task 2's needle-contact timing re-measured at **19–20ms**, unchanged.
 
+### Stage 1 Task 4 — transport reliability, button, light-theme deck *(2026-08-11)*
+
+**Rapid transport presses left the platter frozen while the deck reported `PLAYING`.**
+Measured before touching anything: of five adversarial press sequences, **four ended at
+exactly 0.0°/s with `data-deck-state="PLAYING"`**. Instrumenting the spin tween gave the
+mechanism outright — settled state `timeScale: 1, paused: true`. The wind-up had
+completed correctly and something paused it afterwards.
+
+Three faults, all now fixed by routing every speed change through a single writer
+(`setSpin` in `turntable.jsx`):
+
+1. The brake scheduled `tl.call(() => tween.pause())` 800ms out as its own timeline
+   callback. Pressing play during a brake started a wind-up and the **orphaned callback
+   then landed on top of it**. The pause now lives in the brake tween's `onComplete`, so
+   `gsap.killTweensOf` cancels it together with the tween that scheduled it.
+2. Spin-up snapped `timeScale(0)` before ramping, so resuming a platter still turning at
+   0.95 yanked it to a dead stop first. It now ramps from wherever it is.
+3. Nothing killed the previous `timeScale` tween, so a brake and a wind-up both wrote the
+   property every frame and whichever finished last won.
+
+Ramp durations are now **proportional to the distance travelled** (a standing start takes
+the full 1.2s, resuming from 0.6 takes 0.48s). With a fixed duration each press restarts
+a full-length ramp and fast alternation never converges inside the window the invariant
+allows.
+
+`handleTransport` also reads deck state from a **ref** rather than the state variable —
+two presses inside one frame both saw the stale value and took the same branch.
+
+**Result: 253 presses across 30 randomised sequences, 30/30 converged** within a 1250ms
+settle window (just past the 1.2s spin-up, so this tests the stated invariant rather than
+a generous one). Both terminal states exercised — 17 ended `PLAYING` at 200.8–204.9°/s,
+13 ended stopped at exactly 0.0°/s. The play/pause glyph agreed with the deck state on
+all 30.
+
+**Transport button: 22px → 44px, with a play/pause glyph.** It is the only transport on
+the deck and nothing said so. 44px makes it the largest control in the cluster — correct
+for a start/stop button, and exactly the touch minimum, so visual and hit target
+coincide. Steps to 36px at ≤768px where the deck is ~40% narrower; the `::before` uses
+`max(44px, 100%)` so the target never drops below 44px. Verified 44/44/36-with-44 across
+1440 / 1024 / 768 / 480. Glyphs are SVG, crossfaded by GSAP with `overwrite: "auto"`
+(0s under reduced motion). `aria-label` tracks state — "Pause …" / "Resume …" /
+"Play again …" / "Play — choose a record first" — and the deck-EMPTY state renders as a
+recessed inert well.
+
+**Light-theme deck separation (the D3 counterpart).** The plinth sat 11.7 L\* from the
+page and dissolved into it. Rather than recolour the plinth alone — which would have
+pushed it past the platter and inverted the stack — the deck's whole material stack now
+mixes against a new **`--deck-ground`** token instead of `--bg-color`. In dark theme the
+two are the same value, so it is a pass-through.
+
+| Boundary | Before | After |
+|---|---|---|
+| **plinth vs page** | 11.7 L\* · 1.36:1 | **28.5 L\* · 2.23:1** |
+| plinth → platter rim | 25.0 L\* | 24.0 L\* |
+| platter rim → mat | 8.8 L\* | 6.4 L\* |
+| mat → record | 45.8 L\* | 33.0 L\* |
+| shadow at +2px below the plinth | 33.7 L\* darkening | **48.0 L\*** |
+
+Shadow is stronger at **every** distance sampled (+2/6/12/24/40/60px), and gained a
+contact layer it never had — a single `0 40px 80px -24px` has no near-edge density, and
+the near edge is what sells "resting on a surface".
+
+> **The brief's warning landed.** Darkening the ground flattened `rim → mat` from 8.8 to
+> 5.6 L\* even though nothing about the mat changed: the inset shadows use **fixed black
+> alphas**, which do less absolute work the darker the surface beneath them. A
+> `--deck-well-shadow` token (light theme only) recovered it to 6.4 L\*. Pushing it
+> further muddied the platter's top edge, so it was left there — legible, and the weakest
+> boundary on the deck.
+
+**Dark theme verified untouched**, not asserted: computed styles for 21 deck selectors
+were dumped, the changes stashed, dumped again, and diffed. Exactly two differences, both
+intended — `.turntable-controls` grew 26×50 → 44×72 from the button resize, and the
+plinth gained a **fully transparent** `rgba(0,0,0,0) 0 0 0 1px inset` layer (the
+`--deck-edge` no-op). Every other surface byte-identical.
+
+**The amber pressing read brown.** Fixed by treating translucency as a property of the
+pressing rather than a colour: `--vinyl-2` is richer, and `[data-colorway="2"]` gets a
+`mix-blend-mode: screen` glow under `isolation: isolate`. Measured, dark theme:
+
+| | Before | After |
+|---|---|---|
+| field | `#6c441b` L\*=32.7 | `#a76c22` L\*=50.8 |
+| chroma (max−min channel) | 81 | **133** |
+| light-through lift (lit − field) | **−0.7 L\*** (flat) | **+13.2 L\*** |
+
+Found while verifying: **the glow was painting over the album artwork.** The `::before`
+is positioned and `.vinyl-record-label` is in normal flow, so the pseudo-element won on
+paint order and tinted the art warm — the same artwork sampled `#867054` on this pressing
+against `#383f43` on every other one. `z-index: -1` inside the isolated stacking context
+puts the glow after the record's background but before in-flow descendants, which is also
+the physically correct order: light through the vinyl, then the label on it, then the
+surface sheen across both. Amber's label separation went from the worst of the five to
+the best (2.45:1 dark / 2.24:1 light).
+
+All five pressings re-checked against the new plinth in both themes. Weakest is amber in
+light theme at **1.17:1 against the mat** — amber and the new mat sit at nearly the same
+lightness (L\* 48.2 vs 51.1). It separates by hue rather than luminance; confirmed
+legible in `t4-colorway-2-light.png`. Darkening it to fix the ratio would return it to
+brown, which is the thing that was being fixed.
+
+**Reduced motion**: platter measured at 0.0°/s in all three states, audio plays, transport
+toggles, glyph and label track state, no page errors. `setSpin` returns early under
+reduced motion, matching the load path which already declined to spin.
+
+> **Timing note.** The first re-measurement of Task 2's needle-contact delta read
+> **67–83ms** and looked like a regression. It was the probe: `data-deck-state` is a DOM
+> attribute that lags by a React commit, and a busy rAF loop calling `getComputedStyle`
+> every frame starved the scheduler. Measured from GSAP's own tick, arm-down → audio
+> source start is **0.3–0.9ms**, with the synchronous path taken on every run. On Task 3's
+> own metric with a light loop it is **15.7–16.6ms** (Task 3 read 19–20ms). No regression.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -471,8 +582,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | 412.94 kB / 150.97 kB gz |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **27.50 kB / 6.16 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **421.40 kB / 153.83 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **30.80 kB / 6.86 kB gz** |
 | ESLint errors | 21 | **16** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
