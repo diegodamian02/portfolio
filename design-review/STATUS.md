@@ -321,6 +321,43 @@ Not added to `sitemap.xml`: listing PDFs is conventional and valid, but the file
 a phone number and the nav link already makes it discoverable, so a sitemap entry mostly
 just accelerates indexing. `robots.txt` is unchanged.
 
+### Stage 1 Task 1 — verification only, no code *(2026-08-11)*
+
+Run before any animation work, because Phase 0's *other* conclusion (direct iTunes
+search) was desktop-UA-only and wrong, and Stage 7 depends entirely on this one.
+
+**Decode path: Tier 1 confirmed.** Two engines, four profiles — Blink ×3 (desktop,
+Pixel 5, Galaxy S9+) and WebKit ×1 (Desktop Safari 17.6, real, not emulated). All fetch
+the `audio-ssl.itunes.apple.com` preview directly with `access-control-allow-origin: *`;
+`decodeAudioData` returns 29.93s / 2ch @48kHz on Blink and **30.02s / 2ch** on WebKit.
+Analyser peaks of 17,701–18,114 confirm the stream is **not tainted**. Preview audio
+stays a **direct browser fetch, no proxy**; `/api/itunes/preview-proxy` remains dormant.
+
+**Still open: iOS autoplay/gesture policy** — that is browser *policy*, not the decode
+engine, so desktop WebKit does not settle it. Build to the constraint (`resume()` and
+`play()` inside a real gesture, volume only via `GainNode`, one shared `AudioContext`)
+and gate **Stage 7** behind a real-device iPhone test.
+
+**Two roadmap claims corrected by reading the tree:**
+
+1. **`previewUrl` is not "thrown away."** It reaches `Turntable`'s props already
+   (`record-crate.jsx:27/59/162` → `home.jsx:7/19`), and results are pre-filtered to
+   tracks that have one. It is simply never consumed. Stage 1 needs no plumbing.
+2. **The deck is inert markup.** `turntable.jsx` has no GSAP, refs or hooks. The spin
+   tween does not exist. The tonearm's `transition: transform 0.4s ease` will fight GSAP
+   once it animates that property. No gesture surface exists — every deck control is an
+   `aria-hidden` div.
+
+**GSAP:** only `SplitText` (+ `useGSAP`) is used, in `loading-screen.jsx`.
+`ScrollTrigger`, `Draggable` and `InertiaPlugin` are registered but unused — the one
+`ScrollTrigger` hit in `navbar.jsx` is a comment. Registration breaks nothing.
+
+> **Method note worth keeping.** The Playwright device matrix that caught the iPhone
+> search bug does **not** transfer to audio. That bug was a server-side UA sniff, so
+> Chromium with an iPhone UA reproduced it exactly. Audio behaviour is engine-level
+> policy, so Chromium-with-an-iPhone-UA would have produced confident green rows that
+> meant nothing. Apple coverage requires a real WebKit build — or a real device.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`

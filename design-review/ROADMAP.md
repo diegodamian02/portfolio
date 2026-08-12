@@ -170,8 +170,36 @@ Drop-record + tonearm animation, then the audio engine
 (`AudioContext` → `GainNode` → `AudioBufferSourceNode`), unlocked by the needle-drop
 gesture. `audio.play()` must land exactly on needle contact.
 
-`previewUrl` is currently captured from the iTunes search and **thrown away**. There
-is no `AudioContext` anywhere in the codebase.
+There is no `AudioContext`, `GainNode`, `AnalyserNode` or `<audio>` element anywhere in
+`client/src/` — confirmed 2026-08-11.
+
+> **Correction (Stage 1, Task 1).** This previously said `previewUrl` is *"captured from
+> the iTunes search and thrown away."* **It is not.** It is carried all the way to the
+> component that needs it:
+>
+> `record-crate.jsx:27` puts it in the track shape → `:59` filters results to only tracks
+> that *have* one (`.filter(r => r.previewUrl)`) → `:162` `onSelect?.(track)` →
+> `home.jsx:7` `nowPlaying` → `home.jsx:19` `<Turntable track={nowPlaying} />`.
+>
+> So it already sits in `Turntable`'s props and is simply never *consumed* —
+> `VinylRecord` reads only `artworkUrl`. **No plumbing work is needed.** Stage 1 consumes
+> existing data rather than routing new data.
+>
+> Track shape: `{ id, title, artist, artworkUrl (600×600), artworkThumbUrl, previewUrl }`.
+
+**Current state of the deck, verified 2026-08-11** — `turntable.jsx` is pure markup: no
+GSAP import, no refs, no hooks. Two targets are prepared but inert:
+
+- `.turntable-platter-spin` has `transform-origin: 50% 50%` and a comment naming it as
+  the future rotation target. **No tween exists, and no ref to hand GSAP.**
+- `.turntable-tonearm-rotor` rests at `rotate(20.5deg)` with
+  `transition: transform 0.4s ease`. Nothing drives it. **That CSS transition will fight
+  GSAP** — remove it when GSAP takes the property over.
+- **There is no gesture surface yet.** Every deck control is an `aria-hidden` div with no
+  handler; the only interactive element in the hero is the crate row. Task 2 must decide
+  whether `resume()` rides that click or a new needle-drop control — and if the latter,
+  that element has to become a real button.
+- `.hero-vu-slot` is present and empty, with `clamp(40px, 4vw, 50px)` of height reserved.
 
 > **Read the hero components from the tree before writing a line of animation code.**
 > This is not boilerplate caution — it is the single most repeated lesson of Stage 0.
@@ -221,16 +249,32 @@ is no `AudioContext` anywhere in the codebase.
 So: proxying search did *not* change the audio architecture. If a future session reads
 "iTunes is proxied" and routes preview audio through Railway too, that is a regression.
 
-> **Verified during Phase 0, but re-verify as Stage 1's first task.** `decodeAudioData`
-> returned a buffer at **29.98s**, and `<audio crossorigin="anonymous">` →
-> `MediaElementAudioSourceNode` → `AnalyserNode` returned real non-zero frequency data
-> (sums **2990 / 3082** — not the zeros a tainted stream produces). So the decode path
-> is known to work.
+> **The decode path is VERIFIED — re-tested 2026-08-11 (Stage 1, Task 1).** Phase 0 had
+> only tested this on a desktop UA, and its *other* conclusion (direct search) turned out
+> to be UA-dependent and wrong, so every Phase 0 result was treated as unproven until
+> re-confirmed. It now holds.
 >
-> Re-verify anyway, for two reasons: **(a)** Phase 0 ran on a **desktop UA only**, and
-> its search conclusion turned out to be UA-dependent and wrong — treat every Phase 0
-> result as desktop-only until re-confirmed on real devices; **(b) Stage 7 depends
-> entirely on this**, so discovering a break late is expensive.
+> | Profile | Engine | fetch | ACAO | `decodeAudioData` | `AnalyserNode` |
+> |---|---|---|---|---|---|
+> | Desktop Chrome | Blink | 200 `audio/x-m4p` | `*` | 29.93s, 2ch @48kHz | peak **17,701** |
+> | Pixel 5 | Blink | 200 | `*` | 29.93s, 2ch | peak **18,098** |
+> | Galaxy S9+ | Blink | 200 | `*` | 29.93s, 2ch | peak **18,114** |
+> | **Desktop Safari 17.6** | **WebKit** | 200, no CORS error | `*` | **30.02s, 2ch** | — |
+>
+> That is **two engines across four profiles** (Blink ×3, WebKit ×1) — not four engines.
+> Non-zero analyser sums mean the stream is **not tainted**: `crossorigin="anonymous"`
+> plus the CDN's `access-control-allow-origin: *` is sufficient.
+>
+> **Tier 1 confirmed. Preview audio stays a direct browser fetch — no proxy.**
+> `/api/itunes/preview-proxy` remains dormant.
+>
+> **Still unverified, and deliberately separate: iOS's autoplay/gesture policy.** That is
+> browser *policy*, not the decode engine — desktop WebKit proves the codec and CORS path,
+> not what iOS Safari permits without a user gesture. Build to the constraint now
+> (`AudioContext.resume()` and `audio.play()` only ever inside a real gesture handler,
+> volume exclusively through a `GainNode`, one shared `AudioContext`) and put a
+> **real-device iPhone test before Stage 7**, which is where a failure would actually cost
+> something.
 
 **Watch the shared rate-limit budget** once the hero drives real search traffic — see
 the README's *External APIs* section. Proxying moved every visitor's search onto one
