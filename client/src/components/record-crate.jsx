@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { init as audioInit } from "../lib/turntable-audio.js";
 import { createPortal } from "react-dom";
 import { gsap } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
@@ -159,6 +160,18 @@ export default function RecordCrate({ onSelect }) {
     }, []);
 
     const selectTrack = (track) => {
+        // Unlock the AudioContext HERE, synchronously, inside the real click /
+        // Enter handler — never from a useEffect reacting to the selection.
+        //
+        // An effect runs after React commits, by which point the user-gesture
+        // context is gone. iOS then refuses to unlock the context, and because
+        // desktop browsers don't enforce the same rule it would work perfectly
+        // in development and fail silently on every iPhone. That is the worst
+        // possible failure shape, and it is why this call is not in an effect.
+        //
+        // init() is idempotent: one AudioContext, created lazily, reused forever.
+        audioInit();
+
         onSelect?.(track);
         setOpen(false);
         setActiveIndex(-1);

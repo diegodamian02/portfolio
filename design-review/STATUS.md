@@ -358,6 +358,51 @@ and gate **Stage 7** behind a real-device iPhone test.
 > policy, so Chromium-with-an-iPhone-UA would have produced confident green rows that
 > meant nothing. Apple coverage requires a real WebKit build — or a real device.
 
+### Stage 1 Task 2 — audio engine + needle-drop choreography *(2026-08-11)*
+
+The hero now keeps its promise. `lib/turntable-audio.js` is a module-level singleton
+(one `AudioContext`, verified created exactly once), graph
+`AudioBufferSourceNode → masterGain → destination` with an `AnalyserNode` tapped off
+master — built now, unread until Stage 7. Volume only ever moves via
+`gain.setTargetAtTime`. `lib/deck-state.js` holds the explicit deck states
+(EMPTY / LOADING / PLAYING / PAUSED / STOPPED_LOADED / ERROR) that Phases 8–10 will key off.
+
+**Gesture surface: the crate row.** `init()` is called synchronously inside
+`selectTrack`, never from an effect — an effect runs post-commit, the gesture is gone,
+and iOS refuses to unlock. That would work on desktop and fail silently on every
+iPhone. A 1-sample silent buffer is pushed through during the gesture, because
+`resume()` alone doesn't always satisfy iOS and our real `play()` lands ~1.6s later.
+
+**The tonearm is deliberately NOT a control.** It is 5px wide, its expanded 44px hit
+area would sweep across the platter and collide with Phase 8's `Draggable` scratch, and
+it would duplicate the transport button. Transport lives on the plinth's start/stop
+button, now a real `<button>` with a 44px pseudo-element hit area (the 22px dial itself
+is unchanged). `aria-hidden` moved off `.turntable-controls` onto the decorative
+children individually — an ancestor's `aria-hidden` cannot be overridden by a descendant.
+
+**A real bug, caught by measuring instead of asserting.** The needle-contact `.call()`
+was at the correct timeline position, but `startAudio` ran `fetch` + `decodeAudioData`
+*inside* the callback, so audio started **551ms** after the needle landed. Two fixes:
+decode is now kicked off in parallel when the track is picked (the animation gives ~1.6s
+of cover, decode takes ~0.5s), and `playCached()` starts the source **synchronously** in
+the same tick GSAP writes the arm's final position — `await`, even on a resolved
+promise, defers to a microtask that lands after that frame. Now **24ms / 1.4 frames**,
+measured from the app's own state transition, which makes it an upper bound.
+
+> **Measurement caveat worth remembering.** A Playwright probe that dynamically
+> `import()`s a module can get a *different instance* than the app under Vite HMR —
+> `getState().contextState` returned `"none"` while the deck was genuinely PLAYING. Two
+> assertions failed for that reason alone. Guard probes with an instance check, or
+> restart the dev server, before believing a failure.
+
+Also: `visibilitychange` stops audio and does not auto-resume; reduced motion drops all
+choreography while keeping audio and transport fully functional; the CSS
+`transition: transform 0.4s ease` on the tonearm is gone, since it would re-ease every
+frame GSAP wrote and desync the needle-contact callback.
+
+**Still unverified: iOS autoplay/gesture policy.** Built to the constraint regardless.
+Needs a real-device iPhone test before Stage 7.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`

@@ -446,8 +446,14 @@ html {
   width: 0;
   height: 97%;
   transform-origin: top center;
+  // GSAP owns this property now (see turntable.jsx). The rest angle is still
+  // declared here so the arm is correctly placed before the first tween runs
+  // and under reduced motion, but the `transition: transform 0.4s ease` that
+  // used to be here is GONE: a CSS transition and a GSAP tween animating the
+  // same property fight each other — the transition re-eases every frame GSAP
+  // writes, which both slows the swing and desyncs it from the needle-contact
+  // callback that audio playback is pinned to.
   transform: rotate(20.5deg);
-  transition: transform 0.4s ease;
 }
 
 .turntable-tonearm-counterweight-stub {
@@ -571,7 +577,10 @@ html {
     0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+// The deck's transport control — a real <button> now, not a decorative div.
 .turntable-start-button {
+  // Visual stays 22px: it is proportioned to the plinth and growing it would
+  // throw off the deck's mechanical scale.
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -579,6 +588,62 @@ html {
   box-shadow:
     inset 0 2px 0 color-mix(in srgb, var(--text-color) 22%, transparent),
     0 2px 4px rgba(0, 0, 0, 0.35);
+
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  position: relative;
+
+  // Hit area only. 22px is well under the 44px minimum held to throughout, so
+  // the target is expanded with a pseudo-element instead of by resizing the
+  // button — the touch target grows, the dial does not.
+  &::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  &:not(:disabled):hover {
+    background: color-mix(in srgb, var(--text-color) 26%, var(--bg-color));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 6px;
+  }
+}
+
+// Lit while the platter is turning — the deck's own "playing" tell.
+.turntable[data-deck-state="PLAYING"] .turntable-power-led {
+  box-shadow: 0 0 6px 1px var(--accent);
+  background: var(--accent);
+}
+
+.turntable-error {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  color: var(--secondary-text);
+  text-align: center;
+}
+
+// Wrapper GSAP animates for the drop/lift beats, so the record's own transform
+// is never fought over by the entry tween and the platter's rotation.
+.vinyl-record-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 // Vinyl record
