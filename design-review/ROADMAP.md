@@ -58,26 +58,20 @@ It duplicates the project list directly beneath it, is missing a project (B6), h
 one rotating image in 80vh, and creates a second source of truth already out of sync.
 Deleting it is a net design improvement *and* removes a bug class. Free win.
 
-### Q4 — Inverted bands? — **Defer to the design-system pass (Stage 3).**
+### Q4 — Inverted bands? — **Un-invert `.work-experience`. Decided, Stage 3 Task 1.**
 
-Not a standalone decision. It resolves as part of establishing section rhythm.
-
-> **Interim state, recorded 2026-08-10 — deliberate, not a bug.**
+> **Decided 2026-08-12 — reasoning in full in `STATUS.md`.** No content-driven reason was
+> found to single out Work Experience for inversion specifically; the original two-band
+> rhythm (this + the deleted slideshow) was never content-driven either, both sections
+> just happened to be styled that way. D4's own framing is the deciding fact: a lone,
+> unpartnered inversion reads as a rendering accident, not a choice — reinstating a
+> *second* band purely for symmetry would manufacture that same question a second time
+> with no content backing either band. Un-inverting makes the whole scroll one surface,
+> which is the literal content of the "reads as one coherent design" goal.
 >
-> `.work-experience` is currently the **only** inverted section on the site. It used to
-> be half of an alternating rhythm; `.project-slideshow-section` was the other half,
-> and Q3 deleted it (`4ebaaaf`). So what reads today as a single unexplained light band
-> in the middle of a dark page is the *residue of a pattern whose other half is gone*,
-> not a section that was designed to stand alone.
->
-> It is being left that way **on purpose until Stage 3.** Restoring the rhythm means
-> deciding which sections invert and why — exactly the section-rhythm question Q4 defers
-> — and guessing at it now would mean redoing it. Stage 0's contrast work (B1/B2) only
-> made the existing band *legible*; it took no position on whether the band belongs.
->
-> Anyone reviewing the live site before Stage 3 should read that band as a known,
-> accepted interim state. See also `FINDINGS.md` **D4** (rhythm) and **D5** (the
-> white logo cards inside it, which have the same "decide the treatment first" shape).
+> **Not applied yet** — `.work-experience`'s inverted tokens are untouched. Task 2 removes
+> them when it reaches `#about`. D5 (logos-on-white-cards vs. photographs in the same row)
+> is separate and still open — Task 2's problem too, not decided here.
 
 ---
 
@@ -420,6 +414,30 @@ quantified accomplishments). Stage 0's contrast fix already puts us in that file
 
 Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTrigger`
 (Stage 2 makes this available).
+
+> **Stage 3 Task 1 is DONE** — 2026-08-12. The system is defined as tokens + `@mixin`s in
+> `main.scss` (`--text-xs..xl`, `--space-1..9`, `--content-width`/`-wide`,
+> `@mixin section-title/subtitle`, `@mixin content-column`) and the Q4 decision is made
+> (above). **Nothing is applied to any section yet** — verified zero rendered-pixel change
+> via a real pixel diff, not a byte diff. Full audit and every number in `STATUS.md`.
+>
+> **For Task 2 — three bugs found while auditing, not fixed here, all confirmed rendered:**
+>
+> - `.work-title` ("Work Experience") is `display: none` below 768px — the heading is
+>   **invisible on mobile**.
+> - `.portfolio-header .project-title` renders at **40px** — the bare `.project-title`
+>   rule (sized for the deleted slideshow) still cascades onto it; the scoped override
+>   only touches `font-weight`.
+> - `.contact-title`'s `font-weight: 60` is almost certainly a dropped digit for `600`.
+>
+> **And one deliberate, visible change Task 2 is making, not avoiding:** `.portfolio-title`
+> moves from a standalone 4rem to `--text-xl` (2.5rem, matching every other section's
+> title) and from left-aligned to centered. Named here so it lands as intentional, not as
+> accidental fallout of adopting the mixin.
+>
+> My Taste's three equal, unhierarchied `h2`s are audited above (`STATUS.md`) but belong
+> to **Stage 4**, not Task 2 — `#my-taste` is a full redesign, not a type-scale
+> application, per the sequencing below.
 
 ### Stage 4 — `#my-taste` redesign
 

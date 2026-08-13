@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-12 · **HEAD:** `3a9ed1c`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-12 · **HEAD:** `c4e5e80`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -21,7 +21,7 @@ A portfolio that does six things. Current standing on each:
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🟢 **It plays.** Record drops, platter spins up, arm swings, audio starts at needle contact (0.3–0.9ms from the arm landing). Transport is labelled, survives 253 rapid presses, and the deck reads as an object in both themes | Stage 1 ✅ Phases 6+7 |
-| 5 | **Reads as one coherent design** | 🔴 Hero and body are two different visual languages | Stage 3 |
+| 5 | **Reads as one coherent design** | 🟡 The system is **defined** — type scale, spacing, content-column, section-header pattern, and the Q4 un-invert decision. Not yet applied to any section | Stage 3 (Task 1 ✅, Task 2 next) |
 | 6 | **Converts recruiter attention** | 🟡 Contact form works and the resume is linked from three places; the hero still does not deliver its premise | Stage 1 |
 
 Goals 1–3 were the focus of the 2026-08-07/08 session. **Goals 4–6 are the remaining
@@ -764,6 +764,79 @@ Bundle: JS 423.23 → **443.82 kB** (154.51 → **160.18 kB gz**, +5.67 kB gz �
 CSS 32.02 → **31.97 kB** (net negligible; comments are stripped, and the only ruleset
 change was two removed lines). Lint holds at **16 errors, 0 warnings**.
 
+### Stage 3 Task 1 — the design system, defined *(2026-08-12)*
+
+**Spec only, per the brief.** Everything below is new tokens and `@mixin`s appended to
+`main.scss`; no existing selector's declared properties changed, and nothing renders
+using them yet. Verified: before/after full-page pixel diff (canvas comparison, not
+byte comparison) across `#about`'s two sections, `#projects`, `#connect`, `#my-taste`, at
+1440/480 × dark/light. 5 of 20 crops initially came back "different" — re-ran the
+**identical, unmodified** code against itself and got the same 5 crops diffing by
+similar counts (12,102px in both runs, exactly), which settles it: they're the
+navbar-overlay screenshot artifact `FINDINGS.md` §2 already documents, colliding with
+About's scroll-linked timeline height (`scrollProgress` state), not a rendering change.
+**Zero pixels attributable to this task's CSS.**
+
+**Audited before defining, from the actual tree** — every `font-size`/`padding`/`margin`
+in `about.jsx`, `portfolio.jsx`, `connect.jsx`, `my-taste.jsx`'s rendered output:
+
+- **Type:** 15 font-size declarations, ~6 actually-different intended sizes once
+  duplicates merge. Two are bugs the old audit hadn't caught: `.timeline-content h3`
+  (About's job titles) has **no declared size anywhere** — silent UA default — and
+  `.portfolio-header .project-title` (the collapsed project-list title) **renders at
+  40px**, because the bare `.project-title` rule at line ~1433 — sized for the slideshow
+  Q3 deleted — still cascades onto it; the scoped override only touches `font-weight`.
+  Confirmed rendered, not just read from source.
+- **Spacing:** two spacing systems that never reconciled — `about.jsx`/`my-taste.jsx` in
+  raw px, `connect.jsx`/`portfolio.jsx` in rem, barely overlapping. `.portfolio-title`'s
+  `margin-top: 10rem` measured as a genuine **160px empty gap** above "Projects" with no
+  content to justify it — almost certainly a leftover from the deleted slideshow that
+  used to sit directly above this section.
+- **Content column, measured live at 1440px:** bio-container 1000px, `.timeline-container`
+  (Work Experience) **unconstrained** (`max-width: none`, full 1440px), portfolio-section
+  800px, contact-container 700px, spotify-track-list 1152px (80% of viewport, also
+  unconstrained). Five different rules, one of them not a rule at all. **This, not the
+  row-internal number/title baseline, is Q1's actual "track numbers... don't align to
+  their own rows" complaint** — that screenshot predates B8 (2026-08-10); the baseline
+  fix re-verified still holds, 0.0px delta across three sampled rows.
+- **Two more bugs found and flagged, not fixed here** (markup is Task 2's job): `.work-title`
+  ("Work Experience") is `display: none` below 768px — confirmed rendered, the heading is
+  **completely invisible on mobile**, i.e. to most of this site's traffic. And the
+  `font-weight: 60` typo on `.contact-title` (browsers clamp to the nearest weight the
+  font ships, so this silently renders thin, not the "600" it almost certainly meant).
+
+**The system**, appended to `:root` plus one new mixin block (first `@mixin` usage in
+this file — checked, nothing here used Sass mixins before):
+
+| | Decision | Why |
+|---|---|---|
+| `--text-xs/sm/md` | 0.9 / 1 / 1.2rem, fixed | audited range was already narrow; no need to move with viewport |
+| `--text-lg/xl` | `clamp(1.6rem,4vw,2rem)` / `clamp(2rem,5vw,2.5rem)` | the two sizes headings use, **neither had any responsive treatment before** (zero font-size media queries existed for any of the four sections) — clamp() shape matches `.hero-name`'s own established `clamp(min, Nvw, max)` pattern |
+| `--space-1..9` | 4px → 96px, base-4 | covers every audited value within one step **except** `.portfolio-title`'s 10rem, deliberately *not* carried forward — one anomalous legacy value doesn't earn its own scale step |
+| `--content-width` / `-wide` | 720 / 1100px, both centered | 720px is deliberately close to `.contact-container`'s *existing* 700px — Q1 names `connect-desktop.png` as the section that already "works", so its column is the one to standardise on, not a new number. `-wide` covers layouts that structurally aren't a reading column (Work Experience's timeline, My Taste's lists) |
+| `@mixin section-title/subtitle` | `font-weight: 600`, `text-align: center` | 600 over the more common "bold"/700 (found twice) because `.contact-title` is the section **already** deliberately weighted that way (the "60" is almost certainly that value with a dropped digit) and Connect is the section Q1 holds up as working. Centering is a real, visible change for Portfolio (currently left-aligned) when Task 2 applies it. My Taste currently has no title/subtitle hierarchy at all (three equal `h2`s) — audited here for scale purposes, but applying it is Stage 4's job, not Task 2's |
+
+**Q4 — the inverted-band decision: un-invert `.work-experience`.** Not a bug fix, a
+direction call, made on this reasoning:
+
+- No principled, content-driven reason was found to single out Work Experience for
+  inversion specifically — the original two-band rhythm (this + the deleted slideshow)
+  was never content-driven either; both sections just happened to be styled that way.
+- **D4's own framing is the deciding fact:** a lone, unpartnered inversion reads as a
+  rendering accident, not a choice — reinstating a *second* band purely for symmetry
+  would manufacture that same "why is this here" question a second time, with no
+  content backing either band.
+- Un-inverting makes the entire scroll one consistent surface — Home, Projects, My Taste,
+  Bio, Work Experience, Connect all on the same `--bg-color` — which is the literal
+  content of Stage 3's goal (`STATUS.md` §1 goal 5, "reads as one coherent design").
+- **Not applied here.** `.work-experience`'s `background-color: var(--bg-inverted)` /
+  `color: var(--text-inverted)` (main.scss ~1697) and its children's inverted tokens
+  (`.work-title` ~1692, `.date` ~1740) are untouched — Task 2 removes them when it
+  reaches `#about`, per the stated sequencing.
+- D5 (logos-on-white-cards vs. photographs inside the same row) is a separate, still-open
+  finding — not decided here, Task 2's problem when it applies the content column to
+  About's timeline items.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -792,7 +865,7 @@ crate too, not just `#my-taste`.
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
 | JS bundle | 407 KB / 147 KB gz | **443.82 kB / 160.18 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **31.97 kB / 6.96 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **32.30 kB / 7.08 kB gz** |
 | ESLint errors | 21 | **16** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

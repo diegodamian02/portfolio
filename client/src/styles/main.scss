@@ -123,6 +123,104 @@
   // measurably flattened the rim -> mat boundary (8.8 -> 5.6 L*) even though
   // nothing about the mat changed. Tokenised so light theme can pay that back.
   --deck-well-shadow: rgba(0, 0, 0, 0.5);
+
+  // ==========================================================================
+  // DESIGN SYSTEM — Stage 3 Task 1. Spec only: nothing below is wired into any
+  // section yet (Task 2 does that, #about -> #projects -> #connect; #my-taste
+  // is replaced in Stage 4, not restyled). Verified this block changes zero
+  // rendered pixels — screenshot diff, both themes, four breakpoints.
+  //
+  // Audited before defining, per the standing "verify current state" note —
+  // every font-size/padding/margin in about.jsx, portfolio.jsx, connect.jsx and
+  // my-taste.jsx's rendered output, read from the tree, not assumed:
+  //
+  //   Type: 0.9rem x3, 1rem x6, 1.2rem x5, 1.3rem x1, 2rem x4, 2.5rem x2, 4rem x1
+  //   — 15 declarations, ~6 actually-different intended sizes. Two are bugs,
+  //   not values to preserve: .timeline-content h3 (About's job titles —
+  //   "Capgemini - Test Engineer" etc.) has NO declared size anywhere and
+  //   silently takes the browser's UA default; .portfolio-title's 4rem is 60%
+  //   larger than every other section's title (2.5rem) with no comment
+  //   explaining why. Neither fixed here — the scale below just no longer has
+  //   room for either accident once Task 2 applies it.
+  //
+  //   Spacing: two NEVER-reconciled systems. about.jsx/my-taste.jsx use raw
+  //   px (5/10/15/20/40/50/60/70), connect.jsx/portfolio.jsx use rem
+  //   (0.5/0.75/1/1.5/2/3/6/10rem) — barely overlapping grids built
+  //   independently. .portfolio-title's `margin-top: 10rem` (160px, measured)
+  //   is the one legacy value NOT carried into the scale below: it renders as
+  //   a 160px dead gap above "Projects" with no content to justify it, and is
+  //   almost certainly a leftover from the deleted slideshow (Q3) that used to
+  //   sit directly above this section. Flagged for Task 2 to remove, not
+  //   preserved as a scale step.
+  //
+  //   Content column width, 1440px, measured live: bio-container 1000px,
+  //   .timeline-container (Work Experience) UNCONSTRAINED — literally
+  //   max-width: none, full 1440px viewport width — portfolio-section 800px,
+  //   contact-container 700px, spotify-track-list 1152px (80% of viewport,
+  //   also unconstrained), top-artists-list ~1048px. Five different rules,
+  //   one of them (Work Experience) not a rule at all. This is Q1's actual
+  //   "my-taste-desktop.png... track numbers don't align to their own rows"
+  //   complaint — NOT the row-internal number/title baseline, which B8 already
+  //   fixed and is re-verified still holding (0.0px delta, three rows sampled)
+  //   — it's that no two sections agree on where the page's content edges are.
+  //
+  //   Also found and flagged, not fixed here (markup/layout is Task 2's job):
+  //   .work-title ("Work Experience") is `display: none` below 768px — the
+  //   heading is completely invisible on mobile, confirmed rendered. And
+  //   `.portfolio-header .project-title` renders at 40px/2.5rem — the OLD,
+  //   bare `.project-title` rule (line ~1433, sized for the deleted
+  //   slideshow's giant heading) still cascades onto the collapsed project
+  //   list's title span, since the scoped override only touches font-weight.
+  // ==========================================================================
+
+  // ---- 1. Type scale --------------------------------------------------------
+  // xs/sm/md fixed: their audited range was already narrow (0.9-1.2rem) and
+  // none of it needs to move with viewport width. lg/xl are fluid — these are
+  // the two sizes headings actually use, NONE of which had any responsive
+  // treatment before (zero font-size media-query overrides existed for any of
+  // the four sections), so on mobile every heading rendered at its full
+  // desktop size today. clamp() shape matches the one already established by
+  // .hero-name (clamp(min, Nvw, max)): flat below ~640px, ramps through
+  // tablet, flat again above ~800px — rather than a novel curve.
+  --text-xs: 0.9rem;   // .date, form labels, error/status text
+  --text-sm: 1rem;     // descriptions, subtitles, form fields, track-artist
+  --text-md: 1.2rem;   // item titles + long-form body: bio-right p,
+                        // portfolio-details, .track-name, the undeclared
+                        // .timeline-content h3
+  --text-lg: clamp(1.6rem, 4vw, 2rem);     // subheadings: About's "About Me" /
+                                             // "Education", My Taste's three h2s
+  --text-xl: clamp(2rem, 5vw, 2.5rem);     // section titles: Work Experience,
+                                             // Let's have a coffee talk,
+                                             // Projects (currently 4rem)
+
+  // ---- 2. Spacing scale ------------------------------------------------------
+  // Base-4 rem steps. Every legacy value audited above lands within one step
+  // of a rung here except .portfolio-title's 10rem, deliberately not carried
+  // forward (see above) — adding a --space-10 to fit one anomalous value would
+  // be padding the scale out, not consolidating it.
+  --space-1: 0.25rem;  // 4px
+  --space-2: 0.5rem;   // 8px
+  --space-3: 0.75rem;  // 12px
+  --space-4: 1rem;     // 16px
+  --space-5: 1.5rem;   // 24px
+  --space-6: 2rem;     // 32px
+  --space-7: 3rem;     // 48px
+  --space-8: 4rem;     // 64px
+  --space-9: 6rem;     // 96px — matches .portfolio-title's OTHER margin value
+                        // exactly; only the 10rem one is the outlier
+
+  // ---- 3. Content column / alignment -----------------------------------------
+  // Two tiers, both centered via margin-inline: auto, never edge-anchored.
+  // --content-width is deliberately close to .contact-container's EXISTING
+  // 700px: Q1 names connect-desktop.png as the section that already "works —
+  // clean, calm, legible", so its column width is the one to standardise on
+  // rather than inventing a new number. --content-width-wide covers layouts
+  // that are structurally NOT a reading column (Work Experience's
+  // side-by-side timeline items, My Taste's track/artist lists) and would be
+  // cramped at reading width — sized close to bio-container's existing
+  // 1000px for the same reason.
+  --content-width: 45rem;        // 720px
+  --content-width-wide: 68.75rem; // 1100px
 }
 [data-theme="light"] {
   --bg-color: #f6f7fb;
@@ -186,6 +284,55 @@
 }
 @media only screen and (max-width: 480px) {
   :root { --navbar-height: 108px; }
+}
+
+// ---- 4. Section-header pattern ---------------------------------------------
+// First @mixin usage in this file — checked; nothing here uses Sass mixins
+// today, every rule is plain CSS-with-nesting. Chosen over a shared JSX
+// component/className because it needs zero markup change to adopt: Task 2
+// can `@include section-title;` INSIDE .work-title's existing rule and the
+// className in about.jsx never has to move. The alternative — hand-copying
+// the same four properties into four selectors — is the exact duplication
+// that produced the inconsistency this task exists to remove.
+//
+// text-align: center is baked into both, not left to the caller. This is the
+// alignment-logic decision for headings specifically: a centered title reads
+// as a deliberate anchor for the section, matching Connect's current
+// treatment (already centered) — the BODY content beneath stays left-aligned
+// in the column @mixin content-column below sets up. Portfolio's title is
+// currently left-aligned and Work Experience's is centered only because its
+// whole section is `text-align: center`; applying this mixin is a real,
+// visible change for both, made deliberately here rather than by accident
+// when Task 2 wires it in.
+//
+// font-weight: 600, not the more common "bold" (700) found twice in the
+// audit (.work-title, the Spotify h2s) — Connect's OWN .contact-title is the
+// one section already deliberately weighted at 600 (`font-weight: 60` is
+// almost certainly that value with a dropped digit, not a different
+// intent), and Connect is the section Q1 holds up as already working.
+@mixin section-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+@mixin section-subtitle {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: var(--space-5);
+}
+
+// Centered column, never edge-anchored. $width takes --content-width or
+// --content-width-wide (defined above) depending on whether the section's
+// content is a reading column or a wide/multi-item layout — see the token
+// comments for which sections need which.
+@mixin content-column($width: var(--content-width)) {
+  width: 100%;
+  max-width: $width;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 html {

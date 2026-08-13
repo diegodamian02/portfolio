@@ -600,6 +600,43 @@ Not a bug, but it means "the mat" is effectively a loading-state surface. Worth 
 in **Stage 4** whether the record should shrink (say 86%) so the mat reads as a real
 layer, or whether the mat should be simplified because it is almost never seen.
 
+### B10 — "Work Experience" heading is invisible below 768px
+
+Found while auditing font-sizes for Stage 3 Task 1's type scale. `.work-experience h2 {
+display: none; }` inside the 768px media query — confirmed rendered: at a 600px
+viewport, `.work-title` computes to `display: none`, zero `offsetWidth`/`offsetHeight`.
+The section has exactly one heading, so this doesn't hide a duplicate — the section's
+name is **completely absent** below 768px, which is most of this site's traffic. Not
+B1's bug (that was a contrast failure; this is a display failure) and not caught by B1's
+fix since the rule sits in a different block.
+
+Not fixed here — spec-only task, no markup/layout changes. Task 2 removes the rule when
+it applies the section-header pattern to `#about`.
+
+### B11 — a dead slideshow-era rule still sizes the project list's title
+
+`.project-title` (main.scss ~1433, `font-size: 2.5rem; font-weight: 800;`) was written
+for the slideshow Q3 deleted (`4ebaaaf`). `portfolio.jsx` reuses the same class name for
+an unrelated element — the `<span className="project-title">` inside each collapsed
+project row's clickable header — and the newer, scoped
+`.portfolio-header .project-title { font-weight: 400; }` only overrides *weight*, not
+size, so the old rule's `font-size: 2.5rem` still cascades through by specificity.
+Confirmed rendered: the collapsed list's project titles compute to **40px**, next to
+`.portfolio-header`'s own 1.3rem/21px context — a visibly oversized line in a list of
+short row headers.
+
+Not fixed here. Task 2 should either delete the dead `.project-title` rule outright or
+fold its role into `@mixin section-title`/the type scale — the point of Stage 3 is that
+neither the class name nor the rule should exist independently once the scale is applied.
+
+### D13 — the two spacing systems this project has been carrying
+
+`about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while
+`connect.jsx`/`portfolio.jsx` use rem (0.5/0.75/1/1.5/2/3/6/10rem) — two grids built
+independently that barely overlap. Not a bug on its own (nothing visibly breaks), but it
+is the reason `--space-1..9` exists (`STATUS.md`, Stage 3 Task 1) rather than a smaller
+patch — there was no single existing system to extend.
+
 ---
 
 ## 5. Design problems — these need a direction decision
@@ -653,12 +690,20 @@ Two things worth carrying forward:
   light theme, so the inert control read as a raised pale disc rather than a recessed
   well. Mixing toward `black` instead is a darkening in both.
 
-### D4 — The inverted bands read as accidental
+### D4 — The inverted bands read as accidental — **RESOLVED (Q4), Stage 3 Task 1**
 
-Two full-viewport light bands (the slideshow, and work experience) interrupt the dark
-site. Inversion *can* be a deliberate rhythm device, but each band currently holds one
-small element in a large empty field, so it reads as a rendering bug rather than a
-choice.
+> Originally: "Two full-viewport light bands (the slideshow, and work experience)
+> interrupt the dark site." **Stale even at the time Stage 3 read it** — Q3 deleted the
+> slideshow back in Stage 0 (`4ebaaaf`); `.work-experience` had already been the *only*
+> inverted section on the site since 2026-08-08. Corrected here rather than left to
+> mislead the next read.
+
+Decided 2026-08-12: **un-invert `.work-experience`.** A lone, unpartnered inversion reads
+as a rendering accident, not a choice — which is what this finding was pointing at — and
+no content-driven reason was found to single it out over any other section. Reasoning in
+full, and why "reinstate a partner band instead" was rejected, in `STATUS.md` and
+`ROADMAP.md` §1 Q4. **Not applied yet** — Task 2 removes the inverted tokens when it
+reaches `#about`.
 
 ### D5 — The work-experience row mixes two visual languages
 
@@ -666,6 +711,9 @@ Capgemini and GlobalLogic are **logos on tall white cards**. CodeWiz and Trump
 National are **photographs**. Different aspect ratios, uneven card heights, ragged
 bottom edge. The content itself is strong — real accomplishments with metrics — but
 the presentation undercuts it.
+
+Still open — not decided by Stage 3 Task 1. Task 2's problem when it applies
+`--content-width-wide`/`@mixin content-column` to this row.
 
 ### D6 — No scroll affordance
 
