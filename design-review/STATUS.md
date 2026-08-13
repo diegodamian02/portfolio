@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-13 · **HEAD:** `c7ed0de`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-13 · **HEAD:** `5d74f91`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -21,7 +21,7 @@ A portfolio that does six things. Current standing on each:
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🟢 **It plays.** Record drops, platter spins up, arm swings, audio starts at needle contact (0.3–0.9ms from the arm landing). Transport is labelled, survives 253 rapid presses, and the deck reads as an object in both themes | Stage 1 ✅ Phases 6+7 |
-| 5 | **Reads as one coherent design** | 🟡 System defined (Task 1) and now applied to `#about`'s Work Experience half (Task 2) — full-bleed scroll timeline, Q4's un-invert applied, B10 fixed. `#projects` and `#connect` still pending | Stage 3 (Tasks 1–2 ✅, `#projects`/`#connect` next) |
+| 5 | **Reads as one coherent design** | 🟡 System defined (Task 1), applied to Timeline (Task 2, trimmed Task 3) and now the new About Me intro (Task 4) — `#about`/`#timeline` split, Q4's un-invert applied, B10 fixed. `#my-taste`, `#projects` and `#connect` still pending | Stage 3 (Tasks 1–4 ✅, rest next) |
 | 6 | **Converts recruiter attention** | 🟡 Contact form works and the resume is linked from three places; the hero still does not deliver its premise | Stage 1 |
 
 Goals 1–3 were the focus of the 2026-08-07/08 session. **Goals 4–6 are the remaining
@@ -983,6 +983,118 @@ themes, three depths, one panel close-up confirming the new caption) in
 `screenshots/about-timeline-t3-*.png`; `about-timeline-panel-github.png` from Task 2
 kept as the historical "before" record rather than deleted.
 
+### Stage 3 Task 4 — new About Me intro, `#about`/`#timeline` split *(2026-08-13)*
+
+A new, calm single-viewport intro card — portrait, name, one-line placeholder bio,
+five fact chips — inserted between the hero and Timeline. **Replaces `.bio-section`
+entirely**, not added alongside it: the old two-paragraph bio, Rutgers logo and flag
+icons are gone, not adapted. Read the actual shipped `App.jsx`/`navbar.jsx` before
+touching anything, per the brief — confirmed `id="about"` currently wrapped the whole
+old `about.jsx` (bio **and** work-experience together), which is the id collision the
+brief flagged.
+
+**The split, resolved as recommended:** `id="about"` is now the new intro card;
+Work Experience moved to its own file, `timeline.jsx`, with its own `id="timeline"`.
+Verified no collision (`document.querySelectorAll` id set has 6 unique entries for 6
+sections). `.timeline-*`/`.work-experience` CSS classnames are untouched — only the
+wrapping `<section>`'s `id` and which file renders it changed.
+
+**Nav order, updated in `lib/sections.js`** (the single source `SECTIONS` array
+navbar.jsx, `scrollToSection`, and the hashchange sync all read from):
+Home → About Me → Timeline → My Taste → Projects → Let's Connect.
+
+**B3 re-verified for all six sections, not assumed.** The scroll-offset rule
+(`.content > section { scroll-margin-top: var(--scroll-offset) }`) is a blanket
+selector matching any direct child of `.content` — reordering/renaming sections needed
+no per-section change, and this was checked empirically rather than taken on faith:
+clicked every nav link fresh and measured landing position.
+
+| Section | Lands at (viewport-top) |
+|---|---|
+| `#home` | 0.0px (document top, offset correctly clamps to 0) |
+| `#about` | 169.0px |
+| `#timeline` | 168.4px |
+| `#my-taste` | 172.6px |
+| `#projects` | 169.6px |
+| `#connect` | 168.6px |
+
+All five non-home sections clear the 144px navbar by ~25-29px — the same clearance
+B3 established, unaffected by the reorder. B1/B2 (Timeline's `.work-title`/`.date`
+contrast) also re-verified unchanged: 17.03:1 dark / 17.44:1 light, 12.99:1.
+
+**Content:**
+
+- **Portrait: `assets/diego.png`, reused, not a new placeholder.** Diego's own
+  existing profile photo, already live on the site as `.profile-photo` in the old
+  bio-section — the brief's "path Diego provides" is this file.
+- **Name / bio / chips exactly as specified.** Bio is the literal placeholder text
+  the brief asked for, marked with brackets, no effort spent polishing it.
+- **Location chip says "Lima → Chicago," not "New Jersey."** The bio-section text
+  this section replaces said "now living in New Jersey" — the brief's data is more
+  recent and is what's used, per the same "trust the brief's data, flag the
+  discrepancy" approach Task 2 used for the work-history dates. Flagged here for
+  Diego to confirm.
+- **No Tabler icon library exists anywhere in this project** — checked
+  `package.json` and `node_modules`, neither has any icon dependency at all, not
+  just a missing guitar glyph. Rather than adding a new dependency for five small
+  glyphs, all five chip icons (location, education, focus, music, guitar) are
+  hand-drawn inline SVGs, matching the one icon convention this codebase already
+  has: `turntable.jsx`'s play/pause glyphs are hand-drawn paths, not a library.
+
+**Animation — two effects, both through `gsap.matchMedia()`, exactly as the brief
+asked (not the `useReducedMotion()` hook Timeline/Turntable use elsewhere):**
+
+- **Entrance**, `ScrollTrigger` with `once: true` (not toggleActions — this is a
+  single intro beat, not a re-triggerable scroll sequence like Timeline's panels).
+  Portrait wipes via a sliding overlay (`xPercent` 0→100, not a scale/clip-path, to
+  avoid transform-origin direction confusion), then name → bio → chips cascade
+  in strict sequence using `SplitText` word-splitting and explicit `">+=0.25"` /
+  `">+=0.3"` timeline positions for the pauses — not chained durations, so the gaps
+  are exact regardless of how long the group before took. Verified by sampling the
+  DOM every 100ms through the whole sequence: mask finishes ~700ms, name cascades
+  700→1200ms, bio starts ~1450ms (≈250ms pause, matches) and finishes ~2200ms, chips
+  start ~2500ms (≈300ms pause, matches). `once: true` re-verified by scrolling past,
+  back above, and back down — mask stays revealed, does not replay.
+- **Idle tilt**, `pointer:fine` and `prefers-reduced-motion:no-preference` combined
+  in one query string. `gsap.quickTo()`, ±8° range on `rotateX`/`rotateY`, cursor
+  position normalised to the portrait's own bounding box.
+- **SplitText's own accessibility handling verified, not assumed:** it sets
+  `aria-label` (the real, complete text) on the parent `h2`/`p` and `aria-hidden`
+  on every generated word span, so a screen reader reads "Diego Damian" and the
+  full bio sentence normally despite the DOM being word-split for the stagger.
+
+**A real GSAP bug found and fixed, not a test artifact.** Two separate
+`gsap.quickTo()` calls writing `rotateX`/`rotateY` directly onto the same DOM
+element silently no-op'd — console warning `"rotateY not eligible for reset. Try
+splitting into individual properties"` — because the browser's native independent
+`rotate` CSS property combines both axes into one value, and GSAP's quick-setter
+"reset" path can't cleanly split a second writer into an already-compound property.
+Fixed by routing `quickTo` through a plain proxy object (`{rx, ry}`) instead of the
+DOM node, then combining both axes into one `gsap.set()` call per update — the DOM
+element only ever has ONE writer touching its transform. Caught by the same
+methodology as B12 (Task 2): measuring/tracing actual state (`getComputedStyle()`
+transform matrices, cursor-position math) rather than trusting that code without a
+console error was working. Also added a small overscan `scale(1.12)` on the portrait
+(same reasoning as Timeline's parallax overscan) — at max tilt, the circular clip was
+uncovering a sliver of background at the corners without it.
+
+**Reduced motion / touch, both re-verified with real emulation, not inspection:**
+Playwright's `reducedMotion: "reduce"` context shows the mask already revealed and
+name/bio at `opacity: 1` on load (no tween ever runs — nothing needed to be
+explicitly un-hidden, since `.from()` tweens only establish a hidden starting state
+when they're actually created), and mousemove produces zero transform change. A
+Pixel 5 device emulation (`pointer: fine` confirmed `false`) still plays the full
+entrance — correct, since only the tilt is pointer-gated, not the entrance.
+
+**Verified:** `npm run build` clean (CSS 34.21→34.41 kB / 7.49→7.52 kB gz, JS
+446.64→445.89 kB / 161.21→158.78 kB gz — net down despite new content, since the old
+bio-section's now-unused `rutgers.png`/`peru.png`/`usa.png` imports are gone).
+`npm run lint` dropped to **8 errors** (from 13) — incidental, not a deliberate
+fix: the old bio-section's five `react/no-unescaped-entities` errors (its
+apostrophe-heavy paragraph text) left with the section that had them. Screenshots —
+both themes, three widths, entrance mid-sequence, and the settled tilt state — in
+`screenshots/about-me-t4-*.png`.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1010,9 +1122,9 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **446.64 kB / 161.21 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **34.21 kB / 7.49 kB gz** |
-| ESLint errors | 21 | **13** |
+| JS bundle | 407 KB / 147 KB gz | **445.89 kB / 158.78 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **34.41 kB / 7.52 kB gz** |
+| ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
 ---

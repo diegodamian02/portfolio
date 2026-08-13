@@ -29,14 +29,17 @@ plays.
 
 ### Page structure
 
-One scrolling page, five anchored sections:
+One scrolling page, six anchored sections (Stage 3 Task 4 split the old
+`#about` — portrait/name/bio/facts, then a separate `#timeline` — work
+history — see `STATUS.md`):
 
 | Anchor | Contents |
 |---|---|
 | `#home` | Turntable hero + record-crate search input |
-| `#projects` | Auto-rotating image slideshow, then an expandable project list |
+| `#about` | Calm intro card: portrait, name, one-line bio, fact chips |
+| `#timeline` | Full-bleed scroll-revealed work-experience panels (formerly lived at `#about`) |
 | `#my-taste` | Diego's top Spotify tracks and artists (read-only, server-cached) |
-| `#about` | Bio + education, then work-experience cards |
+| `#projects` | Expandable project list |
 | `#connect` | Contact form (now working, sends via Resend) |
 
 ### Stack and constraints

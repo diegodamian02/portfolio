@@ -11,10 +11,15 @@ export const RESUME_URL = "/Diego-Damian-Resume.pdf";
 // label leaves implicit.
 export const RESUME_ARIA_LABEL = "Resume (PDF, opens in a new tab)";
 
+// Order matches the on-page scroll order (Stage 3 Task 4) — Home, then the
+// person (About), then the work history (Timeline), then the rest. id="about"
+// is the new intro card (about.jsx); the work-experience content that used to
+// share that id now has its own, id="timeline" (timeline.jsx).
 export const SECTIONS = [
     { id: "home", label: "Home" },
-    { id: "projects", label: "Projects" },
-    { id: "my-taste", label: "My Taste" },
     { id: "about", label: "About Me" },
+    { id: "timeline", label: "Timeline" },
+    { id: "my-taste", label: "My Taste" },
+    { id: "projects", label: "Projects" },
     { id: "connect", label: "Let's Connect" },
 ];

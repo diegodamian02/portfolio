@@ -572,6 +572,42 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > light; B3 lands at 169px, same ~25px clearance). Full writeup, bundle deltas (all
 > down, as expected for a pure removal) and screenshots in `STATUS.md`.
 
+> **Stage 3 Task 4 is DONE — 2026-08-13.** A new, calm single-viewport About Me intro
+> (portrait, name, placeholder bio, five fact chips) inserted between the hero and
+> Timeline — **replacing `.bio-section` entirely**, not added alongside it.
+>
+> **The `#about`/id collision this task flagged was real** — the old `about.jsx`
+> wrapped both bio and work-experience under one `id="about"`. Resolved as
+> recommended: `id="about"` is now this new intro card; work-experience moved to its
+> own file, `timeline.jsx`, with its own `id="timeline"`. Nav order updated in the
+> single `SECTIONS` source (`lib/sections.js`): Home → About Me → Timeline → My Taste
+> → Projects → Let's Connect.
+>
+> **B3 re-verified for all six sections empirically, not assumed** — clicked every
+> nav link fresh and measured landing position. All five non-home sections clear the
+> 144px navbar by the same ~25-29px B3 established; the blanket `scroll-margin-top`
+> rule needed no per-section change. B1/B2 also unchanged (17.03:1 dark / 17.44:1
+> light; 12.99:1).
+>
+> **No Tabler icon library exists anywhere in this project** — not just missing a
+> guitar glyph, checked and there is no icon dependency at all. Five chip icons are
+> hand-drawn inline SVGs instead, matching `turntable.jsx`'s existing icon convention
+> rather than adding a dependency for five glyphs.
+>
+> **Both animations go through `gsap.matchMedia()`, as specified** — the entrance
+> (`ScrollTrigger` `once: true`, portrait wipe then name→bio→chips cascading on
+> explicit `">+=0.25"`/`">+=0.3"` timeline positions, verified by sampling the
+> sequence every 100ms) and the idle tilt (`pointer:fine` + `no-preference` combined
+> in one query, `gsap.quickTo()`, ±8°).
+>
+> **A real GSAP bug, found and fixed:** two `quickTo()` calls writing `rotateX`/
+> `rotateY` directly onto one element silently no-op'd (console warning: "not
+> eligible for reset") — the browser's native independent `rotate` CSS property
+> can't take two separate writers on its two axes. Fixed by routing `quickTo` through
+> a plain proxy object, combining both axes into one `gsap.set()` call. Caught by
+> tracing actual `getComputedStyle()` transforms, not by the absence of a thrown
+> error. Full writeup, verification numbers and screenshots in `STATUS.md`.
+
 ### Stage 4 — `#my-taste` redesign
 
 The one section that gets the material language. Top artists as records, top tracks

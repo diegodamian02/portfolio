@@ -1,240 +1,220 @@
 import { useRef } from "react";
 import "../styles/main.scss";
-import rutgers from "../assets/rutgers.png";
-import peru from "../assets/peru.png";
-import usa from "../assets/usa.png";
 import diego from "../assets/diego.png";
-import codewiz from "../assets/codewiz.jpeg";
-import trump from "../assets/trump.jpeg";
-import costaVerde from "../assets/about/costa-verde.jpg";
-import rutgersCampus from "../assets/about/rutgers-campus.jpg";
 import { useGSAP } from "@gsap/react";
-import { gsap } from "../lib/gsap.js";
-import useReducedMotion from "../hooks/use-reduced-motion.js";
-import WorkMotif from "../components/work-motif.jsx";
+import { gsap, SplitText } from "../lib/gsap.js";
 
-// Work Experience, rebuilt as a full-bleed scroll-revealed timeline
-// (Stage 3 Task 2 — see ROADMAP.md). Each entry is a cover panel: a real
-// photo, or a generative motif (work-motif.jsx) where no photo exists.
+// About Me — the calm intro card, Stage 3 Task 4. Replaces the old
+// .bio-section entirely (photo + two paragraphs + Rutgers logo + flag
+// icons) with a tighter format: portrait, name, one placeholder line, fact
+// chips. Now id="about" — see timeline.jsx (formerly the second half of
+// this file) for what moved to id="timeline".
 //
-// Entries 1 and 2 use PLACEHOLDER photos (Unsplash, stored locally in
-// assets/about/), flagged pending Diego's own photos — see STATUS.md.
-// Entries 3 and 4 reuse Diego's own existing photos (trump.jpeg,
-// codewiz.jpeg), already in the repo — not placeholders.
-const WORK_ENTRIES = [
-    {
-        id: "colegio",
-        role: "Colegio Peruano Británico",
-        dates: "2019",
-        caption: null,
-        image: costaVerde,
-        imageAlt: "Costa Verde, the cliffside coastline of Miraflores, Lima",
-        parallax: true,
-        placeholder: true,
-    },
-    {
-        id: "rutgers",
-        role: "Rutgers University",
-        dates: "Sep 2021 – May 2025",
-        caption: "B.S. Computer Science, minor in Music Technology.",
-        image: rutgersCampus,
-        imageAlt: "The gate at Old Queens, Rutgers University's original campus building",
-        placeholder: true,
-    },
-    {
-        id: "trump",
-        role: "Trump National Golf Club",
-        dates: "Jan – Aug 2024",
-        caption: "Food runner at Clubhouse.",
-        image: trump,
-        imageAlt: "The Clubhouse team at Trump National Golf Club",
-    },
-    {
-        id: "codewiz",
-        role: "CodeWiz — Coding Coach",
-        dates: "Aug 2024 – Jul 2025",
-        caption: "Taught Python & Java to students ages 7–17.",
-        image: codewiz,
-        imageAlt: "Coaching a student through a laptop exercise at CodeWiz",
-    },
-    {
-        id: "globallogic",
-        role: "GlobalLogic — Trainee Test Engineer",
-        dates: "May – Aug 2025",
-        caption: "End-to-end test automation — Java, Selenium, Cucumber.",
-        motif: "nodes",
-    },
-    {
-        id: "capgemini",
-        role: "Capgemini — Test Engineer",
-        dates: "Apr 2026 – Present",
-        caption: "Weekly regression testing on Archy, McDonald's AI drive-thru system.",
-        motif: "scan",
-        badge: true,
-    },
-    {
-        id: "closing",
-        role: "Music Technology",
-        dates: null,
-        caption:
-            "A minor in Music Technology — the same interest behind the turntable up " +
-            "top, and the thread running into what's below.",
-        motif: "waveform",
-    },
+// Deliberately the opposite mode from Timeline: single viewport, one
+// entrance that runs once and settles, no scroll-scrubbed spectacle. Timeline
+// already owns that register — this section exists to feel calm next to it.
+//
+// No Tabler icon library exists anywhere in this project — checked
+// package.json and node_modules, neither has any icon dependency at all, not
+// just a missing guitar glyph. Rather than adding a dependency for five small
+// glyphs, these are hand-drawn inline SVGs (stroke, currentColor), matching
+// the one icon convention this codebase already has: turntable.jsx's
+// play/pause glyphs are hand-drawn paths, not a library. Flagged in
+// STATUS.md.
+const LocationIcon = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 18s6-5.2 6-9.8A6 6 0 0 0 4 8.2C4 12.8 10 18 10 18Z" />
+        <circle cx="10" cy="8.2" r="2.1" />
+    </svg>
+);
+
+const EducationIcon = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2 7.5 10 4l8 3.5-8 3.5-8-3.5Z" />
+        <path d="M5.5 9.2v3.6c0 1 2 2.2 4.5 2.2s4.5-1.2 4.5-2.2V9.2" />
+        <path d="M17 7.5v4.8" />
+    </svg>
+);
+
+const FocusIcon = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="10" cy="10" r="7" />
+        <path d="m7 10.3 2 2 4-4.6" />
+    </svg>
+);
+
+const MusicIcon = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7.5 15.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+        <path d="M9.5 13.5V3.8l6-1.3v9.4" />
+        <path d="M15.5 13.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+    </svg>
+);
+
+const GuitarIcon = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12.2 2.2 15.8 5.8" />
+        <path d="M11 3.4 9.3 5.1a1.4 1.4 0 0 0 0 2l.2.2a1.4 1.4 0 0 0 2 0l1.7-1.7" />
+        <path d="m9.6 8.4-2.3 2.3" />
+        <path d="M9.9 9.6c1.8 1.8 2 4.6.5 6.1a4 4 0 0 1-5.7-5.7c1.5-1.5 4.3-1.3 6.1.5Z" />
+        <path d="M4.5 15.5 3 17" />
+    </svg>
+);
+
+// Order matches the brief exactly: location, education, current focus,
+// loves music, plays guitar.
+const CHIPS = [
+    { icon: LocationIcon, label: "Lima → Chicago" },
+    { icon: EducationIcon, label: "Rutgers — CS + Music Tech" },
+    { icon: FocusIcon, label: "Test Automation" },
+    { icon: MusicIcon, label: "Loves Music" },
+    { icon: GuitarIcon, label: "Plays Guitar" },
 ];
 
 export default function About() {
-    const workRef = useRef(null);
-    const reduced = useReducedMotion();
+    const rootRef = useRef(null);
+    const portraitWrapRef = useRef(null);
+    const portraitRef = useRef(null);
+    const maskRef = useRef(null);
+    const nameRef = useRef(null);
+    const bioRef = useRef(null);
+    const chipsRef = useRef(null);
 
-    // Migrates the old unthrottled `window.scroll` handler (setState on every
-    // scroll event, driving a `.timeline` height percentage nothing actually
-    // read visibly) to ScrollTrigger, per the Stage 2 prerequisite this task
-    // was waiting on. Three independent things share one scope:
+    // Two effects, both gated through gsap.matchMedia() — the pattern Stage 2
+    // established for every media-query-scoped subsystem in this codebase,
+    // not just tween construction:
     //
-    //   1. Per-panel reveal — toggleActions, NOT scrub. Each .timeline-item
-    //      plays once on entering view and reverses on scrolling back above
-    //      it. This is deliberately a different mechanism from the pinned,
-    //      scrub-driven carousel planned for #projects (Stage 7).
-    //   2. The rail fill — the one place this section IS scrubbed, since a
-    //      progress indicator is supposed to track the scrollbar 1:1. Scoped
-    //      to .work-experience itself, not all of #about (see ROADMAP.md —
-    //      #about also contains .bio-section, which has no rail).
-    //   3. Parallax on entry 1's photo only, scrub-linked for the same reason
-    //      the rail is: continuous parallax has no "toggleActions" analogue.
+    //   1. Entrance — runs once per page view (ScrollTrigger `once: true`,
+    //      not toggleActions/reverse: Timeline's panels replay on re-entry
+    //      because they're a scrolling sequence, this is a single intro
+    //      beat). Portrait wipes first; name, bio and chips cascade after in
+    //      strict sequence, each waiting on the previous group finishing
+    //      rather than firing together.
+    //   2. Idle tilt — pointer:fine AND no-preference, combined in one query
+    //      string rather than two separate checks, so a touch device or a
+    //      reduced-motion setting each independently suppress it.
     //
-    // Reduced motion keeps the reveal and parallax still (panels simply are
-    // visible, no swoop-in) but leaves the rail fill scrubbing — it moves
-    // exactly 1:1 with the visitor's own scroll input, same category as a
-    // native scrollbar thumb, not the autoplaying/differential motion
-    // prefers-reduced-motion targets.
+    // A third match handles the reduced-motion case explicitly rather than
+    // leaving it as "whatever CSS defaults to" — the portrait mask's REST
+    // state has to cover the photo (so the no-preference branch has
+    // something to wipe away), so something has to explicitly move it
+    // aside when the entrance never runs.
     useGSAP(() => {
-        const items = gsap.utils.toArray(".timeline-item", workRef.current);
+        gsap.set(maskRef.current, { xPercent: 0 });
 
-        if (reduced) {
-            gsap.set(items, { opacity: 1, y: 0 });
-        } else {
-            items.forEach((item) => {
-                gsap.fromTo(item,
-                    { opacity: 0, y: 50 },
-                    {
-                        opacity: 1, y: 0, duration: 0.8, ease: "power2.out",
-                        scrollTrigger: {
-                            trigger: item,
-                            start: "top 85%",
-                            toggleActions: "play none none reverse",
-                        },
-                    });
+        const mm = gsap.matchMedia();
+
+        mm.add("(prefers-reduced-motion: no-preference)", () => {
+            const nameSplit = new SplitText(nameRef.current, { type: "words" });
+            const bioSplit = new SplitText(bioRef.current, { type: "words" });
+            const chips = gsap.utils.toArray(".about-me-chip", chipsRef.current);
+
+            const tl = gsap.timeline({
+                scrollTrigger: { trigger: rootRef.current, start: "top 80%", once: true },
             });
 
-            const parallaxItem = workRef.current.querySelector('[data-parallax="true"]');
-            const parallaxImg = parallaxItem?.querySelector(".timeline-image");
-            if (parallaxImg) {
-                gsap.fromTo(parallaxImg,
-                    { yPercent: -8 },
-                    {
-                        yPercent: 8, ease: "none",
-                        scrollTrigger: {
-                            trigger: parallaxItem,
-                            start: "top bottom",
-                            end: "bottom top",
-                            scrub: true,
-                        },
-                    });
-            }
-        }
+            tl.to(maskRef.current, { xPercent: 100, duration: 0.7, ease: "power3.inOut" }, 0);
+            // ">" — starts the instant the wipe above finishes ("immediately
+            // followed by", per the brief).
+            tl.from(nameSplit.words, { opacity: 0, y: 16, duration: 0.5, ease: "power2.out", stagger: 0.06 }, ">");
+            // ">+=0.25" / ">+=0.3" — explicit pauses between groups, not
+            // chained durations, so the gap is exact regardless of how long
+            // the group before it took (same reasoning turntable.jsx uses
+            // for needle contact: an absolute position can't drift).
+            tl.from(bioSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: "power2.out", stagger: 0.025 }, ">+=0.25");
+            tl.from(chips, { opacity: 0, y: 10, duration: 0.4, ease: "power2.out", stagger: 0.08 }, ">+=0.3");
 
-        const railFill = workRef.current.querySelector(".timeline-rail-fill");
-        if (railFill) {
-            gsap.fromTo(railFill,
-                { scaleY: 0 },
-                {
-                    scaleY: 1, ease: "none",
-                    scrollTrigger: {
-                        trigger: workRef.current,
-                        start: "top top",
-                        end: "bottom bottom",
-                        scrub: true,
-                    },
-                });
-        }
-    }, { scope: workRef, dependencies: [reduced] });
+            return () => {
+                tl.kill();
+                nameSplit.revert();
+                bioSplit.revert();
+            };
+        });
+
+        mm.add("(prefers-reduced-motion: reduce)", () => {
+            gsap.set(maskRef.current, { xPercent: 100 });
+        });
+
+        mm.add("(pointer: fine) and (prefers-reduced-motion: no-preference)", () => {
+            const wrap = portraitWrapRef.current;
+            const img = portraitRef.current;
+
+            // quickTo, not repeated .to() calls per mousemove — a fresh
+            // tween on every event would stack/fight itself at the pointer
+            // rates a mousemove listener fires at. quickTo keeps ONE tween
+            // per property and just retargets it, which is what makes rapid
+            // updates cheap. Small range: this should read as depth, not
+            // a gimmick.
+            const MAX_TILT = 8;
+            // scale is set once, here, alongside the perspective baseline —
+            // GSAP composes every tracked transform component (rotateX,
+            // rotateY, scale...) into one written string, so apply() below
+            // only ever touching rotateX/rotateY doesn't drop this. The
+            // overscan is what keeps rotation from uncovering the circular
+            // clip's background at the corners, same reasoning as
+            // timeline.jsx's parallax overscan.
+            gsap.set(img, { transformPerspective: 900, scale: 1.12 });
+
+            // quickTo targets a plain proxy object, not the DOM node's
+            // rotateX/rotateY directly. Two quickTo instances writing to
+            // the SAME element's rotateX and rotateY independently hit a
+            // real GSAP quirk here — the browser's native independent
+            // `rotate` CSS property combines both axes into one value, and
+            // GSAP's quick-setter "reset" path warns "rotateY not eligible
+            // for reset" and silently no-ops rather than writing it. Routing
+            // through a proxy sidesteps that: quickTo only ever touches
+            // plain numbers, and the one gsap.set() that actually reaches
+            // the DOM combines both axes in a single call.
+            const state = { rx: 0, ry: 0 };
+            const apply = () => gsap.set(img, { rotateX: state.rx, rotateY: state.ry });
+            const setRotateY = gsap.quickTo(state, "ry", { duration: 0.4, ease: "power3", onUpdate: apply });
+            const setRotateX = gsap.quickTo(state, "rx", { duration: 0.4, ease: "power3", onUpdate: apply });
+
+            const onMove = (e) => {
+                const rect = wrap.getBoundingClientRect();
+                const relX = (e.clientX - rect.left) / rect.width - 0.5;
+                const relY = (e.clientY - rect.top) / rect.height - 0.5;
+                setRotateY(relX * MAX_TILT * 2);
+                setRotateX(relY * -MAX_TILT * 2);
+            };
+            const onLeave = () => { setRotateX(0); setRotateY(0); };
+
+            wrap.addEventListener("mousemove", onMove);
+            wrap.addEventListener("mouseleave", onLeave);
+
+            return () => {
+                wrap.removeEventListener("mousemove", onMove);
+                wrap.removeEventListener("mouseleave", onLeave);
+                gsap.set(img, { rotateX: 0, rotateY: 0 });
+            };
+        });
+
+        return () => mm.revert();
+    }, { scope: rootRef });
 
     return (
-        <>
-            {/* Bio Section */}
-            <section className="about-section bio-section">
-                <div className="bio-container">
-                    <div className="bio-left">
-                        <img src={diego} alt="Diego Damian" className="profile-photo"/>
-                        <img src={rutgers} alt="Rutgers University" className="university-logo"/>
-                    </div>
-                    <div className="bio-right">
-                        <h2>About Me</h2>
-                        <p>Hello! I'm Diego Damian, an aspiring software engineer with a passion for developing websites
-                            and full-stack projects. I believe that your work speaks volumes about yourself, and that's
-                            why I'm committed to bringing this website to life.
-                            Originally from <img src={peru} alt="Peru" className="flag"/> Lima, Peru, and now living in
-                            New Jersey, United States <img src={usa} alt="USA" className="flag"/>, I strive to blend
-                            different styles and concepts I've gathered from my personal experiences. Let’s make your
-                            ideas come true!
-                        </p>
-                        <h2>Education</h2>
-                        <p>I'm currently pursuing a Bachelor of Science in Computer Science at Rutgers University - New
-                            Brunswick, with a minor in Music Technology. I founded the Music Technology Club @Rutgers,
-                            providing a space for people with a shared passion for music, production, and composition to
-                            connect and share their ideas.
-                            During my journey, I discovered my passion for website development and solving LeetCode
-                            problems using Python.</p>
-                    </div>
+        <section className="about-me-section" ref={rootRef}>
+            <div className="about-me-container">
+                <div className="about-me-portrait-wrap" ref={portraitWrapRef}>
+                    <img src={diego} alt="Diego Damian" className="about-me-portrait" ref={portraitRef} />
+                    <div className="about-me-portrait-mask" ref={maskRef} aria-hidden="true" />
                 </div>
-            </section>
-
-            {/* Work Experience Section — full-bleed scroll-revealed timeline */}
-            <section className="about-section work-experience" ref={workRef}>
-                <h2 className="work-title">Work Experience</h2>
-                <div className="timeline-container">
-                    <div className="timeline-rail" aria-hidden="true">
-                        <div className="timeline-rail-fill" />
-                    </div>
-                    <div className="timeline">
-                        {WORK_ENTRIES.map((entry) => (
-                            <div
-                                className="timeline-item"
-                                key={entry.id}
-                                data-parallax={entry.parallax ? "true" : undefined}
-                            >
-                                <div className="timeline-panel">
-                                    {entry.image && (
-                                        <img src={entry.image} alt={entry.imageAlt} className="timeline-image" />
-                                    )}
-                                    {entry.motif && <WorkMotif variant={entry.motif} />}
-                                    {entry.badge && (
-                                        <div className="timeline-badge">
-                                            <span className="timeline-badge-text">Capgemini</span>
-                                            <span className="timeline-badge-x" aria-hidden="true">×</span>
-                                            {/* cdn.simpleicons.org/capgemini 404s (tested) — no Capgemini
-                                                mark exists in the icon set, so that half of the lockup stays
-                                                text. McDonald's resolves, so that half is the real mark. */}
-                                            <img
-                                                src="https://cdn.simpleicons.org/mcdonalds"
-                                                alt="McDonald's"
-                                                className="timeline-badge-icon"
-                                            />
-                                        </div>
-                                    )}
-                                    <div className="timeline-scrim" />
-                                    <div className="timeline-content">
-                                        <h3>{entry.role}</h3>
-                                        {entry.caption && <p>{entry.caption}</p>}
-                                        {entry.dates && <span className="date">{entry.dates}</span>}
-                                    </div>
-                                </div>
-                            </div>
+                <div className="about-me-text">
+                    <h2 className="about-me-name" ref={nameRef}>Diego Damian</h2>
+                    {/* Placeholder — Diego is writing the real copy separately. */}
+                    <p className="about-me-bio" ref={bioRef}>
+                        [Placeholder bio — one or two sentences on who I am and what I build, coming soon.]
+                    </p>
+                    <ul className="about-me-chips" ref={chipsRef}>
+                        {CHIPS.map(({ icon: Icon, label }) => (
+                            <li className="about-me-chip" key={label}>
+                                <span className="about-me-chip-icon" aria-hidden="true"><Icon /></span>
+                                {label}
+                            </li>
                         ))}
-                    </div>
+                    </ul>
                 </div>
-            </section>
-        </>
+            </div>
+        </section>
     );
 }

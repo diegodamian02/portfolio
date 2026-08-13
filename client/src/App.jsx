@@ -6,6 +6,7 @@ import Home from "./sections/home.jsx";
 import Portfolio from "./sections/portfolio.jsx";
 import MyTaste from "./sections/my-taste.jsx";
 import About from "./sections/about.jsx";
+import Timeline from "./sections/timeline.jsx";
 import Connect from "./sections/connect.jsx";
 import Footer from "./components/footer.jsx";
 import { useHashScroll } from "./hooks/use-hash-scroll.js";
@@ -29,9 +30,10 @@ export default function App() {
                         <Routes>
                             <Route path="/" element={<>
                                 <section id="home"><Home /></section>
-                                <section id="projects"><Portfolio /></section>
-                                <section id="my-taste"><MyTaste /></section>
                                 <section id="about"><About /></section>
+                                <section id="timeline"><Timeline /></section>
+                                <section id="my-taste"><MyTaste /></section>
+                                <section id="projects"><Portfolio /></section>
                                 <section id="connect"><Connect /></section>
                             </>} />
                             <Route path="/project" element={<Navigate to="/#projects" replace />} />
