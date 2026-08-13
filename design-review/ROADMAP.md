@@ -439,6 +439,115 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > to **Stage 4**, not Task 2 — `#my-taste` is a full redesign, not a type-scale
 > application, per the sequencing below.
 
+> **Stage 3 Task 2 is DONE — 2026-08-13.** Scope is
+> larger than "apply the type scale to the existing markup": `#about`'s Work Experience
+> half is being **rebuilt** as a full-bleed, scroll-revealed timeline — eight cover
+> panels (photo or a generative motif as background, caption text overlaid on a dark
+> scrim), a slim scroll-progress rail down the section's left edge, free scroll
+> throughout (**no pin, no scrub-driven entrance** — each panel's reveal is a
+> `ScrollTrigger` `toggleActions` play/reverse, triggered once per panel crossing into
+> view). This is deliberately a different mechanism from the horizontal pinned carousel
+> planned for `#projects` (Stage 7) — panels here never hijack the scrollbar.
+>
+> **Extends, does not replace,** the existing `.timeline-container` / `.timeline-item`
+> DOM shape. The Bio half of `#about` (`.bio-section`) is untouched by this task.
+>
+> **Decisions made before writing code:**
+>
+> - **Q4 is applied here**, not just decided: `.work-experience`'s
+>   `background-color: var(--bg-inverted)` / `color: var(--text-inverted)` come off, and
+>   `.work-title` / `.date` move off the inverted trio onto ordinary `--text-color` /
+>   `--secondary-text`.
+> - **A new, deliberately non-flipping token pair is needed for panel-overlay text** —
+>   `--panel-text` / `--panel-text-secondary`, defined once in `:root` and **not**
+>   redeclared under `[data-theme="light"]`. The inverted trio was the wrong tool here:
+>   it *flips* with `data-theme` (dark theme's `--text-inverted` is a DARK colour, for
+>   the old light inverted band), but a photo-plus-dark-scrim panel needs light text
+>   **regardless of site theme** — the photo doesn't get lighter in light mode. Reusing
+>   `--text-inverted` here would reproduce the exact ~1.05:1 failure mode CLAUDE.md's
+>   theming section warns about, just gated on the wrong variable.
+> - **B10 is fixed as a side effect of the rebuild, not patched separately.** "Work
+>   Experience" stays as a real heading (see below), moved into normal document flow
+>   above the panel stack and set with `@include section-title`, which has no
+>   `display: none` at any breakpoint — the 768px rule that hid it is simply not carried
+>   forward.
+> - **The "Work Experience" heading is kept, not dropped.** The panels are self-labeled
+>   (each carries its own role/company), so a section title is not load-bearing the way
+>   it is elsewhere — but Stage 3's own goal is one section-header pattern across every
+>   section, and dropping the one heading that would otherwise match `@mixin
+>   section-title` undercuts that more than it simplifies anything. Keeping it costs
+>   nothing and buys consistency with Projects/Connect.
+> - **Content column: `--content-width-wide` (1100px), reconciled against "most of
+>   viewport width."** Task 1 earmarked `-wide` specifically for Work Experience's items.
+>   Left uncapped, panels would run the full viewport at ultra-wide sizes, which is the
+>   same "no two sections agree where the page's edges are" problem Stage 3 exists to
+>   fix. 1100px is already ~76% of a 1440px viewport — reads as large — and panel
+>   *height* (generous, vh-based) is where "large" shows up most anyway.
+> - **The rail is scoped to `.work-experience`, not all of `#about`.** Read literally
+>   the brief said progress "through `#about`," but `#about` also contains
+>   `.bio-section`, which has no panels and no rail — scoping the fill to the whole
+>   wrapper would start the rail partway full before the first panel even enters view.
+>   Scoped to `.work-experience` (`top top` → `bottom bottom`), the fill actually tracks
+>   what it's next to.
+> - **Placeholder photos, sourced and stored locally** (not hotlinked), per
+>   `client/src/assets/about/`: `costa-verde.jpg` (Unsplash, Miraflores coastline —
+>   entry 1) and `rutgers-campus.jpg` (Unsplash, Rutgers' Old Queens gate — genuinely
+>   Rutgers-specific, top fallback tier, so the generic-campus/motif tiers under it were
+>   not needed — entry 2). Both flagged in `STATUS.md` as pending Diego's own photos.
+> - **Entries 3 and 4 are NOT placeholders** — `trump.jpeg` and `codewiz.jpeg` already
+>   exist in `client/src/assets/` (Diego's own photos, already live on the site today).
+>   Reused as-is. Their **dates and captions changed**: the brief's dates (Trump
+>   National Jan–Aug 2024, CodeWiz Aug 2024–Jul 2025) don't match what's currently live
+>   (2022–2024 / Jan–Jul 2025) — brief's data used as the more recent/specific source,
+>   discrepancy flagged in `STATUS.md` rather than silently overwritten.
+> - **Capgemini (entry 6) has no photo anywhere in the repo** — `capgemini.svg` is a
+>   logo, not a photo, and the brief itself flags this entry as "may be sparse." Falls
+>   back to the generative motif in full, per the brief's own fallback rule.
+> - **Client-lockup badge: Capgemini's simpleicons URL 404s, McDonald's resolves.**
+>   Tested both before use (required by the brief). Badge is `McDonald's` icon (its
+>   actual brand colour, `#FBC817`) + "×" + the word "Capgemini" as text — a mixed
+>   lockup, not a full fallback to text-only, since only one mark actually 404s.
+> - **GitHub embed verified live**, not assumed: `ghchart.rshah.org/6f9bff/diegodamian02`
+>   returns a real SVG, 369 `<rect>` day-cells, 54KB — not an empty or placeholder
+>   response. `6f9bff` is `--panel-accent`'s value (below), not a live reference to
+>   `--accent` — the embed URL is a static string, so it can't follow a CSS variable.
+> - **One unresolved content discrepancy, not decided here:** the brief's closing-beat
+>   copy (entry 8) says Diego was **VP** of the Music Tech Club; `.bio-section`'s existing
+>   text says he **founded** it. Both are Diego's own words at different times — not
+>   something this task can adjudicate. Brief's wording is used for the new panel only;
+>   `.bio-section` is out of scope for this task and left untouched. Flagged for Diego to
+>   reconcile.
+>
+> **Two things found only by verifying, not by re-reading the CSS:**
+>
+> - **B12 (new) — `.work-experience` shares a classname with `.bio-section`**
+>   (`"about-section work-experience"`), and `.about-section`'s `height: 100vh` — inert
+>   before, since the old `.work-experience` rule redeclared a matching height — silently
+>   capped eight stacked panels into a 1092px box once that redeclaration was dropped.
+>   Caught by measuring `.work-experience`'s `offsetHeight` against `.timeline`'s, not by
+>   eye — the flex-centred overflow doesn't clip, it just corrupts the surrounding
+>   document flow. Fixed with an explicit `height: auto; display: block;` override,
+>   commented in place. Full writeup in `FINDINGS.md`.
+> - **The three `work-motif.jsx` variants had no fill/stroke/background at all** —
+>   SVG's own default made all three render as black-on-near-black, invisible. Fixed with
+>   a third fixed token, **`--panel-accent`** (`#6f9bff`), alongside `--panel-text` /
+>   `--panel-text-secondary` above, for the same reason: the motifs stand in for a photo
+>   on the same always-dark panel, and `--accent` is considerably darker in light theme.
+>
+> **Verified:** Q4's un-invert measured (`.work-title` 17.03:1 dark / 17.44:1 light,
+> matching every other section's heading pairing), B10 confirmed fixed at 480px, B3's
+> nav-to-`#about` landing re-verified holding (144px navbar, lands at 170px). Reveal and
+> rail-fill checked against real scroll input (a raw `scrollTo()` jump doesn't reliably
+> exercise `ScrollTrigger` the way eased/wheel scroll does) — panels transition smoothly
+> 0 → partial → 1 opacity crossing `start: "top 85%"`; the rail fill sampled at 5 depths
+> came back monotonic, 0.073 → 0.368 → 0.664 → 0.959 → 1.0. Reduced motion: panels render
+> fully visible immediately; the rail still scrubs (1:1 with the visitor's own scroll,
+> not the autoplaying motion the media query targets). `npm run build` and `npm run lint`
+> both clean — lint actually dropped to **13** errors (from the 16 baseline), incidental
+> to rebuilding `about.jsx` data-driven rather than a deliberate fix. Full numbers,
+> screenshot index and the placeholder/fallback table for all eight entries in
+> `STATUS.md`.
+
 ### Stage 4 — `#my-taste` redesign
 
 The one section that gets the material language. Top artists as records, top tracks

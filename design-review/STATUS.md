@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-12 · **HEAD:** `c4e5e80`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-13 · **HEAD:** `ca14b03`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -21,7 +21,7 @@ A portfolio that does six things. Current standing on each:
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🟢 **It plays.** Record drops, platter spins up, arm swings, audio starts at needle contact (0.3–0.9ms from the arm landing). Transport is labelled, survives 253 rapid presses, and the deck reads as an object in both themes | Stage 1 ✅ Phases 6+7 |
-| 5 | **Reads as one coherent design** | 🟡 The system is **defined** — type scale, spacing, content-column, section-header pattern, and the Q4 un-invert decision. Not yet applied to any section | Stage 3 (Task 1 ✅, Task 2 next) |
+| 5 | **Reads as one coherent design** | 🟡 System defined (Task 1) and now applied to `#about`'s Work Experience half (Task 2) — full-bleed scroll timeline, Q4's un-invert applied, B10 fixed. `#projects` and `#connect` still pending | Stage 3 (Tasks 1–2 ✅, `#projects`/`#connect` next) |
 | 6 | **Converts recruiter attention** | 🟡 Contact form works and the resume is linked from three places; the hero still does not deliver its premise | Stage 1 |
 
 Goals 1–3 were the focus of the 2026-08-07/08 session. **Goals 4–6 are the remaining
@@ -837,6 +837,107 @@ direction call, made on this reasoning:
   finding — not decided here, Task 2's problem when it applies the content column to
   About's timeline items.
 
+### Stage 3 Task 2 — `#about` Work Experience rebuilt as a full-bleed scroll timeline *(2026-08-13)*
+
+Bigger in scope than "apply the type scale": Work Experience is **rebuilt**, not
+restyled — eight cover panels (photo or generative motif, caption text on a dark
+scrim), a scrubbed progress rail, free scroll throughout (no pin, no scroll-hijack).
+`.bio-section` (About's other half) is untouched. Full mechanism and every decision
+recorded in `ROADMAP.md`'s Stage 3 Task 2 note **before** any code was written, per the
+brief.
+
+**Q4 applied, not just decided.** `.work-experience` no longer sets
+`background-color: var(--bg-inverted)` — it sits on the ordinary page background like
+every other section. Measured: `.work-title` contrast **17.03:1 dark / 17.44:1 light**
+against the page (was the B1 fix's inverted-token pairing; now it's just `--text-color`
+on `--bg-color`, the same pairing every other heading uses).
+
+**A real layout bug found and fixed during verification, not by inspection:**
+`.work-experience` carries **both** `about-section` and `work-experience` in its
+className, and `.about-section`'s own `height: 100vh` — harmless before, since the old
+`.work-experience` rule redeclared its own matching `height: 100vh` — silently capped
+all eight stacked panels into one viewport-height box once that redeclaration was
+removed. Not visible by eye (flex-centred overflow doesn't clip, it just renders
+outside its own box and corrupts the document flow around it) — caught by measuring
+`.work-experience`'s `offsetHeight` (1092px) against `.timeline`'s (5552px) and finding
+they disagreed. Fixed with an explicit `height: auto; display: block;` override,
+commented in place so it isn't silently reintroduced.
+
+**A second gap, also caught by screenshot, not by reading the CSS back:** the three
+`work-motif.jsx` variants (nodes, scan, waveform) had positioning but no
+fill/stroke/background at all — SVG's own default (`fill: black`, `stroke: none`) made
+all three read as flat black-on-near-black, invisible against the panel's own dark
+background. Fixed with a new fixed token, `--panel-accent` (`#6f9bff`, held constant
+like `--panel-text` rather than following `--accent`, which is much darker in light
+theme and would have gone invisible against a panel that never lightens).
+
+**New fixed tokens — `--panel-text` / `--panel-text-secondary` / `--panel-accent`,**
+declared once in `:root`, deliberately **not** redeclared under
+`[data-theme="light"]`. Reasoning: the panels sit on their own photo-plus-dark-scrim
+treatment, which is constant regardless of site theme (a photo doesn't get lighter in
+light mode) — reusing the inverted trio (which *does* flip with `data-theme`) would
+reproduce B1/B2's exact failure shape, just on a different variable.
+
+**Mechanism, verified with real scroll input, not synthetic `scrollTo()` jumps** (a
+single programmatic jump doesn't reliably exercise ScrollTrigger the way eased Lenis
+scroll or real wheel events do — confirmed by cross-checking both): panels start at
+`opacity: 0` on a normal top-of-page load, and transition smoothly through partial
+states (0.93, 0.998, 0.916 sampled mid-tween) to `opacity: 1` as each crosses `start:
+"top 85%"`, `toggleActions: "play none none reverse"`. The rail fill is the one
+scrubbed element, sampled at 5 scroll depths through `.work-experience` and confirmed
+monotonic: scaleY 0.073 → 0.368 → 0.664 → 0.959 → 1.0. Entry 1's parallax overscans its
+panel by 15% top/bottom for a ±8% `yPercent` range — checked at the panel's exit
+extreme, image edges sit 131px/58px past the panel's own edges, no gap either direction.
+Reduced motion: all panels render at `opacity: 1` immediately (verified via Playwright's
+`reducedMotion: "reduce"` emulation) and the rail fill still scrubs — it moves 1:1 with
+the visitor's own scroll input, the same category as a native scrollbar thumb, not the
+autoplaying/differential motion `prefers-reduced-motion` targets.
+
+**B10 fixed as a side effect of the rebuild, verified rendered at 480px:** "Work
+Experience" is kept (a deliberate call — panels are self-labeled and don't strictly
+need it, but Stage 3's whole point is one section-header pattern, and dropping the one
+heading that would otherwise match `@mixin section-title` undercuts that more than it
+simplifies), moved into normal flow, and set with the mixin, which carries no
+`display: none` at any breakpoint.
+
+**Content, per entry — three placeholder/fallback categories, all flagged:**
+
+| Entry | Image | Status |
+|---|---|---|
+| 1. Colegio Peruano Británico (2019) | `assets/about/costa-verde.jpg` | **Placeholder** — Unsplash, Miraflores coastline, downloaded and stored locally (not hotlinked). Pending Diego's own photo |
+| 2. Rutgers University (Sep 2021–May 2025) | `assets/about/rutgers-campus.jpg` | **Placeholder** — Unsplash, genuinely Rutgers-specific (Old Queens gate, inscribed "1766" — Rutgers' actual founding year). Top fallback tier, so the generic-campus/motif tiers under it were never needed |
+| 3. Trump National Golf Club | `assets/trump.jpeg` | **Not a placeholder** — Diego's own photo, already in the repo. Dates/caption changed: brief gives Jan–Aug 2024 + "Food runner at Clubhouse"; what was live read 2022–2024, no caption. Brief's data used, discrepancy flagged here rather than silently overwritten |
+| 4. CodeWiz — Coding Coach | `assets/codewiz.jpeg` | **Not a placeholder** — Diego's own photo. Same discrepancy: brief gives Aug 2024–Jul 2025; what was live read Jan–Jul 2025 |
+| 5. GlobalLogic | generative motif (`nodes`) | No photo anywhere in the repo — always a motif, per the brief |
+| 6. Capgemini | generative motif (`scan`) | `capgemini.svg` exists but is a logo, not a photo — falls back to the motif in full, per the brief's own "may be sparse" fallback rule |
+| 7. GitHub activity | `ghchart.rshah.org/6f9bff/diegodamian02` | Live embed, verified before use — 369 real `<rect>` day-cells, 54KB, not an empty response |
+| 8. Closing beat (Music Technology) | generative motif (`waveform`) | No photo needed per the brief |
+
+**Capgemini × McDonald's badge — both simpleicons URLs tested, not assumed.**
+`cdn.simpleicons.org/capgemini` → **404** (tried `capgemini`, `Capgemini`,
+`CAPGEMINI`, `capgemini-com` — no Capgemini mark exists in the simple-icons set at
+all). `cdn.simpleicons.org/mcdonalds` → 200, brand yellow (`#FBC817`). Badge is a mixed
+lockup per the brief's fallback rule: "Capgemini" as text, real mark for McDonald's.
+
+**One content discrepancy, deliberately not resolved here:** the brief's closing-beat
+copy says Diego was **VP** of the Music Technology Club; `.bio-section`'s existing,
+untouched text says he **founded** it. Both are Diego's own words at different times —
+not something this task can adjudicate, and `.bio-section` is out of scope for Task 2.
+Brief's wording used for the new panel only. Flagged for Diego to reconcile.
+
+**Verified:** `npm run build` clean (CSS 32.30→34.41 kB / 7.08→7.53 kB gz, JS
+443.82→447.12 kB / 160.18→161.36 kB gz — the delta is `work-motif.jsx` + the rebuilt
+`about.jsx`; the two placeholder photos are separate `dist/assets/*.jpg` files, not
+inlined into the bundle). `npm run lint` at **13 errors**, three fewer than the 16
+baseline — not a fix so much as an incidental byproduct of rebuilding `about.jsx`
+data-driven: two unused `arrow`/`arrow_white` imports the old file carried are gone,
+and one `react/no-unescaped-entities` (an apostrophe in "McDonald's") moved from a
+literal JSX text node to a JS string rendered via `{expression}`, which the rule
+doesn't check. Before/after screenshots (both themes, 480/768/1440, five scroll depths,
+eight individual panel crops) in `screenshots/about-timeline-*.png`. B1/B2 contrast and
+B3's nav-to-`#about` landing offset (144px navbar, lands at 170px — the same ~25px
+clearance as the original fix) re-verified holding.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -864,9 +965,9 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **443.82 kB / 160.18 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **32.30 kB / 7.08 kB gz** |
-| ESLint errors | 21 | **16** |
+| JS bundle | 407 KB / 147 KB gz | **447.12 kB / 161.36 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **34.41 kB / 7.53 kB gz** |
+| ESLint errors | 21 | **13** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
 ---

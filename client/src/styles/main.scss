@@ -11,6 +11,25 @@
   // themes (both token sets flip together). Value is the opposite theme's
   // --secondary-text.
   --secondary-text-inverted: #454e68;
+
+  // Fixed — deliberately NOT part of the inverted trio above, and NOT
+  // redeclared under [data-theme="light"]. The trio flips WITH data-theme
+  // (dark theme's --text-inverted is a dark colour, for the old light
+  // inverted band it used to serve) — but Work Experience's timeline panels
+  // (Stage 3 Task 2) sit on their own photo + dark-gradient scrim, which is
+  // constant regardless of site theme: the photo doesn't get lighter in
+  // light mode. Reusing --text-inverted here would reproduce B1/B2's
+  // ~1.05:1 failure (text token following the wrong background), just
+  // gated on the wrong variable instead of the missing one.
+  --panel-text: #f5f6fa;
+  --panel-text-secondary: #c7cbdb;
+  // Same fixed-not-flipping reasoning, for work-motif.jsx's generative
+  // backgrounds (GlobalLogic, Capgemini, the closing beat) — blue tones per
+  // the brief, held constant rather than following --accent, which is
+  // considerably darker in light theme (#1f3fae) and would have gone nearly
+  // invisible against a panel that never lightens.
+  --panel-accent: #6f9bff;
+
   --spotify-green: #1DB954;
 
   // MOTION TOKENS — the first entry in the set Stage 3 extends.
@@ -1669,75 +1688,253 @@ html {
   font-size: 1.2rem;
   line-height: 1.6;
 }
-// Work Experience Section
-.work-experience{
-  position: relative;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  overflow: hidden;
-}
-
-.work-title {
-  position: absolute;
-  top: 50px;
-  font-size: 2.5rem;
-  font-weight: bold;
-  // NOT --text-color: this heading sits on .work-experience's inverted
-  // background, and both token sets flip together, so --text-color put it at
-  // ~1.05:1 in both themes — invisible either way.
-  color: var(--text-inverted);
-}
-
-// bg inversion
+// Work Experience — full-bleed scroll-revealed timeline (Stage 3 Task 2).
+//
+// Q4 applied: un-inverted. This section used to be the site's one
+// `--bg-inverted` band (D4) — it now sits on the ordinary page background
+// like every other section, so the scroll reads as one surface. Un-inverting
+// only touches the SECTION background; the panels beneath still need light
+// text on their own dark photo/scrim treatment regardless of site theme,
+// which is what the new --panel-text tokens are for (declared in :root,
+// deliberately NOT part of the inverted trio — see the token comment).
 .work-experience {
-  background-color: var(--bg-inverted);
-  color: var(--text-inverted);
+  // .work-experience carries BOTH "about-section" and "work-experience" in
+  // its className (about.jsx) — .about-section's own height: 100vh /
+  // display: flex / align-items: center (above) still apply unless
+  // overridden here. That fixed 100vh used to match, harmlessly, because
+  // the old .work-experience rule redeclared its own height: 100vh; this
+  // rule no longer does, so left alone the shared rule silently caps eight
+  // stacked panels' worth of content into one viewport-height box. Found by
+  // measuring .work-experience's own offsetHeight against .timeline's —
+  // 1092px vs 5552px — not by eye; the flex-centred overflow doesn't clip
+  // visibly, it just quietly breaks the document flow around it.
+  height: auto;
+  display: block;
+  padding: var(--space-9) 0;
+  text-align: center;
+
+  @media (max-width: 768px) {
+    padding: var(--space-7) 0;
+  }
 }
 
+// display: none below 768px REMOVED here (was B10 — "Work Experience"
+// completely invisible on mobile). @mixin section-title carries no display
+// override at any breakpoint, so the heading is simply never hidden now.
+.work-title {
+  @include section-title;
+  color: var(--text-color);
+}
 
 .timeline-container {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  position: relative;
+  @include content-column($width: var(--content-width-wide));
 }
+
+// 3px progress rail down the section's left edge, offset in from the
+// content column rather than flush against the true viewport edge. Height
+// tracks .timeline-container so it starts/ends level with the first and
+// last panel. Hidden below 1024px — .timeline-container is centred with no
+// space beside it once the wide column stops having room to spare.
+.timeline-rail {
+  position: absolute;
+  left: calc(-1 * var(--space-7));
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--secondary-text);
+  opacity: 0.25;
+  overflow: hidden;
+
+  @media (max-width: 1024px) {
+    display: none;
+  }
+}
+
+// scaleY driven by a section-wide scrubbed ScrollTrigger (about.jsx) — the
+// one scrubbed thing in this section, since a progress indicator is
+// supposed to track the scrollbar 1:1. Everything else (panel reveals,
+// entry 1's parallax) uses toggleActions or is scoped to its own panel.
+.timeline-rail-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: top;
+  transform: scaleY(0);
+  background: var(--accent);
+}
+
 .timeline {
   display: flex;
-  gap: 50px;
-  padding: 20px;
-  transition: transform 0.3s ease-in-out;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-6) 0;
 }
 
-.timeline-image {
+.timeline-item {
   width: 100%;
-  height: 400px;
-  object-fit: cover;
-  border-radius: 10px;
-  margin-bottom: 15px;
-
 }
 
-.timeline-logo {
-  object-fit: contain;
-  background: #fff;
-  padding: 60px 40px;
-  box-sizing: border-box;
+// The cover panel: photo (or motif) + scrim + overlaid text, all absolutely
+// stacked inside this clipping parent. Generous, viewport-relative height —
+// "most of viewport width" comes from --content-width-wide on the column
+// above; height is where "large" shows up per-panel.
+.timeline-panel {
+  position: relative;
+  min-height: clamp(400px, 70vh, 720px);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--deck-ground); // visible briefly while a photo decodes
+}
+
+// Kept from the old side-by-side layout (extended, not renamed): now the
+// panel's full-bleed background rather than a fixed-height card image.
+.timeline-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+// Entry 1 only (about.jsx sets data-parallax="true" on its .timeline-item).
+// Overscans the panel by 15% top/bottom so the ±8% yPercent parallax range
+// never uncovers empty space at either edge.
+[data-parallax="true"] .timeline-image {
+  top: -15%;
+  height: 130%;
+}
+
+.timeline-github-chart {
+  object-fit: cover;
+  object-position: center;
+  // The chart SVG is wide and short; cover crops it hard at this panel's
+  // aspect ratio, which is the intent here — a texture, not a legible graph.
+  filter: saturate(1.15);
+}
+
+// work-motif.jsx's root element (svg or div, depending on variant).
+.work-motif {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+// --- nodes (GlobalLogic) ------------------------------------------------
+.work-motif-node {
+  fill: var(--panel-accent);
+}
+
+.work-motif-edge {
+  stroke: var(--panel-accent);
+  stroke-width: 1;
+  opacity: 0.4;
+}
+
+// --- scan (Capgemini) ----------------------------------------------------
+.work-motif-scan-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(to bottom, color-mix(in srgb, var(--panel-accent) 22%, transparent) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(to right, color-mix(in srgb, var(--panel-accent) 22%, transparent) 0 1px, transparent 1px 48px);
+}
+
+.work-motif-scan-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--panel-accent) 45%, transparent),
+    transparent
+  );
+}
+
+// --- waveform (closing beat) ----------------------------------------------
+.work-motif-bar {
+  fill: var(--panel-accent);
+  opacity: 0.55;
+}
+
+.timeline-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.4) 45%,
+    rgba(0, 0, 0, 0) 75%
+  );
 }
 
 .timeline-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--space-6);
   text-align: left;
+  color: var(--panel-text);
+}
+
+.timeline-content h3 {
+  // Fixes the undeclared-size bug Stage 3 Task 1 flagged: this heading had
+  // no font-size anywhere and silently took the browser default.
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+.timeline-content p {
+  font-size: var(--text-sm);
+  max-width: 40rem;
+  margin: 0 0 var(--space-2);
+}
+
+.timeline-link {
+  display: inline-block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--panel-text);
 }
 
 .date {
-  font-size: 0.9rem;
-  // Same reason as .work-title — .date only ever renders inside
-  // .work-experience, so it needs the inverted muted token, not --secondary-text
-  // (which sat at 2.35:1 in dark and 2.33:1 in light).
-  color: var(--secondary-text-inverted);
+  font-size: var(--text-xs);
+  // .date now sits inside a panel's own scrim, not on the section
+  // background (that background is no longer inverted at all — see above),
+  // so it takes the fixed panel token rather than the retired
+  // --secondary-text-inverted.
+  color: var(--panel-text-secondary);
+}
+
+// Capgemini's client-lockup pill (about.jsx — top-left of its panel).
+.timeline-badge {
+  position: absolute;
+  top: var(--space-4);
+  left: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: 999px;
+  background: rgba(10, 14, 26, 0.55);
+  backdrop-filter: blur(6px);
+  color: var(--panel-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.timeline-badge-x {
+  opacity: 0.6;
+}
+
+.timeline-badge-icon {
+  height: 1em;
+  width: auto;
 }
 
 // Spotify Action
@@ -2544,23 +2741,13 @@ html {
 
   }
 
-  /* Work Experience */
-  .work-experience {
-    padding: 20px;
-    height: auto;
-  }
-
-  .work-experience h2 {
-    display: none;
-  }
-
-  .timeline {
-    flex-direction: column;
-  }
-
-  .timeline-image {
-    height: 200px;
-  }
+  // Work Experience's own 768px padding override now lives beside its base
+  // rule (Stage 3 Task 2) — nothing left to override here. The old
+  // `.work-experience h2 { display: none; }` in this block WAS B10 (the
+  // heading was completely invisible on mobile); it is deleted, not
+  // adapted. `.timeline { flex-direction: column }` and the `.timeline-image`
+  // fixed height are also gone — the rebuilt timeline is column-flow and
+  // full-bleed at every width, so neither override does anything anymore.
 
   /* Portfolio Section */
   .portfolio-title {
@@ -2671,14 +2858,10 @@ html {
     width: 80px;
   }
 
-  /* Work Experience */
-  .work-experience {
-    padding: 10px;
-  }
-
-  .timeline-image {
-    height: 150px;
-  }
+  // Work Experience — no 480px override needed. The 768px step already
+  // covers this width (padding: var(--space-7) 0, declared beside the base
+  // rule), and the fixed .timeline-image height below it belonged to the
+  // old side-by-side card layout, which the full-bleed panel replaced.
 
   /* Contact Section */
   .contact-section {

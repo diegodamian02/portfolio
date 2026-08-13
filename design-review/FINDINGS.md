@@ -600,7 +600,7 @@ Not a bug, but it means "the mat" is effectively a loading-state surface. Worth 
 in **Stage 4** whether the record should shrink (say 86%) so the mat reads as a real
 layer, or whether the mat should be simplified because it is almost never seen.
 
-### B10 — "Work Experience" heading is invisible below 768px
+### B10 — "Work Experience" heading is invisible below 768px — **FIXED, Stage 3 Task 2**
 
 Found while auditing font-sizes for Stage 3 Task 1's type scale. `.work-experience h2 {
 display: none; }` inside the 768px media query — confirmed rendered: at a 600px
@@ -610,8 +610,11 @@ name is **completely absent** below 768px, which is most of this site's traffic.
 B1's bug (that was a contrast failure; this is a display failure) and not caught by B1's
 fix since the rule sits in a different block.
 
-Not fixed here — spec-only task, no markup/layout changes. Task 2 removes the rule when
-it applies the section-header pattern to `#about`.
+**Fixed, Stage 3 Task 2 (2026-08-13).** The heading moved into normal document flow with
+`@include section-title`, which carries no `display: none` at any breakpoint — the
+768px rule that hid it is dropped, not carried forward. Verified rendered at 480px
+(`screenshots/about-timeline-after-480-dark-depth0.png`): "Work Experience" is visible,
+centred, above the first panel.
 
 ### B11 — a dead slideshow-era rule still sizes the project list's title
 
@@ -628,6 +631,28 @@ short row headers.
 Not fixed here. Task 2 should either delete the dead `.project-title` rule outright or
 fold its role into `@mixin section-title`/the type scale — the point of Stage 3 is that
 neither the class name nor the rule should exist independently once the scale is applied.
+
+### B12 — a shared classname made `.work-experience` silently inherit a fixed height — **FIXED, Stage 3 Task 2**
+
+`about.jsx` sets `className="about-section work-experience"` on the Work Experience
+`<section>` — both classes apply. `.about-section` sets `height: 100vh` (correct for
+`.bio-section`, the other element that carries it). The **old** `.work-experience` rule
+happened to redeclare its own matching `height: 100vh`, so the collision was invisible
+and the section behaved correctly by coincidence, not by design.
+
+Stage 3 Task 2's rebuild removed that redeclaration — nothing about a full-bleed
+scroll timeline wants a fixed viewport height — and `.about-section`'s `height: 100vh`
+immediately took over unopposed, silently capping eight stacked panels' worth of
+content (5552px) into a 1092px box. Not visible by eye: `.about-section` is also
+`display: flex; align-items: center`, so the overflow doesn't clip, it just renders
+outside its own box and corrupts the document flow around it — the kind of bug a
+screenshot alone can look fine in and a layout measurement catches immediately.
+
+Found by comparing `.work-experience`'s own `offsetHeight` (1092px) against
+`.timeline`'s (5552px) during verification, not by reading the CSS back. Fixed with an
+explicit `height: auto; display: block;` override on `.work-experience`, commented in
+place with the mechanism so a future edit doesn't reintroduce it by removing the
+override the same way the original redeclaration was removed.
 
 ### D13 — the two spacing systems this project has been carrying
 
@@ -690,7 +715,7 @@ Two things worth carrying forward:
   light theme, so the inert control read as a raised pale disc rather than a recessed
   well. Mixing toward `black` instead is a darkening in both.
 
-### D4 — The inverted bands read as accidental — **RESOLVED (Q4), Stage 3 Task 1**
+### D4 — The inverted bands read as accidental — **FIXED (Q4 applied), Stage 3 Task 2**
 
 > Originally: "Two full-viewport light bands (the slideshow, and work experience)
 > interrupt the dark site." **Stale even at the time Stage 3 read it** — Q3 deleted the
@@ -702,18 +727,22 @@ Decided 2026-08-12: **un-invert `.work-experience`.** A lone, unpartnered invers
 as a rendering accident, not a choice — which is what this finding was pointing at — and
 no content-driven reason was found to single it out over any other section. Reasoning in
 full, and why "reinstate a partner band instead" was rejected, in `STATUS.md` and
-`ROADMAP.md` §1 Q4. **Not applied yet** — Task 2 removes the inverted tokens when it
-reaches `#about`.
+`ROADMAP.md` §1 Q4. **Applied, Stage 3 Task 2 (2026-08-13)** — `.work-experience` no
+longer sets `background-color: var(--bg-inverted)`; `.work-title` and `.date` are off the
+inverted trio. Measured: `.work-title` now 17.03:1 dark / 17.44:1 light against the page,
+the same `--text-color`-on-`--bg-color` pairing every other section's heading uses.
 
-### D5 — The work-experience row mixes two visual languages
+### D5 — The work-experience row mixes two visual languages — **FIXED, Stage 3 Task 2**
 
 Capgemini and GlobalLogic are **logos on tall white cards**. CodeWiz and Trump
 National are **photographs**. Different aspect ratios, uneven card heights, ragged
 bottom edge. The content itself is strong — real accomplishments with metrics — but
 the presentation undercuts it.
 
-Still open — not decided by Stage 3 Task 1. Task 2's problem when it applies
-`--content-width-wide`/`@mixin content-column` to this row.
+Resolved structurally rather than by picking one visual language, 2026-08-13: every
+entry is now the same cover-panel treatment (photo or generative motif, both full-bleed
+with a dark scrim), so logo-on-white-card vs. photograph stops being a visible
+distinction — there is no card, and no white background, for either kind of entry.
 
 ### D6 — No scroll affordance
 
