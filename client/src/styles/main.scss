@@ -1805,14 +1805,6 @@ html {
   height: 130%;
 }
 
-.timeline-github-chart {
-  object-fit: cover;
-  object-position: center;
-  // The chart SVG is wide and short; cover crops it hard at this panel's
-  // aspect ratio, which is the intent here — a texture, not a legible graph.
-  filter: saturate(1.15);
-}
-
 // work-motif.jsx's root element (svg or div, depending on variant).
 .work-motif {
   position: absolute;
@@ -1893,13 +1885,6 @@ html {
   font-size: var(--text-sm);
   max-width: 40rem;
   margin: 0 0 var(--space-2);
-}
-
-.timeline-link {
-  display: inline-block;
-  margin-top: var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--panel-text);
 }
 
 .date {

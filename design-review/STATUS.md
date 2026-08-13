@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-13 · **HEAD:** `ca14b03`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-13 · **HEAD:** `c7ed0de`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -910,8 +910,8 @@ simplifies), moved into normal flow, and set with the mixin, which carries no
 | 4. CodeWiz — Coding Coach | `assets/codewiz.jpeg` | **Not a placeholder** — Diego's own photo. Same discrepancy: brief gives Aug 2024–Jul 2025; what was live read Jan–Jul 2025 |
 | 5. GlobalLogic | generative motif (`nodes`) | No photo anywhere in the repo — always a motif, per the brief |
 | 6. Capgemini | generative motif (`scan`) | `capgemini.svg` exists but is a logo, not a photo — falls back to the motif in full, per the brief's own "may be sparse" fallback rule |
-| 7. GitHub activity | `ghchart.rshah.org/6f9bff/diegodamian02` | Live embed, verified before use — 369 real `<rect>` day-cells, 54KB, not an empty response |
-| 8. Closing beat (Music Technology) | generative motif (`waveform`) | No photo needed per the brief |
+| ~~7. GitHub activity~~ | ~~`ghchart.rshah.org/6f9bff/diegodamian02`~~ | Live embed, verified before use — 369 real `<rect>` day-cells, 54KB, not an empty response. **Removed, Task 3 (2026-08-13)** — see below |
+| 8. Closing beat (Music Technology) | generative motif (`waveform`) | No photo needed per the brief. **Caption edited, Task 3** — see below |
 
 **Capgemini × McDonald's badge — both simpleicons URLs tested, not assumed.**
 `cdn.simpleicons.org/capgemini` → **404** (tried `capgemini`, `Capgemini`,
@@ -937,6 +937,51 @@ doesn't check. Before/after screenshots (both themes, 480/768/1440, five scroll 
 eight individual panel crops) in `screenshots/about-timeline-*.png`. B1/B2 contrast and
 B3's nav-to-`#about` landing offset (144px navbar, lands at 170px — the same ~25px
 clearance as the original fix) re-verified holding.
+
+### Stage 3 Task 3 — trim two items from the Task 2 timeline *(2026-08-13)*
+
+Two small, deliberate cuts to the timeline Task 2 shipped, made after reading the
+actual shipped code rather than assuming Task 2's original brief still matched it.
+
+- **The GitHub-activity panel is gone.** Entry, JSX branches (`entry.githubChart`,
+  the `entry.id === "github"` link), the two URL constants, and the two CSS rules
+  that only that entry used (`.timeline-github-chart`, `.timeline-link`) are all
+  removed — not just the DOM node. Nothing else referenced any of them (checked with
+  a repo-wide grep before deleting).
+- **The closing beat's caption no longer claims "VP of the Music Technology Club."**
+  It now reads "A minor in Music Technology — the same interest behind the turntable
+  up top, and the thread running into what's below." — keeps the bridge into
+  `#my-taste` intact, drops the specific club-title claim. The discrepancy this
+  closes (`.bio-section`'s own text says Diego *founded* the club, not VP'd it) is
+  now moot for this panel rather than resolved — the panel simply no longer makes a
+  title claim either way.
+
+**Timeline is now 7 panels**, in the same order minus GitHub:
+Colegio → Rutgers → Trump National → CodeWiz → GlobalLogic → Capgemini → Music
+Technology (closing).
+
+**The rail-fill math needed no changes, and this was verified rather than assumed.**
+It was never count-based — the driving `ScrollTrigger` is scoped to
+`.work-experience`'s own scroll extent (`start: "top top"`, `end: "bottom bottom"`,
+`scrub: true`), so removing a panel just shortens that extent and the trigger
+recalculates its own start/end against the new layout automatically. Re-sampled at 5
+depths through the now-shorter section (5170px, down from 5864px): scaleY
+**0.085 → 0.388 → 0.691 → 0.993 → 1.0** — still a clean 0→1 sweep, not a truncated one.
+
+**B1/B2/B3 re-verified, unchanged:** `.work-title` contrast 17.03:1 dark / 17.44:1
+light (identical to Task 2 — nothing touching those tokens changed). `.date` vs. the
+scrim's darkest region: 12.99:1. B3's nav-to-`#about` landing: 169px (was 170px in
+Task 2 — the 1px difference is the section's own height changing by a few pixels
+before the navbar settle, not a regression; clearance is still the same ~25px).
+
+**Verified:** `npm run build` clean (CSS 34.41→34.21 kB / 7.53→7.49 kB gz, JS
+447.12→446.64 kB / 161.36→161.21 kB gz — all down, as expected for a removal).
+`npm run lint` unchanged at **13 errors** — the five `about.jsx`
+`react/no-unescaped-entities` errors are all in `.bio-section`'s untouched text, just
+renumbered to lower line numbers now that the file is shorter. Screenshots (both
+themes, three depths, one panel close-up confirming the new caption) in
+`screenshots/about-timeline-t3-*.png`; `about-timeline-panel-github.png` from Task 2
+kept as the historical "before" record rather than deleted.
 
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
@@ -965,8 +1010,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **447.12 kB / 161.36 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **34.41 kB / 7.53 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **446.64 kB / 161.21 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **34.21 kB / 7.49 kB gz** |
 | ESLint errors | 21 | **13** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

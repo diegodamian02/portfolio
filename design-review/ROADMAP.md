@@ -548,6 +548,30 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > screenshot index and the placeholder/fallback table for all eight entries in
 > `STATUS.md`.
 
+> **Stage 3 Task 3 is DONE — 2026-08-13.** Two trims to the timeline Task 2 shipped,
+> made after re-reading the actual shipped code rather than assuming Task 2's brief
+> still matched it (it did — entries and rail mechanism were exactly as described
+> above):
+>
+> - **GitHub-activity panel removed entirely** — entry, both JSX branches, the two URL
+>   constants, and the two CSS rules (`.timeline-github-chart`, `.timeline-link`) that
+>   only it used. Checked with a repo-wide grep before deleting that nothing else
+>   referenced any of them.
+> - **Closing beat no longer claims "VP of the Music Technology Club."** Now: "A minor
+>   in Music Technology — the same interest behind the turntable up top, and the thread
+>   running into what's below." The discrepancy this closes (`.bio-section` says
+>   *founded*, not VP'd) is moot for this panel now rather than resolved — it no longer
+>   makes a title claim either way.
+>
+> **Timeline is now 7 panels.** The rail-fill's `ScrollTrigger` was never count-based —
+> scoped to `.work-experience`'s own scroll extent, it recalculates start/end against
+> whatever the section's actual height is, so removing a panel needed no separate
+> recalculation. Verified anyway, not assumed: re-sampled at 5 depths through the
+> now-shorter section, scaleY **0.085 → 0.388 → 0.691 → 0.993 → 1.0** — still a clean
+> 0→1 sweep. B1/B2/B3 re-verified unchanged (`.work-title` 17.03:1 dark / 17.44:1
+> light; B3 lands at 169px, same ~25px clearance). Full writeup, bundle deltas (all
+> down, as expected for a pure removal) and screenshots in `STATUS.md`.
+
 ### Stage 4 — `#my-taste` redesign
 
 The one section that gets the material language. Top artists as records, top tracks

@@ -13,14 +13,6 @@ import { gsap } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import WorkMotif from "../components/work-motif.jsx";
 
-// GitHub's own embeddable contribution graph — verified rendering live
-// (369 real <rect> day-cells, not an empty/placeholder response) before use.
-// Coloured with the site's dark-theme accent rather than GitHub's default
-// green: the panel sits on a fixed dark scrim regardless of site theme (see
-// --panel-text in main.scss), so one fixed accent reads correctly either way.
-const GITHUB_CHART_URL = "https://ghchart.rshah.org/6f9bff/diegodamian02";
-const GITHUB_PROFILE_URL = "https://github.com/diegodamian02";
-
 // Work Experience, rebuilt as a full-bleed scroll-revealed timeline
 // (Stage 3 Task 2 — see ROADMAP.md). Each entry is a cover panel: a real
 // photo, or a generative motif (work-motif.jsx) where no photo exists.
@@ -81,19 +73,12 @@ const WORK_ENTRIES = [
         badge: true,
     },
     {
-        id: "github",
-        role: "Building in the open",
-        dates: null,
-        caption: "Recent commit activity across my repos.",
-        githubChart: true,
-    },
-    {
         id: "closing",
         role: "Music Technology",
         dates: null,
         caption:
-            "VP of the Music Technology Club @Rutgers — the same interest behind the " +
-            "turntable up top, and the thread running into what's below.",
+            "A minor in Music Technology — the same interest behind the turntable up " +
+            "top, and the thread running into what's below.",
         motif: "waveform",
     },
 ];
@@ -224,14 +209,6 @@ export default function About() {
                                         <img src={entry.image} alt={entry.imageAlt} className="timeline-image" />
                                     )}
                                     {entry.motif && <WorkMotif variant={entry.motif} />}
-                                    {entry.githubChart && (
-                                        <img
-                                            src={GITHUB_CHART_URL}
-                                            alt=""
-                                            aria-hidden="true"
-                                            className="timeline-image timeline-github-chart"
-                                        />
-                                    )}
                                     {entry.badge && (
                                         <div className="timeline-badge">
                                             <span className="timeline-badge-text">Capgemini</span>
@@ -251,16 +228,6 @@ export default function About() {
                                         <h3>{entry.role}</h3>
                                         {entry.caption && <p>{entry.caption}</p>}
                                         {entry.dates && <span className="date">{entry.dates}</span>}
-                                        {entry.id === "github" && (
-                                            <a
-                                                className="timeline-link"
-                                                href={GITHUB_PROFILE_URL}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                github.com/diegodamian02 ↗
-                                            </a>
-                                        )}
                                     </div>
                                 </div>
                             </div>
