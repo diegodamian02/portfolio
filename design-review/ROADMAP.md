@@ -11,6 +11,46 @@ starts from zero.
 
 ---
 
+## 0. Current state — quick summary *(updated 2026-08-14)*
+
+For anyone opening this file cold: the detailed stage-by-stage record below (§3)
+is the source of truth, but it's long. This section is the fast version —
+what's shipped, what's next, what's still sitting on the shelf.
+
+**Shipped and done:** Stage 0 (every launch-blocking bug), Stage 1 (the
+turntable actually plays audio), Stage 2 (Lenis/ScrollTrigger foundation),
+and — within Stage 3 — the design system itself plus a full rebuild of
+`#about` (intro card + Experience). Experience alone went through three
+builds (Tasks 7, 8, 9) chasing "big photos" and "fits on screen" at once;
+Task 9's pinned horizontal filmstrip is what actually landed both.
+
+**Not started yet, in the order the roadmap currently has them:**
+
+| Stage | What | Depends on |
+|---|---|---|
+| **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
+| **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
+| **4** | `#my-taste` redesign — the one section that gets the record/crate material language | Stage 3 (system) + Stage 1 (hero components) — both done |
+| **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
+| **6** | Turntable delight — pitch fader, scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
+| **7** | "WOW layer" — audio-reactive waveform, `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done |
+| **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
+
+**Standing manual tasks (not code — need dashboard access), highest priority first:**
+1. Set `RESEND_API_KEY` on Railway's server service — the contact form 503s until this lands.
+2. Revoke the old Gmail app password; delete `SMTP_USER`/`SMTP_PASS` from `server/.env` and Railway.
+3. *(Optional)* Add `send.diegodamian.com` DNS records in Cloudflare to lift the Resend sandbox's own-address-only restriction.
+4. Do **not** click the Resend "Confirm email change" email sitting in the inbox — it would move the account off the working address.
+5. Recurring: the Spotify refresh token expires roughly every 6 months (root `README.md`).
+
+**My read on immediate next step:** `#projects` and `#connect` — they're what's
+left of Stage 3's own original plan, the tokens/mixins/motion signature are
+already built and proven on `#about`, and it closes out a stage instead of
+opening a new one. But this is a call for you to make, not something the repo
+forces — see §3 below for the full stage list if you want to reorder.
+
+---
+
 ## 1. The open questions, answered
 
 ### Q1 — Which design direction? — **Neither (a) nor (b). Option (c).**
@@ -121,7 +161,9 @@ The site is live and is being used for a job search. These are visible failures.
   already un-gated them. Fixed **B3c** (URL now updates, via `replaceState`) and the §6
   hamburger accessibility item in the same pass, and made `--navbar-height` authoritative
   (`.navbar { height: var(--navbar-height) }` + `box-sizing: border-box`)
-- **B5** `client/.env` missing URL scheme, breaks local `#my-taste`
+- ~~**B5** `client/.env` missing URL scheme, breaks local `#my-taste`~~ — **DONE
+  2026-08-08**, fixed in the same pass as the iTunes search proxy (`FINDINGS.md`).
+  Stale in this list since — no strikethrough was applied when it landed
 - ~~**B6** slideshow duplicates the project list and is missing a project~~ —
   **DONE 2026-08-08** (`4ebaaaf`), deleted entirely per Q3
 - ~~**B7** Rutgers logo clipped~~ — **DOES NOT REPRODUCE 2026-08-10.** The logo renders
