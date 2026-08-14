@@ -216,27 +216,32 @@ export default function About() {
             ScrollTrigger.create({
                 trigger: rootRef.current,
                 // "top top" alone (Task 5's first version) ignores the fixed
-                // navbar — it holds the section flush with y=0 of the
-                // VIEWPORT, not with the navbar-cleared line every other
-                // anchor on this site lands at (.content > section {
-                // scroll-margin-top: var(--scroll-offset) } — Stage 0's
-                // B3). Invisible with Task 4's small 240px portrait since
-                // nothing important sat in that top ~168px band; real with
-                // this section's bigger photo, whose top edge was ending up
-                // genuinely behind the navbar. Reads the SAME resolved
-                // offset Lenis's own scrollTo already uses
-                // (lib/scroll.js) — off the outer #about wrapper, which is
-                // what actually carries the blanket scroll-margin-top rule
-                // (a direct child of .content); rootRef here is the INNER
-                // .about-me-section, which doesn't. A function, not a
-                // one-time read, so it re-resolves through
-                // ScrollTrigger.refresh() if the navbar's height steps at a
-                // breakpoint (108–144px, main.scss) between mount and
-                // whenever this trigger actually fires.
+                // navbar entirely. Landing flush with just the navbar-cleared
+                // line (the very next fix) was closer but still wrong for a
+                // card this tall — top-anchoring right under the navbar can
+                // push the BOTTOM of the card past the viewport's own bottom
+                // edge, cutting the photo off there instead — reported live.
+                // What we actually want is the card CENTERED in the space
+                // the navbar leaves available, not pinned to either edge of
+                // it. Computed directly (not via ScrollTrigger's "center
+                // center", which centers on the whole viewport including the
+                // navbar-covered strip, biasing the result upward) as
+                // navbarHeight + half of whatever room is left between the
+                // navbar and the viewport bottom, once the card's own
+                // measured height is subtracted out. Math.max(0, ...) is the
+                // fallback for a viewport too short to fit the card at all —
+                // clears the navbar and stops there rather than going
+                // negative (which would put the card back under the navbar).
+                // A function, not a one-time read, so it re-resolves through
+                // ScrollTrigger.refresh() for both the navbar height step
+                // (108–144px, main.scss) and the card's own responsive size
+                // at whatever breakpoint this actually fires.
                 start: () => {
-                    const outer = document.getElementById("about");
-                    const offset = outer ? parseFloat(getComputedStyle(outer).scrollMarginTop) || 0 : 0;
-                    return "top top+=" + offset;
+                    const navbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navbar-height")) || 0;
+                    const sectionHeight = rootRef.current.getBoundingClientRect().height;
+                    const available = window.innerHeight - navbarHeight;
+                    const centeredTop = navbarHeight + Math.max(0, (available - sectionHeight) / 2);
+                    return "top top+=" + centeredTop;
                 },
                 once: true,
                 onEnter: (self) => {
@@ -358,7 +363,7 @@ export default function About() {
                     <h2 className="about-me-name" ref={nameRef}>Diego Damian</h2>
                     {/* Placeholder — Diego is writing the real copy separately. */}
                     <p className="about-me-bio" ref={bioRef}>
-                        Hola! This is Diego. I am a Software Engineer, with a passion for coding, developing & music. Play your favorite tune & hope you enjoy this ride.
+                        Hola! This is Diego. I am a Software Engineer, with a passion for coding, developing & music. Play your favorite tune & enjoy the ride!
                     </p>
                     <ul className="about-me-chips" ref={chipsRef}>
                         {CHIPS.map(({ icon: Icon, label }) => (

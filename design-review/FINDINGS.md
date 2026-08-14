@@ -734,6 +734,17 @@ re-resolves through `ScrollTrigger.refresh()` if the navbar's height steps at a
 breakpoint. Verified holding at exactly 168px (1440px width) and 132px (480px
 width) — matching `--scroll-offset` at both.
 
+**Amended same day, one more round of live feedback:** landing flush against the
+navbar-cleared line was still wrong for a card this tall — top-anchoring it there
+could push the card's *bottom* past the viewport's bottom edge, cutting the photo
+off there instead ("cutting up the bottom part of the picture... slightly higher
+than it should be"). Changed from top-anchoring to centering the card in the space
+below the navbar: `navbarHeight + max(0, (availableHeight − cardHeight) / 2)`,
+computed directly rather than via ScrollTrigger's `"center center"` (which centers
+against the whole viewport, navbar-covered strip included, and would still land the
+card too high). Verified landing with 9px clear above and below at 1440px width —
+centered, not just cleared.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

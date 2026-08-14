@@ -1325,6 +1325,38 @@ reduced motion) — all clean, zero console errors. `npm run build` clean (JS
 inlined, so this delta is just the offset-reading code; CSS 34.41→34.49 kB /
 7.52→7.53 kB gz). `npm run lint` holds at the 8-error baseline.
 
+### Stage 3 Task 5 follow-up #2 — scroll hold now centers the card, not top-anchors it *(2026-08-13)*
+
+Live feedback on the navbar-clearance fix above, same day: "cutting up the bottom
+part of the picture and the whole section is slightly higher than it should be."
+Correct diagnosis — top-anchoring the card right at the navbar-cleared line (the
+previous fix) works fine for a *short* card, but this one is tall enough that
+anchoring its top can push its bottom past the viewport's own bottom edge, cutting
+the photo off there instead. Landing below the navbar was right; landing flush
+against it was not.
+
+Fixed by computing the position that **centers** the card in the space the navbar
+leaves available, rather than pinning it to either edge of that space:
+`navbarHeight + max(0, (availableHeight − cardHeight) / 2)`, read directly off
+`--navbar-height` (a plain value, not calc()-composed, so directly readable) and
+the section's own measured `getBoundingClientRect().height` — not GSAP
+ScrollTrigger's built-in `"center center"` keyword, which centers against the
+*whole* viewport including the navbar-covered strip and would still land the card
+too high. The `max(0, …)` is the fallback for a card taller than the available
+space: clears the navbar and stops there rather than computing a negative offset
+that would put it back under the navbar.
+
+Verified at 1440×900: card lands with **9px clear above and 9px clear below** —
+essentially perfectly centered, not measured-and-rounded. 768×1024: 58px above,
+59px below. 480×900: the one case where the fallback engages (card taller than the
+480px-width stacked layout's available space by ~26px) — correctly clears the
+navbar and stops, rather than either overflowing further or going negative;
+flagged here as a known minor residual (well under one text line) rather than
+silently accepted, since it wasn't what was directly reported. Re-ran the full
+regression suite after this change too — organic scroll, nav-click bypass, no
+re-trigger, all still clean. Screenshot in
+`screenshots/about-t5-center-1440.png`.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1352,7 +1384,7 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **447.23 kB / 159.25 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **447.37 kB / 159.33 kB gz** |
 | CSS bundle | 26.96 kB / 5.99 kB gz | **34.49 kB / 7.53 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
