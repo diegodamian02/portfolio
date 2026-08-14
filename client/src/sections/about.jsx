@@ -358,7 +358,7 @@ export default function About() {
                     <h2 className="about-me-name" ref={nameRef}>Diego Damian</h2>
                     {/* Placeholder — Diego is writing the real copy separately. */}
                     <p className="about-me-bio" ref={bioRef}>
-                        [Placeholder bio — one or two sentences on who I am and what I build, coming soon.]
+                        Hola! This is Diego. I am a Software Engineer, with a passion for coding, developing & music. Play your favorite tune & hope you enjoy this ride.
                     </p>
                     <ul className="about-me-chips" ref={chipsRef}>
                         {CHIPS.map(({ icon: Icon, label }) => (
