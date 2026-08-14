@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-13 · **HEAD:** `5d74f91`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-13 · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -21,7 +21,7 @@ A portfolio that does six things. Current standing on each:
 | 2 | **Loads fast** | 🟢 Done. 152MB → 9.6MB deploy | — |
 | 3 | **Is findable and shareable** | 🟢 Done. Meta, OG card, favicon, sitemap, JSON-LD | — |
 | 4 | **Delivers the "playground" premise** — the turntable actually plays | 🟢 **It plays.** Record drops, platter spins up, arm swings, audio starts at needle contact (0.3–0.9ms from the arm landing). Transport is labelled, survives 253 rapid presses, and the deck reads as an object in both themes | Stage 1 ✅ Phases 6+7 |
-| 5 | **Reads as one coherent design** | 🟡 System defined (Task 1), applied to Timeline (Task 2, trimmed Task 3) and now the new About Me intro (Task 4) — `#about`/`#timeline` split, Q4's un-invert applied, B10 fixed. `#my-taste`, `#projects` and `#connect` still pending | Stage 3 (Tasks 1–4 ✅, rest next) |
+| 5 | **Reads as one coherent design** | 🟡 System defined (Task 1), applied to Timeline (Task 2, trimmed Task 3) and the new About Me intro (Task 4, scroll-hold + photo path + location chips fixed Task 5) — `#about`/`#timeline` split, Q4's un-invert applied, B10 fixed. `#my-taste`, `#projects` and `#connect` still pending | Stage 3 (Tasks 1–5 ✅, rest next) |
 | 6 | **Converts recruiter attention** | 🟡 Contact form works and the resume is linked from three places; the hero still does not deliver its premise | Stage 1 |
 
 Goals 1–3 were the focus of the 2026-08-07/08 session. **Goals 4–6 are the remaining
@@ -1095,6 +1095,138 @@ apostrophe-heavy paragraph text) left with the section that had them. Screenshot
 both themes, three widths, entrance mid-sequence, and the settled tilt state — in
 `screenshots/about-me-t4-*.png`.
 
+### Stage 3 Task 5 — About's scroll hold, portrait photo path, location chip split *(2026-08-13)*
+
+Three independent fixes to the new About Me intro from Task 4.
+
+**SCROLL FIX — a fast scroll used to drag straight through About into Timeline
+before the ~2.9s entrance finished.** First implementation used GSAP ScrollTrigger's
+own `pin` with a short fixed pixel distance, releasing when scroll crossed it — the
+brief's literal suggestion. Dropped after testing, for two compounding, *measured*
+reasons, not assumptions:
+
+1. **A fixed distance can't be both short and reliable.** Lenis's easing is heavily
+   front-loaded (a single hard flick covered ~45% of its total target distance in the
+   first ~100ms of testing), so any distance short enough to feel brief for a normal
+   scroll was also short enough for one aggressive flick to clear in two or three
+   frames. Verified by tracing `scrollY`/pin state at 100–150ms resolution across a
+   slow deliberate scroll, a fast continuous scroll, and a single huge wheel jump.
+2. **Patching that by re-clamping scroll position on every attempted exit fought
+   Lenis's own in-flight target**, and under GSAP's ticker/Lenis rAF sharing one
+   `requestAnimationFrame` (`smooth-scroll.jsx`), the release call was occasionally
+   reached twice in the same frame — the second `kill()` interrupted the first pin
+   revert mid-way and left a stale `position: fixed` on the section **permanently**,
+   with the document scrolling freely underneath it. Reproduced repeatedly across
+   several fix attempts (a `heldAtBoundary` flag, then a `requestAnimationFrame`
+   defer, then a `released` re-entrancy guard) before abandoning the pin entirely
+   rather than continuing to patch a fundamentally racy mechanism.
+
+**Shipped mechanism holds scroll input itself, not scroll position after the fact —
+nothing to clamp, nothing to race, nothing to revert:**
+- `lenis.stop()` / `lenis.start()` for wheel/trackpad input — Lenis's own primitive
+  for this, which also halts any in-flight momentum, not just future input.
+- A direct, non-passive `touchmove` listener for touch. Checked Lenis's source
+  before relying on `lenis.stop()` alone: this project's Lenis instance runs with
+  the default `syncTouch: false` (`smooth-scroll.jsx`), meaning touch scrolling is
+  **native**, not routed through Lenis at all — `lenis.stop()` has no effect on it.
+- A `keydown` listener blocking `PageDown`/`PageUp`/arrow/`Home`/`End`/space while
+  holding, so a keyboard user can't scroll past it either.
+- The entrance timeline itself is a plain, paused `gsap.timeline()` with **no**
+  `scrollTrigger` of its own — genuinely decoupled from scroll, not just
+  un-scrubbed. A separate, `once: true` `ScrollTrigger` (`start: "top top"`, moved
+  from Task 4's `"top 80%"` — holding on a half-scrolled frame reads as a stutter,
+  not an intro) starts the hold and plays the timeline; the timeline's own
+  `onComplete` releases it.
+
+**Found and fixed one more thing by testing, not assuming: a nav click straight to
+Timeline scrolled through #about on the way there and got held captive for the whole
+~2.9s entrance** — a visitor who asked to go to Timeline stuck watching an intro they
+didn't request. Fixed with a small pub/sub added to `lib/scroll.js`:
+`isProgrammaticScrollActive()` / `onProgrammaticScrollChange()`, set around
+`scrollToSection()`'s own `lenis.scrollTo()` call. About's hold checks it on entry
+(skips the hold entirely, resolves the entrance to its finished state instantly so
+nothing is left invisible for a later visit) **and** subscribes to catch a nav click
+that starts mid-hold (e.g. clicking "Connect" partway through About's entrance) —
+without the second path, `lenis.stop()` would strand Lenis stopped forever once the
+nav click's own forced `scrollTo` (needs `force: true`, since Lenis declines
+`scrollTo()` while stopped) moved past it. `scrollToSection()`'s `activeLenis.scrollTo()`
+call now always passes `force: true` for this reason.
+
+**Verified empirically, per scroll speed, via Playwright + a real CDP touch session
+(synthetic JS-dispatched touch events don't trigger native scroll — Chromium ignores
+them as untrusted):**
+
+| Input | Result |
+|---|---|
+| Slow deliberate wheel (80px / 250ms steps) | Held flat throughout; entrance completes; releases cleanly on the next scroll, small natural increment (Δ8–39px), no jump |
+| Fast continuous wheel (400px / 40ms steps) | Frozen for the whole ~2.9s hold; releases the instant the entrance finishes |
+| Single huge wheel jump (3000px, one event) | Frozen; held indefinitely if no further input arrives (correct — nothing forces a release the visitor hasn't asked for) |
+| Real touch swipes (CDP `Input.dispatchTouchEvent`, iPhone 13 emulation) | Frozen across 5 successive hard swipes; entrance completes; next swipe after release moves normally |
+| Keyboard (`PageDown` × 10, mid-hold) | Fully blocked once the hold has engaged; resumes normally after release |
+| Nav click → `#timeline`, from top of page | 0/32 sampled frames pinned (previously would have been captive for the whole entrance); lands at the correct offset (168px, matching `--scroll-offset`) |
+| Scroll down, entrance completes, scroll to top, scroll down again | No re-trigger — entrance stays at its finished state, hold does not re-engage |
+| `prefers-reduced-motion: reduce` | No hold, no Lenis stop, mask already at rest — unaffected, as before |
+
+One honest platform limitation, not a bug: on a real touch gesture that's already
+**in flight** at the exact moment it crosses into the hold, Chromium logs "Ignored
+attempt to cancel a touchmove event with cancelable=false" for that gesture's
+remaining `touchmove` events — the browser won't retroactively cancel a scroll it's
+already committed to mid-gesture. This is a bounded, one-time leftover from the one
+gesture that triggers the hold (measured: scroll settles and freezes correctly
+within that same gesture, doesn't continue drifting), and every subsequent gesture is
+blocked from its first `touchmove`. The same category of thing happens with the one
+wheel/key event that crosses the threshold on desktop. Not fixable from this side —
+the browser guarantees an in-progress native scroll gesture can't be cancelled after
+it commits, by design.
+
+**PHOTO PATH — where Diego's new portrait goes.** `assets/diego.png` already follows
+the convention Timeline's own (non-placeholder) photos use: personal photos live
+flat in `client/src/assets/`, lowercase, one word, matching the person or entry
+(`trump.jpeg`, `codewiz.jpeg`, `diego.png`) — the `assets/about/` subfolder is
+reserved for the two Unsplash *placeholders* pending replacement (`costa-verde.jpg`,
+`rutgers-campus.jpg`), not for real photos.
+
+**Drop the new portrait in at `client/src/assets/diego.png`, overwriting the current
+file, keeping it a `.png`.** That's the exact path `about.jsx` already imports
+(`import diego from "../assets/diego.png"`), so this needs **zero code changes** —
+just replace the file and rebuild. If the new photo is a JPEG rather than PNG,
+either convert it first (Preview → Export As, or `sips -s format png in.jpg
+--out diego.png`) or say so and the import gets a one-line update to match — don't
+silently rename the file to `.jpg`, since the import is a literal path.
+
+**LOCATION CHIPS — split into two.** The single "Lima → Chicago" chip (which implied
+one direct move and silently dropped the Rutgers/New Jersey years between) is now
+two independent, accurate facts in the same two slots: "From Lima, Peru" (new
+hand-drawn outlined-flag icon) and "Based in Chicago" (new hand-drawn skyline
+icon). Same SVG convention as the other five chip icons (`viewBox 0 0 20 20`,
+`stroke currentColor`, no fill) — no icon library added, per Task 4's finding that
+none exists in this project. The old single-arrow `LocationIcon` is gone; nothing
+else referenced it.
+
+**Verified:** `npm run build` clean (CSS unchanged at 34.41 kB / 7.52 kB gz — no new
+rules, the two new icons reuse `.about-me-chip`/`.about-me-chip-icon`; JS
+445.89→447.09 kB / 158.78→159.18 kB gz, the hold logic + two icons + the
+`lib/scroll.js` pub/sub). `npm run lint` holds at **8 errors** (the baseline) — one
+new `no-unused-vars` was introduced and fixed during this task (a leftover
+`entranceDone` flag from the abandoned clamp-based design, written in three places
+but never read once the design moved to blocking input instead of reacting to scroll
+position — caught by lint itself, not missed). B1/B2/B3 re-verified across all six
+sections post-fix (table below matches Task 4's, confirming the hold doesn't disturb
+`scroll-margin-top` landing positions):
+
+| Section | Landing offset |
+|---|---|
+| `#home` | 0.0px |
+| `#about` | 169.0px |
+| `#timeline` | 167.4px |
+| `#my-taste` | 172.6px |
+| `#projects` | 168.6px |
+| `#connect` | 168.6px |
+
+Screenshots — both themes at 1440, both breakpoints (768/480) dark, and a mid-hold
+frame (name visible, chips not yet begun, scroll numerically confirmed frozen at
+912px throughout) demonstrating the fix — in `screenshots/about-t5-*.png`.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1122,7 +1254,7 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **445.89 kB / 158.78 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **447.09 kB / 159.18 kB gz** |
 | CSS bundle | 26.96 kB / 5.99 kB gz | **34.41 kB / 7.52 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |

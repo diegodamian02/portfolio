@@ -657,6 +657,53 @@ explicit `height: auto; display: block;` override on `.work-experience`, comment
 place with the mechanism so a future edit doesn't reintroduce it by removing the
 override the same way the original redeclaration was removed.
 
+### B13 — a fast scroll skipped About's entrance mid-sequence — **FIXED, Stage 3 Task 5**
+
+Task 4's entrance (`ScrollTrigger` with `once: true`, `start: "top 80%"`, no scrub)
+started the ~2.9s wipe→name→bio→chips sequence on entering view, but nothing stopped
+scroll from continuing past the section while it played — a fast scroll (a real
+trackpad flick, not just a synthetic worst case) dragged the page into Timeline
+before the sequence finished, cutting it off mid-cascade.
+
+Fixed by holding scroll input itself for the duration of the entrance:
+`lenis.stop()`/`start()` for wheel input, a non-passive `touchmove` block for touch
+(this project's Lenis runs `syncTouch: false`, so touch scroll is native and
+unaffected by `lenis.stop()` alone — checked Lenis's source before relying on
+either), and a `keydown` block for `PageDown`/arrow/`Home`/`End`/space. The entrance
+timeline itself was changed from a `scrollTrigger`-attached timeline to a plain,
+paused one — decoupled from scroll position entirely, not just un-scrubbed — started
+by a separate `ScrollTrigger`'s `onEnter` and released by the timeline's own
+`onComplete`.
+
+The first implementation used GSAP's native `pin` with a fixed release distance
+instead — the brief's literal suggestion — and was abandoned after testing showed it
+couldn't be both short and reliable (Lenis's easing is front-loaded enough that a
+distance short enough to feel brief was also short enough for one hard flick to
+clear), and a clamp-based patch for that fought Lenis's own scroll target closely
+enough to leave the section permanently stuck `position: fixed` under specific
+frame-timing conditions, reproduced more than once. See `STATUS.md`'s Stage 3 Task 5
+entry for the full reasoning and the empirical results (six input speeds/devices)
+that shipped this version instead.
+
+### B14 — the same fix nearly made nav clicks captive too — **FOUND AND FIXED, Stage 3 Task 5**
+
+Not live at any point — found during Task 5's own testing before it could ship.
+Clicking "Timeline" in the nav from the top of the page scrolls straight *through*
+`#about` on the way there (Lenis animates the intermediate scroll positions, it
+doesn't teleport), which crosses About's hold trigger the same as organic scrolling
+would — without a check, a visitor asking to go to Timeline would have been held
+captive for the whole ~2.9s entrance on the way to a section they explicitly asked
+to jump to.
+
+Fixed with a small pub/sub in `lib/scroll.js` (`isProgrammaticScrollActive()` /
+`onProgrammaticScrollChange()`) that `scrollToSection()` sets around its own
+`lenis.scrollTo()` call. About's hold checks it on entry — skipping the hold and
+resolving the entrance to its finished state instantly, so nothing is left invisible
+for a later visit — and subscribes to catch a nav click that starts mid-hold too
+(e.g. clicking "Connect" partway through About's entrance), which needed
+`scrollToSection()`'s own `scrollTo()` call to gain `force: true` (Lenis declines
+`scrollTo()` entirely while `isStopped`, per its source).
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

@@ -608,6 +608,43 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > tracing actual `getComputedStyle()` transforms, not by the absence of a thrown
 > error. Full writeup, verification numbers and screenshots in `STATUS.md`.
 
+> **Stage 3 Task 5 is DONE — 2026-08-13.** Three fixes to the About Me intro Task 4
+> shipped.
+>
+> **The scroll fix did NOT end up using `pin` — the brief's own literal
+> suggestion — after testing showed it couldn't satisfy the brief's own requirement.**
+> A fixed pin distance can't be both short (so a normal scroll doesn't feel stuck)
+> and reliable (so a fast flick can't still clear it), and patching that with a
+> position clamp fought Lenis's own in-flight scroll target closely enough to
+> reproducibly leave the section stuck `position: fixed` under specific frame timing
+> — found more than once across three patch attempts before the mechanism was
+> replaced rather than patched further. Shipped version holds *scroll input itself*
+> (`lenis.stop()`/`start()` for wheel, a non-passive `touchmove` block for touch —
+> checked that this project's `syncTouch: false` Lenis config means touch scroll is
+> native and unaffected by `lenis.stop()` alone before relying on either mechanism —
+> plus a `keydown` block) rather than reacting to scroll position after the fact.
+> Verified across six input speeds/devices, including a real CDP touch session (not
+> synthetic JS events, which Chromium ignores as untrusted for native scroll). Full
+> reasoning and results in `STATUS.md` and `FINDINGS.md` (B13).
+>
+> **A second bug found by the same testing pass, fixed before it ever shipped:** a
+> nav click straight to Timeline scrolls through `#about` en route and would have
+> been held captive for the whole entrance without a check. Fixed with a small
+> pub/sub in `lib/scroll.js` — `isProgrammaticScrollActive()` /
+> `onProgrammaticScrollChange()` — set around `scrollToSection()`'s own
+> `lenis.scrollTo()` call. `FINDINGS.md` B14.
+>
+> **Photo path answered and documented in `STATUS.md`, not just chat, per the
+> brief:** `client/src/assets/diego.png`, overwriting the existing file — already
+> the exact path `about.jsx` imports, so no code change needed. Confirmed this
+> matches the convention Timeline's own non-placeholder photos already use (flat in
+> `assets/`, not the `assets/about/` placeholder subfolder).
+>
+> **Location chip split as specified** — "Lima → Chicago" (one chip implying a
+> direct move, silently dropping the Rutgers/New Jersey years between) replaced by
+> "From Lima, Peru" and "Based in Chicago" (two independent facts), two new
+> hand-drawn SVG icons matching the existing five-icon convention.
+
 ### Stage 4 — `#my-taste` redesign
 
 The one section that gets the material language. Top artists as records, top tracks

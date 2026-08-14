@@ -2,7 +2,8 @@ import { useRef } from "react";
 import "../styles/main.scss";
 import diego from "../assets/diego.png";
 import { useGSAP } from "@gsap/react";
-import { gsap, SplitText } from "../lib/gsap.js";
+import { gsap, ScrollTrigger, SplitText } from "../lib/gsap.js";
+import { getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
 
 // About Me — the calm intro card, Stage 3 Task 4. Replaces the old
 // .bio-section entirely (photo + two paragraphs + Rutgers logo + flag
@@ -21,10 +22,23 @@ import { gsap, SplitText } from "../lib/gsap.js";
 // the one icon convention this codebase already has: turntable.jsx's
 // play/pause glyphs are hand-drawn paths, not a library. Flagged in
 // STATUS.md.
-const LocationIcon = () => (
+// Task 5 replaces the single "Lima → Chicago" arrow chip (which implied one
+// direct move and silently dropped the Rutgers/New Jersey years in between)
+// with two independent facts. LocationIcon (the old pin glyph) is gone with
+// it — FlagIcon and SkylineIcon below replace it, same hand-drawn convention.
+const FlagIcon = () => (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10 18s6-5.2 6-9.8A6 6 0 0 0 4 8.2C4 12.8 10 18 10 18Z" />
-        <circle cx="10" cy="8.2" r="2.1" />
+        <path d="M5 17.5V3" />
+        <path d="M5 4c1.4-1 3-1 4.5 0s3.1 1 4.5 0v7c-1.4 1-3 1-4.5 0s-3.1-1-4.5 0V4Z" />
+    </svg>
+);
+
+const SkylineIcon = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M2.5 17.5h15" />
+        <path d="M4.5 17.5V8.5l2.5-1.8 2.5 1.8v9" />
+        <path d="M9.5 17.5V4.5l3-2 3 2v13" />
+        <path d="M6.2 11h.8M11.7 9h.8M11.7 12h.8" />
     </svg>
 );
 
@@ -61,10 +75,13 @@ const GuitarIcon = () => (
     </svg>
 );
 
-// Order matches the brief exactly: location, education, current focus,
-// loves music, plays guitar.
+// Order: origin, current city, education, current focus, loves music, plays
+// guitar. Task 5 split the one "Lima → Chicago" chip into two independent,
+// accurate facts in the same two slots, rather than one journey line that
+// implied a direct move and left out the Rutgers/New Jersey years between.
 const CHIPS = [
-    { icon: LocationIcon, label: "Lima → Chicago" },
+    { icon: FlagIcon, label: "From Lima, Peru" },
+    { icon: SkylineIcon, label: "Based in Chicago" },
     { icon: EducationIcon, label: "Rutgers — CS + Music Tech" },
     { icon: FocusIcon, label: "Test Automation" },
     { icon: MusicIcon, label: "Loves Music" },
@@ -109,8 +126,67 @@ export default function About() {
             const bioSplit = new SplitText(bioRef.current, { type: "words" });
             const chips = gsap.utils.toArray(".about-me-chip", chipsRef.current);
 
+            // Task 5 fix — a fast scroll used to drag straight past this
+            // section into Timeline before the ~2.9s entrance (traced in
+            // Task 4) finished playing, cutting it off mid-sequence.
+            //
+            // First implementation used GSAP's own ScrollTrigger `pin` with
+            // a fixed pixel distance, releasing when scroll crossed it.
+            // Dropped after testing, for two compounding reasons: (1) a
+            // fixed distance can't be both short AND reliable — Lenis's
+            // easing is heavily front-loaded (a single hard flick covered
+            // ~45% of its total target distance in the first ~100ms in
+            // testing), so any distance short enough to feel brief for a
+            // normal scroll was also short enough for one aggressive flick
+            // to clear in a couple of frames; (2) patching that by
+            // re-clamping scroll position on every attempted exit fought
+            // Lenis's own in-flight target and, under GSAP's ticker/Lenis
+            // rAF timing, occasionally reached the release call twice in
+            // the same frame — the second kill() interrupted the first
+            // one's pin revert mid-way and left a stale `position: fixed`
+            // on the section permanently, with the document scrolling
+            // freely underneath it. Reproduced repeatedly, not a one-off.
+            //
+            // This version holds SCROLL INPUT itself instead of reacting to
+            // scroll position after the fact — nothing to clamp, nothing to
+            // race, nothing to revert:
+            //   - lenis.stop()/start() for wheel/trackpad input (Lenis's
+            //     own primitive for this — halts any in-flight momentum
+            //     too, not just future input).
+            //   - a direct, non-passive touchmove listener for touch —
+            //     this project's Lenis instance runs with the default
+            //     syncTouch:false (smooth-scroll.jsx), meaning touch
+            //     scrolling is native, not routed through Lenis at all, so
+            //     lenis.stop() alone doesn't affect it. Verified via Lenis's
+            //     own source before relying on either path.
+            //
+            // `tl` is a plain, paused timeline with NO scrollTrigger of its
+            // own — genuinely decoupled from scroll input, not just
+            // un-scrubbed. A separate ScrollTrigger below calls tl.play()
+            // once, on entry; the timeline then runs to completion on
+            // GSAP's own ticker regardless of what scroll input does (or
+            // doesn't do) in the meantime.
+            let holding = false;
+
+            function releaseHold() {
+                if (!holding) return;
+                holding = false;
+                getActiveLenis()?.start();
+                window.removeEventListener("touchmove", blockTouchMove, { capture: true });
+                window.removeEventListener("keydown", blockScrollKeys, { capture: true });
+            }
+
+            const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "]);
+            function blockScrollKeys(e) {
+                if (SCROLL_KEYS.has(e.key)) e.preventDefault();
+            }
+            function blockTouchMove(e) {
+                e.preventDefault();
+            }
+
             const tl = gsap.timeline({
-                scrollTrigger: { trigger: rootRef.current, start: "top 80%", once: true },
+                paused: true,
+                onComplete: releaseHold,
             });
 
             tl.to(maskRef.current, { xPercent: 100, duration: 0.7, ease: "power3.inOut" }, 0);
@@ -124,7 +200,50 @@ export default function About() {
             tl.from(bioSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: "power2.out", stagger: 0.025 }, ">+=0.25");
             tl.from(chips, { opacity: 0, y: 10, duration: 0.4, ease: "power2.out", stagger: 0.08 }, ">+=0.3");
 
+            // Covers a nav click that starts WHILE already holding, not just
+            // one that arrives before entry — e.g. a mid-entrance click on
+            // "Connect". Without this, lenis.stop() would leave Lenis
+            // stopped forever once the forced nav scrollTo (see
+            // lib/scroll.js) moved past it, since only this hold's own
+            // releaseHold() ever calls lenis.start().
+            const unsubscribe = onProgrammaticScrollChange((active) => {
+                if (active && holding) {
+                    tl.progress(1);
+                    releaseHold();
+                }
+            });
+
+            ScrollTrigger.create({
+                trigger: rootRef.current,
+                // "top top" (not Task 4's "top 80%") — holding while the
+                // section is only 80% into view would freeze the viewport on
+                // a half-scrolled frame, which reads as a stutter rather
+                // than an intro. Holding once the section already fills the
+                // viewport reads as a deliberate pause instead.
+                start: "top top",
+                once: true,
+                onEnter: () => {
+                    // A nav click already scrolling straight through
+                    // #about toward another section — the visitor asked to
+                    // go there, not to watch an intro they didn't request.
+                    // Resolve to the finished state instantly (nothing is
+                    // left invisible if they scroll back up to look later)
+                    // and never hold at all.
+                    if (isProgrammaticScrollActive()) {
+                        tl.progress(1);
+                        return;
+                    }
+                    holding = true;
+                    getActiveLenis()?.stop();
+                    window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
+                    window.addEventListener("keydown", blockScrollKeys, { capture: true });
+                    tl.play();
+                },
+            });
+
             return () => {
+                unsubscribe();
+                releaseHold();
                 tl.kill();
                 nameSplit.revert();
                 bioSplit.revert();

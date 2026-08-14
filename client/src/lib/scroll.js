@@ -18,6 +18,36 @@ export function getActiveLenis() {
     return activeLenis;
 }
 
+// Distinguishes "the visitor is dragging a wheel/trackpad through the page"
+// from "a nav click (or any other scrollToSection() caller) is animating
+// straight to a target section" — about.jsx's Task 5 scroll-hold needs this:
+// without it, clicking "Timeline" from the top of the page scrolls straight
+// through #about's hold trigger the same as organic scrolling would, and
+// gets held captive for the whole ~2.9s entrance on its way to a section the
+// visitor explicitly asked to jump to. A counter, not a boolean, because a
+// second nav click before the first Lenis animation's onComplete fires
+// (double-click, or clicking a different link mid-scroll) must not let the
+// first one's cleanup mark scrolling as "not programmatic" while the second
+// is still in flight.
+let programmaticScrollDepth = 0;
+const programmaticScrollListeners = new Set();
+
+export function isProgrammaticScrollActive() {
+    return programmaticScrollDepth > 0;
+}
+
+// Fires synchronously on every transition, not just polled at one moment —
+// about.jsx's hold subscribes so a nav click that starts WHILE it's already
+// holding (not just one that started before) releases it immediately too.
+export function onProgrammaticScrollChange(fn) {
+    programmaticScrollListeners.add(fn);
+    return () => programmaticScrollListeners.delete(fn);
+}
+
+function setProgrammaticScrollActive(active) {
+    programmaticScrollListeners.forEach((fn) => fn(active));
+}
+
 // The fixed-navbar offset deliberately lives in CSS, not here:
 // `.content > section { scroll-margin-top: var(--scroll-offset) }` in
 // main.scss. Both scroll paths below honour it natively — see the comments
@@ -39,7 +69,22 @@ export function scrollToSection(id) {
         // exactly one place; Lenis reading the CSS property directly avoids
         // that duplication entirely rather than just hiding it behind
         // getComputedStyle(documentElement).
-        activeLenis.scrollTo(target);
+        programmaticScrollDepth++;
+        setProgrammaticScrollActive(true);
+        activeLenis.scrollTo(target, {
+            // force:true — about.jsx's hold calls lenis.stop() while
+            // holding; without force, a nav click landing in that window
+            // would silently no-op (Lenis's own scrollTo() declines to run
+            // while isStopped, per its source). The hold's own
+            // onProgrammaticScrollChange subscription un-stops it the
+            // instant this fires, so this isn't fighting that — it's what
+            // makes the hand-off work.
+            force: true,
+            onComplete: () => {
+                programmaticScrollDepth = Math.max(0, programmaticScrollDepth - 1);
+                if (programmaticScrollDepth === 0) setProgrammaticScrollActive(false);
+            },
+        });
         return;
     }
 
