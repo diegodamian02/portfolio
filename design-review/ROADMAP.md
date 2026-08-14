@@ -658,6 +658,38 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > (`min-height` and inter-panel gap both cut) after feedback that it read as
 > oversized. Full numbers in `STATUS.md`.
 
+> **Stage 3 Task 7 is DONE — 2026-08-14.** Timeline rebuilt entirely as
+> `experience.jsx`/`id="experience"` — a compact, alternating two-column spine
+> layout (six entries either side of a central drawn line) replacing the full-bleed
+> scroll-revealed panels, meant to read as one ~1.1s entrance beat rather than
+> unfold over a long scroll. Renamed Timeline → Experience everywhere (file, id,
+> nav label, every internal comment) since the section covers education and
+> coaching, not just jobs.
+>
+> Four Club GreenSock plugins registered (`DrawSVGPlugin`, `CustomEase`,
+> `MotionPathPlugin`, `ScrambleTextPlugin`) — confirmed directly against
+> `node_modules/gsap` rather than trusting the brief's own "per Task 4's confirmed
+> access" premise, which didn't match anything in this file; the underlying fact
+> held anyway (GSAP went fully free in 2025). One `CustomEase` curve
+> (`SIGNATURE_EASE`, `lib/gsap.js`) now backs both Experience's card stagger AND
+> About's entire entrance, retrofitted — one motion signature instead of two
+> sections each picking their own stock ease.
+>
+> **Rutgers shows 2021 (start year), not 2025 — flagged per the brief's own
+> request**, for two reasons: it matches the brief's own CodeWiz decision (also
+> multi-year, also shown by start year), and it's the only choice that keeps the
+> spine's six badges monotonically increasing top to bottom, which is what makes a
+> vertical timeline readable at a glance in the first place.
+>
+> FIT measured, not eyeballed: 1.13× one screen at 1440×900, 1.25× at 1280×800,
+> 1.04× at 390×844 (mobile) — tightened down from an initial 1.35×/1.46×/1.04× pass
+> by cutting thumbnail size and per-item padding specifically, not caption text.
+> Two implementation bugs found and fixed in testing before ship — `FINDINGS.md`
+> B18 (connector fell short of the card, two independently-picked spacing tokens
+> for one gap), B19 (Capgemini's client badge overflowed the mobile thumbnail).
+> B1/B2/B3 and the Capgemini badge re-verified after the rebuild. Full numbers in
+> `STATUS.md`.
+
 ### Stage 4 — `#my-taste` redesign
 
 The one section that gets the material language. Top artists as records, top tracks

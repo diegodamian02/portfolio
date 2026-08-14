@@ -22,6 +22,15 @@
   // ~1.05:1 failure (text token following the wrong background), just
   // gated on the wrong variable instead of the missing one.
   --panel-text: #f5f6fa;
+  // Currently UNUSED — Stage 3 Task 7's rebuild of Experience (formerly
+  // Timeline) moved caption text off the photo/scrim entirely (captions now
+  // sit on the plain section background, using --secondary-text like
+  // everything else in that section), so the one consumer this token had
+  // (the old .timeline-content's secondary caption line) is gone. Left
+  // defined rather than deleted — a future overlay-on-photo treatment
+  // elsewhere would want exactly this token again, and it costs nothing to
+  // keep. Flagged in STATUS.md rather than silently dropped or silently
+  // left unexplained.
   --panel-text-secondary: #c7cbdb;
   // Same fixed-not-flipping reasoning, for work-motif.jsx's generative
   // backgrounds (GlobalLogic, Capgemini, the closing beat) — blue tones per
@@ -1876,113 +1885,241 @@ html {
   }
 }
 
-// Work Experience — full-bleed scroll-revealed timeline (Stage 3 Task 2).
+// Experience — compact, alternating two-column spine layout (Stage 3
+// Task 7). REPLACES the full-bleed scroll-revealed timeline (Stage 3 Task 2,
+// trimmed Task 3) entirely, not extended — every selector here is new.
+// Renamed from Timeline/#timeline/.work-experience/.timeline-* throughout
+// (App.jsx, lib/sections.js, experience.jsx) — the section covers education
+// and coaching, not just jobs, so "Timeline" undersold it.
 //
-// Q4 applied: un-inverted. This section used to be the site's one
-// `--bg-inverted` band (D4) — it now sits on the ordinary page background
-// like every other section, so the scroll reads as one surface. Un-inverting
-// only touches the SECTION background; the panels beneath still need light
-// text on their own dark photo/scrim treatment regardless of site theme,
-// which is what the new --panel-text tokens are for (declared in :root,
-// deliberately NOT part of the inverted trio — see the token comment).
-.work-experience {
-  // .work-experience carries BOTH "about-section" and "work-experience" in
-  // its className (about.jsx) — .about-section's own height: 100vh /
-  // display: flex / align-items: center (above) still apply unless
-  // overridden here. That fixed 100vh used to match, harmlessly, because
-  // the old .work-experience rule redeclared its own height: 100vh; this
-  // rule no longer does, so left alone the shared rule silently caps eight
-  // stacked panels' worth of content into one viewport-height box. Found by
-  // measuring .work-experience's own offsetHeight against .timeline's —
-  // 1092px vs 5552px — not by eye; the flex-centred overflow doesn't clip
-  // visibly, it just quietly breaks the document flow around it.
-  height: auto;
-  display: block;
-  padding: var(--space-9) 0;
-  text-align: center;
+// Un-inverted, same as the section it replaces (Q4, Stage 3 Task 2) — plain
+// --text-color/--secondary-text throughout. The one exception is
+// .experience-client-badge, which still needs light text regardless of site
+// theme (--panel-text) since it's a dark pill sitting on a photo/motif that
+// doesn't lighten in light mode — everything else that used to need
+// --panel-text (the old full-bleed panel's caption-over-scrim text) is gone:
+// text now sits beside the thumbnail on the plain section background, not
+// overlaid on top of it.
+.experience-section {
+  padding: var(--space-7) 0;
 
   @media (max-width: 768px) {
-    padding: var(--space-7) 0;
+    padding: var(--space-6) 0;
   }
 }
 
-// display: none below 768px REMOVED here (was B10 — "Work Experience"
-// completely invisible on mobile). @mixin section-title carries no display
-// override at any breakpoint, so the heading is simply never hidden now.
-.work-title {
+.experience-title {
   @include section-title;
   color: var(--text-color);
 }
 
-.timeline-container {
-  position: relative;
+.experience-container {
   @include content-column($width: var(--content-width-wide));
 }
 
-// 3px progress rail down the section's left edge, offset in from the
-// content column rather than flush against the true viewport edge. Height
-// tracks .timeline-container so it starts/ends level with the first and
-// last panel. Hidden below 1024px — .timeline-container is centred with no
-// space beside it once the wide column stops having room to spare.
-.timeline-rail {
-  position: absolute;
-  left: calc(-1 * var(--space-7));
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--secondary-text);
-  opacity: 0.25;
-  overflow: hidden;
+.experience-list {
+  position: relative;
+}
 
-  @media (max-width: 1024px) {
-    display: none;
+// experience.jsx's SPINE_W constant (8) must match this width — the path's
+// viewBox and the connector/badge horizontal math on the JS side both
+// assume the rendered box is exactly this wide. Height is 100% of
+// .experience-list (position: relative, so this position: absolute box
+// always spans exactly the rendered content, not an implied full-section
+// height) — the path's own d/viewBox get set to match the REAL measured
+// height at animation time (experience.jsx), since CSS alone can't hand an
+// SVG's coordinate system real pixel values.
+.experience-spine {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 8px;
+  height: 100%;
+  transform: translateX(-50%);
+  overflow: visible;
+  z-index: 0;
+
+  // Alternating layout doesn't have room to breathe below 768px (each
+  // card's outer half becomes too narrow to hold an image and text side by
+  // side) — collapses to one column, spine moved to a fixed left inset
+  // instead of dead-center. Every other .experience-* rule with its own
+  // 768px override below makes the same switch together.
+  @media (max-width: 768px) {
+    left: 24px;
+    transform: none;
   }
 }
 
-// scaleY driven by a section-wide scrubbed ScrollTrigger (about.jsx) — the
-// one scrubbed thing in this section, since a progress indicator is
-// supposed to track the scrollbar 1:1. Everything else (panel reveals,
-// entry 1's parallax) uses toggleActions or is scoped to its own panel.
-.timeline-rail-fill {
-  position: absolute;
-  inset: 0;
-  transform-origin: top;
-  transform: scaleY(0);
-  background: var(--accent);
+.experience-spine-path {
+  fill: none;
+  stroke: var(--secondary-text);
+  stroke-width: 2;
+  opacity: 0.35;
 }
 
-.timeline {
-  display: flex;
-  flex-direction: column;
-  // space-6 (was space-8) — direct feedback that seven full panels' worth
-  // of gap on top of their own height read as too much total scroll.
-  gap: var(--space-6);
-  padding: var(--space-6) 0;
+.experience-spine-dot {
+  fill: var(--accent);
 }
 
-.timeline-item {
-  width: 100%;
-}
-
-// The cover panel: photo (or motif) + scrim + overlaid text, all absolutely
-// stacked inside this clipping parent. Viewport-relative height — "most of
-// viewport width" comes from --content-width-wide on the column above;
-// height is where "large" shows up per-panel. Was clamp(400px, 70vh, 720px)
-// — shrunk ~30% end to end (both the floor and the vh scale) per direct
-// feedback that the section felt oversized; still reads as a cover panel,
-// not a thumbnail, at the new size.
-.timeline-panel {
+.experience-item {
+  // Single source of truth for "how much of the gap between the spine and
+  // the card is empty space" — .experience-card's own inner edge AND
+  // .experience-connector's width both read this SAME property. Keeping
+  // them as two independent var(--space-N) references (space-7 for the
+  // card, space-6 for the connector, picked separately) is exactly how this
+  // shipped briefly with the connector 16px short of ever reaching the
+  // card — invisible, not just visually off, since a 2px line that stops
+  // short of both things it's supposed to join doesn't read as anything.
+  --experience-gap: var(--space-7);
   position: relative;
-  min-height: clamp(300px, 48vh, 520px);
-  border-radius: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  // space-3 (not space-4) — six rows' worth of padding is one of the
+  // biggest contributors to total height on a desktop-width viewport (this
+  // task's own FIT goal), and unlike .experience-media below, padding has
+  // no legibility cost to trade against by cutting it.
+  padding: var(--space-3) 0;
+  z-index: 1;
+
+  @media (max-width: 768px) {
+    --experience-gap: var(--space-5);
+    display: block;
+    padding: var(--space-4) 0 var(--space-4) calc(24px + var(--experience-gap));
+  }
+}
+
+// Sits directly on the spine at this entry's connector point (brief's own
+// phrase) — background matches the page rather than being transparent, so
+// the badge visibly breaks the drawn line behind it like a real node, not a
+// label floating beside an unbroken line.
+.experience-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  min-width: 2.5rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: 999px;
+  background: var(--bg-color);
+  border: 2px solid var(--accent);
+  color: var(--text-color);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: center;
+  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
+
+  @media (max-width: 768px) {
+    left: 24px;
+  }
+}
+
+.experience-connector {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  background: var(--secondary-text);
+  opacity: 0.35;
+  transform: translateY(-50%);
+  z-index: 0;
+}
+
+.experience-item--left .experience-connector {
+  right: 50%;
+  width: var(--experience-gap);
+}
+
+.experience-item--right .experience-connector {
+  left: 50%;
+  width: var(--experience-gap);
+}
+
+@media (max-width: 768px) {
+  .experience-item--left .experience-connector,
+  .experience-item--right .experience-connector {
+    left: 24px;
+    right: auto;
+    width: var(--experience-gap);
+  }
+}
+
+.experience-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: calc(100% - var(--experience-gap));
+}
+
+// grid-column + justify-self, not flex's own justify-content, is what packs
+// each card against its OUTER edge (far left/right) while leaving a
+// var(--space-7)-wide gap free at its INNER edge for the connector to cross
+// — a plain flex row on .experience-item couldn't leave that gap
+// symmetrically on alternating sides without a second wrapping element.
+.experience-item--left .experience-card {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.experience-item--right .experience-card {
+  grid-column: 2;
+  justify-self: end;
+  // Media stays the visual "outer" element and text the "inner" one on
+  // BOTH sides — mirrored, not just re-packed, so the two columns read as
+  // reflections of each other rather than the right column looking like a
+  // left one that just moved over.
+  flex-direction: row-reverse;
+}
+
+.experience-item--left .experience-content { text-align: right; }
+.experience-item--right .experience-content { text-align: left; }
+
+@media (max-width: 768px) {
+  .experience-card {
+    width: 100%;
+  }
+
+  .experience-item--left .experience-card,
+  .experience-item--right .experience-card {
+    grid-column: unset;
+    justify-self: unset;
+    flex-direction: row;
+  }
+
+  .experience-item--left .experience-content,
+  .experience-item--right .experience-content {
+    text-align: left;
+  }
+}
+
+// Roughly half the old full-bleed panel's footprint, translated to a
+// thumbnail rather than a literal half-scale cover photo — "compact" and
+// "one screen" (this task's own FIT goal) both depend far more on how much
+// VERTICAL space six entries add up to than on a precise size ratio, so
+// this is sized against that budget (verified in STATUS.md across desktop/
+// laptop/mobile screenshots) rather than computed from the old panel's
+// clamp(300px, 48vh, 520px).
+.experience-media {
+  position: relative;
+  flex-shrink: 0;
+  // Measured against the FIT goal, not guessed: at clamp(90,9vw,130) six
+  // rows measured ~1.35x a 1440x900 screen's available height — trimmed
+  // down here specifically (not .experience-content, which has no comparable
+  // size to give up without hurting legibility) until it landed close to
+  // one screen. Mobile's own clamp is untouched — that breakpoint already
+  // measured ~1.04x on its own.
+  width: clamp(80px, 8vw, 110px);
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
   overflow: hidden;
   background: var(--deck-ground); // visible briefly while a photo decodes
+
+  @media (max-width: 768px) {
+    width: clamp(76px, 22vw, 104px);
+  }
 }
 
-// Kept from the old side-by-side layout (extended, not renamed): now the
-// panel's full-bleed background rather than a fixed-height card image.
-.timeline-image {
+.experience-image {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1990,15 +2127,10 @@ html {
   object-fit: cover;
 }
 
-// Entry 1 only (about.jsx sets data-parallax="true" on its .timeline-item).
-// Overscans the panel by 15% top/bottom so the ±8% yPercent parallax range
-// never uncovers empty space at either edge.
-[data-parallax="true"] .timeline-image {
-  top: -15%;
-  height: 130%;
-}
-
-// work-motif.jsx's root element (svg or div, depending on variant).
+// work-motif.jsx's root element (svg or div, depending on variant) — same
+// rules as the old build, just filling a much smaller .experience-media
+// instead of a full-bleed .timeline-panel. inset: 0 means these need no
+// changes of their own for the new size.
 .work-motif {
   position: absolute;
   inset: 0;
@@ -2039,79 +2171,78 @@ html {
   );
 }
 
-// --- waveform (closing beat) ----------------------------------------------
+// --- waveform (currently unused — see work-motif.jsx) ---------------------
 .work-motif-bar {
   fill: var(--panel-accent);
   opacity: 0.55;
 }
 
-.timeline-scrim {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.85) 0%,
-    rgba(0, 0, 0, 0.4) 45%,
-    rgba(0, 0, 0, 0) 75%
-  );
+.experience-content h3 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin: 0 0 var(--space-1);
+  color: var(--text-color);
 }
 
-.timeline-content {
+.experience-content p {
+  font-size: var(--text-xs);
+  margin: 0;
+  color: var(--secondary-text);
+  // Caption length varies a lot per entry (Colegio has none; Capgemini's is
+  // the longest) — clamped to 2 lines so one long caption can't make its
+  // row disproportionately taller than the rest and throw off the spine's
+  // node spacing more than content difference already does.
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// Capgemini's client-lockup pill — preserved from the old build (same
+// "Capgemini" text + real McDonald's mark fallback), resized down and still
+// an overlay on the thumbnail rather than moved into the text content
+// (experience.jsx has the reasoning: the role heading right beside it
+// already says "Capgemini").
+.experience-client-badge {
   position: absolute;
+  top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  padding: var(--space-6);
-  text-align: left;
-  color: var(--panel-text);
-}
-
-.timeline-content h3 {
-  // Fixes the undeclared-size bug Stage 3 Task 1 flagged: this heading had
-  // no font-size anywhere and silently took the browser default.
-  font-size: var(--text-lg);
-  font-weight: 600;
-  margin: 0 0 var(--space-2);
-}
-
-.timeline-content p {
-  font-size: var(--text-sm);
-  max-width: 40rem;
-  margin: 0 0 var(--space-2);
-}
-
-.date {
-  font-size: var(--text-xs);
-  // .date now sits inside a panel's own scrim, not on the section
-  // background (that background is no longer inverted at all — see above),
-  // so it takes the fixed panel token rather than the retired
-  // --secondary-text-inverted.
-  color: var(--panel-text-secondary);
-}
-
-// Capgemini's client-lockup pill (about.jsx — top-left of its panel).
-.timeline-badge {
-  position: absolute;
-  top: var(--space-4);
-  left: var(--space-4);
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-radius: 999px;
-  background: rgba(10, 14, 26, 0.55);
-  backdrop-filter: blur(6px);
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-1);
+  background: rgba(10, 14, 26, 0.6);
+  backdrop-filter: blur(4px);
   color: var(--panel-text);
   font-size: var(--text-xs);
   font-weight: 600;
+  line-height: 1.2;
+  z-index: 1;
+
+  // Found in testing, not guessed: at the mobile thumbnail's own width
+  // (down to 76px), "Capgemini × [icon]" at --text-xs is WIDER than the box
+  // it's overlaid on and was overflowing past .experience-media's
+  // overflow: hidden — rendering as a silently clipped "apgemini ×",
+  // missing its own first letter and the icon. Dropping the text here (icon
+  // + × only) fixes the overflow AND the redundancy is even more obvious on
+  // mobile than it was on desktop — the linear layout puts "Capgemini —
+  // Test Engineer" directly beside/below this same thumbnail, closer than
+  // desktop's alternating columns ever put it.
+  @media (max-width: 768px) {
+    .experience-client-badge-text {
+      display: none;
+    }
+  }
 }
 
-.timeline-badge-x {
+.experience-client-badge-x {
   opacity: 0.6;
 }
 
-.timeline-badge-icon {
-  height: 1em;
+.experience-client-badge-icon {
+  height: 0.9em;
   width: auto;
 }
 
@@ -2888,13 +3019,10 @@ html {
   // nothing left to override here for the old .bio-* classes, which are
   // deleted along with the section that used them.
 
-  // Work Experience's own 768px padding override now lives beside its base
-  // rule (Stage 3 Task 2) — nothing left to override here. The old
-  // `.work-experience h2 { display: none; }` in this block WAS B10 (the
-  // heading was completely invisible on mobile); it is deleted, not
-  // adapted. `.timeline { flex-direction: column }` and the `.timeline-image`
-  // fixed height are also gone — the rebuilt timeline is column-flow and
-  // full-bleed at every width, so neither override does anything anymore.
+  // Experience's own 768px overrides (spine repositioned, alternating
+  // layout collapsed to one column, media/badge/connector resized) all live
+  // beside their base rules (Stage 3 Task 7, .experience-*) — nothing left
+  // to override here.
 
   /* Portfolio Section */
   .portfolio-title {
@@ -2981,10 +3109,9 @@ html {
   // layout already covers this width, and the portrait's clamp() shrinks it
   // continuously rather than needing a breakpoint step.
 
-  // Work Experience — no 480px override needed. The 768px step already
-  // covers this width (padding: var(--space-7) 0, declared beside the base
-  // rule), and the fixed .timeline-image height below it belonged to the
-  // old side-by-side card layout, which the full-bleed panel replaced.
+  // Experience — no 480px override needed. The 768px step's single-column
+  // layout and clamp()-sized media/badges already scale continuously down
+  // to phone widths without a further breakpoint step.
 
   /* Contact Section */
   .contact-section {

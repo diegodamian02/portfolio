@@ -940,6 +940,42 @@ breathing room (which is how `.about-section` behaved before Stage 3 Task 4's
 redesign anyway), and the mobile-doesn't-fit safety-net case already exceeds one
 viewport's height on its own. No case needed the min-height to be conditional.
 
+### B18 — Experience's spine connector never reached the card — **FOUND AND FIXED, Stage 3 Task 7**
+
+Found in testing, before ship. The connector (the short horizontal line from the
+spine to each card) used `width: var(--space-6)` (32px); the card's own inner edge
+was positioned via `width: calc(100% - var(--space-7))` (48px). Two different
+tokens, picked independently for what was meant to be the same gap — the connector
+fell 16px short of the card every time, entirely invisible (a 2px line that doesn't
+reach either of the two things it's supposed to visually join doesn't read as
+anything, not just as "a bit short"). Confirmed via `getBoundingClientRect()` on
+both elements, not just eyeballed — measured a 16px dead gap between the
+connector's right edge and the card's left edge on every entry.
+
+**Fixed by removing the second token entirely, not by matching the number.** A
+`--experience-gap` custom property, declared once per `.experience-item` (`var(
+--space-7)` desktop, `var(--space-5)` mobile), is now the only thing either the
+card's width formula or the connector's width formula reads — they cannot drift
+apart again the way two independently-chosen tokens already did once. Re-verified
+post-fix: connector's right edge and card's left edge measured at the exact same
+pixel (768px) on both alternating sides.
+
+### B19 — Capgemini's client badge overflowed and clipped on mobile — **FOUND AND FIXED, Stage 3 Task 7**
+
+Found in the same testing pass, on the mobile screenshot specifically. The
+"Capgemini × [McDonald's mark]" lockup, at `--text-xs`, is wider than the mobile
+thumbnail it overlays (as narrow as 76px) — it overflowed `.experience-media`'s
+`overflow: hidden` and rendered visibly clipped: "apgemini ×", missing its own
+first letter and the icon entirely.
+
+Fixed by dropping the "Capgemini" text specifically at the 768px breakpoint,
+leaving just "× [icon]" — this isn't a compromise unique to the bug, either: the
+role heading right beside/below the thumbnail in the mobile linear layout already
+says "Capgemini — Test Engineer", closer to this badge than desktop's alternating
+columns ever put it, so the text was already the more redundant of the two even
+before it started overflowing. Desktop badge is unchanged. Re-verified: no overflow
+at 76px (the narrowest mobile thumbnail width), confirmed by screenshot.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

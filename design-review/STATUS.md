@@ -1556,6 +1556,141 @@ Re-verified: full regression suite clean (nav-click bypass now lands slightly fa
 since Timeline sits a bit further down the document), build clean, lint at the
 8-error baseline. JS unchanged at 447.66 kB / 159.39 kB gz, CSS 35.30 kB / 7.69 kB gz.
 
+### Stage 3 Task 7 — Timeline rebuilt as Experience: alternating spine, one entrance beat *(2026-08-14)*
+
+Full rebuild of the full-bleed scroll-revealed timeline (Stage 3 Task 2, trimmed
+Task 3) as a compact, alternating two-column layout — entries either side of a
+central vertical spine, meant to read as one ~1.1s entrance moment rather than
+unfold over a long scroll. Renamed Timeline → Experience throughout: `timeline.jsx`
+→ `experience.jsx`, `id="timeline"` → `id="experience"` (`App.jsx`), nav label
+(`lib/sections.js`), every internal comment reference across `about.jsx`,
+`scroll.js`, `work-motif.jsx`. Reasoning for the rename: the section covers
+education (Colegio, Rutgers) and coaching (CodeWiz) as much as jobs — "Timeline"
+undersold what it actually was.
+
+**Plugins.** `DrawSVGPlugin`, `CustomEase`, `MotionPathPlugin`, `ScrambleTextPlugin`
+registered in `lib/gsap.js`. The brief's premise ("confirm available per Task 4's
+confirmed access") didn't match what's actually in `ROADMAP.md` — Task 4 was About
+Me's intro, not a plugin-access decision, and no "Club GreenSock" confirmation
+exists anywhere in this repo's history. Checked the underlying fact directly instead
+of relitigating the premise: all four plugins are already present in
+`node_modules/gsap/*.js` — GSAP went fully free in 2025 (the Webflow acquisition),
+so every formerly-paywalled bonus plugin now ships in the plain `gsap` npm package
+this project already depends on (`"gsap": "^3.15.0"`). No new dependency, no
+separate install.
+
+**One shared motion signature.** `CustomEase.create("signature", "M0,0 C0.16,1
+0.3,1 1,1")` — cubic-bezier(0.16, 1, 0.3, 1), a fast, no-overshoot deceleration
+("easeOutExpo" in most naming conventions). Exported as `SIGNATURE_EASE` and used
+for Experience's card stagger AND retrofitted onto About's entire entrance
+(`about.jsx` — the mask wipe, previously `power3.inOut`, and the name/bio/chip
+reveals, previously `power2.out`, all now read this one curve). Verified About's
+full scroll-hold regression suite (organic hold still catches an aggressive flick,
+nav-click bypass, no second hold on re-entry) after the swap — all clean, the ease
+change didn't touch the hold mechanism itself.
+
+**Layout.** Six entries (closing "Music Technology" beat dropped — About's bio
+already makes that bridge to `#my-taste`), alternating left/right of a central
+spine via CSS grid (`grid-column` + `justify-self`, not flex, so each card packs
+against its own OUTER edge while a shared gap stays free at the spine for the
+connector to cross). Each entry: a compact thumbnail (`.experience-media`,
+`clamp(80px, 8vw, 110px)` — a fraction of the old full-bleed panel's footprint) +
+role/caption text, mirrored left↔right so the two columns read as reflections, not
+a left layout re-packed. Year-only badges (dropped the old full month/date-range
+text) sit centered on the spine at each entry's row, `background: var(--bg-color)`
+so they visibly break the drawn line behind them like a real node.
+
+**Rutgers: 2021, not 2025 — flagged per the brief's own request.** Two independent
+reasons: (1) the brief already decided CodeWiz (also multi-year, Aug 2024 – Jul
+2025) shows 2024, its START year — showing Rutgers' END year would be the one entry
+breaking that pattern. (2) A vertical spine's whole job is reading chronologically
+at a glance; start years keep every badge monotonically increasing (2019, 2021,
+2024, 2024, 2025, 2026), while 2025 would put a bigger number two slots above two
+smaller ones (Trump/CodeWiz), which reads as a mistake, not as "Rutgers ran long."
+
+**Animation — one entrance, not a sustained scroll sequence.** `ScrollTrigger`
+fires once (`start: "top 70%"`, `once: true`); everything downstream runs on GSAP's
+own ticker. The spine (`<path>` in an SVG whose `d`/viewBox are set to the section's
+REAL measured height inside `onEnter`, not guessed) self-draws via
+`DrawSVGPlugin` over ~0.95s; a small dot travels the same path in sync via
+`MotionPathPlugin` (same duration, same linear ease, started at the same timeline
+position — two independently deterministic tweens stay visually locked without
+extra onUpdate plumbing). As the dot's travel-time crosses each entry's own
+measured badge position (a real fraction of total height, not an assumed even
+1/6th split — Colegio has no caption and renders shorter than the rest), that
+badge scrambles through digits via `ScrambleTextPlugin` before resolving to its
+real year — scoped to ONLY the six badges, confirmed titles/captions never touch
+it. Cards stagger in on `SIGNATURE_EASE` at the same cue points. Old build's
+per-panel `toggleActions` reveal, scrubbed rail-fill, and scrubbed entry-1 parallax
+are gone entirely, not adapted — the brief's "no per-row scroll-triggered reveal"
+is why.
+
+Timing measured, not assumed: first card starts firing to the last card reaching
+full opacity spans **1.11–1.14s** across repeated runs, under the ~1.5s ceiling with
+room to spare.
+
+**Two implementation bugs found in testing, fixed before ship** (`FINDINGS.md` B18,
+B19): the connector fell 16px short of ever reaching its card (two independently-
+chosen spacing tokens for what was meant to be one gap — fixed with a single shared
+`--experience-gap` custom property instead of matching the number by hand); and the
+Capgemini client badge overflowed and visibly clipped on the narrowest mobile
+thumbnail (fixed by dropping the redundant "Capgemini" text at 768px, keeping just
+the icon — the adjacent role heading already says it, closer on mobile's linear
+layout than it ever was on desktop).
+
+**FIT — measured against a real viewport, not eyeballed.** Section height as a
+multiple of one screen's available height (viewport minus fixed navbar):
+
+| Breakpoint | Section height | One screen | Ratio |
+|---|---|---|---|
+| Desktop (1440×900) | 855px | 756px | **1.13×** |
+| Laptop (1280×800) | 821px | 656px | **1.25×** |
+| Mobile (390×844) | 766px | 736px | **1.04×** |
+
+Tightened from an initial 1.35× / 1.46× / 1.04× pass — thumbnail size and per-item
+padding cut specifically (not `.experience-content`, which had no comparable size
+to give up without hurting legibility) until desktop landed close to one screen.
+Mobile was already close on the first pass and untouched. None hit exactly 1.0× —
+per the brief's own allowance, a small amount of scroll beats forcing a fit at the
+cost of legibility, and the ratios above all round to "modest," not "long."
+
+**Preserved and re-verified, not just carried over silently:**
+- **B1/B2** (heading/date contrast) — no longer applicable in their original inverted-
+  background form (Q4 already un-inverted this section in Task 2), but re-verified
+  the new plain-background text: title/h3 **17.03:1**, caption **7.65:1**, year
+  badge **17.03:1** — all far past the 4.5:1/3:1 requirements, measured from
+  rendered computed styles.
+- **B3** (nav-click scroll offset) — `#experience` still a direct child of `.content`
+  (App.jsx), so the blanket `scroll-margin-top` rule applies with zero extra code.
+  Verified: nav click lands the section ~25px below the navbar, matching
+  `--scroll-offset`.
+- **Capgemini × McDonald's badge** — same lockup, same tested fallback
+  (`cdn.simpleicons.org/capgemini` still 404s, McDonald's still resolves), same
+  logic. Re-verified rendering correctly in both themes at every breakpoint (B19
+  above covers the mobile-specific fix it needed).
+- GlobalLogic's `nodes` motif and Capgemini's `scan` motif — unchanged components
+  (`work-motif.jsx`), just filling a smaller container. `waveform` (the closing
+  beat's old motif) is now unused — left defined, not deleted, flagged in a code
+  comment for a future entry that might want it.
+
+Screenshotted desktop/laptop/mobile × dark/light (6 shots) — all clean, connector
+visibly bridges spine to card on both alternating sides, motifs and the client
+badge render correctly in both themes.
+
+Full regression: About's hold/release/nav-bypass/once-only suite clean (ease swap
+didn't touch the mechanism), reduced-motion path verified (all cards visible
+immediately, badges show correct years with no scramble, spine pre-drawn, dot
+hidden — no console errors), full-page scroll through all six sections with zero
+console/page/network errors. Build clean. Lint at the 8-error baseline (unchanged —
+nothing new from this task). JS 483.51 kB / 173.53 kB gz (four new plugins, +~14 kB
+gz), CSS 37.08 kB / 7.96 kB gz.
+
+**One orphaned token found, not removed:** `--panel-text-secondary` had exactly one
+consumer (the old `.timeline-content`'s caption-over-scrim text), which no longer
+exists — captions now sit on the plain section background. Left defined rather than
+deleted (a future overlay-on-photo treatment would want it again), flagged with a
+comment at its declaration.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1583,8 +1718,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **447.66 kB / 159.39 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **35.30 kB / 7.69 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **483.51 kB / 173.53 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **37.08 kB / 7.96 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

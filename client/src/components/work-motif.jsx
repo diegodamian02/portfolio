@@ -3,14 +3,18 @@ import { useGSAP } from "@gsap/react";
 import { gsap } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 
-// Generative backgrounds for timeline entries that have no photo. Three
-// variants, one component — each panel that needs one names it by `variant`
-// rather than this being three separate files, since they share the same
-// "quiet, looping, decorative" contract and the same reduced-motion gate.
+// Generative backgrounds for Experience entries (experience.jsx, renamed
+// from Timeline — Stage 3 Task 7) that have no photo. Three variants, one
+// component — each panel that needs one names it by `variant` rather than
+// this being three separate files, since they share the same "quiet,
+// looping, decorative" contract and the same reduced-motion gate. "waveform"
+// is currently unused — it backed the old closing "Music Technology" beat,
+// dropped in Task 7 (About's bio already makes that bridge) — left defined
+// rather than deleted in case a future entry wants it.
 //
 // All three are aria-hidden: they sit behind real caption text (role,
-// company, dates) that already carries the entry's meaning, same as
-// .timeline-image never needed alt text beyond the entry's own name.
+// company, year) that already carries the entry's meaning, same as
+// .experience-image never needed alt text beyond the entry's own name.
 
 const NODES = [
     { x: 60, y: 70 }, { x: 160, y: 40 }, { x: 260, y: 90 },

@@ -21,7 +21,7 @@ export function getActiveLenis() {
 // Distinguishes "the visitor is dragging a wheel/trackpad through the page"
 // from "a nav click (or any other scrollToSection() caller) is animating
 // straight to a target section" — about.jsx's Task 5 scroll-hold needs this:
-// without it, clicking "Timeline" from the top of the page scrolls straight
+// without it, clicking "Experience" from the top of the page scrolls straight
 // through #about's hold trigger the same as organic scrolling would, and
 // gets held captive for the whole ~2.9s entrance on its way to a section the
 // visitor explicitly asked to jump to. A counter, not a boolean, because a

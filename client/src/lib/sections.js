@@ -12,13 +12,15 @@ export const RESUME_URL = "/Diego-Damian-Resume.pdf";
 export const RESUME_ARIA_LABEL = "Resume (PDF, opens in a new tab)";
 
 // Order matches the on-page scroll order (Stage 3 Task 4) — Home, then the
-// person (About), then the work history (Timeline), then the rest. id="about"
-// is the new intro card (about.jsx); the work-experience content that used to
-// share that id now has its own, id="timeline" (timeline.jsx).
+// person (About), then the work/education history (Experience), then the
+// rest. id="about" is the intro card (about.jsx); the work-experience
+// content that used to share that id has its own, id="experience"
+// (experience.jsx) — renamed from "Timeline" in Stage 3 Task 7, since the
+// section covers education and coaching too, not just jobs.
 export const SECTIONS = [
     { id: "home", label: "Home" },
     { id: "about", label: "About Me" },
-    { id: "timeline", label: "Timeline" },
+    { id: "experience", label: "Experience" },
     { id: "my-taste", label: "My Taste" },
     { id: "projects", label: "Projects" },
     { id: "connect", label: "Let's Connect" },

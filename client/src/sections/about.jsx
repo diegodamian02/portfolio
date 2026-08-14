@@ -2,18 +2,20 @@ import { useRef } from "react";
 import "../styles/main.scss";
 import diego from "../assets/diego.jpg";
 import { useGSAP } from "@gsap/react";
-import { gsap, ScrollTrigger, SplitText } from "../lib/gsap.js";
+import { gsap, ScrollTrigger, SplitText, SIGNATURE_EASE } from "../lib/gsap.js";
 import { getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
 
 // About Me — the calm intro card, Stage 3 Task 4. Replaces the old
 // .bio-section entirely (photo + two paragraphs + Rutgers logo + flag
 // icons) with a tighter format: portrait, name, one placeholder line, fact
-// chips. Now id="about" — see timeline.jsx (formerly the second half of
-// this file) for what moved to id="timeline".
+// chips. Now id="about" — see experience.jsx (formerly the second half of
+// this file, then timeline.jsx, renamed again — Stage 3 Task 7 — to
+// experience.jsx/id="experience") for what moved out.
 //
-// Deliberately the opposite mode from Timeline: single viewport, one
-// entrance that runs once and settles, no scroll-scrubbed spectacle. Timeline
-// already owns that register — this section exists to feel calm next to it.
+// Deliberately the opposite mode from Experience: single viewport, one
+// entrance that runs once and settles, no scroll-scrubbed spectacle.
+// Experience already owns that register — this section exists to feel calm
+// next to it.
 //
 // No Tabler icon library exists anywhere in this project — checked
 // package.json and node_modules, neither has any icon dependency at all, not
@@ -113,11 +115,10 @@ export default function About() {
     // not just tween construction:
     //
     //   1. Entrance — runs once per page view (ScrollTrigger `once: true`,
-    //      not toggleActions/reverse: Timeline's panels replay on re-entry
-    //      because they're a scrolling sequence, this is a single intro
-    //      beat). Portrait wipes first; name, bio and chips cascade after in
-    //      strict sequence, each waiting on the previous group finishing
-    //      rather than firing together.
+    //      not toggleActions/reverse — this is a single intro beat, not a
+    //      replayable reveal). Portrait wipes first; name, bio and chips
+    //      cascade after in strict sequence, each waiting on the previous
+    //      group finishing rather than firing together.
     //   2. Idle tilt — pointer:fine AND no-preference, combined in one query
     //      string rather than two separate checks, so a touch device or a
     //      reduced-motion setting each independently suppress it.
@@ -138,8 +139,9 @@ export default function About() {
             const chips = gsap.utils.toArray(".about-me-chip", chipsRef.current);
 
             // Task 5 fix — a fast scroll used to drag straight past this
-            // section into Timeline before the ~2.9s entrance (traced in
-            // Task 4) finished playing, cutting it off mid-sequence.
+            // section into Experience (named Timeline at the time) before
+            // the ~2.9s entrance (traced in Task 4) finished playing, cutting
+            // it off mid-sequence.
             //
             // First implementation used GSAP's own ScrollTrigger `pin` with
             // a fixed pixel distance, releasing when scroll crossed it.
@@ -200,16 +202,25 @@ export default function About() {
                 onComplete: releaseHold,
             });
 
-            tl.to(maskRef.current, { xPercent: 100, duration: 0.7, ease: "power3.inOut" }, 0);
+            // Every tween below shares SIGNATURE_EASE (lib/gsap.js) — Task 7's
+            // "one motion signature" retrofitted here too, replacing what
+            // used to be power3.inOut (the wipe) and power2.out (the three
+            // reveal groups). Picking one curve for a wipe AND settle-into-
+            // place reveals works because SIGNATURE_EASE is itself an "out"
+            // curve (fast start, no-overshoot settle) — the wipe reads as a
+            // transform settling into its end state exactly like the reveals
+            // do, not a directional in-out motion that would call for a
+            // different curve shape.
+            tl.to(maskRef.current, { xPercent: 100, duration: 0.7, ease: SIGNATURE_EASE }, 0);
             // ">" — starts the instant the wipe above finishes ("immediately
             // followed by", per the brief).
-            tl.from(nameSplit.words, { opacity: 0, y: 16, duration: 0.5, ease: "power2.out", stagger: 0.06 }, ">");
+            tl.from(nameSplit.words, { opacity: 0, y: 16, duration: 0.5, ease: SIGNATURE_EASE, stagger: 0.06 }, ">");
             // ">+=0.25" / ">+=0.3" — explicit pauses between groups, not
             // chained durations, so the gap is exact regardless of how long
             // the group before it took (same reasoning turntable.jsx uses
             // for needle contact: an absolute position can't drift).
-            tl.from(bioSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: "power2.out", stagger: 0.025 }, ">+=0.25");
-            tl.from(chips, { opacity: 0, y: 10, duration: 0.4, ease: "power2.out", stagger: 0.08 }, ">+=0.3");
+            tl.from(bioSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.025 }, ">+=0.25");
+            tl.from(chips, { opacity: 0, y: 10, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.08 }, ">+=0.3");
 
             // Covers a nav click that starts WHILE already holding, not just
             // one that arrives before entry — e.g. a mid-entrance click on
@@ -347,9 +358,10 @@ export default function About() {
             // GSAP composes every tracked transform component (rotateX,
             // rotateY, scale...) into one written string, so apply() below
             // only ever touching rotateX/rotateY doesn't drop this. The
-            // overscan is what keeps rotation from uncovering the circular
-            // clip's background at the corners, same reasoning as
-            // timeline.jsx's parallax overscan.
+            // overscan is what keeps rotation from uncovering the rounded-
+            // rect clip's background at the corners (the portrait stopped
+            // being circular — Task 5 — but the same overscan reasoning
+            // still applies to any clipped edge).
             gsap.set(img, { transformPerspective: 900, scale: 1.12 });
 
             // quickTo targets a plain proxy object, not the DOM node's
