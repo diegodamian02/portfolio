@@ -4,7 +4,57 @@ Personal portfolio site: a single-page React app with an Express backend, built 
 "welcome to my playground" hero built as a working turntable — search for a song, drop it on
 the platter, and its 30-second preview plays through a custom Web Audio graph.
 
+## How the site is laid out
+
+It's one long page — the nav bar at the top doesn't take you to different pages, it just
+scrolls you to a spot further down the same one. In order, top to bottom:
+
+1. **Home — a working record player.** The first thing anyone sees. Search for a song,
+   drop the needle, and 30 seconds of the real track plays out loud. Not a video or a
+   fake animation — it's actually playing audio.
+2. **About Me — a quick, calm intro.** A photo, a short bio, a few quick facts (where
+   Diego's from, what he studied, what he's into). Deliberately simple and quiet right
+   after the record player, so it reads as a breather, not a competing spectacle.
+3. **Experience — a sideways slideshow.** Instead of one long list you scroll down
+   forever, this section briefly "locks" the page in place, and scrolling down slides
+   a timeline sideways instead — like flipping through photos. Whichever one lands in
+   the middle grows a little bigger and brighter; the ones next to it shrink out of the
+   way. Six stops: high school, college, a golf-club job, a coding-coach job, and two
+   software jobs.
+4. **My Taste — Diego's own Spotify stats.** His real top songs and top artists, pulled
+   from his own Spotify account — visitors never log into anything. Plain ranked lists
+   today; a more visual redesign (styled like a crate of records) is planned but not
+   built yet.
+5. **Projects — things Diego has built.** A list of past work. Click one open to see a
+   short video demo and links to the live site/code.
+6. **Let's Connect — a real contact form.** Fill it out and it actually emails Diego. No
+   dead link, no fake "message sent!" that quietly goes nowhere.
+
 ## Tech Stack
+
+**In plain terms, before the detailed version below:**
+
+- **React** — the toolkit the interactive parts (record player, search box, contact
+  form) are built with, so they update instantly instead of reloading the page.
+- **Vite** — runs the site while it's being worked on, and packages it up for the real,
+  live version.
+- **GSAP** — the animation engine. Anything that moves smoothly here — the record
+  spinning, Experience sliding sideways, text fading in — is GSAP doing the math.
+- **SCSS** (a flavor of CSS) — how the site is styled. One shared file controls fonts,
+  spacing and colors so every section matches instead of looking hand-picked.
+- **Express** — a small, separate behind-the-scenes server that does things a website
+  shouldn't do directly in a visitor's browser: sending the contact-form email, and
+  fetching Diego's own Spotify stats using his login, never the visitor's.
+- **Resend** — the service that actually delivers the contact-form email.
+- **iTunes's search API** — powers "search for a song" in the record player. (Not
+  Spotify — Spotify stopped offering that kind of song-preview to new apps, so iTunes
+  covers that one specific job instead.)
+- **Spotify's API** — powers "My Taste" only: Diego's own top songs/artists, nothing
+  visitor-facing.
+- **Railway** — where the site actually runs online. **Cloudflare** sits in front of it,
+  mostly so the address (diegodamian.com) works and for a bit of extra security.
+
+**The full technical version, with exact library versions and reasoning:**
 
 ### Frontend (`client/`)
 | Layer | Choice |
@@ -13,7 +63,7 @@ the platter, and its 30-second preview plays through a custom Web Audio graph.
 | Build tool / dev server | Vite 6.0.5 |
 | Routing | React Router DOM 7.1.5 |
 | Styling | SCSS (Sass 1.83.4), CSS custom properties for theming (`:root` / `[data-theme="light"]`) |
-| Animation | GSAP 3.15.0 + `@gsap/react` 2.1.2 — `ScrollTrigger`, `SplitText`, `Draggable`, `InertiaPlugin` |
+| Animation | GSAP 3.15.0 + `@gsap/react` 2.1.2 — `ScrollTrigger`, `SplitText`, `Draggable`, `InertiaPlugin`, `DrawSVGPlugin`, `CustomEase`, `MotionPathPlugin`, `ScrambleTextPlugin` (all registered in `lib/gsap.js`; the last four power Experience's filmstrip and shipped free with GSAP after its 2025 Webflow acquisition, no separate paid tier needed) |
 | Legacy (marked for removal) | `@react-spring/web` 10.1.2, `@use-gesture/react` 10.3.1 — powered the original orb-nav hero, superseded by the turntable |
 | HTTP | Axios 1.7.9 |
 | Linting | ESLint 9 (`eslint-plugin-react`, `-react-hooks`, `-react-refresh`) |
@@ -143,10 +193,14 @@ Directory set to `client/` or `server/` respectively:
 
 ```
 client/src/
-  sections/        one <section> per anchor: home, projects, my-taste, about, connect
-  components/       navbar, loading-screen, turntable, vinyl-record, strobe-ring, record-crate, ...
+  sections/        one <section> per anchor, in on-page order:
+                    home, about, experience, my-taste, projects, connect
+  components/       navbar, loading-screen, turntable, vinyl-record, strobe-ring,
+                    record-crate, work-motif (Experience's generative backgrounds), ...
   hooks/            use-reduced-motion, use-hash-scroll
-  lib/              gsap.js (central plugin registration), scroll.js, sections.js
+  lib/              gsap.js (central plugin registration + the shared CustomEase),
+                    scroll.js (Lenis singleton), sections.js (nav order),
+                    deck-state.js, tonearm-geometry.js, turntable-audio.js
   styles/main.scss  design tokens + all component styles
 
 server/
@@ -155,7 +209,8 @@ server/
 
 design-review/     design/build planning, readable by a chat with no repo access
   ROADMAP.md        order of work (Stages 0–8) — authoritative for sequencing
-  FINDINGS.md       design analysis: numbered bugs B1–B8, design problems D1–D7
+  FINDINGS.md       design analysis: numbered bugs (currently B1–B22),
+                    design problems (currently D1–D13)
   STATUS.md         goal scorecard, commit changelog, decisions already made
   screenshots/      current state at desktop/mobile/light — regenerate with
                     capture-screenshots.mjs
