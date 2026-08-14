@@ -1625,6 +1625,29 @@ html {
 // About Me — calm intro card, Stage 3 Task 4. Replaces the old .bio-section
 // (photo + two paragraphs + Rutgers logo + flag icons — deleted below, not
 // adapted) with a tighter format built from Task 1's tokens.
+//
+// #about (App.jsx — the plain <section id="about"> wrapping <About/>, NOT
+// .about-me-section/rootRef below) reserves at least one full
+// navbar-cleared viewport. Found live: on an iPhone 17/14 Pro, once mobile's
+// card was trimmed down (chip cut, tighter spacing — FINDINGS.md B16),
+// Timeline's "Experience" heading became visible in the leftover space
+// below the card WHILE the section was still held — the card was short
+// enough to fit, but nothing reserved the rest of the screen for it.
+// Deliberately on the OUTER wrapper, not .about-me-section itself: rootRef's
+// own measured height drives both the fit-check and the TOP_BIAS centering
+// math (about.jsx onEnter) and has to stay the TRUE content height for
+// those to keep working — inflating it here would silently flatten
+// TOP_BIAS's bias back to zero on every viewport, not just short ones.
+// Provably sufficient rather than just measured-and-hoped: the hold always
+// lands the card's top at `navbarHeight + a non-negative bias offset`
+// (never negative — about.jsx's Math.max(0, …)), so #about's bottom edge
+// (its top + this min-height) is always at or below the viewport's own
+// bottom edge at that landed position, for any viewport size or bias.
+#about {
+  min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
+}
+
 .about-me-section {
   // --about-vpad centralises the section's own vertical padding so the
   // portrait's height ceiling below can read the SAME number rather than

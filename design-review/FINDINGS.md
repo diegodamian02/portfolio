@@ -873,6 +873,73 @@ Screenshotted both phones at rest to confirm three chips doesn't read as sparse 
 to the extra headroom — it doesn't; the gap to the next section below is a normal
 section gap, not a conspicuously empty band.
 
+### B17 — Timeline's "Experience" heading was visible while About was still held — **FIXED, Stage 3 Task 5 follow-up**
+
+Found live, tested on an iPhone 17 Pro: once B16's fixes made the mobile card
+genuinely fit its viewport (and re-engaged the hold, per direct feedback), a NEW
+problem appeared as a direct consequence — the card no longer filled the screen, and
+nothing was reserving the leftover space for it. Timeline's `.work-title`
+("Experience") heading, the very next element in the document, became visible in
+that leftover space while the visitor was still scroll-held on About, which reads as
+broken (two sections' content on screen while supposedly "on" one of them, unable to
+scroll away from either).
+
+Root cause: `.about-me-section` (`rootRef` in `about.jsx`, the element the
+scroll-hold's height/fit/bias math all measure) was never wrapped in anything that
+reserved a fixed amount of screen space — its box was always exactly as tall as its
+own content, nothing more. That's fine background behavior for a normal document
+scroll, but during a scroll-HOLD it means the viewport can show past the section's
+own bottom edge into whatever comes next.
+
+Fixed on the OUTER wrapper, deliberately not on `.about-me-section` itself: `#about`
+(`App.jsx`'s bare `<section id="about"><About /></section>`, a different DOM node
+one level up from `rootRef`) now carries `min-height: calc(100vh - var
+(--navbar-height))` (with a `100dvh` override for mobile browsers' dynamic toolbar).
+Putting it there matters — `rootRef`'s own measured height has to stay the TRUE
+content height for the fit-check and `TOP_BIAS` centering math (B15) to keep
+working; inflating `rootRef` itself would have silently zeroed `TOP_BIAS`'s bias on
+*every* viewport, not just short ones, since slack (`available − sectionHeight`)
+would never be positive again.
+
+Provably sufficient, not just measured-and-hoped: the hold always lands the card's
+top at `navbarHeight + a non-negative bias offset` (`about.jsx`'s own `Math.max(0,
+…)` guarantees the offset is never negative). `#about`'s bottom edge sits at its top
++ this min-height, i.e. at `cardTop + (100vh − navbarHeight)`. The viewport's own
+bottom edge at the landed scroll position sits at `cardTop − bias + innerHeight`.
+Since `bias ≥ 0` always, the viewport's bottom edge is always at or above `#about`'s
+bottom edge — Timeline (which starts exactly where `#about` ends) cannot be visible
+while held, for any viewport size, any bias value, any content height.
+
+Verified across a proper device matrix, not just the two phones tested earlier
+(Playwright's device profiles report realistic already-chrome-adjusted viewport
+heights, not full screen):
+
+| Device | Card height | Available | Fits | Holds | Timeline heading visible while held |
+|---|---|---|---|---|---|
+| iPhone 14 Pro (393×660) | 454px | 552px | ✅ | ✅ | ❌ (no) |
+| iPhone 14 Pro Max (430×740) | 466px | 632px | ✅ | ✅ | ❌ |
+| iPhone 17 Pro (402×681) | 457px | 573px | ✅ | ✅ | ❌ |
+| iPhone 17 Pro Max (440×763) | 518px | 655px | ✅ | ✅ | ❌ |
+| iPhone SE 2016 (320×568) | 512px | 460px | ❌ | skips (safety net) | ❌ (scrolled past, not held) |
+| Pixel 7 (412×839) | 508px | 731px | ✅ | ✅ | ❌ |
+| Pixel 9 (360×732) | 481px | 624px | ✅ | ✅ | ❌ |
+| Pixel 9 Pro (427×876) | 513px | 768px | ✅ | ✅ | ❌ |
+| Galaxy S24 (360×780) | 529px | 672px | ✅ | ✅ | ❌ |
+| Galaxy A55 (480×1040) | 494px | 932px | ✅ | ✅ | ❌ |
+
+9 of 10 hold cleanly with Timeline fully hidden; the one miss (a 2016-era iPhone SE,
+320×568) already fell back to the safety net before this fix and still does —
+correct behavior, not a regression. Confirmed with screenshots on iPhone 17 Pro and
+Galaxy S24 that the reserved space reads as plain background, not a conspicuous
+empty gap.
+
+Deliberately applied unconditionally (not gated to "only when holding") — desktop
+was already close to filling the viewport so it's invisible there, reduced-motion
+visitors never trigger a hold at all so for them it's just a section with generous
+breathing room (which is how `.about-section` behaved before Stage 3 Task 4's
+redesign anyway), and the mobile-doesn't-fit safety-net case already exceeds one
+viewport's height on its own. No case needed the min-height to be conditional.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

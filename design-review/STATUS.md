@@ -1513,6 +1513,49 @@ Re-verified: full regression suite clean, all 6 chips confirmed still showing on
 desktop, build clean, lint at the 8-error baseline. JS 447.66 kB / 159.39 kB gz,
 CSS 35.20 kB / 7.67 kB gz.
 
+### Stage 3 Task 5 follow-up #6 — Timeline's heading was showing through while About was still held *(2026-08-13)*
+
+Direct feedback, tested on an iPhone 17 Pro: "now for the iphone 17 pro or 14 pro
+experience line is also showing. Make sure you test for Android, Iphone pro and
+pro max please." A direct side effect of the previous follow-up — once the mobile
+card actually got small enough to fit and hold again, nothing was reserving the rest
+of the screen for it, so Timeline's "Experience" heading (the next thing in the
+document) was visible in the leftover space while still scroll-held.
+
+Fixed with one rule on `#about` (the outer wrapper in `App.jsx`, not
+`.about-me-section` itself): `min-height: calc(100vh - var(--navbar-height))`
+(`100dvh` override for mobile). Deliberately on the outer element — `rootRef`'s own
+measured height drives the fit-check and centering math and has to stay the true
+content height for those to keep working. Provably sufficient rather than just
+tested-and-hoped: the hold always lands the card at a non-negative offset below the
+navbar, so `#about`'s reserved height always reaches at least the viewport's own
+bottom edge at that position, for any viewport or bias (`FINDINGS.md` B17 has the
+full proof).
+
+Built a proper device matrix per the request — Playwright's device profiles (which
+report realistic, already-chrome-adjusted heights, not full screen) rather than
+guessed numbers:
+
+| Device | Fits | Holds | Timeline visible while held |
+|---|---|---|---|
+| iPhone 14 Pro / Pro Max | yes | yes | no |
+| iPhone 17 Pro / Pro Max | yes | yes | no |
+| iPhone SE (2016, 320×568) | no | skips (safety net) | no (scrolled past) |
+| Pixel 7 / 9 / 9 Pro | yes | yes | no |
+| Galaxy S24 / A55 | yes | yes | no |
+
+9 of 10 devices hold cleanly with Timeline fully hidden; the SE 2016 already used
+the safety net before this fix and correctly still does. Confirmed by screenshot
+(iPhone 17 Pro, Galaxy S24) that the reserved space reads as ordinary background,
+not a conspicuous gap. Applied unconditionally rather than gated to "only while
+holding" — desktop was already close to filling the viewport, reduced-motion
+visitors never hold at all, and the safety-net mobile case already exceeds one
+viewport on its own, so no case actually needed it conditional.
+
+Re-verified: full regression suite clean (nav-click bypass now lands slightly faster
+since Timeline sits a bit further down the document), build clean, lint at the
+8-error baseline. JS unchanged at 447.66 kB / 159.39 kB gz, CSS 35.30 kB / 7.69 kB gz.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1541,7 +1584,7 @@ crate too, not just `#my-taste`.
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
 | JS bundle | 407 KB / 147 KB gz | **447.66 kB / 159.39 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **35.20 kB / 7.67 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **35.30 kB / 7.69 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
