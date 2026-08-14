@@ -704,6 +704,36 @@ for a later visit — and subscribes to catch a nav click that starts mid-hold t
 `scrollToSection()`'s own `scrollTo()` call to gain `force: true` (Lenis declines
 `scrollTo()` entirely while `isStopped`, per its source).
 
+### B15 — the scroll-hold's trigger point ignored the fixed navbar — **FIXED, Stage 3 Task 5 follow-up**
+
+Found from live feedback the same day B13 shipped: "gets pinned to half the page,
+can't see the top." Two causes, the second more fundamental than the first:
+
+Overshoot (a real but secondary factor) — ScrollTrigger only notices a crossed
+threshold on its next update tick, and Lenis's own easing keeps moving in the
+meantime, so real scroll input can carry a measurable distance past `start` before
+the hold actually engages. Fixed with a one-time, immediate
+`lenis.scrollTo(self.start, { immediate: true, force: true })` right before
+`lenis.stop()`.
+
+The real root cause: `start: "top top"` compares the section's top edge against the
+*viewport's* y=0 — it does not know about the fixed navbar at all, unlike every
+other anchor on the site, which lands at `var(--scroll-offset)` via the blanket
+`.content > section { scroll-margin-top }` rule (B3). With Task 4's small 240px
+portrait this was invisible, since nothing important lived in that top ~168px band.
+Once the portrait grew (this same follow-up, "make the photo bigger"), its top edge
+was genuinely landing behind the navbar — confirmed with
+`document.elementFromPoint()`, which resolved points in the photo's top ~50px to
+the navbar element, not the photo.
+
+Fixed by reading the same resolved `scroll-margin-top` Lenis's own `scrollTo()`
+already reads (`lib/scroll.js`), off the outer `#about` wrapper (the element that
+actually carries the blanket rule — a direct child of `.content`, unlike
+`about.jsx`'s inner `.about-me-section`), and building `start` as a function so it
+re-resolves through `ScrollTrigger.refresh()` if the navbar's height steps at a
+breakpoint. Verified holding at exactly 168px (1440px width) and 132px (480px
+width) — matching `--scroll-offset` at both.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

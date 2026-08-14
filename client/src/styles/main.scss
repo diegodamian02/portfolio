@@ -1634,7 +1634,13 @@ html {
 }
 
 .about-me-container {
-  @include content-column($width: var(--content-width));
+  // content-width-wide (not Task 4's content-width) — a portrait this size
+  // needs more total row width to sit beside comfortably-wide text without
+  // cramming it. Was also the direct fix for "there's a lot of margin
+  // left": at 1440px, content-width (720px) left ~360px unused on each
+  // side; content-width-wide (1100px) uses that space instead of just
+  // making the photo bigger inside the same narrow column.
+  @include content-column($width: var(--content-width-wide));
   display: flex;
   align-items: center;
   gap: var(--space-8);
@@ -1649,13 +1655,28 @@ html {
 .about-me-portrait-wrap {
   position: relative;
   flex-shrink: 0;
-  width: clamp(160px, 22vw, 240px);
-  height: clamp(160px, 22vw, 240px);
-  border-radius: 50%;
+  // 10:13 — the exact ratio of the source crop (diego.jpg), not a round
+  // number picked in CSS: object-fit: cover below then has nothing left to
+  // crop, so the framing is exactly what was composed in the photo, not
+  // re-cropped by the browser. Sized substantially larger than Task 4's
+  // 160–240px circle per direct feedback ("make the photo bigger... make
+  // use of the space") — width leads, height follows from aspect-ratio.
+  width: clamp(260px, 30vw, 420px);
+  aspect-ratio: 10 / 13;
+  // Rounded rect, not a circle — also direct feedback ("doesn't
+  // necessarily need to be cropped in a circle"). 10px matches
+  // .timeline-panel's radius (main.scss:1834): both are "photo in a card"
+  // treatments on this page, so they share the token rather than each
+  // inventing its own.
+  border-radius: 10px;
   overflow: hidden;
   // Establishes the 3D context the idle tilt's rotateX/rotateY rotate
   // WITHIN — without this on an ancestor, rotation reads as a flat skew.
   perspective: 900px;
+
+  @media (max-width: 768px) {
+    width: clamp(220px, 60vw, 320px);
+  }
 }
 
 .about-me-portrait {
@@ -1816,7 +1837,9 @@ html {
 .timeline {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  // space-6 (was space-8) — direct feedback that seven full panels' worth
+  // of gap on top of their own height read as too much total scroll.
+  gap: var(--space-6);
   padding: var(--space-6) 0;
 }
 
@@ -1825,12 +1848,15 @@ html {
 }
 
 // The cover panel: photo (or motif) + scrim + overlaid text, all absolutely
-// stacked inside this clipping parent. Generous, viewport-relative height —
-// "most of viewport width" comes from --content-width-wide on the column
-// above; height is where "large" shows up per-panel.
+// stacked inside this clipping parent. Viewport-relative height — "most of
+// viewport width" comes from --content-width-wide on the column above;
+// height is where "large" shows up per-panel. Was clamp(400px, 70vh, 720px)
+// — shrunk ~30% end to end (both the floor and the vh scale) per direct
+// feedback that the section felt oversized; still reads as a cover panel,
+// not a thumbnail, at the new size.
 .timeline-panel {
   position: relative;
-  min-height: clamp(400px, 70vh, 720px);
+  min-height: clamp(300px, 48vh, 520px);
   border-radius: 10px;
   overflow: hidden;
   background: var(--deck-ground); // visible briefly while a photo decodes

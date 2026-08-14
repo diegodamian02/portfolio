@@ -1194,6 +1194,12 @@ either convert it first (Preview → Export As, or `sips -s format png in.jpg
 --out diego.png`) or say so and the import gets a one-line update to match — don't
 silently rename the file to `.jpg`, since the import is a literal path.
 
+> **Superseded same day, once the actual photo arrived** — see the "Task 5
+> follow-up" entry below. It landed as `.jpg`, not `.png`: a real photograph
+> compresses far better as JPEG (140.6 kB vs. 482.6 kB tested at the same
+> dimensions), and it's what Timeline's other real photos already use. Path is now
+> `client/src/assets/diego.jpg`, import updated to match, old `.png` deleted.
+
 **LOCATION CHIPS — split into two.** The single "Lima → Chicago" chip (which implied
 one direct move and silently dropped the Rutgers/New Jersey years between) is now
 two independent, accurate facts in the same two slots: "From Lima, Peru" (new
@@ -1227,6 +1233,98 @@ Screenshots — both themes at 1440, both breakpoints (768/480) dark, and a mid-
 frame (name visible, chips not yet begun, scroll numerically confirmed frozen at
 912px throughout) demonstrating the fix — in `screenshots/about-t5-*.png`.
 
+### Stage 3 Task 5 follow-up — real photo, a second scroll-hold bug, bigger portrait, Timeline compressed *(2026-08-13)*
+
+Four fixes from live feedback on the just-shipped Task 5 work, same day.
+
+**Real portrait dropped in.** Diego provided the actual photo (`portrait.JPG`,
+5184×3456, no EXIF orientation tag — genuinely sideways at the pixel level, not just
+an untagged-but-auto-rotated file). Rotated 90° CCW to upright (verified visually,
+not assumed from EXIF, since there wasn't any), then cropped to a 10:13 portrait
+ratio centered on the face with headroom down to the collar/shoulders — "zoomed
+out" enough to read as an environmental portrait rather than a passport-style
+headshot, per direct feedback. Saved as `client/src/assets/diego.jpg` (**not**
+`.png`, superseding this same task's own earlier guidance above) — a genuine
+photograph compresses far better as JPEG (140.6 kB) than PNG (482.6 kB at the same
+600×600, tested both), and this now matches Timeline's actual real-photo convention
+(`trump.jpeg`, `codewiz.jpeg`) rather than the old file's PNG holdover. `about.jsx`'s
+import updated to match; old `diego.png` deleted, nothing else referenced it
+(checked).
+
+**A second, more fundamental scroll-hold bug, found from live testing (not the
+earlier task's automated suite):** "gets pinned to half the page, can't see the
+top." Two compounding causes, both fixed:
+
+1. **Overshoot** — verified this reproduces even under normal (not adversarial)
+   scroll input: ScrollTrigger only notices a crossed threshold on its next update
+   tick, and Lenis's own easing keeps moving in the meantime, so by the time
+   `onEnter` actually calls `lenis.stop()`, real scroll input can already have
+   carried well past the trigger point (measured: a realistic continuous trackpad
+   swipe landed the hold 10px past `start` in one run). Fixed with a one-time,
+   immediate `lenis.scrollTo(self.start, { immediate: true, force: true })` before
+   `lenis.stop()` — not a repeated per-frame clamp, which is what caused the
+   stale-pin bug earlier in this same task. Verified this drops overshoot to exactly
+   0px across a realistic swipe, 40 rapid-fire notches, and a single huge flick.
+2. **The real root cause — `"top top"` ignores the fixed navbar entirely.** It
+   holds the section flush with the *viewport's* y=0, not the navbar-cleared line
+   every other anchor on this site lands at
+   (`.content > section { scroll-margin-top: var(--scroll-offset) }` — Stage 0's
+   B3). Invisible with this task's original 240px portrait, since nothing important
+   sat in that top ~168px band; real once the portrait got bigger (below) — its top
+   edge was ending up genuinely behind the navbar, confirmed via
+   `document.elementFromPoint()`: points in the photo's top ~50px resolved to the
+   navbar element, not the photo. Fixed by reading the SAME resolved offset Lenis's
+   own `scrollTo()` already uses (`lib/scroll.js`'s existing
+   `getComputedStyle(target).scrollMarginTop` pattern) off the outer `#about`
+   wrapper — the direct child of `.content` that actually carries the blanket rule,
+   not `about.jsx`'s own inner `.about-me-section` — and using it as a function-based
+   `start: () => "top top+=" + offset` so it re-resolves if the navbar's height
+   steps at a breakpoint. Verified holding at 168px (1440px width, 144+24 navbar) and
+   132px (480px width, 108+24) — matches `--scroll-offset` exactly at both.
+
+**Portrait made significantly bigger and un-circled, per direct feedback ("make the
+photo bigger... doesn't necessarily need to be circular... there's a lot of margin
+left... zoomed out and centered properly").** `.about-me-container` moved from
+`--content-width` (720px) to `--content-width-wide` (1100px) — the actual fix for
+"a lot of margin left": at 1440px that column was leaving ~360px unused on each
+side before. `.about-me-portrait-wrap` grew from `clamp(160px, 22vw, 240px)` circle
+to `clamp(260px, 30vw, 420px)` at a fixed 10:13 aspect-ratio, `border-radius: 10px`
+— reusing `.timeline-panel`'s exact radius (main.scss:1834) rather than inventing a
+new one, since both are "photo in a card" treatments on the same page. The 10:13
+crop ratio was chosen to exactly match the CSS aspect-ratio, so `object-fit: cover`
+has nothing left to crop — the framing on screen is exactly what was composed in
+the photo. Idle tilt re-verified against the new shape and size: no corner-reveal
+artifact at max ±8° tilt (screenshot), mechanism itself unaffected by the shape
+change (confirmed via a clean single in-bounds cursor move — a separate, unrelated
+finding surfaced while testing this: a synthetic mouse path that enters the
+portrait from far outside the viewport in one `steps`-interpolated move can clip
+through the fixed navbar's hit area near the photo's top edge and never actually
+reach the tilt handler — a Playwright test-path artifact specific to how CDP
+interpolates multi-step moves, not a rendering bug; a real cursor arriving
+continuously doesn't do this, and it doesn't reproduce with a real starting
+position already on-page).
+
+**Timeline compressed.** `.timeline-panel`'s `min-height` cut from
+`clamp(400px, 70vh, 720px)` to `clamp(300px, 48vh, 520px)`, and the gap between
+panels from `--space-8` (64px) to `--space-6` (32px) — measured total height
+3592px at 1440×900, down from ~4790px (~25% shorter). Checked a full panel
+(Capgemini, the badge + motif + longest caption) still reads clearly at the smaller
+size — not cramped, screenshot in `screenshots/timeline-compressed-capgemini.png`.
+
+**Checked, not changed:** the "VP of the Music Technology Club" line flagged for
+removal — grepped the whole `client/src` tree for "vice president" / "VP of" /
+"founder" / "founded" and found nothing. This was already removed in Stage 3 Task
+3's closing-caption edit; nothing currently in the codebase references it. Flagging
+here in case the mention was about something not yet pushed to production, or a
+different piece of copy Diego has in mind.
+
+Re-verified after all four changes: full regression suite (organic scroll at three
+speeds, real CDP touch, keyboard, nav-click bypass, no re-trigger on scroll-back-up,
+reduced motion) — all clean, zero console errors. `npm run build` clean (JS
+447.09→447.23 kB / 159.18→159.25 kB gz — the new photo is an emitted asset, not
+inlined, so this delta is just the offset-reading code; CSS 34.41→34.49 kB /
+7.52→7.53 kB gz). `npm run lint` holds at the 8-error baseline.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1254,8 +1352,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **447.09 kB / 159.18 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **34.41 kB / 7.52 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **447.23 kB / 159.25 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **34.49 kB / 7.53 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

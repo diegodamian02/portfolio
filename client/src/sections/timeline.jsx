@@ -163,7 +163,7 @@ export default function Timeline() {
 
     return (
         <section className="about-section work-experience" ref={workRef}>
-            <h2 className="work-title">Work Experience</h2>
+            <h2 className="work-title">Experience</h2>
             <div className="timeline-container">
                 <div className="timeline-rail" aria-hidden="true">
                     <div className="timeline-rail-fill" />

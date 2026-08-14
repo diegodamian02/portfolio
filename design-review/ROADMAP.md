@@ -645,6 +645,19 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > "From Lima, Peru" and "Based in Chicago" (two independent facts), two new
 > hand-drawn SVG icons matching the existing five-icon convention.
 
+> **Task 5 follow-up, same day — live feedback surfaced a bug B13's own test suite
+> hadn't caught.** The scroll-hold's `start: "top top"` ignored the fixed navbar
+> entirely (unlike every other anchor on the site, which respects
+> `var(--scroll-offset)`) — invisible with the small 240px portrait, real once the
+> portrait grew and its top edge was landing genuinely behind the navbar. Fixed
+> properly (reads the same resolved offset Lenis's own `scrollTo()` uses), not
+> patched around. `FINDINGS.md` B15. Also this session: the real portrait dropped
+> in (`diego.jpg` — JPEG, not the `.png` this task originally specified, once an
+> actual photograph made the size difference concrete), sized substantially bigger
+> and un-circled per direct feedback, and Timeline's panels shrunk ~25% end to end
+> (`min-height` and inter-panel gap both cut) after feedback that it read as
+> oversized. Full numbers in `STATUS.md`.
+
 ### Stage 4 — `#my-taste` redesign
 
 The one section that gets the material language. Top artists as records, top tracks

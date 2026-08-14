@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import "../styles/main.scss";
-import diego from "../assets/diego.png";
+import diego from "../assets/diego.jpg";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger, SplitText } from "../lib/gsap.js";
 import { getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
@@ -215,14 +215,31 @@ export default function About() {
 
             ScrollTrigger.create({
                 trigger: rootRef.current,
-                // "top top" (not Task 4's "top 80%") — holding while the
-                // section is only 80% into view would freeze the viewport on
-                // a half-scrolled frame, which reads as a stutter rather
-                // than an intro. Holding once the section already fills the
-                // viewport reads as a deliberate pause instead.
-                start: "top top",
+                // "top top" alone (Task 5's first version) ignores the fixed
+                // navbar — it holds the section flush with y=0 of the
+                // VIEWPORT, not with the navbar-cleared line every other
+                // anchor on this site lands at (.content > section {
+                // scroll-margin-top: var(--scroll-offset) } — Stage 0's
+                // B3). Invisible with Task 4's small 240px portrait since
+                // nothing important sat in that top ~168px band; real with
+                // this section's bigger photo, whose top edge was ending up
+                // genuinely behind the navbar. Reads the SAME resolved
+                // offset Lenis's own scrollTo already uses
+                // (lib/scroll.js) — off the outer #about wrapper, which is
+                // what actually carries the blanket scroll-margin-top rule
+                // (a direct child of .content); rootRef here is the INNER
+                // .about-me-section, which doesn't. A function, not a
+                // one-time read, so it re-resolves through
+                // ScrollTrigger.refresh() if the navbar's height steps at a
+                // breakpoint (108–144px, main.scss) between mount and
+                // whenever this trigger actually fires.
+                start: () => {
+                    const outer = document.getElementById("about");
+                    const offset = outer ? parseFloat(getComputedStyle(outer).scrollMarginTop) || 0 : 0;
+                    return "top top+=" + offset;
+                },
                 once: true,
-                onEnter: () => {
+                onEnter: (self) => {
                     // A nav click already scrolling straight through
                     // #about toward another section — the visitor asked to
                     // go there, not to watch an intro they didn't request.
@@ -234,7 +251,26 @@ export default function About() {
                         return;
                     }
                     holding = true;
-                    getActiveLenis()?.stop();
+                    const lenis = getActiveLenis();
+                    if (lenis) {
+                        // Correct overshoot before stopping — reported live:
+                        // the section was landing already scrolled part-way
+                        // past "top top", holding on a frame with its own
+                        // top cut off above the viewport instead of a clean
+                        // full view. Root cause: ScrollTrigger only notices
+                        // a crossed threshold on its NEXT update tick, and
+                        // Lenis's own easing keeps moving in the meantime —
+                        // by the time onEnter actually runs, real scroll
+                        // input (a normal trackpad swipe, not just a fast
+                        // one) can have already carried well past `start`.
+                        // One immediate, one-time snap to the exact trigger
+                        // position — not a repeated per-frame clamp, which
+                        // is what caused the stale-pin bug earlier in this
+                        // file's history — fixes it regardless of how much
+                        // was overshot.
+                        lenis.scrollTo(self.start, { immediate: true, force: true });
+                        lenis.stop();
+                    }
                     window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
                     window.addEventListener("keydown", blockScrollKeys, { capture: true });
                     tl.play();
