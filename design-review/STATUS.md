@@ -1460,6 +1460,59 @@ catches at 1440×900, nav-click bypass lands in <400ms, no second hold on
 scroll-back-up-then-down) — all clean. Build clean, lint at the 8-error baseline
 (unchanged, no new errors). JS 447.56 kB / 159.36 kB gz, CSS 34.79 kB / 7.61 kB gz.
 
+### Stage 3 Task 5 follow-up #5 — mobile chips trimmed to 3, hold actually re-engaged, bio justified *(2026-08-13)*
+
+Direct feedback, immediately after the above: "just keep my education and my
+location for mobile devices. but keep the PIN" — narrowing an initial "drop Test
+Automation and Plays Guitar" ask down to three chips total on mobile (both location
+chips + education), specifically so the hold ("pin") could re-engage rather than
+lean on the safety net every time. Also in the same pass: "justify the text, it
+doesn't look that clean."
+
+Chips are hidden via a `desktopOnly` flag on the `CHIPS` array → `display: none`
+below 768px (`.about-me-chip--desktop-only`) — all six still render on desktop,
+confirmed by screenshot. `display: none`, not `visibility`/`opacity`, matters here:
+it drops the chip out of layout entirely, which is what lets `onEnter`'s height
+check (FINDINGS.md B15) measure the card as short enough to actually hold.
+
+Three chips alone didn't close the gap on its own (first pass, 4 chips, measured
+686px card against 559-736px available) — closed the rest by tightening spacing
+that was carrying more padding/margin than a phone screen has room for: portrait
+`clamp(150px, 38vw, 210px)` → `clamp(95px, 26vw, 120px)`, portrait-to-text gap and
+bio/name margins each cut a step, chip padding and row gap each cut a step, and
+`--about-vpad` gets a third, tighter value specifically when a viewport is both
+narrow AND short (most real phones, since a phone's own browser chrome eats a bigger
+share of a shorter screen than a laptop's chrome does).
+
+Verified the hold actually *engages*, not just that the card's bounding box fits —
+matched `scrollY` before/during/after the ~3s hold window, then confirmed a jump on
+further input after release:
+
+| Viewport | Card height | Available | Fits | Holds |
+|---|---|---|---|---|
+| iPhone SE, full (375×667) | 485px | 559px | yes | yes |
+| iPhone SE, chrome-adjusted (375×540) | 485px | 432px | no | skips (safety net) |
+| iPhone 14, full (390×844) | 501px | 736px | yes | yes |
+| iPhone 14, chrome-adjusted (390×700) | 453px | 592px | yes | yes |
+
+The one remaining miss — an older/small phone with nearly its entire screen eaten by
+browser chrome — is a genuinely extreme case where the safety net's fallback (let
+scroll continue rather than hold) is the right call, not a gap worth chasing.
+Screenshotted both phones at rest to confirm three chips doesn't read as sparse
+against the extra headroom — it doesn't.
+
+Bio also given `text-align: justify`, with `text-align-last: center` scoped to
+mobile only (the un-stretched final line otherwise falls back to plain left/start,
+which would sit oddly under the section's centered mobile layout — desktop's last
+line stays left, matching the rest of that layout). Confirmed visually the justify
+still spaces correctly through `SplitText`'s per-word markup, which persists for the
+component's whole mounted lifetime, not just during the entrance — the inter-word
+gaps it stretches are ordinary text nodes between the spans, not absorbed into them.
+
+Re-verified: full regression suite clean, all 6 chips confirmed still showing on
+desktop, build clean, lint at the 8-error baseline. JS 447.66 kB / 159.39 kB gz,
+CSS 35.20 kB / 7.67 kB gz.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1487,8 +1540,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **447.56 kB / 159.36 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **34.79 kB / 7.61 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **447.66 kB / 159.39 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **35.20 kB / 7.67 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

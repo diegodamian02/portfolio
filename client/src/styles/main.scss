@@ -1655,6 +1655,17 @@ html {
   @media (max-height: 760px) {
     --about-vpad: var(--space-6);
   }
+
+  // Narrow AND short together (most phones, in practice — a phone's own
+  // browser chrome eats a bigger fraction of a shorter screen) claim even
+  // less: direct feedback asked for the card to fit close enough to hold
+  // ("pin it") again on mobile, not just clear the viewport with room to
+  // spare. Ordered after both single-condition rules above so it wins when
+  // both match, same reasoning as the mobile width query needing to win
+  // over the base rule.
+  @media (max-width: 768px) and (max-height: 760px) {
+    --about-vpad: var(--space-5);
+  }
 }
 
 .about-me-container {
@@ -1672,7 +1683,13 @@ html {
   @media (max-width: 768px) {
     flex-direction: column;
     text-align: center;
-    gap: var(--space-6);
+    // space-4 (was space-8/space-6) — the stacked mobile layout spends this
+    // gap TWICE the desktop row's cost (portrait-to-text is the only gap in
+    // a row; here it's on top of the portrait's own height AND the text
+    // block's), so it's one of the larger contributors to the card not
+    // fitting a phone screen (FINDINGS.md B16) once the two chips above were
+    // already dropped.
+    gap: var(--space-4);
   }
 }
 
@@ -1718,8 +1735,11 @@ html {
     // layout does; a vh-derived ceiling can't fix that alone since text
     // height isn't something CSS can predict, so this is a smaller static
     // size rather than a formula (verified by measuring real device
-    // heights, not guessed).
-    width: clamp(150px, 38vw, 210px);
+    // heights, not guessed). Shrunk further still (was clamp(150px, 38vw,
+    // 210px)) once "pin it" made fitting an actual iPhone's real usable
+    // height — not just a bigger phone's full screen — the goal, not just
+    // clearing the viewport with room left over.
+    width: clamp(95px, 26vw, 120px);
   }
 }
 
@@ -1751,6 +1771,10 @@ html {
   font-size: var(--text-xl);
   font-weight: 600;
   margin: 0 0 var(--space-3);
+
+  @media (max-width: 768px) {
+    margin-bottom: var(--space-2);
+  }
 }
 
 .about-me-bio {
@@ -1759,9 +1783,18 @@ html {
   line-height: 1.6;
   margin: 0 0 var(--space-6);
   max-width: 32rem;
+  // Direct feedback: ragged edges on a wrapped paragraph read as messy.
+  // justify only stretches inter-word spacing on wrapped lines — the final
+  // (short) line is untouched and falls back to plain start/left by
+  // default, which is fine on desktop (the rest of the layout is
+  // left-aligned too) but would sit oddly off-center on mobile, where
+  // .about-me-container centers everything else at this breakpoint.
+  text-align: justify;
 
   @media (max-width: 768px) {
     max-width: none;
+    margin-bottom: var(--space-4);
+    text-align-last: center;
   }
 }
 
@@ -1775,6 +1808,7 @@ html {
 
   @media (max-width: 768px) {
     justify-content: center;
+    gap: var(--space-2);
   }
 }
 
@@ -1788,6 +1822,23 @@ html {
   color: var(--text-color);
   background: color-mix(in srgb, var(--text-color) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
+
+  @media (max-width: 768px) {
+    padding: var(--space-1) var(--space-3);
+  }
+}
+
+// Two of six chips, desktop-only — direct feedback ("get rid of Test
+// Automation and Plays Guitar, only for mobile, otherwise it doesn't look
+// too neat"). display: none (not visibility/opacity) is deliberate here: it
+// drops the chip out of layout entirely, which is what lets
+// .about-me-section's height-based fit-check (about.jsx onEnter, FINDINGS.md
+// B16) measure the card as short enough to hold/pin on mobile again, not
+// just look tidier.
+.about-me-chip--desktop-only {
+  @media (max-width: 768px) {
+    display: none;
+  }
 }
 
 .about-me-chip-icon {

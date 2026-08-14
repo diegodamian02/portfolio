@@ -810,6 +810,69 @@ is the larger, less compressible part of the height budget), which is what B15's
 safety net above now covers: on a phone, the hold is skipped and the section simply
 scrolls past normally instead of holding on a cut-off view.
 
+**Amended, later the same day — mobile actually made to fit, not just gracefully
+fail to.** Direct feedback: drop "Test Automation" and "Plays Guitar" from the chip
+row on mobile only ("otherwise it doesn't look too neat"), and — explicitly — "pin
+it", i.e. make the hold actually engage on mobile again rather than lean on the
+safety net every time. Two chips is `display: none` below 768px
+(`.about-me-chip--desktop-only`, all 6 still render on desktop) — dropping them out
+of layout entirely is what lets `onEnter`'s height check measure the card as short
+enough to hold.
+
+Two chips alone didn't close the gap (measured: 686px card against 559-736px
+available across the phones tested). Closed it by tightening the rest of the mobile
+column, not by touching the two chips further: portrait `clamp(150px, 38vw, 210px)`
+→ `clamp(95px, 26vw, 120px)`; the stacked layout's portrait-to-text gap
+`--space-6`→`--space-4`; bio and name bottom margins each cut a step; chip padding
+and row gap each cut a step; `--about-vpad` gets a third, tighter value specifically
+when a viewport is BOTH narrow and short (most phones, since a phone's chrome eats a
+bigger fraction of a shorter screen than a laptop's does).
+
+Verified holding (not just fitting) on the phones that matter — matching `scrollY`
+before and after the ~3s wait confirms held, a later jump on further input confirms
+released:
+
+| Viewport | Card height | Available | Fits | Holds |
+|---|---|---|---|---|
+| iPhone SE, full (375×667) | 522px | 559px | ✅ | ✅ |
+| iPhone SE, chrome-adjusted (375×540) | 522px | 432px | ❌ | skips hold (safety net) |
+| iPhone 14, full (390×844) | 538px | 736px | ✅ | ✅ |
+| iPhone 14, chrome-adjusted (390×700) | 490px | 592px | ✅ | ✅ |
+
+The one remaining miss is a genuinely extreme case — a small, older phone with
+nearly all its screen eaten by browser chrome — where the safety net's fallback
+(let it scroll through normally) is the correct behavior anyway, not a gap to keep
+chasing.
+
+Same pass: bio paragraph given `text-align: justify` (direct feedback: ragged wrap
+edges "doesn't look that clean"), with `text-align-last: center` scoped to mobile
+only so the un-stretched final line still matches the section's centered mobile
+layout instead of falling back to plain left/start under it. Desktop's last line
+stays left-aligned, consistent with the rest of that layout. Confirmed visually that
+justify still spaces correctly through `SplitText`'s per-word span markup (the split
+persists for the component's whole mounted lifetime, not just during the entrance)
+— the inter-word gaps it stretches are ordinary text nodes between the spans, not
+absorbed into them.
+
+**Amended again, minutes later — narrowed to three chips.** Direct feedback: "just
+keep my education and my location for mobile devices. but keep the PIN" — down from
+the four above (location ×2 + education + Loves Music) to three (location ×2 +
+education only; "Loves Music" also gained `desktopOnly`). No CSS changed for this
+pass, only which chips carry the modifier — the existing tightened spacing already
+had more than enough headroom for one fewer chip. Re-verified holding still engages,
+now with wider margins on the phones that already fit:
+
+| Viewport | Card height | Available | Fits | Holds |
+|---|---|---|---|---|
+| iPhone SE, full (375×667) | 485px | 559px | ✅ | ✅ |
+| iPhone SE, chrome-adjusted (375×540) | 485px | 432px | ❌ | skips hold (safety net) |
+| iPhone 14, full (390×844) | 501px | 736px | ✅ | ✅ |
+| iPhone 14, chrome-adjusted (390×700) | 453px | 592px | ✅ | ✅ |
+
+Screenshotted both phones at rest to confirm three chips doesn't read as sparse next
+to the extra headroom — it doesn't; the gap to the next section below is a normal
+section gap, not a conspicuously empty band.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while
