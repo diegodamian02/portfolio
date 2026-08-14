@@ -745,6 +745,26 @@ against the whole viewport, navbar-covered strip included, and would still land 
 card too high). Verified landing with 9px clear above and below at 1440px width —
 centered, not just cleared.
 
+**Amended again, same day:** even measured-genuine 50/50 centering ("9px above, 9px
+below") still read as "a bit higher than it should be" live — a fixed top bar
+visually anchors the eye upward, so mathematical center under one reliably looks
+high. Added a `TOP_BIAS = 0.65` — 65% of the available slack goes above the card,
+35% below — bounded by construction (bottomGap is still a non-negative fraction of
+a non-negative slack), so it cannot reintroduce the overflow this same fix was
+built to prevent; it just has a smaller visible effect on shorter viewports, where
+there's less slack to redistribute. Verified the effect scales with slack across
+four viewport heights (900/1000/1100px) before picking 0.65.
+
+**Found in the same testing pass, not yet fixed:** at 800px viewport height (a
+realistic browser-window height, not an edge case), the card is already 82px taller
+than the space available below the navbar — independent of centering, the
+`Math.max(0, …)` guard stops the offset from going negative but can't stop the
+card's own bottom from overflowing when it's simply too tall to fit. Flagged rather
+than silently fixed, since the actual fix (capping the portrait's size on
+short-but-wide viewports) trades against "make the photo bigger," which was itself
+a direct, explicit request this same task already shipped — didn't want to quietly
+walk that back without confirming it's actually being hit.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

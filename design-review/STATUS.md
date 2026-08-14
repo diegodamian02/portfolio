@@ -1357,6 +1357,52 @@ regression suite after this change too — organic scroll, nav-click bypass, no
 re-trigger, all still clean. Screenshot in
 `screenshots/about-t5-center-1440.png`.
 
+### Stage 3 Task 5 follow-up #3 — 50/50 centering still measured as "a bit higher" live *(2026-08-13)*
+
+Live feedback on the centering fix above, minutes later: "super duper CLOSE but we
+are still a bit higher on the pin... it has to be a bit lower." The 9px/9px split
+was genuinely centered by measurement, so this is a case where mathematically
+correct centering under a fixed top bar doesn't *read* as centered — the navbar
+visually anchors the eye to the top of the viewport, so true center still lands
+high. A known effect in visual design (the same reason logos/icons are routinely
+nudged below their mathematical center to look centered), not a measurement bug in
+the previous fix.
+
+Added `TOP_BIAS = 0.65`: instead of splitting the available slack 50/50 above and
+below the card, 65% of it goes above (pushing the card down) and 35% below.
+Bounded by construction, not by a separate clamp — `bottomGap` is still `slack ×
+0.35`, and slack itself is never negative (the existing `Math.max(0, …)` still
+guards that), so this cannot reintroduce the cut-off-bottom bug at any viewport
+size; it just has a smaller visible effect where there's less slack to
+redistribute in the first place.
+
+Verified at four heights (1440px width) before picking 0.65, specifically to see
+how the effect scales with available slack:
+
+| Viewport height | Slack | Above / below (50/50, previous) | Above / below (0.65/0.35, now) |
+|---|---|---|---|
+| 900px | 18px | 9px / 9px | 12px / 6px |
+| 1000px | 118px | 59px / 59px | 77px / 41px |
+| 1100px | 218px | 109px / 109px | 142px / 76px |
+
+**Found in the same pass, not yet fixed — flagging rather than silently patching:**
+at 800px viewport height, the card (738px tall at 1440px width) is already 82px
+*taller* than the space available below the navbar (656px), independent of any
+centering logic — the `Math.max(0, …)` fallback stops the top offset from going
+negative, but can't stop the card's own bottom from overflowing the viewport when
+it's simply too tall to fit. 800px is a realistic browser-window height (not an
+edge case — a MacBook without a maximized window, or with any browser chrome
+beyond the bare minimum, commonly reports viewport heights in this range). Not
+fixed here because the fix is a size/layout tradeoff (shrinking the portrait's max
+size on short-but-wide viewports) rather than a positioning one, and the portrait
+was just made bigger on explicit request — didn't want to quietly shrink it back
+without confirming that's wanted. Flagged for a follow-up if it's actually being
+seen.
+
+Re-verified after the bias change: full regression suite (organic scroll, nav-click
+bypass, no re-trigger on scroll-back-up) — all clean. Build clean, lint at the
+8-error baseline.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1384,7 +1430,7 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **447.37 kB / 159.33 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **447.38 kB / 159.34 kB gz** |
 | CSS bundle | 26.96 kB / 5.99 kB gz | **34.49 kB / 7.53 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |

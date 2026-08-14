@@ -217,30 +217,32 @@ export default function About() {
                 trigger: rootRef.current,
                 // "top top" alone (Task 5's first version) ignores the fixed
                 // navbar entirely. Landing flush with just the navbar-cleared
-                // line (the very next fix) was closer but still wrong for a
-                // card this tall — top-anchoring right under the navbar can
-                // push the BOTTOM of the card past the viewport's own bottom
-                // edge, cutting the photo off there instead — reported live.
-                // What we actually want is the card CENTERED in the space
-                // the navbar leaves available, not pinned to either edge of
-                // it. Computed directly (not via ScrollTrigger's "center
-                // center", which centers on the whole viewport including the
-                // navbar-covered strip, biasing the result upward) as
-                // navbarHeight + half of whatever room is left between the
-                // navbar and the viewport bottom, once the card's own
-                // measured height is subtracted out. Math.max(0, ...) is the
-                // fallback for a viewport too short to fit the card at all —
-                // clears the navbar and stops there rather than going
-                // negative (which would put the card back under the navbar).
-                // A function, not a one-time read, so it re-resolves through
-                // ScrollTrigger.refresh() for both the navbar height step
-                // (108–144px, main.scss) and the card's own responsive size
-                // at whatever breakpoint this actually fires.
+                // line (the next fix) was closer but still wrong for a card
+                // this tall — top-anchoring right under the navbar can push
+                // the BOTTOM of the card past the viewport's own bottom edge.
+                // Pure 50/50 centering in the space the navbar leaves
+                // available (the fix after that) measured as genuinely
+                // centered (9px above, 9px below at 1440×900) but still read
+                // as "a bit higher than it should be" live — mathematical
+                // centering under a fixed top bar reliably looks high; the
+                // navbar visually anchors the eye to the top, so true center
+                // still reads off. TOP_BIAS shifts more of the available
+                // slack above the card than below it (0.65/0.35, not 0.5/0.5)
+                // to compensate. Bounded by construction — bottomGap can
+                // never go negative regardless of the bias fraction, since
+                // it's still a fraction of the same non-negative slack — so
+                // this can't reintroduce the cut-off-bottom bug on a tighter
+                // viewport, it just has less visible effect there (measured:
+                // 900px height only has 18px of slack to redistribute at
+                // all, so the shift is small there and much more visible on
+                // a taller window — verified at several heights before
+                // picking this fraction).
                 start: () => {
+                    const TOP_BIAS = 0.65;
                     const navbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navbar-height")) || 0;
                     const sectionHeight = rootRef.current.getBoundingClientRect().height;
                     const available = window.innerHeight - navbarHeight;
-                    const centeredTop = navbarHeight + Math.max(0, (available - sectionHeight) / 2);
+                    const centeredTop = navbarHeight + Math.max(0, (available - sectionHeight) * TOP_BIAS);
                     return "top top+=" + centeredTop;
                 },
                 once: true,
