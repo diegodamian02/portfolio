@@ -1403,6 +1403,63 @@ Re-verified after the bias change: full regression suite (organic scroll, nav-cl
 bypass, no re-trigger on scroll-back-up) — all clean. Build clean, lint at the
 8-error baseline.
 
+### Stage 3 Task 5 follow-up #4 — fixed the flagged short-viewport overflow, plus a real mobile margin bug *(2026-08-13)*
+
+Live feedback, testing on an actual 13" MacBook: "the picture is finally not cropped
+but the whole section still looks a bit lower than it should" — plus two mobile
+asks: shrink the picture ("doesn't fit properly on screen... crops a lot of the
+text") and add margins ("the text is almost touching the phone borders").
+
+**The MacBook report was the follow-up #3 overflow bug, not a new centering
+problem.** Re-measured at the real MacBook sizes in play — not full-screen, but
+usable height *after* a real browser's tab strip/toolbar/bookmarks bar, which lands
+around 700-830px rather than the 900px the section was tuned against:
+
+| Viewport | Before this fix | After this fix |
+|---|---|---|
+| 1280×800 (full) | -35px (overflowing) | +14px clear |
+| 1280×700 (chrome-adjusted) | -135px | +14px |
+| 1440×900 (full) | +6px | +14px |
+| 1440×780 (chrome-adjusted) | -102px | +14px |
+| 1470×956 (full) | +26px | +26px |
+| 1470×830 (chrome-adjusted) | -52px | +14px |
+| 1512×982 (full) | +35px | +35px |
+
+Fixed two ways, one CSS one JS (see FINDINGS.md B15 for the full mechanism):
+`.about-me-portrait-wrap`'s width now has a height-derived ceiling (`min(30vw,
+calc((100vh - navbarHeight - 2×padding - 40px) / 1.3))`) so the portrait's own size
+responds to available vertical space, not just horizontal; and `onEnter` now checks
+the section's *actual* rendered height against actual available space before
+holding — if it still doesn't fit (any untested viewport, not just the ones
+measured above), the hold is skipped and the entrance plays without blocking scroll,
+rather than trapping the visitor on a cropped view.
+
+**Mobile — two real, separate bugs, both confirmed by measurement:**
+
+1. **No horizontal gutter at all.** `.about-me-name`'s left edge measured at
+   `x=0` — flush with the phone's screen edge. `.about-me-container`'s
+   `content-column` mixin is only `max-width` + auto margins, and
+   `.about-me-section` had never declared horizontal padding either. Added
+   `padding-left`/`padding-right: var(--space-5)` (24px) at the mobile breakpoint —
+   verified 24px on both sides post-fix.
+2. **Portrait shrunk** from `clamp(220px, 60vw, 320px)` to `clamp(150px, 38vw,
+   210px)` per the direct ask.
+
+Even with both fixes, the full card (portrait + name + bio + 6 chips, stacked)
+genuinely doesn't fit a phone-sized viewport in one screen — measured: iPhone SE
+needs 815px of height for content that has ~560px available (667px full height minus
+the 108px mobile navbar), iPhone 14 needs 827px against ~736px available. Text
+height isn't something CSS can budget for reliably, so rather than keep shrinking
+type to force a fit, mobile now relies on the JS safety net above: the hold never
+engages there, so the visitor scrolls through the section like anything else on the
+page — the entrance still plays, just doesn't block them from continuing to scroll
+if it doesn't finish in view.
+
+Re-verified after both fixes: full regression suite (aggressive-flick hold still
+catches at 1440×900, nav-click bypass lands in <400ms, no second hold on
+scroll-back-up-then-down) — all clean. Build clean, lint at the 8-error baseline
+(unchanged, no new errors). JS 447.56 kB / 159.36 kB gz, CSS 34.79 kB / 7.61 kB gz.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1430,8 +1487,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **447.38 kB / 159.34 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **34.49 kB / 7.53 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **447.56 kB / 159.36 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **34.79 kB / 7.61 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

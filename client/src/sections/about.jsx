@@ -82,7 +82,7 @@ const GuitarIcon = () => (
 const CHIPS = [
     { icon: FlagIcon, label: "From Lima, Peru" },
     { icon: SkylineIcon, label: "Based in Chicago" },
-    { icon: EducationIcon, label: "Rutgers — CS + Music Tech" },
+    { icon: EducationIcon, label: "Rutgers: Computer Science" },
     { icon: FocusIcon, label: "Test Automation" },
     { icon: MusicIcon, label: "Loves Music" },
     { icon: GuitarIcon, label: "Plays Guitar" },
@@ -257,6 +257,30 @@ export default function About() {
                         tl.progress(1);
                         return;
                     }
+
+                    // Safety net for any viewport where the card is taller
+                    // than the space actually available — CSS now sizes the
+                    // portrait against real (non-fullscreen) window height
+                    // (main.scss, .about-me-portrait-wrap), but that can't
+                    // account for unpredictable text length, so this checks
+                    // the ACTUAL rendered height rather than trusting the
+                    // CSS budget held. Holding scroll captive against a view
+                    // that's already cut off just traps the visitor staring
+                    // at cropped content for ~2.9s with no way to scroll
+                    // past it — worse than letting a fast scroll run past
+                    // part of the entrance, which is the fallback the
+                    // original brief itself sanctioned for exactly this
+                    // case ("test on mobile/touch, gate accordingly if not
+                    // smooth"). Still plays the entrance on its own clock,
+                    // just doesn't block scroll input for it.
+                    const navbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navbar-height")) || 0;
+                    const available = window.innerHeight - navbarHeight;
+                    const sectionHeight = rootRef.current.getBoundingClientRect().height;
+                    if (sectionHeight > available) {
+                        tl.play();
+                        return;
+                    }
+
                     holding = true;
                     const lenis = getActiveLenis();
                     if (lenis) {

@@ -1626,10 +1626,34 @@ html {
 // (photo + two paragraphs + Rutgers logo + flag icons — deleted below, not
 // adapted) with a tighter format built from Task 1's tokens.
 .about-me-section {
-  padding: var(--space-9) 0;
+  // --about-vpad centralises the section's own vertical padding so the
+  // portrait's height ceiling below can read the SAME number rather than
+  // duplicating it — a mismatch between the two is exactly how the
+  // short-viewport overflow bug (next comment) happened in the first place.
+  --about-vpad: var(--space-9);
+  padding-top: var(--about-vpad);
+  padding-bottom: var(--about-vpad);
+  padding-left: 0;
+  padding-right: 0;
 
   @media (max-width: 768px) {
-    padding: var(--space-7) 0;
+    --about-vpad: var(--space-7);
+    // Direct feedback: text was landing flush against the phone's edges.
+    // .about-me-container has no horizontal padding of its own
+    // (content-column is just max-width + auto margins) and neither did
+    // this section — nothing anywhere was reserving a mobile gutter.
+    padding-left: var(--space-5);
+    padding-right: var(--space-5);
+  }
+
+  // A real browser window is never full screen height. Measured on a 13"
+  // MacBook: once the tab strip/toolbar/bookmarks bar are accounted for,
+  // usable height commonly lands ~700-830px, well under the 900px this
+  // section was tuned against — at every one of those heights the card ran
+  // off the bottom of the viewport by 35-135px before this fix. Claim less
+  // padding below this height so there's more left for the card itself.
+  @media (max-height: 760px) {
+    --about-vpad: var(--space-6);
   }
 }
 
@@ -1661,7 +1685,19 @@ html {
   // re-cropped by the browser. Sized substantially larger than Task 4's
   // 160–240px circle per direct feedback ("make the photo bigger... make
   // use of the space") — width leads, height follows from aspect-ratio.
-  width: clamp(260px, 30vw, 420px);
+  //
+  // The min()'s second branch is a HEIGHT ceiling, not a width one: it takes
+  // whatever vertical budget is actually left after the navbar and this
+  // section's own padding (--about-vpad, shared with .about-me-section
+  // above so the two can't drift out of sync), reserves 40px for the
+  // scroll-hold's centering bias to redistribute, and divides by the 10:13
+  // aspect ratio to get back the largest WIDTH that keeps the resulting
+  // HEIGHT inside that budget. 30vw alone doesn't know or care how tall the
+  // window is — on a wide-but-short real browser window this resolved to
+  // the full 420px cap regardless, which is exactly how the card ran off
+  // the bottom of the viewport (see .about-me-section above). Verified
+  // across 700-980px window heights before landing on the 40px reserve.
+  width: clamp(260px, min(30vw, calc((100vh - var(--navbar-height) - 2 * var(--about-vpad) - 40px) / 1.3)), 420px);
   aspect-ratio: 10 / 13;
   // Rounded rect, not a circle — also direct feedback ("doesn't
   // necessarily need to be cropped in a circle"). 10px matches
@@ -1675,7 +1711,15 @@ html {
   perspective: 900px;
 
   @media (max-width: 768px) {
-    width: clamp(220px, 60vw, 320px);
+    // Smaller outright on mobile — direct feedback ("doesn't fit properly
+    // on screen... crops a lot of the text"). The stacked layout spends its
+    // vertical budget on portrait + gap + text all in one column, so the
+    // portrait has to give up more room here than the side-by-side desktop
+    // layout does; a vh-derived ceiling can't fix that alone since text
+    // height isn't something CSS can predict, so this is a smaller static
+    // size rather than a formula (verified by measuring real device
+    // heights, not guessed).
+    width: clamp(150px, 38vw, 210px);
   }
 }
 

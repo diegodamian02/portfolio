@@ -755,15 +755,60 @@ built to prevent; it just has a smaller visible effect on shorter viewports, whe
 there's less slack to redistribute. Verified the effect scales with slack across
 four viewport heights (900/1000/1100px) before picking 0.65.
 
-**Found in the same testing pass, not yet fixed:** at 800px viewport height (a
-realistic browser-window height, not an edge case), the card is already 82px taller
-than the space available below the navbar — independent of centering, the
-`Math.max(0, …)` guard stops the offset from going negative but can't stop the
-card's own bottom from overflowing when it's simply too tall to fit. Flagged rather
-than silently fixed, since the actual fix (capping the portrait's size on
-short-but-wide viewports) trades against "make the photo bigger," which was itself
-a direct, explicit request this same task already shipped — didn't want to quietly
-walk that back without confirming it's actually being hit.
+**Found in the same testing pass, then fixed on live confirmation:** at 800px
+viewport height (a realistic browser-window height, not an edge case), the card was
+already 82px taller than the space available below the navbar — independent of
+centering, the `Math.max(0, …)` guard stopped the offset from going negative but
+couldn't stop the card's own bottom from overflowing when it was simply too tall to
+fit. Left flagged-not-fixed initially since the real fix trades against "make the
+photo bigger," an explicit request from earlier the same day.
+
+Confirmed hit live on a real 13" MacBook: "the whole section still looks a bit lower
+than it should" — measured on the actual machine sizes in play (1280×800, 1440×900,
+1470×956, 1512×982, all re-tested at their *real* usable height once browser chrome
+is accounted for, ~700-830px rather than the full screen height) and found overflow
+of 35-135px at every one of them, not just the 800px case originally flagged.
+
+Fixed with two layers:
+1. **CSS** — `.about-me-portrait-wrap`'s width now has a height-derived ceiling
+   alongside the existing `30vw`: `min(30vw, calc((100vh - navbarHeight - 2×padding
+   - 40px) / 1.3))`, so the portrait's size responds to how much *vertical* room is
+   actually available, not just horizontal. `.about-me-section`'s own padding also
+   steps down at `max-height: 760px` (a new `--about-vpad` custom property shared by
+   both rules, so they can't drift out of sync the way the original bug happened).
+   Re-verified at all 7 MacBook-size/height combinations above: every one now clears
+   the viewport bottom with 14-35px to spare, where 5 of 7 previously overflowed.
+2. **JS safety net** — `onEnter` now checks the section's *actual rendered height*
+   against actual available space before engaging the hold; if it's still taller
+   (unpredictable text length, a future content change, an untested viewport), the
+   hold is skipped entirely and the entrance just plays on its own clock while
+   scroll continues normally, rather than trapping the visitor staring at a cropped
+   view for ~2.9s with no way to scroll past it. This is what actually resolves the
+   mobile case below — even a smaller portrait doesn't leave enough room for the
+   full text block on a phone-sized screen, so mobile now relies on this net rather
+   than fitting outright.
+
+### B16 — About's text sat flush against the phone's screen edges, no gutter — **FIXED, Stage 3 Task 5 follow-up**
+
+Found in the same live-feedback pass as B15's MacBook re-check: "on mobile I can see
+that the text is almost touching the phone borders." Confirmed by measurement, not
+just eyeballed — `.about-me-name`'s left edge sat at `x=0`, flush with the viewport.
+Root cause: `.about-me-container` uses the `content-column` mixin, which is only a
+`max-width` + auto margins with no padding of its own, and `.about-me-section` never
+declared any horizontal padding either (only vertical) — nothing anywhere was
+reserving a mobile-width gutter. Fixed by giving `.about-me-section` explicit
+`padding-left`/`padding-right: var(--space-5)` (24px) at the existing 768px
+breakpoint, matching how `.contact-section` already reserves its own horizontal
+padding at the section level rather than the inner container. Verified at 24px on
+both sides across iPhone SE and iPhone 14 widths.
+
+Mobile's portrait was also shrunk outright in the same pass (`clamp(150px, 38vw,
+210px)`, was `clamp(220px, 60vw, 320px)`) per direct feedback ("make the picture
+smaller as it doesn't fit properly on screen... crops a lot of the text") — this
+alone wasn't enough to make the full card fit a phone-sized viewport (the text block
+is the larger, less compressible part of the height budget), which is what B15's JS
+safety net above now covers: on a phone, the hold is skipped and the section simply
+scrolls past normally instead of holding on a cut-off view.
 
 ### D13 — the two spacing systems this project has been carrying
 
