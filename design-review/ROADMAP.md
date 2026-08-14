@@ -690,6 +690,44 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > B1/B2/B3 and the Capgemini badge re-verified after the rebuild. Full numbers in
 > `STATUS.md`.
 
+> **Stage 3 Task 8 was started, then superseded mid-task by Task 9 — 2026-08-14.**
+> Bigger images, hover/focus captions, and an entrance-pin were implemented (and a
+> real mobile clipping bug found and fixed), but live feedback — "images too
+> small... doesn't look centered" — plus the entrance-pin's own safety net almost
+> never engaging at standard viewport heights (Task 7's vertical layout already
+> ran past one screen before Task 8 grew anything) meant the vertical shape itself
+> needed to go, not just be re-tuned again. Never shipped as its own commit.
+
+> **Stage 3 Task 9 is DONE — 2026-08-14.** Experience rebuilt AGAIN, this time as
+> a pinned, horizontally-scrubbed filmstrip — replaces Task 7/8's vertical
+> alternating spine entirely. A fixed-footprint pin maps vertical scroll to
+> horizontal track motion (`scrub: 0.3`), removing the coupling that made "bigger
+> photos" and "fits one screen" incompatible in a stacked-row layout: six entries
+> now cost the same vertical space as one, regardless of image size. Same four
+> plugins as Task 7 (DrawSVG/CustomEase/MotionPath/ScrambleText), now driving a
+> horizontal self-drawing rail + accent dot scrubbed in sync with scroll position
+> itself, not time. Center-focus emphasis (scale/opacity falloff by distance from
+> viewport center) reconciles "images loud" with a fixed footprint — only the
+> active card needs to be large at any moment. Two-tier captions: year always
+> visible, role+caption automatic on the active card (works identically on touch,
+> no hover required) plus a hover/focus peek on any card as a bonus. Reduced
+> motion gets a genuinely different, non-scrubbed plain list, not the same
+> component with effects removed.
+>
+> Three real bugs found and fixed before/during ship (`FINDINGS.md` B20-B22): the
+> scrub didn't scrub at all at first (a mis-wired ScrollTrigger/timeline pairing —
+> the pin worked, scrub silently didn't, autoplaying to its end instantly);
+> tabbing to an off-screen card fought the pin via the browser's own native
+> scroll-into-view heuristic; and live feedback ("doesn't look centered on my
+> MacBook 13-inch M2") led to a first fix attempt that froze scrolling entirely
+> (a Lenis `scrollTo` correction re-entering its own scroll handling from inside
+> a live scrub), reverted in favor of an entry-buffer approach that never touches
+> real scroll position. Centering re-verified at three real MacBook-class
+> viewports (0.02px off true center at each). Touch verified with real CDP
+> dispatched touch events, not a scroll proxy. B1/B2/B3 and the Capgemini badge
+> re-verified — B18/B19 (Task 7's connector/badge bugs) no longer apply, that
+> layout is gone. Full numbers and screenshots in `STATUS.md`.
+
 ### Stage 4 — `#my-taste` redesign
 
 The one section that gets the material language. Top artists as records, top tracks

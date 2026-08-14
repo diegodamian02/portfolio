@@ -940,7 +940,12 @@ breathing room (which is how `.about-section` behaved before Stage 3 Task 4's
 redesign anyway), and the mobile-doesn't-fit safety-net case already exceeds one
 viewport's height on its own. No case needed the min-height to be conditional.
 
-### B18 — Experience's spine connector never reached the card — **FOUND AND FIXED, Stage 3 Task 7**
+### B18 — Experience's spine connector never reached the card — **SUPERSEDED, Stage 3 Task 9**
+
+The vertical alternating-spine layout this bug was found in no longer exists —
+Task 9 rebuilt Experience as a pinned, horizontally-scrubbed filmstrip (STATUS.md).
+Kept below as history; `.experience-connector`/`.experience-item`/the vertical
+`--experience-gap` custom property are all gone, not fixed further.
 
 Found in testing, before ship. The connector (the short horizontal line from the
 spine to each card) used `width: var(--space-6)` (32px); the card's own inner edge
@@ -960,7 +965,13 @@ apart again the way two independently-chosen tokens already did once. Re-verifie
 post-fix: connector's right edge and card's left edge measured at the exact same
 pixel (768px) on both alternating sides.
 
-### B19 — Capgemini's client badge overflowed and clipped on mobile — **FOUND AND FIXED, Stage 3 Task 7**
+### B19 — Capgemini's client badge overflowed and clipped on mobile — **SUPERSEDED, Stage 3 Task 9**
+
+Also specific to the vertical layout's mobile thumbnail width — doesn't reproduce
+in Task 9's filmstrip (cards are large enough, and the collision Task 8 separately
+found between this badge and an always-visible caption doesn't apply either, since
+Task 9's caption only shows on the active card or on hover/focus). Kept below as
+history.
 
 Found in the same testing pass, on the mobile screenshot specifically. The
 "Capgemini × [McDonald's mark]" lockup, at `--text-xs`, is wider than the mobile
@@ -975,6 +986,97 @@ says "Capgemini — Test Engineer", closer to this badge than desktop's alternat
 columns ever put it, so the text was already the more redundant of the two even
 before it started overflowing. Desktop badge is unchanged. Re-verified: no overflow
 at 76px (the narrowest mobile thumbnail width), confirmed by screenshot.
+
+### B20 — Experience's scrub jumped straight to the end instead of scrubbing — **FOUND AND FIXED, Stage 3 Task 9**
+
+Found in testing, before ship — a plain gentle-scroll check (small ticks, generous
+pauses, nothing aggressive) still read the track's `x` transform as fully scrubbed
+(`-2280px`, the whole distance) on the very first frame the pin engaged, no matter
+how carefully the scroll was paced.
+
+Root cause: the pin was built as a standalone `ScrollTrigger.create({ pin: true,
+scrub: 0.3, ... })`, with a SEPARATELY created `gsap.timeline({ scrollTrigger: st
+})` pointed at that already-built instance. The pin half worked on its own (a bare
+`ScrollTrigger.create()` with `pin: true` genuinely pins), which is exactly what
+made this hard to isolate from the pin succeeding — but nothing actually wires an
+*existing* ScrollTrigger to drive a timeline's scrub that way. The timeline had no
+`paused: true` and no real scrub link, so it simply autoplayed to its end the
+instant it was constructed.
+
+Fixed per GSAP's own documented pattern: pass the `scrollTrigger` CONFIG OBJECT
+directly into `gsap.timeline({ scrollTrigger: {...} })`, which constructs one
+correctly-linked trigger internally, rather than building a trigger separately and
+attaching it after the fact. Re-verified: gentle scrolling now shows `x` advancing
+proportionally tick by tick, matching real scroll input 1:1.
+
+### B21 — tabbing to an off-screen Experience card fought the pin — **FOUND AND FIXED, Stage 3 Task 9**
+
+Found via a real keyboard Tab walk, not assumed. Every card was `tabIndex={0}`
+regardless of its current scrub position, so Tab could land on one sitting well
+off-screen — transform-hidden by `.experience-viewport`'s `overflow: hidden`, not
+actually visible. The browser's native "scroll the newly-focused element into
+view" heuristic doesn't know a horizontal CSS transform put it there, so it tried
+correcting with a VERTICAL document scroll instead — measured a ~289px unwanted
+`scrollY` jump from a single Tab press, visibly fighting the pin.
+
+Fixed by toggling each card's `tabIndex` (`0` or `-1`) from the same per-frame
+distance-from-center calculation that already drives the center-focus
+scale/opacity emphasis — cards below a visibility threshold (`falloff <= 0.15`)
+leave the tab order entirely, so Tab simply never lands on one and the browser
+never has a reason to try correcting anything. Re-verified with a real Tab walk
+starting from the active card: only small, expected scrollY nudges (a few px,
+matching legitimate scrub progress) while tabbing among Experience's own visible
+cards; Tab correctly hands off to normal page navigation once nothing else in the
+section remains tabbable.
+
+### B22 — Experience's active card sat 150-175px off-center on arrival, and the first fix attempt froze scroll entirely — **FOUND AND FIXED, Stage 3 Task 9**
+
+Reported live, not caught in idle testing — "the pin... doesn't look centered on
+my MacBook 13-inch M2." Confirmed at three real MacBook-class viewports
+(1280×800, 1440×900, 1512×982): the active card's center sat 150-175px left of
+the true window center every time, worse at wider viewports, reproducible with
+entirely ordinary scrolling. Root cause: real scroll momentum (Lenis's easing, or
+just a normal fast trackpad swipe) routinely carries `scrollY` past the pin's
+`start` before it visually engages — the browser doesn't stop the instant a
+threshold is crossed. Because `scrub` reads real scroll position directly, that
+overshoot became real scrub progress on the very first frame anyone saw the
+section pinned, before any deliberate scrub input.
+
+**First fix attempt caused a worse bug.** Copied the technique About's Task 5
+hold (and this same task's own initial entrance-pin draft) already use for this
+exact class of problem: `lenis.scrollTo(self.start, { immediate: true, force:
+true })` inside the pin's `onEnter`. This completely froze scrolling — Playwright
+confirmed `scrollY` stuck at an identical value across 15 consecutive wheel ticks,
+zero movement. Root cause of THAT: About's hold calls `lenis.stop()` immediately
+after its own snap, so nothing can re-enter afterward; this filmstrip's pin never
+stops scroll at all (scrub needs to stay live), so an `immediate: true, force:
+true` Lenis `scrollTo` fired from INSIDE a scrollTrigger callback that's itself
+mid-way through processing a live scrub synchronously re-enters Lenis's own scroll
+handling — confirmed by isolating the single line: removing it alone restored
+normal scrolling immediately, re-adding it reproduced the freeze on demand.
+
+**Shipped fix never touches real scroll position.** An `ENTRY_BUFFER` (220px) of
+scroll is silently absorbed by the timeline itself: every real tween (track `x`,
+rail draw, dot motion path) starts at time `ENTRY_BUFFER` rather than 0, so
+nothing is scheduled during that window and the track simply holds its pre-scrub
+state through it — however much momentum carried the user across `start`, the
+first 220px of it produces zero visual movement. Re-verified centered (0.02px off
+true center) at all three MacBook viewports after the fix, using the same
+aggressive continuous-scroll conditions that originally exposed the bug.
+
+A second, related complaint arrived in the same message — "the images are way too
+small... you can barely see anything there" — and turned out to share a root
+cause with a genuine sizing bug: `.experience-media` was absolutely positioned and
+stretched to fill whatever height `.experience-card` happened to have (itself
+stretched to fill an independently vh-clamped viewport height), while card WIDTH
+was a separate, independent vw-clamp. Nothing tied the two together, so at some
+real viewport widths the rendered photo box came out taller than it was wide — a
+portrait crop. Fixed by deriving height from width through one fixed
+`--experience-media-aspect` custom property (3:2 desktop, 1.2 mobile) instead of
+two independently-guessed clamps, making the mismatch structurally impossible
+rather than something that has to be independently re-verified at every
+breakpoint (the same discipline `--experience-gap`/`--experience-card-w` already
+established elsewhere in this file's history).
 
 ### D13 — the two spacing systems this project has been carrying
 

@@ -1691,6 +1691,234 @@ exists — captions now sit on the plain section background. Left defined rather
 deleted (a future overlay-on-photo treatment would want it again), flagged with a
 comment at its declaration.
 
+### Stage 3 Task 7's layout — **SUPERSEDED, Stage 3 Task 9**
+
+The alternating-spine section above is no longer what ships — see the Task 9
+write-up below. Kept as history, not as a description of the current build.
+
+### Stage 3 Task 8 — bigger images, hover captions, entrance-pin — **SUPERSEDED mid-task by Task 9**
+
+Started as: grow Task 7's icon-sized thumbnails, move captions off the persistent
+layout into a hover/focus reveal, and add a short entrance-pin copying About's
+Task 5 technique. Implemented and partly verified (hover/focus reveal working,
+touch fallback working, a real mobile clipping bug found and fixed — captions'
+`<h3>` had no line-clamp, so a 3-4 word title could wrap past 2 lines and get
+silently clipped by the image's own `overflow: hidden`), but never shipped as its
+own commit: live user testing caught the same structural problem Task 9's brief
+names directly — "the images are way too small... you can barely see anything
+there" — and separately, the entrance-pin's own safety net (correctly, by design)
+almost never engaged at standard viewport heights, because Task 7's vertical
+layout already ran past one screen at desktop/laptop even before Task 8 grew
+anything. Growing images on top of that only made the mismatch worse. Rather than
+ship a pin that mostly doesn't pin, this became Task 9.
+
+### Stage 3 Task 9 — rebuilt again as a pinned, horizontally-scrubbed filmstrip *(2026-08-14)*
+
+Replaces Task 7/8's vertical alternating spine entirely, not on top of it —
+`.experience-item`/`-connector`/`-badge`/`-caption` and the vertical
+`.experience-spine` are all gone, not renamed. Root problem Task 8 exposed: in a
+vertical list, row height is dominated by the image, and removing the text column
+never traded against that — it just added height with nothing freed up in return
+(measured directly: Task 8's first pass at "significantly bigger" images alone
+pushed desktop from Task 7's 1.13× one screen up to 1.85×). Bigger photos and
+"fits one screen" were structurally incompatible as long as six entries meant six
+stacked rows. Pinning the section at a FIXED footprint and mapping vertical scroll
+to horizontal motion removes that coupling outright — six entries cost the same
+vertical space as one, regardless of image size or entry count.
+
+**Mechanism.** One `gsap.timeline({ scrollTrigger: {...} })` per section (not a
+separately-built `ScrollTrigger.create()` — see the bug below), pinned
+(`pin: true`), scrubbed (`scrub: 0.3`) across a scroll distance equal to
+`.experience-track`'s scrollWidth minus the viewport's width, plus an entry
+buffer (below). `start: "top top+=navbarHeight"` — the same navbar-aware
+convention Task 7/8 used, so a nav click (which lands via CSS `scroll-margin-top`,
+`B3`) engages the pin at the same position rather than landing just short of it.
+`snap` pulls release to the nearest whole card via a custom `snapTo` function (a
+plain `1/(n-1)` fraction would land wrong once the entry buffer stretches
+progress:0 into a whole dead-zone segment instead of one point). Scrolling past
+the last card un-pins and continues normally into `#my-taste`; scrolling back up
+from there re-crosses `start` and re-engages the pin, scrubbing backward — this
+falls out of `scrub` natively, no custom direction-tracking code exists or was
+needed.
+
+**Spine and dot.** Same four plugins as Task 7 (`DrawSVGPlugin`, `CustomEase`,
+`MotionPathPlugin`, `ScrambleTextPlugin`) — no new dependency, no new
+registration. The spine (`.experience-rail`, an SVG child of `.experience-track`,
+so it moves with the SAME `x` transform every card does — no separate scrub
+wiring) now runs horizontally, its `d`/viewBox set from REAL measured pixels on
+BOTH axes (`trackWidth` × the rail strip's own real `clientHeight`, not an
+abstract width-only box) — the exact distortion-avoidance Task 7 used for the
+vertical spine, ported directly: a viewBox whose two axes don't scale 1:1 against
+the real rendered box stretches the accent dot into an ellipse. `drawSVG` and the
+`MotionPath`-driven dot are tweens on the SAME scrubbed timeline as the track's
+own `x`, both starting at the same timeline position — draw position IS scroll
+position, not a separate time-based animation layered on top.
+
+**Center-focus emphasis.** Each card's distance from the viewport's horizontal
+center (computed from its static offset within the track plus the track's live
+`x`, not a `getBoundingClientRect()` read every frame — cheaper, no layout
+thrashing) maps through a linear falloff to `scale` (0.8 → 1.08) and `opacity`
+(0.4 → 1), written via direct `gsap.set()` calls in the scrollTrigger's own
+`onUpdate` — deliberately NOT tweened via CSS transition, since a transition
+fighting a value already being rewritten every scrub frame only adds lag. The
+same per-frame pass picks whichever card has the smallest distance as "active"
+(`.is-active` class), which is what `.experience-info`'s automatic reveal and the
+once-per-card `ScrambleTextPlugin` badge trigger both key off.
+
+**Two-tier captions, not hover-only.** Date (`.experience-date`) sits in a
+reserved strip above every card's photo, always visible regardless of active
+state — the timeline stays scannable by year even for cards the scrub hasn't
+reached. Role + caption together (`.experience-info`) show automatically on
+whichever card is active — no hover required, which is what makes it work
+identically on touch — and additionally on `:hover`/`:focus-within` for ANY card
+as a secondary peek (plain CSS, no `pointer: fine` gate the way Task 8's
+hover-only caption needed one — here hover is a bonus on top of an already-working
+default, not the only way to see anything).
+
+**ScrambleText fires once per card, ever** — tested the alternative (re-fire every
+time the same card re-becomes active on scroll-back) empirically and reverted:
+on a quick back-and-forth scrub the digits kept interrupting each other
+mid-scramble, reading as noise instead of the "one deliberate detail" Task 7
+established this effect as.
+
+**Reduced-motion fallback is a genuinely different component**
+(`ExperienceStatic`), not the filmstrip with the pin/scrub/scale stripped out —
+plain document flow, no transform, everything always visible, picked via a
+JS-level branch (`useReducedMotion()`) rather than a CSS-hidden duplicate, since
+rendering both would mean every photo on the page loads twice.
+
+**Three real bugs found in testing, fixed before ship:**
+
+1. **The scrub didn't scrub — it jumped straight to the end.** An early version
+   built the pin via a standalone `ScrollTrigger.create({ pin: true, scrub: 0.3,
+   ... })`, then pointed a separately-created timeline at that instance via
+   `gsap.timeline({ scrollTrigger: st })`. The PIN half worked (a bare
+   `ScrollTrigger.create()` with `pin: true` genuinely pins on its own), which is
+   exactly what made this hard to catch from the pin alone — but nothing wires an
+   *existing* ScrollTrigger instance to drive a timeline's scrub that way, so the
+   timeline had no `paused: true` and no real scrub link, and simply autoplayed to
+   its end the instant it was created. Confirmed via Playwright: even gentle,
+   small-tick scrolling read `x: -2280` (fully scrubbed) on the very first frame
+   the pin engaged. Fixed per GSAP's own documented pattern — pass the
+   `scrollTrigger` CONFIG OBJECT directly to `gsap.timeline()`, not a pre-built
+   instance.
+2. **Tab-focusing an off-screen card fought the pin.** Every card was
+   `tabIndex={0}` regardless of scrub position in an early version; a real Tab-key
+   walk reached ones sitting well off-screen (transform-hidden by
+   `.experience-viewport`'s `overflow: hidden`), and the BROWSER's native
+   "scroll the newly-focused element into view" heuristic doesn't know a
+   horizontal CSS transform put it there — it tried correcting with a vertical
+   document scroll instead, shoving real `scrollY` forward by ~289px in one Tab
+   press. Fixed by toggling each card's `tabIndex` (0 or -1) from the SAME
+   per-frame falloff calc driving scale/opacity — cards below a visibility
+   threshold leave the tab order entirely, so Tab simply never lands on one.
+3. **Live feedback, not idle testing: "images too small... doesn't look centered
+   on my MacBook 13-inch M2."** Two compounding causes, both fixed:
+   - Card *shape* was accidental — `.experience-media` was absolutely positioned
+     and stretched to fill whatever height `.experience-card` had (itself
+     stretched to fill the viewport's independently vh-clamped height), while
+     card *width* was an independent vw-clamp. Nothing tied the two together, so
+     at some real viewport widths the rendered box came out TALLER than it was
+     wide — a portrait crop, the opposite of "photos should be loud, cleaner
+     look." Fixed by making height DERIVE from width through one fixed
+     `--experience-media-aspect` (3:2 desktop, 1.2 mobile) instead of two
+     independently-guessed clamps — the mismatch is now structurally impossible,
+     not just re-tuned.
+   - The active card sat 150-175px left of true center on arrival (worse at wider
+     viewports), reproducible with entirely normal scrolling, not just an
+     aggressive test flick — real trackpad/Lenis momentum routinely carries
+     `scrollY` past the pin's `start` before it visually engages, and since
+     `scrub` reads real scroll position directly, that overshoot became real
+     scrub progress on the very first frame anyone saw the section pinned.
+     **First fix attempt** copied About's Task 5 / this task's own — before this
+     rewrite — entrance-pin technique: `lenis.scrollTo(self.start, {immediate:
+     true, force:true})` inside `onEnter`. **Broke scrolling entirely** — Playwright
+     confirmed `scrollY` completely frozen across 15 consecutive wheel ticks.
+     Root cause: unlike About's hold (which calls `lenis.stop()` immediately
+     after the snap, so nothing can re-enter), this pin never stops scroll — an
+     `immediate: true, force: true` Lenis `scrollTo` fired from INSIDE a
+     scrollTrigger callback that's itself mid-way through processing a live scrub
+     synchronously re-enters Lenis's own scroll handling. **Shipped fix** never
+     touches real scroll position at all: an `ENTRY_BUFFER` (220px) of scroll
+     absorbs the overshoot silently — the timeline's real tweens (track `x`,
+     rail draw, dot) all start at time `ENTRY_BUFFER` rather than 0, so nothing
+     is scheduled during that window and the track simply holds its pre-scrub
+     state through it, regardless of how much momentum carried the user across
+     `start`.
+
+**Verified centered at three real MacBook-class viewports** (not just one
+convenient size) after the fix — active card center vs. true window center,
+measured via `getBoundingClientRect()`:
+
+| Viewport | Active card center | Window center | Diff |
+|---|---|---|---|
+| 1280×800 (13" MBP, "More Space") | 639.98 | 640.00 | 0.02px |
+| 1440×900 | 719.98 | 720.00 | 0.02px |
+| 1512×982 (13" M2 MBP, default) | 755.98 | 756.00 | 0.02px |
+
+**Touch verified with real dispatched touch events**, not a `scrollBy()` proxy —
+CDP `Input.dispatchTouchEvent` swipe gestures on an iPhone 14 Pro emulation drove
+the scrub smoothly and proportionally (`x: 0 → -106 → -643` across successive
+swipes, active card advancing 0 → 1 → 2), confirming the same mechanism About's
+research already established (touch scroll on this site is native, unrouted
+through Lenis) also holds correctly for scrub reads, since `ScrollTrigger` listens
+to real scroll position regardless of what drives it.
+
+**Full forward/backward scrub confirmed end-to-end:** active-card sequence
+`0→1→2→3→4→5` scrolling down, un-pins into `#my-taste`, and `5→4→3→2→1→0`
+scrolling back up from there — re-engaging the pin natively, no special-cased
+reverse logic anywhere in the code.
+
+**Snap** settles exactly on both endpoints (card 0 and card 5, 0px diff) and
+within ~3% of each interior card's exact center (measured, imperceptible at this
+spacing) — verified by scrolling to just past each of the six target positions
+and reading the settled `x` after a 700ms wait.
+
+**Preserved and re-verified, not just carried over:**
+- **Capgemini × McDonald's badge** — same lockup, same tested fallback
+  (`cdn.simpleicons.org/capgemini` still 404s, McDonald's still resolves).
+  Task 7/8's mobile-only collision with always-visible caption text (B19)
+  doesn't reproduce here — `.experience-info` only shows on the active card or on
+  hover/focus, never unconditionally the way Task 8's touch fallback did, and
+  cards are large enough now that there's much more vertical room between the
+  badge (rail strip) and the info panel (bottom of a much taller card) regardless.
+  Measured directly rather than assumed: badge bottom sits ~345px above info's
+  top on the active Capgemini card.
+- **B1/B2/B3** — badge text/background **17.03:1** (dark) / **17.44:1** (light);
+  info-panel `h3` on its scrim uses `--panel-text` (fixed, non-flipping — correct,
+  same reasoning the badge already relied on). Nav click still lands `#experience`
+  ~24px below the navbar, matching `--scroll-offset` (B3's mechanism,
+  `scroll-margin-top` on `.content > section`, is untouched by any of this).
+- Reduced motion: `ExperienceStatic` renders correctly, zero console errors,
+  6 items, plain always-visible layout.
+
+**Screenshots** (`design-review/screenshots/t9-experience-*.png`): three scrub
+progress points (start/mid/end) in dark, mid in light, a reverse-direction shot
+re-entering from `#my-taste`, mobile/touch dark + light, reduced-motion dark +
+light.
+
+**Lint clean** — 8 pre-existing errors only (`record-crate.jsx`, `turntable.jsx`,
+`vinyl-record.jsx`, `my-taste.jsx`), nothing from `experience.jsx`. One
+`/* eslint-disable react/prop-types */ ... /* eslint-enable */` block around the
+three prop-consuming components (`EntryMedia`, `ExperienceStatic`,
+`ExperienceFilmstrip`) — this codebase has no propTypes convention or dependency
+(same precedent as `turntable.jsx`'s `track` prop), and `entry`/`entries` are each
+read at many separate lines, not just their destructuring site, so a single
+`eslint-disable-next-line` wouldn't have covered every usage the way it does for
+`work-motif.jsx`'s single-usage `reduced` prop.
+
+**Doc/tree mismatch flagged, not silently absorbed:** `CLAUDE.md` states the lint
+baseline as "16 errors (mostly `react/no-unescaped-entities`)". The actual current
+baseline — confirmed both before and after this task's own changes — is 8 errors,
+mostly `react/prop-types`, only one `react/no-unescaped-entities`. Task 7's own
+STATUS.md entry already recorded 8, so this isn't a regression introduced here;
+`CLAUDE.md`'s number appears to predate whatever earlier stage brought it down and
+was never updated. Worth a correction next time that file is touched.
+
+**Build clean.** JS 484.98 kB / 174.07 kB gz (unchanged plugin set, no new
+dependency — flat vs. Task 7's 483.51/173.53). CSS 38.47 kB / 8.19 kB gz (up from
+Task 7's 37.08/7.96 — new selectors for the filmstrip/rail/two-tier captions).
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1718,8 +1946,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **483.51 kB / 173.53 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **37.08 kB / 7.96 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **484.98 kB / 174.07 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **38.47 kB / 8.19 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
