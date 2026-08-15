@@ -2450,9 +2450,13 @@ html {
   // than the true viewport and overflow too, even where their own wrap
   // logic was otherwise correct.
   box-sizing: border-box;
-  // Horizontal padding, not just vertical — matches .contact-section's own
+  // Vertical: space-8 -> space-6, Task 2.5's fit pass (outer whitespace, the
+  // last lever after card/photo/gap sizes — see stage4-my-taste-concept.md's
+  // fit note) — space-6 also matches .experience-section's own vertical
+  // padding exactly, so this isn't a smaller number invented just for this
+  // section. Horizontal unchanged — still matches .contact-section's own
   // fixed horizontal padding; content shouldn't touch the true edge.
-  padding: var(--space-8) var(--space-5);
+  padding: var(--space-6) var(--space-5);
   color: var(--text-color);
   text-align: center;
 }
@@ -2469,7 +2473,8 @@ html {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--secondary-text);
-  margin: 0 0 var(--space-7);
+  // space-7 -> space-6, Task 2.5's fit pass.
+  margin: 0 0 var(--space-6);
 }
 
 .my-taste-status {
@@ -2501,7 +2506,12 @@ html {
     "headliner headliner support-1 support-2"
     "headliner headliner support-3 support-4"
     "setlist   setlist   setlist   setlist";
-  gap: var(--space-4);
+  // space-4 -> space-3, Task 2.5's fit pass — shrinks the margin budget
+  // cardTransform() computes against from ~20px/side to ~18px/side (card
+  // margin, unchanged at space-3/12px, + half this gap). Re-verified live
+  // after this change (still zero overlapping pairs at 1440/1024/768px —
+  // see STATUS.md), not just recomputed on paper.
+  gap: var(--space-3);
   margin-top: var(--space-2);
   text-align: left;
 
@@ -2539,7 +2549,12 @@ html {
 .my-taste-card {
   position: relative;
   margin: var(--space-3);
-  padding: var(--space-4);
+  // space-4 -> space-2 (via space-3), Task 2.5's fit pass. Padding is
+  // interior to the card, not part of the rotation/jitter margin budget
+  // above (that budget is built from margin + gap, both EXTERIOR to the
+  // card) — safe to cut without touching the overlap math, unlike
+  // margin/gap below.
+  padding: var(--space-2);
   background: var(--taste-card-bg);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   transform:
@@ -2645,17 +2660,27 @@ html {
 }
 
 .my-taste-photo-slot--headliner {
-  // 4:3, not the more poster-like 4:5 this started as — measured live: at
-  // 4:5 the photo alone ate almost the entire card height, crowding the
-  // headliner's own name down into a thin strip and undercutting "headliner
-  // reads as dominant," which is supposed to come from the name too, not
-  // just the photo.
-  aspect-ratio: 4 / 3;
-  margin-bottom: var(--space-3);
+  // 16:9, down from Task 2's 4:3 — Task 2.5's fit pass. The headliner card
+  // was consistently the tallest single element on the wall (measured: the
+  // support pair stacked plus the row gap fell short of it at every step of
+  // this pass) — a wider, shorter "poster photo" crop cuts real height
+  // without touching the name's own font-size, which Experience's own fit
+  // pass (STATUS.md, Stage 3 Task 9) established as the lever of last
+  // resort, not first. 4:3 itself replaced an even taller 4:5 in Task 2 for
+  // the same crowding reason; this continues that direction.
+  aspect-ratio: 16 / 9;
+  margin-bottom: var(--space-2);
 }
 
 .my-taste-photo-slot--support {
-  aspect-ratio: 1 / 1;
+  // 1:1 -> 3:2 — Task 2.5's fit pass, in the same step as the headliner's
+  // own cut above so the two stay balanced (a support-pair stack that
+  // suddenly outgrew a shrunken headliner would just move the bottleneck,
+  // not remove it — verified empirically after each change, not assumed).
+  // The square crop was the single biggest line item in each support card's
+  // height; 3:2 reads as a real photo crop, not an arbitrary shrink, and
+  // keeps both photo tiers in the same "landscape, not square" language.
+  aspect-ratio: 3 / 2;
   margin-bottom: var(--space-2);
 }
 
@@ -2684,7 +2709,8 @@ html {
 
 .my-taste-setlist-thumbs {
   display: flex;
-  margin: 0 0 var(--space-3) var(--space-3);
+  // bottom margin: space-3 -> space-2, Task 2.5's fit pass.
+  margin: 0 0 var(--space-2) var(--space-3);
 }
 
 // Fanned/staggered (brief's own words), not a flat row — a small fixed
@@ -2741,7 +2767,10 @@ html {
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-2) var(--space-4);
-  padding: var(--space-2) 0;
+  // space-2 -> space-1, Task 2.5's fit pass — five rows means this cut
+  // compounds ×5, one of the larger single line-item wins in the pass.
+  // Still a real border-separated row, not touching the text itself.
+  padding: var(--space-1) 0;
   border-bottom: 1px solid var(--secondary-text);
 
   &:last-child {

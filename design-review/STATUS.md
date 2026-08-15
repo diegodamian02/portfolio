@@ -2206,6 +2206,102 @@ not the full historical set).
 Not done in this task, by design: no real photos, no duotone blend, no
 grain, no motion, no time-range switching UI.
 
+### Stage 4 Task 2.5 — `#my-taste`: fit within one screen *(2026-08-15)*
+
+Retrofits a requirement that should've been a checkable spec item as early as
+Task 2 — "one panel, one page only" was the section's very first requirement
+and never got a concrete target. Inserted between Task 2 and Task 3 while the
+wall is still flat placeholders and cheap to resize, before Task 3 locks in
+real photo crops.
+
+**Method** — same one Experience's own Stage 3 Task 9 fit pass established:
+section height as a multiple of one available screen (viewport height minus
+`--navbar-height`), measured from real rendered output (Playwright), not
+estimated. Same three breakpoints, for a direct comparison:
+
+| Breakpoint | Section height | One screen | Ratio |
+|---|---|---|---|
+| Desktop (1440×900) | 868px | 756px | **1.15×** |
+| Laptop (1280×800) | 868px | 656px | **1.32×** |
+| Mobile (390×844) | 1954px | 736px | **2.65×** |
+
+Baseline before this pass was **1.53× / 1.76× / 3.59×**. Desktop now lands
+*inside* Experience's own achieved band (1.13–1.25×); laptop is close behind
+it. Mobile stayed the worst by far, on purpose and by the brief's own
+scoping — full mobile art direction is Stage 5's job, this task's only mobile
+obligation was "no egregious overflow," re-confirmed (0px overflow, 320–1440px,
+9 widths — see below). A single-column stack of six cards was never going to
+approach Experience's 1.04× without the un-rotated-stack layout itself
+changing, which is exactly the redesign Stage 5 owns.
+
+**Levers used, in the brief's own preferred order — 1 and 2 only, never
+reached 3 or the setlist-truncation option:**
+
+1. Headliner photo `aspect-ratio` 4/3 → 16/9 (Task 2's own 4/3 already
+   replaced an even taller 4/5 for the same crowding reason). Support photo
+   `aspect-ratio` 1/1 → 3/2, cut in the same step so the support-pair stack
+   (the OTHER thing holding up the top block's height — verified live, not
+   assumed: at every step of this pass the taller of "headliner" vs.
+   "support stack" set the top block's real height) didn't just become the
+   new bottleneck the moment the headliner shrank.
+2. Card padding `--space-4` → `--space-2`; wall `gap` `--space-4` →
+   `--space-3`; section vertical padding `--space-8` → `--space-6` (now
+   matching `.experience-section`'s own vertical padding exactly, not a
+   smaller number invented just for this section); setlist per-item padding
+   `--space-2` → `--space-1` (the one real per-track cut — compounds ×5 rows,
+   the single largest line item after the photo crops, and keeps all 5
+   fetched tracks rather than truncating).
+
+**Not touched:** any font-size, the headliner/support name text, the number
+of tracks shown (all 5 stayed), the tinting mechanism, the grid architecture
+(`grid-template-areas` unchanged), the torn-edge/tape decoration.
+
+**Re-verified after resizing, not assumed still true:**
+- **Overlap rule** — the rotation/jitter margin budget in `cardTransform()`'s
+  own comment was recomputed for the new (smaller) card sizes and updated in
+  both that comment and this file: ~18px/side of real dead space now (margin
+  `--space-3`, unchanged, + half the new `--space-3` gap), against a ~12px/
+  side need at the brief's 4° ceiling — tighter than Task 2's ~20px but not a
+  photo-finish, and confirmed live: a fresh Playwright pass at 1440/1024/768px
+  found **zero overlapping card pairs**, same as Task 2.
+- **Horizontal overflow** — re-checked at all 8 of Task 2's widths
+  (320–1440px) plus 1440 again: `document.documentElement.scrollWidth` equals
+  `window.innerWidth` at every one, **0px overflow** everywhere. (A visual
+  read of an early screenshot made the setlist's right-aligned artist text
+  *look* like it was running off the card — it wasn't; real numbers said
+  worst case was 1228px against a 1440px viewport with the card's own edge at
+  ~1270px. Screenshot pixel-eyeballing at a scaled-down display size isn't a
+  substitute for measuring, the same lesson Task 2's own contrast-script bug
+  already taught.)
+
+**One tooling quirk found, not a product bug**: `getBoundingClientRect()` on
+an element *inside* a rotated ancestor (any `.my-taste-card` descendant)
+returns that descendant's own rotated, axis-aligned bounding box in screen
+space — which can read taller or shorter than its true document-flow
+contribution, especially for wide elements (a 1000px-wide row rotated 4° gains
+~70px of apparent height from the width term alone). Real per-element layout
+height came from `offsetHeight` instead (transform-independent), which is
+what all the sizing decisions above were actually based on. `#my-taste` and
+`.my-taste-wall` themselves aren't rotated, so the top-level ratio numbers in
+the table above were never affected — confirmed directly (`offsetHeight ===
+getBoundingClientRect().height` for the section itself at every breakpoint).
+
+**Verified unchanged, not re-litigated:** determinism (`cardTransform()`
+itself wasn't touched — only the CSS consuming its output — so same-id-same-
+transform across reloads still holds by construction); lint (7 errors, 1
+expected warning, same baseline); build — **JS 486.41 kB / 174.63 kB gz, CSS
+43.94 kB / 9.46 kB gz, both byte-identical to Task 2's own numbers** (this
+task only changed spacing-token values and `aspect-ratio` numbers, no new
+selectors, rules, or JS logic).
+
+Screenshots re-captured: `my-taste-desktop.png` / `my-taste-mobile.png`
+(standard tool — still carries the pre-existing navbar-overlap crop at the
+very top/bottom Task 2 also noted, not something this task introduced or
+fixed) plus clean supplementary `t4-my-taste-wall-{desktop-dark,desktop-
+light,mobile-dark}.png` via the proven clip-rect method, both themes.
+
+`stage4-my-taste-concept.md`'s status table and overlap-rule note updated.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`

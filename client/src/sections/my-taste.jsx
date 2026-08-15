@@ -73,13 +73,17 @@ const TEAR_PRESET_COUNT = 4;
 // axis-aligned bounding box by roughly ((W·(cosθ-1) + H·sinθ)) / 2
 // horizontally and ((W·sinθ + H·(cosθ-1))) / 2 vertically (W/H = the card's
 // unrotated size). At the brief's own 4° ceiling, the smallest cards on this
-// wall (support acts, ~250×220px at 1440px) grow by roughly 7-9px per side;
-// adding the ±4px jitter tops out around 11-13px per side. .my-taste-card's
-// own margin (--space-3, 12px) plus half of .my-taste-wall's gap (--space-4,
-// 16px → 8px per side) gives ~20px of real dead space per side — comfortably
-// clear, not a photo-finish. Verified live too, not just by this math: a
+// wall (support acts, ~230×196px at 1440px post-Task-2.5 — smaller than
+// Task 2's own ~250×220px, the fit pass shrank the photo slots) grow by
+// roughly 7-8px per side; adding the ±4px jitter tops out around 11-12px per
+// side. .my-taste-card's own margin (--space-3, 12px, unchanged by the fit
+// pass on purpose) plus half of .my-taste-wall's gap (--space-3 as of
+// Task 2.5, down from --space-4 — 12px → 6px per side) gives ~18px of real
+// dead space per side — still comfortably clear, tighter than Task 2's ~20px
+// but not a photo-finish. Verified live too, not just by this math: a
 // Playwright pass measures every rendered card's actual bounding box against
-// its neighbors at 1440/1024/768px (see stage4-my-taste-concept.md).
+// its neighbors at 1440/1024/768px, re-run after Task 2.5's resizing with
+// the same zero-overlap result (see stage4-my-taste-concept.md).
 function cardTransform(id) {
     const magnitude = ROTATE_MIN_DEG + seeded01(id, "rotate-mag") * (ROTATE_MAX_DEG - ROTATE_MIN_DEG);
     const sign = seeded01(id, "rotate-sign") < 0.5 ? -1 : 1;

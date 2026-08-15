@@ -32,14 +32,15 @@ here per the working agreement on sequencing deviations. `#my-taste`'s
 concept also changed: no longer "records as vinyl / tracks as a crate," now
 a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
 grain) — see Stage 4 below for the full 5-task sequence, and
-`stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1–2 of
-5 (foundations, wall layout) are done.
+`stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1, 2 and
+a retrofitted 2.5 (foundations, wall layout, fit-within-one-screen) are done —
+desktop now measures 1.15× one screen, inside Experience's own achieved band.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Tasks 3–5: real photography/duotone, entrance motion, time-range switching | Tasks 1–2 — done |
+| **4 (remainder)** | `#my-taste` Tasks 3–5: real photography/duotone, entrance motion, time-range switching | Tasks 1, 2, 2.5 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -56,8 +57,9 @@ grain) — see Stage 4 below for the full 5-task sequence, and
 
 **My read on immediate next step:** Stage 4 Task 3 (`#my-taste`'s real
 photography/duotone) — the wall's structure is now built and proven
-(no-overlap, deterministic, no-overflow), so dropping real photos in is a
-direct continuation with the riskiest structural work already done.
+(no-overlap, deterministic, no-overflow, and now sized close to one screen at
+desktop/laptop), so dropping real photos in is a direct continuation with the
+riskiest structural work already done.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
@@ -806,6 +808,11 @@ built and sitting next to everything else. Sequence:
 2. **Layout** — the wall geometry: card positions, rotation, overlap. Flat-color
    placeholders, still no real photos. **DONE 2026-08-15** — `STATUS.md`,
    full mechanism writeup in `stage4-my-taste-concept.md`.
+2.5. **Fit within one screen** — retrofit of the section's own original "one
+   panel, one page" requirement, which never got a checkable target until now.
+   Inserted here rather than folded into Task 3, while resizing is still cheap
+   (flat placeholders, no locked-in photo crops). **DONE 2026-08-15** —
+   `STATUS.md`.
 3. **Photography** — real images wired in, duotone tint (`colorwayFor`, already
    exported from `vinyl-record.jsx` in Task 1, not yet consumed), grain, image
    fallback cards.
@@ -836,6 +843,16 @@ built and sitting next to everything else. Sequence:
 > that's correct) and one in this session's own contrast-measurement script
 > (`FINDINGS.md` D8's `color(srgb ...)` 0-1-scale notation, parsed as 0-255) —
 > full detail in `FINDINGS.md` B26.
+>
+> **Update, Task 2.5 (2026-08-15):** fit pass landed. Desktop went 1.53× → 1.15×
+> one screen (now inside Experience's own achieved 1.13–1.25× band), laptop
+> 1.76× → 1.32×, via photo `aspect-ratio` cuts (headliner 4/3→16/9, support
+> 1/1→3/2) and tighter card/wall/section spacing — no font-size, track count,
+> or grid-architecture changes. Mobile improved (3.59×→2.65×) but stayed the
+> worst by far, on purpose — Stage 5 owns mobile art direction; this task's
+> only mobile obligation (no horizontal overflow) held, 0px at 320–1440px.
+> Re-verified zero card-overlap at 1440/1024/768px with the new, smaller card
+> sizes. Full numbers in `STATUS.md`.
 
 ### Stage 5 — Mobile
 

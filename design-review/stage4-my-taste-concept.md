@@ -51,12 +51,14 @@ everything else. Splitting keeps each task's risk isolated.
 |---|---|---|
 | 1 | **Foundations** — data reshaped into headliner/support/setlist, three typefaces wired (scoped to this section only), one real `h2`, old `.spotify-section` deleted entirely | **DONE** 2026-08-15 |
 | 2 | **Layout** — the wall's structure/hierarchy: CSS Grid, flat-color placeholders, torn edges, tape accents | **DONE** 2026-08-15 |
+| 2.5 | **Fit within one screen** — retrofit of the section's own first requirement ("one panel, one page"), which never got a checkable target until now. Card/photo sizes and spacing tuned down; grid architecture, tinting, torn edges/tape all untouched | **DONE** 2026-08-15 |
 | 3 | **Photography** — real photos, duotone blend layer, grain, image fallback cards | Not started |
 | 4 | **Motion** — entrance animation, parallax, reduced-motion fallback | Not started |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
-Full detail on Tasks 1 and 2 (numbers, bugs found, verification) is in `STATUS.md`'s own
-dated entries — this file is the durable *concept* record, `STATUS.md` is the *work log*.
+Full detail on Tasks 1, 2 and 2.5 (numbers, bugs found, verification) is in `STATUS.md`'s
+own dated entries — this file is the durable *concept* record, `STATUS.md` is the *work
+log*.
 
 ## 3. Task 2's mechanism — grid placement, not freehand position
 
@@ -108,13 +110,22 @@ The rotation/jitter budget is real, computed margin, not a hope: a card rotated 
 around its center grows its own axis-aligned bounding box by roughly
 `(W·(cosθ−1) + H·sinθ) / 2` horizontally and `(W·sinθ + H·(cosθ−1)) / 2` vertically
 (W/H = the card's unrotated size). At this task's own 4° ceiling, the smallest cards on
-the wall (support acts, ~250×220px at 1440px) grow roughly 7–9px per side from rotation
-alone; the ±4px jitter on top brings that to ~11–13px. Each card's own `margin`
-(`--space-3`, 12px) plus half of `.my-taste-wall`'s `gap` (`--space-4`, 16px → 8px per
-side) gives ~20px of real, laid-out dead space per side — comfortably clear, not a
-photo-finish. Verified live, not just by this math: a Playwright pass measures every
-rendered card's real (post-transform) bounding box against every other card's at
-1440/1024/768px. Zero overlapping pairs at all three.
+the wall (support acts, ~250×220px at 1440px when this was written) grew roughly 7–9px
+per side from rotation alone; the ±4px jitter on top brought that to ~11–13px. Each
+card's own `margin` (`--space-3`, 12px) plus half of `.my-taste-wall`'s `gap`
+(`--space-4`, 16px → 8px per side) gave ~20px of real, laid-out dead space per side —
+comfortably clear, not a photo-finish. Verified live, not just by this math: a Playwright
+pass measures every rendered card's real (post-transform) bounding box against every
+other card's at 1440/1024/768px. Zero overlapping pairs at all three.
+
+> **Update, Task 2.5 (2026-08-15):** support acts shrank to ~230×196px as part of the fit
+> pass below, and `.my-taste-wall`'s `gap` dropped `--space-4` → `--space-3` (card `margin`
+> unchanged). New budget: ~7–8px/side from rotation, ~11–12px with jitter, against ~18px/
+> side of dead space (12px margin + 6px half-gap) — tighter than the original ~20px but
+> still comfortably clear. Re-verified live the same way: zero overlapping pairs at
+> 1440/1024/768px after the resize. `cardTransform()`'s own comment in `my-taste.jsx` has
+> the current numbers; treat this block's numbers as the Task 2 snapshot, that comment and
+> §5 below as current.
 
 ### Torn edges and tape
 
@@ -147,12 +158,38 @@ Every photo slot (1 headliner + 4 support + 3 setlist thumbnails, 8 total) has
 duotone overlay will composite only within a slot's own stacking context once it exists,
 without this task's structure needing to change at all.
 
+## 5. Task 2.5's mechanism — fit within one screen
+
+`ROADMAP.md`'s and the section's own original brief said "one panel, one page" from the
+start, but no task before this one turned that into something measurable. Retrofitted
+here, while the wall is still flat placeholders and cheap to resize — deferring it to
+Task 3 would mean re-doing this against locked-in photo crops instead.
+
+**Method** — Experience's own Stage 3 Task 9 fit pass, reused exactly: section height as
+a multiple of one available screen (viewport height minus `--navbar-height`), measured
+live, not estimated, at 1440×900 / 1280×800 / 390×844. Numbers, before/after, and the
+levers used (headliner/support photo `aspect-ratio`, card padding, wall `gap`, section
+padding, setlist per-item padding — in that preference order, photo crops and whitespace
+before any text size or content cut) are in `STATUS.md`'s own dated entry, not duplicated
+here. Desktop landed at **1.15×** (down from 1.53×), inside Experience's own achieved
+band; mobile stayed the worst by a wide margin on purpose — Stage 5 owns mobile art
+direction, this task's only obligation there was confirming no horizontal overflow, which
+held (0px, 320–1440px).
+
+**Nothing structural changed.** `grid-template-areas`, the id-hash mechanism, torn-edge
+presets, tape accents, and the tinting mechanism are all exactly as Task 2 shipped them —
+this was a sizing/spacing pass only. The one exception worth flagging for Task 3: the
+photo `aspect-ratio` values are no longer what §3/§4 describe (see the update block in §3
+and the note below) — Task 3 should crop against the *current* ratios, not the ones this
+file originally shipped with.
+
 ## 4. Open items for later tasks
 
-- **Task 3** should confirm the headliner photo slot's `aspect-ratio: 4/3` (this task
-  started at 4/5, found live that it crowded the headliner's own name into too thin a
-  strip, corrected to 4/3) still reads well once a real photo — not a flat tint — fills
-  it.
+- **Task 3** should confirm the headliner photo slot's `aspect-ratio: 16/9` (not this
+  file's original 4/3 — Task 2.5's fit pass cut it further, in the same direction as
+  Task 2's own 4/5 → 4/3 cut, for the same reason: the headliner card was consistently
+  the tallest single element on the wall) and the support slot's `3/2` (down from 1/1)
+  still read well once real photos — not flat tints — fill them.
 - **Task 3**'s duotone overlay is the natural place to also revisit whether the
   `--vinyl-N` reuse (§3) still needs the inset-border fix once photos give every slot
   real visual texture instead of a flat color — the border may turn out to be
