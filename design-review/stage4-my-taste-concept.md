@@ -27,10 +27,10 @@ Mapped onto this site's own data:
 - **Setlist** — the top 5 tracks (`tracks.data`), styled like a printed ticket
   stub/setlist: index, title, artist, monospace.
 
-Visual language: duotoned photos (Task 3), torn/deckle card edges, tape/pin accents
-holding each card in place, a "pinned to a corkboard" tilt on every card, film grain
-(Task 3). Three self-hosted typefaces, one per role — a display face for the headliner, a
-compressed sans for support acts, a monospace for the setlist — never Avenir Next, which
+Visual language: duotoned photos, torn/deckle card edges, tape/pin accents holding each
+card in place, a "pinned to a corkboard" tilt on every card, film grain. All built as of
+Task 3 (§5). Three self-hosted typefaces, one per role — a display face for the headliner,
+a compressed sans for support acts, a monospace for the setlist — never Avenir Next, which
 is the system font everywhere else on the site.
 
 `limit=5` on both `/api/spotify/top-artists` and `/api/spotify/top-tracks` (server.js,
@@ -52,13 +52,13 @@ everything else. Splitting keeps each task's risk isolated.
 | 1 | **Foundations** — data reshaped into headliner/support/setlist, three typefaces wired (scoped to this section only), one real `h2`, old `.spotify-section` deleted entirely | **DONE** 2026-08-15 |
 | 2 | **Layout** — the wall's structure/hierarchy: CSS Grid, flat-color placeholders, torn edges, tape accents | **DONE** 2026-08-15 |
 | 2.5 | **Fit within one screen** — retrofit of the section's own first requirement ("one panel, one page"), which never got a checkable target until now. Card/photo sizes and spacing tuned down; grid architecture, tinting, torn edges/tape all untouched | **DONE** 2026-08-15 |
-| 3 | **Photography** — real photos, duotone blend layer, grain, image fallback cards | Not started |
+| 3 | **Photography** — real photos, duotone blend layer, grain, image fallback cards | **DONE** 2026-08-15 |
 | 4 | **Motion** — entrance animation, parallax, reduced-motion fallback | Not started |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
-Full detail on Tasks 1, 2 and 2.5 (numbers, bugs found, verification) is in `STATUS.md`'s
-own dated entries — this file is the durable *concept* record, `STATUS.md` is the *work
-log*.
+Full detail on Tasks 1, 2, 2.5 and 3 (numbers, bugs found, verification) is in
+`STATUS.md`'s own dated entries — this file is the durable *concept* record, `STATUS.md`
+is the *work log*.
 
 ## 3. Task 2's mechanism — grid placement, not freehand position
 
@@ -158,7 +158,7 @@ Every photo slot (1 headliner + 4 support + 3 setlist thumbnails, 8 total) has
 duotone overlay will composite only within a slot's own stacking context once it exists,
 without this task's structure needing to change at all.
 
-## 5. Task 2.5's mechanism — fit within one screen
+## 4. Task 2.5's mechanism — fit within one screen
 
 `ROADMAP.md`'s and the section's own original brief said "one panel, one page" from the
 start, but no task before this one turned that into something measurable. Retrofitted
@@ -183,19 +183,76 @@ photo `aspect-ratio` values are no longer what §3/§4 describe (see the update 
 and the note below) — Task 3 should crop against the *current* ratios, not the ones this
 file originally shipped with.
 
-## 4. Open items for later tasks
+## 5. Task 3's mechanism — real photos, duotone, grain
 
-- **Task 3** should confirm the headliner photo slot's `aspect-ratio: 16/9` (not this
-  file's original 4/3 — Task 2.5's fit pass cut it further, in the same direction as
-  Task 2's own 4/5 → 4/3 cut, for the same reason: the headliner card was consistently
-  the tallest single element on the wall) and the support slot's `3/2` (down from 1/1)
-  still read well once real photos — not flat tints — fill them.
-- **Task 3**'s duotone overlay is the natural place to also revisit whether the
-  `--vinyl-N` reuse (§3) still needs the inset-border fix once photos give every slot
-  real visual texture instead of a flat color — the border may turn out to be
-  unnecessary once there's a photo underneath it, or may still earn its keep.
+Additive to Task 2's structure, per the brief: no change to `grid-template-areas`, the
+id-hash rotation/jitter/tear/tape mechanism, or the fit-pass sizes from §4. Everything
+below happens *inside* the photo slots Task 2 already built.
+
+**Images.** `artist.images[]` for the headliner and 4 support cards, `track.album.images[]`
+for the setlist's 3 thumbnail slots. Spotify's own arrays are sorted largest → smallest
+(verified live against real API responses, not assumed) — the headliner's bigger slot
+takes `images[0]`; every smaller slot takes the first entry at or under 400px, landing on
+Spotify's own middle size (e.g. 320px out of `[640, 320, 160]`) rather than the full-size
+original, in service of this project's own load-speed goal. `loading="lazy"` on every
+`<img>` — the section sits mid-page, below the fold on initial load.
+
+**Duotone.** `grayscale(1) contrast(1.1)` on the `<img>` strips it to tone; a separate
+absolutely-positioned layer using the exact same `--card-tint` custom property Task 2's
+flat placeholder used (`mix-blend-mode: color`, full opacity — that blend mode takes this
+layer's hue/saturation and the photo's own luminosity, so opacity isn't what controls the
+effect) recolors it. No second tinting mechanism, per the brief. Both layers are
+`position: absolute; inset: 0` inside the slot (now `position: relative`), so neither
+touches the slot's own `aspect-ratio` — confirmed structurally, not just visually: the
+img/tint's own `getBoundingClientRect()` is pixel-identical to the slot's, regardless of
+the photo's native size, because taking them out of flow means they never contribute to
+the parent's own sizing.
+
+**`object-fit: cover`, verified against non-square sources.** Every real image Spotify
+actually returned during this task was square (checked live, all 5 artists + all 3 album
+covers) — real data never exercises a crop. Verified the mechanism itself instead with
+synthetic 1200×300 and 300×1200 SVGs swapped into a real slot: both cropped correctly, no
+stretching, in a live screenshot.
+
+**Grain.** Reused `.record-crate-panel`'s own `feTurbulence`-in-a-data-URI recipe (a
+`::after` pseudo-element, `main.scss`) rather than a second grain mechanism — that one is
+tuned to be almost imperceptible (opacity 0.03); this one is allowed to read as texture on
+purpose (the concept doc's own "photocopied flyer, not photo with a filter" framing), so
+it's tuned higher, opacity 0.05, `mix-blend-mode: overlay`. One overlay for the whole
+section (`.my-taste-section::after`), not per-card.
+
+**Two fallback paths land on the identical treatment** — Task 2's flat `--card-tint` fill,
+with the same border (see below): an empty `images[]` (API returned none) and, new this
+task, a present URL that fails to load (`<img onError>` sets a `failed` flag, which
+un-renders the `<img>`/tint pair entirely and lets the slot's own base `background:
+var(--card-tint)` show through). Both verified live via a mocked API response — an
+artist with `images: []`, and a support card pointed at a URL guaranteed to 404 — neither
+produced a broken-image icon or a console exception (one benign browser-level "failed to
+load resource" network log for the deliberately-broken URL, expected, not a JS error).
+
+**Colorway-1 border — explicitly re-evaluated, kept.** Task 2's inset border (§3) existed
+to keep `--vinyl-1` ("classic black") legible as a flat placeholder fill. With real photos
+in the happy path, that specific problem is gone — a photo's own tonal variation reads as
+an edge regardless of colorway. But the fallback above still renders the exact same flat
+fill in production now (a real, not hypothetical, failure mode), so the border still earns
+its keep there. Kept unconditionally (applied to every slot, not just fallback-state ones)
+so a slot never visibly changes shape between its image and fallback states. Re-verified
+directly: forced the (colorway-1) headliner into the empty-array fallback and screenshotted
+both themes — full detail in `FINDINGS.md` B26's own Task 3 update.
+
+**Fit ratio unchanged.** Predicted and confirmed: since the img/tint layers are taken out
+of flow (`position: absolute`), a slot's rendered size is still driven entirely by its own
+`aspect-ratio`, exactly as when it held a flat placeholder. Re-ran §4's ratio table —
+identical to the Task 2.5 numbers, no retuning needed.
+
+## 6. Open items for later tasks
+
 - **Task 5**'s `Flip` re-rank needs to account for the deterministic-by-id transform:
   if the headliner changes after a time-range switch, its new rotation/jitter/tear/tape
   values will differ from the old headliner's (different id → different hash) — that's
   correct, not a bug, but worth confirming the `Flip` transition doesn't fight the CSS
   `transform` these cards already carry.
+- **Task 4**'s entrance animation should account for the now-real `<img>` elements — a
+  `SplitText`/fade-in timed against `naturalWidth`/`complete` on a lazy-loaded image that
+  hasn't finished fetching yet could animate an empty box. Worth a load-state check that
+  didn't need to exist while every slot was a synchronous flat `<div>`.

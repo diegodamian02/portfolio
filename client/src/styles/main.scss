@@ -2459,6 +2459,28 @@ html {
   padding: var(--space-6) var(--space-5);
   color: var(--text-color);
   text-align: center;
+  // Containing block for the grain ::after below — this section had nothing
+  // absolutely positioned inside it before Task 3.
+  position: relative;
+
+  // Grain (Task 3) — the "photocopied flyer" texture the concept doc's own
+  // visual language calls for, what separates this from "photo with a color
+  // filter." Same feTurbulence-in-a-data-URI recipe .record-crate-panel
+  // already uses (main.scss, above) — reused rather than a second grain
+  // mechanism. That one is tuned to be almost imperceptible (opacity 0.03,
+  // "if it reads as texture, it's too strong" — wood grain shouldn't announce
+  // itself); this one is allowed to read as texture on purpose, so it's
+  // tuned higher. One overlay for the whole section, not per-card — a poster
+  // wall was photocopied as one sheet, not card by card.
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.05;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
 }
 
 // Small and quiet on purpose — the headliner's own name is the section's
@@ -2636,27 +2658,67 @@ html {
   }
 }
 
-// Flat --card-tint fill, no image yet. isolation: isolate is load-bearing
-// for Task 3, not decoration now: a future mix-blend-mode duotone overlay
-// composites only within this element's own stacking context when it's set,
-// rather than blending against the whole page — set now so Task 3 can drop
-// an <img> + overlay in here without touching this element's own rules.
-// Found live, not eyeballed: colorway 1 ("classic black" — main.scss's own
-// --vinyl-1 comment) is deliberately near-invisible against a dark deck in
-// vinyl-record.jsx, which is correct THERE, but the same token reused here
-// as a large flat rectangle next to --taste-card-bg (also dark in dark
-// theme) reads as a missing/broken box rather than "black vinyl" — a real
-// legibility problem a small record label never has to solve. Not fixed by
-// swapping the tinting mechanism (the brief's explicit instruction is to
-// reuse var(--vinyl-N) exactly, not invent a second one) — fixed with a
-// theme-derived, low-opacity border so the SLOT's own boundary always reads
-// clearly regardless of how close a given tint lands to the card behind it.
+// --card-tint fill is the FALLBACK now (Task 3), not the default — see
+// my-taste.jsx's PhotoSlot for when it's the only thing that renders (no
+// image, or a real image that failed to load). isolation: isolate keeps the
+// duotone mix-blend-mode overlay below compositing only within this
+// element's own stacking context, not against the whole page. position:
+// relative is what lets the img/tint children below sit exactly on top of
+// this box via position: absolute; inset: 0 — added this task, wasn't
+// needed while this was a plain flat div.
+//
+// Found live in Task 2, still true in Task 3: colorway 1 ("classic black" —
+// main.scss's own --vinyl-1 comment) is deliberately near-invisible against
+// a dark deck in vinyl-record.jsx, which is correct THERE, but the same
+// token reused here as a large flat rectangle next to --taste-card-bg (also
+// dark in dark theme) reads as a missing/broken box rather than "black
+// vinyl." Task 2 fixed it with this border for the flat-placeholder case;
+// **kept deliberately in Task 3, not dropped** — real photos cover the
+// happy path now, but the flat-tint fallback above is no longer a
+// placeholder-only concern once this task adds a real, live failure mode
+// (a Spotify image URL that 404s/times out after load) that lands on this
+// exact same fallback in production. Applying the border unconditionally
+// (not just when the fallback renders) also means a slot never visibly
+// changes shape/border between its image and fallback states.
 .my-taste-photo-slot {
+  position: relative;
   isolation: isolate;
   overflow: hidden;
   border-radius: 2px;
   background: var(--card-tint);
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-color) 38%, transparent);
+}
+
+// The real photo (Task 3). grayscale(1) strips it to tone only; contrast(1.1)
+// keeps it from reading flat/washed-out once the tint layer below recolors
+// it. object-fit: cover against the slot's own fixed aspect-ratio — Spotify's
+// artist/album images are square in practice (verified live: every image
+// array returned by both endpoints was NxN), so cover rarely has to crop
+// much on the real data path, but the property is what makes this safe for
+// ANY source ratio, verified with synthetic wide/tall sources since real
+// data never exercises that case.
+.my-taste-photo-slot-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: grayscale(1) contrast(1.1);
+}
+
+// The duotone layer. Same --card-tint custom property Task 2's flat
+// placeholder used — no second tinting mechanism, per the brief. Full
+// opacity is correct here, not a bug: mix-blend-mode: color takes this
+// layer's hue/saturation and the photo's own luminosity, so an opaque tint
+// still lets the photo's tones show through — reducing opacity would just
+// mix in flat, untinted grey.
+.my-taste-photo-slot-tint {
+  position: absolute;
+  inset: 0;
+  background: var(--card-tint);
+  mix-blend-mode: color;
+  pointer-events: none;
 }
 
 .my-taste-photo-slot--headliner {

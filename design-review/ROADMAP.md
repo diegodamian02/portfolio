@@ -32,15 +32,17 @@ here per the working agreement on sequencing deviations. `#my-taste`'s
 concept also changed: no longer "records as vinyl / tracks as a crate," now
 a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
 grain) — see Stage 4 below for the full 5-task sequence, and
-`stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1, 2 and
-a retrofitted 2.5 (foundations, wall layout, fit-within-one-screen) are done —
-desktop now measures 1.15× one screen, inside Experience's own achieved band.
+`stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1, 2, a
+retrofitted 2.5, and 3 (foundations, wall layout, fit-within-one-screen, real
+photography/duotone/grain) are all done — desktop still measures 1.15× one
+screen (real photos didn't move it), real Spotify images are wired in with
+duotone tinting, grain, and two verified fallback paths.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Tasks 3–5: real photography/duotone, entrance motion, time-range switching | Tasks 1, 2, 2.5 — done |
+| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -55,11 +57,12 @@ desktop now measures 1.15× one screen, inside Experience's own achieved band.
 4. Do **not** click the Resend "Confirm email change" email sitting in the inbox — it would move the account off the working address.
 5. Recurring: the Spotify refresh token expires roughly every 6 months (root `README.md`).
 
-**My read on immediate next step:** Stage 4 Task 3 (`#my-taste`'s real
-photography/duotone) — the wall's structure is now built and proven
-(no-overlap, deterministic, no-overflow, and now sized close to one screen at
-desktop/laptop), so dropping real photos in is a direct continuation with the
-riskiest structural work already done.
+**My read on immediate next step:** Stage 4 Task 4 (`#my-taste`'s entrance
+motion) — the wall is now fully built with real, duotoned photography and
+proven (no-overlap, deterministic, no-overflow, sized close to one screen,
+both fallback paths verified against real API traffic), so animating it in
+is a direct continuation with all the structural and visual risk already
+retired.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
@@ -815,7 +818,8 @@ built and sitting next to everything else. Sequence:
    `STATUS.md`.
 3. **Photography** — real images wired in, duotone tint (`colorwayFor`, already
    exported from `vinyl-record.jsx` in Task 1, not yet consumed), grain, image
-   fallback cards.
+   fallback cards. **DONE 2026-08-15** — `STATUS.md`, mechanism writeup in
+   `stage4-my-taste-concept.md`.
 4. **Motion** — entrance animation, parallax, reduced-motion fallback.
 5. **Time-range switching** — the UI to flip between Spotify's `time_range`
    values (the server endpoints already accept it), with a `Flip`-powered
@@ -853,6 +857,26 @@ built and sitting next to everything else. Sequence:
 > only mobile obligation (no horizontal overflow) held, 0px at 320–1440px.
 > Re-verified zero card-overlap at 1440/1024/768px with the new, smaller card
 > sizes. Full numbers in `STATUS.md`.
+>
+> **Update, Task 3 (2026-08-15):** real photography landed, additive to Task
+> 2's structure — no change to the grid, the rotation/jitter mechanism, or
+> Task 2.5's sizes. Real `artist.images[]`/`track.album.images[]`, sized per
+> slot (headliner gets Spotify's largest, everything else gets its ≤400px
+> middle size, not the full original). Duotone via `grayscale(1) contrast(1.1)`
+> plus a `mix-blend-mode: color` layer reusing the exact same `--card-tint`
+> Task 2's placeholder used — no second tinting mechanism. `object-fit: cover`
+> verified against synthetic non-square sources (real Spotify data turned out
+> to be square in every case checked). Grain reused `.record-crate-panel`'s
+> own `feTurbulence` recipe rather than a second one. Both fallback paths
+> (empty `images[]`, and new this task, a URL that fails to load) verified
+> against mocked API traffic, landing on the identical flat-tint treatment.
+> Task 2's colorway-1 border fix explicitly re-evaluated per the brief's own
+> instruction — **kept**, since the new broken-image fallback lands on the
+> exact flat fill that fix was for, even though real photos removed the
+> original problem from the happy path. Fit ratio re-run, unchanged (1.15×
+> desktop) — predicted, since the photo/tint layers sit outside layout flow.
+> No new product bugs found this task. Full detail in `FINDINGS.md` B26's own
+> update and `STATUS.md`.
 
 ### Stage 5 — Mobile
 

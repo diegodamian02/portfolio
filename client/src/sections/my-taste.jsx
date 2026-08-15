@@ -29,11 +29,11 @@ import { seeded01 } from "../lib/hash.js";
 // Stage 4 Task 2 — the wall's structure and hierarchy: headliner (large) + 4
 // support acts + 1 setlist card, arranged on a CSS Grid so overlap is
 // structurally impossible rather than something to verify after the fact —
-// full reasoning in design-review/stage4-my-taste-concept.md (written this
-// task; didn't exist yet when this task started, see that file's own opening
-// note). Flat --card-tint placeholders stand in for photos; torn edges and
-// tape accents are real. No real photos, no duotone blend, no grain, no
-// motion — Tasks 3 and 4.
+// full reasoning in design-review/stage4-my-taste-concept.md. Torn edges and
+// tape accents are real. Task 2.5 tuned card/photo sizes to fit within
+// roughly one screen. Task 3 (this task) swaps the flat --card-tint
+// placeholders for real Spotify images, duotone-tinted — still no motion,
+// no time-range UI (Tasks 4 and 5).
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
 
 async function fetchTopItems(kind) {
@@ -44,6 +44,30 @@ async function fetchTopItems(kind) {
         console.error(`Error fetching top ${kind}:`, error);
         return { status: "error", data: [] };
     }
+}
+
+// Spotify's own image arrays are sorted largest -> smallest (verified live
+// against real /api/spotify/top-artists and /api/spotify/top-tracks
+// responses this task, not assumed from docs) — typically 640/320/160 for
+// artist photos, 640/300/64 for album art. `large` picks the biggest
+// available for the headliner's own bigger slot; everything else prefers
+// something already close to the size it'll render at (<=400px covers every
+// support/thumb slot on this wall at any breakpoint) over pulling the same
+// 640px original into a ~200px box for nothing — the whole reason this
+// project's own load-speed story (152MB -> 9.6MB) is worth protecting.
+// Falls back to whatever's smallest/largest available if an artist only
+// ships one size (seen on some lower-popularity artists).
+function pickImageUrl(images, { large = false } = {}) {
+    if (!Array.isArray(images) || images.length === 0) return null;
+    if (large) return images[0].url;
+    // Walking largest -> smallest (Spotify's own order) and taking the FIRST
+    // one at or under 400px lands on the biggest size that's still small —
+    // e.g. 320px out of [640, 320, 160], not the smallest available. Retina
+    // displays render a ~230px CSS-wide support slot at ~460px actual
+    // pixels, so 320px is close to native there without pulling the full
+    // 640px original.
+    const small = images.find((img) => !img.width || img.width <= 400);
+    return (small ?? images[images.length - 1]).url;
 }
 
 function SpotifyStatusMessage({ status, kind }) {
@@ -119,16 +143,43 @@ function TasteCard({ id, area, className, children }) {
     );
 }
 
-// Placeholder fill only — a flat --card-tint background, no image, no blend
-// mode. isolation: isolate is already set so Task 3 can drop a real <img>
-// plus a mix-blend-mode duotone overlay in here without this element's
-// structure changing at all.
-function PhotoSlot({ id, className }) {
+// Task 2's flat --card-tint fill is now the FALLBACK, not the default — it
+// still renders on its own (this component's base markup never changed,
+// exactly the forward-compat Task 2 built isolation: isolate for) whenever
+// there's no image to show: `imageUrl` missing (empty images[] from the
+// API) or a real URL that failed to load (`onError`, below — network flake,
+// expired CDN link, a failure mode that didn't exist until this task
+// actually loads live network images for the first time). Both paths land
+// on the exact same treatment, not two different-looking failures.
+//
+// When there IS an image: grayscale(1) contrast(1.1) flattens it to tone
+// only, then a separate --card-tint layer blended with mix-blend-mode:
+// color recolors it — hue/saturation from the tint, luminosity from the
+// photo underneath, the standard single-hue duotone technique. Both layers
+// are position:absolute + inset:0 inside the slot (position:relative,
+// main.scss), so neither touches the slot's own aspect-ratio/rotation/
+// jitter box — additive to Task 2's structure, per the brief.
+function PhotoSlot({ id, className, imageUrl, imageAlt }) {
+    const [failed, setFailed] = useState(false);
+    const showImage = Boolean(imageUrl) && !failed;
     return (
         <div
             className={`my-taste-photo-slot ${className}`}
             style={{ "--card-tint": `var(--vinyl-${colorwayFor(id)})` }}
-        />
+        >
+            {showImage && (
+                <>
+                    <img
+                        className="my-taste-photo-slot-img"
+                        src={imageUrl}
+                        alt={imageAlt}
+                        loading="lazy"
+                        onError={() => setFailed(true)}
+                    />
+                    <div className="my-taste-photo-slot-tint" />
+                </>
+            )}
+        </div>
     );
 }
 /* eslint-enable react/prop-types */
@@ -148,15 +199,21 @@ export default function MyTaste() {
     // track without re-deriving this task's grid (4 named support-N areas,
     // one setlist card sized for 5 rows).
     const headliner = artists.data[0]
-        ? { ...artists.data[0], imageAlt: artists.data[0].name }
+        ? {
+            ...artists.data[0],
+            imageAlt: artists.data[0].name,
+            imageUrl: pickImageUrl(artists.data[0].images, { large: true }),
+        }
         : null;
     const support = artists.data.slice(1, 5).map((artist) => ({
         ...artist,
         imageAlt: artist.name,
+        imageUrl: pickImageUrl(artist.images),
     }));
     const setlist = tracks.data.map((track) => ({
         ...track,
         imageAlt: `Album cover — ${track.name} by ${track.artists.map((a) => a.name).join(", ")}`,
+        imageUrl: pickImageUrl(track.album?.images),
     }));
 
     return (
@@ -168,7 +225,12 @@ export default function MyTaste() {
             <div className="my-taste-wall">
                 {artists.status === "ready" && headliner ? (
                     <TasteCard id={headliner.id} area="headliner" className="my-taste-card--headliner">
-                        <PhotoSlot id={headliner.id} className="my-taste-photo-slot--headliner" />
+                        <PhotoSlot
+                            id={headliner.id}
+                            className="my-taste-photo-slot--headliner"
+                            imageUrl={headliner.imageUrl}
+                            imageAlt={headliner.imageAlt}
+                        />
                         <p className="my-taste-headliner-name">{headliner.name}</p>
                     </TasteCard>
                 ) : (
@@ -180,7 +242,12 @@ export default function MyTaste() {
                 {support.length > 0
                     ? support.map((artist, i) => (
                         <TasteCard key={artist.id} id={artist.id} area={`support-${i + 1}`} className="my-taste-card--support">
-                            <PhotoSlot id={artist.id} className="my-taste-photo-slot--support" />
+                            <PhotoSlot
+                                id={artist.id}
+                                className="my-taste-photo-slot--support"
+                                imageUrl={artist.imageUrl}
+                                imageAlt={artist.imageAlt}
+                            />
                             <p className="my-taste-support-name">{artist.name}</p>
                         </TasteCard>
                     ))
@@ -192,7 +259,13 @@ export default function MyTaste() {
                     <TasteCard id="setlist" area="setlist" className="my-taste-card--setlist">
                         <div className="my-taste-setlist-thumbs">
                             {setlist.slice(0, 3).map((track) => (
-                                <PhotoSlot key={track.id} id={track.id} className="my-taste-photo-slot--thumb" />
+                                <PhotoSlot
+                                    key={track.id}
+                                    id={track.id}
+                                    className="my-taste-photo-slot--thumb"
+                                    imageUrl={track.imageUrl}
+                                    imageAlt={track.imageAlt}
+                                />
                             ))}
                         </div>
                         <ol className="my-taste-setlist">

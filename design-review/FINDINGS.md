@@ -1257,6 +1257,23 @@ themes — comfortably passing, nowhere near the failure the unfixed script
 reported. Recorded here so the next contrast measurement in this codebase
 checks for this notation before trusting a low number.
 
+> **Update, Task 3 (2026-08-15) — border fix explicitly re-evaluated, kept.**
+> Task 3's brief asked directly: now that real duotoned photos sit in these
+> slots instead of a flat fill, is the border still earning its keep, or was
+> it only ever a placeholder-era patch? **Kept, not silently carried over.**
+> Reasoning: the border is no longer needed for the *happy path* — a real
+> photo has its own luminance variation that reads as a visible edge against
+> the card regardless of colorway — but Task 3 introduces a live failure mode
+> that didn't exist before (a present image URL that fails to load, `onError`)
+> which lands on the exact same flat-`--vinyl-N` fallback this bug was
+> originally about. Confirmed directly, not assumed: forced the headliner
+> (id hashes to colorway 1, same "classic black" case as the original bug)
+> into that fallback via a mocked API response and screenshotted both themes
+> — the border is what keeps that fallback card's edge legible, dark theme
+> especially. Applied unconditionally (not just when the fallback renders) on
+> purpose, so a slot never visibly changes shape between its image and
+> fallback states.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

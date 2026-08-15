@@ -2302,6 +2302,88 @@ light,mobile-dark}.png` via the proven clip-rect method, both themes.
 
 `stage4-my-taste-concept.md`'s status table and overlap-rule note updated.
 
+### Stage 4 Task 3 — `#my-taste` photography: real images, duotone, grain *(2026-08-15)*
+
+Sanity-checked `stage4-my-taste-concept.md` against the tree before relying on it (this
+task's own brief asked for that explicitly) — accurate, matches what Tasks 1/2/2.5
+actually shipped. Confirmed `colorwayFor` still lives in and exports from
+`vinyl-record.jsx` (unchanged since Task 1); the existing import in `my-taste.jsx` needed
+no change.
+
+**Real images**, additive to Task 2's structure, not a rebuild of it: `artist.images[]`
+for the headliner + 4 support cards, `track.album.images[]` for the setlist's 3 thumbnail
+slots. Verified live against real API responses (not assumed from docs) that Spotify's
+own arrays are sorted largest → smallest — `640/320/160` for artist photos, `640/300/64`
+for album art, every single one square. Headliner's bigger slot takes the largest; every
+other slot takes the first entry at or under 400px (lands on the 320px middle size, not
+the 640px original) — this project's own load-speed goal, not a guess at what "small
+enough" means. `loading="lazy"` on every `<img>` — the section sits below the fold.
+
+**Duotone** — `grayscale(1) contrast(1.1)` on the `<img>`, plus a second absolutely-
+positioned layer reusing the *exact* `--card-tint` value Task 2's flat placeholder used,
+`mix-blend-mode: color`. No second tinting mechanism. Both layers are `position: absolute;
+inset: 0` inside the slot (now `position: relative` — wasn't needed before), which also
+means the slot's own size is still driven entirely by its `aspect-ratio`, unaffected by
+what photo (if any) sits inside it — confirmed structurally: `getBoundingClientRect()` on
+the `<img>` was pixel-identical to its slot's own, tested against two deliberately
+non-square (1200×300 and 300×1200) synthetic sources swapped into a real slot, since real
+Spotify data never exercises a non-square crop (every image returned during this task was
+square — verified across all 5 artists + 3 album covers, not assumed). Both cropped
+correctly via `object-fit: cover`, no stretching, confirmed in a live screenshot.
+
+**Grain** — reused `.record-crate-panel`'s own `feTurbulence`-in-a-data-URI recipe
+(`main.scss`) rather than inventing a second grain mechanism: a `::after` pseudo-element
+on `.my-taste-section`, `opacity: 0.05` (that panel's own grain sits at 0.03, tuned to be
+"almost imperceptible" — this one is allowed to read as texture, the concept doc's own
+"photocopied flyer" framing, so tuned higher), `mix-blend-mode: overlay`. One overlay for
+the whole section, not per-card.
+
+**Two fallback paths, both landing on the identical flat `--card-tint` treatment**: an
+empty `images[]` (existing since Task 1/2) and, new this task, a present URL that fails
+to load (`<img onError>` → `failed` state → un-renders the image/tint pair, letting the
+slot's own base fill show through). Both verified against real API traffic, not just live-
+network luck: mocked `/api/spotify/top-artists` via Playwright's own route interception to
+force one artist's `images` to `[]` and point another's at a URL guaranteed to 404. Neither
+produced a broken-image icon; the only console entry was one benign browser-level "failed
+to load resource" network log for the deliberately-broken test URL, not a JS exception.
+
+**Colorway-1 border — explicitly re-evaluated, kept, not silently carried over** (per the
+brief's own instruction). Real photos remove the *original* problem (a flat placeholder
+reading as broken) from the happy path, but Task 3's new failure mode lands on the exact
+same flat fill in production, so the border still earns its keep there. Verified directly,
+not assumed: forced the headliner (confirmed via computed `--card-tint` to be colorway 1,
+the same "classic black" case the original bug was about) into the empty-array fallback
+and screenshotted both themes — border reads clearly in both. Full reasoning in
+`FINDINGS.md` B26's own Task 3 update.
+
+**Contrast re-measured with a freshly-written, correctly-parsing script** (handling the
+`color(srgb ...)` 0–1-scale notation from the start this time, the gotcha Task 2's own
+script had to be fixed for mid-task): headliner/support/setlist-track text **15.05–15.40:1**,
+setlist-artist/heading **6.76–6.81:1**, both themes — consistent with Task 2's own numbers,
+confirming the new duotone/grain layers don't touch text's own computed colors (they don't
+overlap the text elements). Grain's *visual* effect on legibility was additionally checked
+by eye against rendered screenshots in both themes (a 5%-opacity blended noise texture
+isn't something a computed-style contrast check can capture) — text reads cleanly in both.
+
+**Fit ratio re-run, unchanged**: 1.15× / 1.32× / 2.65× (desktop/laptop/mobile) — identical
+to Task 2.5's own numbers, exactly as predicted (the img/tint layers are taken out of flow,
+so they can't affect the slot's own `aspect-ratio`-driven size). No retuning needed.
+
+**No new product bugs found this task** — worth stating plainly rather than padding the
+report: Tasks 1/2/2.5 each found and fixed 2–3 real bugs from the first look at real
+output; this task's mechanisms (image sizing, duotone, grain, both fallback paths, cover-
+crop) all worked as designed against real data and synthetic edge cases on the first pass.
+
+Build: JS 487.04 kB / 174.80 kB gz (+0.63 kB / +0.17 kB gz), CSS 44.71 kB / 9.53 kB gz
+(+0.77 kB / +0.07 kB gz) — code only; Spotify's own CDN serves the images, nothing image-
+related is bundled. Lint unchanged (7 errors, 1 expected warning). Full-page smoke check
+(all six sections, both the real-data load and the two mocked-fallback loads) — zero
+console/page errors beyond the one expected 404 above.
+
+`stage4-my-taste-concept.md` restructured: Task 3's status marked done, a new §5 documents
+the mechanism above, resolved open items from §4/§6 removed, one new open item added for
+Task 4 (a lazy-loaded `<img>` mid-fetch when the entrance animation fires).
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2329,8 +2411,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **486.41 kB / 174.63 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **43.94 kB / 9.46 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **487.04 kB / 174.80 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **44.71 kB / 9.53 kB gz** |
 | ESLint errors | 21 | **7** *(+1 warning, `vinyl-record.jsx` — expected, see Stage 4 Task 1)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
