@@ -24,14 +24,22 @@ Mapped onto this site's own data:
   display typeface.
 - **Support acts (4)** — top artists #2–5 (`artists.data.slice(1, 5)`). Uniform size
   among themselves, smaller than the headliner.
-- **Setlist** — the top 5 tracks (`tracks.data`), styled like a printed ticket
-  stub/setlist: index, title, artist, monospace.
+- **Setlist** — the top 5 tracks (`tracks.data`), styled like small torn "singles"
+  sleeves — album art, index, title, artist, monospace.
+
+**Layout, as of Task 3.5:** two columns, not one stacked wall. The headliner + 4 support
+acts form "the wall" (left, ~60%); the 5 setlist singles form "the crate" (right, ~40%),
+a vertical stack beside the wall rather than a strip underneath it. This is what makes the
+section's total height `max(wall, crate)` instead of `wall + crate` — see §7. Before
+Task 3.5, all six objects (headliner + 4 support + one setlist card) sat in a single
+stacked wall, setlist as a full-width row at the bottom; that shape is superseded, not a
+current description.
 
 Visual language: duotoned photos, torn/deckle card edges, tape/pin accents holding each
-card in place, a "pinned to a corkboard" tilt on every card, film grain. All built as of
-Task 3 (§5). Three self-hosted typefaces, one per role — a display face for the headliner,
-a compressed sans for support acts, a monospace for the setlist — never Avenir Next, which
-is the system font everywhere else on the site.
+card in place, a "pinned to a corkboard" tilt on every card (or "single," in the crate),
+film grain. All built as of Task 3 (§5). Three self-hosted typefaces, one per role — a
+display face for the headliner, a compressed sans for support acts, a monospace for the
+setlist — never Avenir Next, which is the system font everywhere else on the site.
 
 `limit=5` on both `/api/spotify/top-artists` and `/api/spotify/top-tracks` (server.js,
 untouched since before Stage 4) is exactly headliner + 4 support, and exactly 5 setlist
@@ -53,10 +61,11 @@ everything else. Splitting keeps each task's risk isolated.
 | 2 | **Layout** — the wall's structure/hierarchy: CSS Grid, flat-color placeholders, torn edges, tape accents | **DONE** 2026-08-15 |
 | 2.5 | **Fit within one screen** — retrofit of the section's own first requirement ("one panel, one page"), which never got a checkable target until now. Card/photo sizes and spacing tuned down; grid architecture, tinting, torn edges/tape all untouched | **DONE** 2026-08-15 |
 | 3 | **Photography** — real photos, duotone blend layer, grain, image fallback cards | **DONE** 2026-08-15 |
+| 3.5 | **Two columns** — restructure into wall (left) + crate (right) so total height is `max(wall, crate)`, not their sum. Setlist rebuilt as small torn "singles," not a list row | **DONE** 2026-08-15 |
 | 4 | **Motion** — entrance animation, parallax, reduced-motion fallback | Not started |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
-Full detail on Tasks 1, 2, 2.5 and 3 (numbers, bugs found, verification) is in
+Full detail on Tasks 1, 2, 2.5, 3 and 3.5 (numbers, bugs found, verification) is in
 `STATUS.md`'s own dated entries — this file is the durable *concept* record, `STATUS.md`
 is the *work log*.
 
@@ -87,6 +96,12 @@ freehand placement to look bigger. The 4 support acts fill the remaining 2×2 bl
 four independent 1×1 areas. The setlist spans the full width along the bottom, and its
 row is sized by `auto` (not `minmax(180px, auto)` like the top two rows) since a 5-row
 track list needs more height than the headliner/support rows do.
+
+> **Update, Task 3.5 (2026-08-15):** the third row (`"setlist setlist setlist setlist"`)
+> is gone — `.my-taste-wall` is 4 columns × **2 rows** now, headliner + support only. The
+> setlist moved to a sibling column, `.my-taste-crate`, via a new outer two-column grid,
+> `.my-taste-layout` (§6). Treat this code block as the Task 2 snapshot; §6 has the
+> current shape.
 
 Collapses to a single, un-rotated column below 600px by redeclaring
 `grid-template-areas` as one column — not a second, independently-tuned set of
@@ -245,7 +260,66 @@ of flow (`position: absolute`), a slot's rendered size is still driven entirely 
 `aspect-ratio`, exactly as when it held a flat placeholder. Re-ran §4's ratio table —
 identical to the Task 2.5 numbers, no retuning needed.
 
-## 6. Open items for later tasks
+## 6. Task 3.5's mechanism — two columns, not one stacked wall
+
+Direct feedback on the shipped result: the setlist sitting below the wall as a second row
+meant total section height was `wall + gap + setlist` — row 1 plus row 2, still "2 pages"
+even after Task 2.5's sizing pass. The fix is the same category of move Experience's own
+Stage 3 made (Task 7/8 tuned a vertical spine's sizes and still didn't fit; Task 9 replaced
+the paradigm — a pinned horizontal filmstrip — and that's what actually solved it): a
+structural change, not another round of shrinking numbers.
+
+**Two columns via a new outer grid, `.my-taste-layout`** (`grid-template-columns: 3fr 2fr`
+— roughly 60/40, tuned from there, not derived): `.my-taste-wall` (unchanged mechanism,
+now 2 rows instead of 3 — headliner + support only) sits left, a new `.my-taste-crate`
+sits right. Total section height is `max(wall, crate)` by construction — CSS Grid's
+`align-items: start` default row height already does this, not something built by hand.
+**Measured, not assumed to follow from "columns are shorter":** desktop went from Task 3's
+1.15× one screen to **1.02×** — essentially exact. Laptop 1.32× → **1.18×**.
+
+**The crate is a stack of small torn "singles," not a list.** Each track is its own
+`TasteCard` (album art + index/title/artist, `.my-taste-single`'s own horizontal flex
+layout) — reusing the exact same rotation/jitter/tear/tape mechanism and `PhotoSlot`
+(duotone, both fallback paths, lazy loading, alt text) Tasks 2 and 3 already built, applied
+to a new card shape rather than rebuilt for it, per the brief. All 5 tracks carry album art
+now (Task 3 gave only the top 3; reconsidered per this task's brief now that the container
+shape changed — art on every single reads as "a crate of records," where 3-with-art +
+2-text-only would have read as an inconsistent list). Track/artist text truncates with a
+single-line ellipsis rather than Task 1/2's flex-wrap — deliberate: wrapped rows of
+differing heights would break the crate's own vertical rhythm, which the rotation-safety
+math below depends on staying predictable.
+
+**A real overlap-margin recompute, not a copy of the wall's numbers.** A single's aspect
+ratio (wide, short — ~389×89px at 1440px) makes its rotation growth asymmetric in a way
+the wall's roughly-square cards don't show: growth ≈ `(W·sinθ + H·(cosθ-1))/2` vertically,
+and a wide W dominates that term. At the brief's 4° ceiling that's ~13-14px of vertical
+growth alone, ~17-18px with jitter — more than the wall's own support cards need despite
+being a much smaller card overall. `.my-taste-card`'s own default margin (space-3, 12px,
+left untouched) plus half of `.my-taste-crate`'s own gap (space-3, 12px → 6px) gives ~18px
+of dead space per side, matching that need. Verified live, not just by the math: zero
+overlapping pairs among the 5 singles at 1440/1024/768px, same Playwright discipline as
+the wall's own check.
+
+**A real bug found and fixed, not assumed away:** nesting `.my-taste-wall` inside a grid
+TRACK (`.my-taste-layout`'s own column) instead of having it as a direct block-level child
+of `.my-taste-section` changed its overflow behavior at narrow widths, even though nothing
+about `.my-taste-wall`'s own CSS changed. An `fr` track's implicit minimum is `auto`
+(content-based) — the grid-level version of the flex `min-width: auto` trap this project
+has hit before (`FINDINGS.md` B25) — so `.my-taste-wall`'s own content could force the
+track wider than the section's real available space. Measured: 37px of horizontal overflow
+at 390px, 107px at 320px, that **did not exist before this task**. Fixed with
+`minmax(0, 3fr) minmax(0, 2fr)` (and `minmax(0, 1fr)` in the mobile collapse) instead of
+bare `fr` values on `.my-taste-layout` — re-verified 0px overflow at all 8 widths,
+320–1440px.
+
+**Mobile got taller, not shorter — expected, not a regression to chase.** 2.65× → 3.01×
+one screen. The crate now adds its own stacked column (label + 5 singles) below the wall's
+own stack on narrow viewports, where before there was one setlist card there instead of
+six new stacked elements. Explicitly out of scope per the brief — deliberate mobile
+stacking is Stage 5's job; this task's only mobile obligation (no horizontal overflow) is
+met.
+
+## 7. Open items for later tasks
 
 - **Task 5**'s `Flip` re-rank needs to account for the deterministic-by-id transform:
   if the headliner changes after a time-range switch, its new rotation/jitter/tear/tape
@@ -255,4 +329,11 @@ identical to the Task 2.5 numbers, no retuning needed.
 - **Task 4**'s entrance animation should account for the now-real `<img>` elements — a
   `SplitText`/fade-in timed against `naturalWidth`/`complete` on a lazy-loaded image that
   hasn't finished fetching yet could animate an empty box. Worth a load-state check that
-  didn't need to exist while every slot was a synchronous flat `<div>`.
+  didn't need to exist while every slot was a synchronous flat `<div>`. Also now needs to
+  animate the crate's 5 singles as their own sequence, not just the wall's cards — a new
+  set of elements Task 3.5 added.
+- **Stage 5**'s mobile pass should look at the crate specifically — a stack of six
+  additional elements (label + 5 singles) below the wall's own stack is the direct cause
+  of mobile's fit ratio getting worse this task (2.65× → 3.01×), and is exactly the kind
+  of thing deliberate mobile art direction (rather than "guard against outright breakage,"
+  this task's only mobile obligation) should address.

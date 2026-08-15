@@ -2384,6 +2384,76 @@ console/page errors beyond the one expected 404 above.
 the mechanism above, resolved open items from §4/§6 removed, one new open item added for
 Task 4 (a lazy-loaded `<img>` mid-fetch when the entrance animation fires).
 
+### Stage 4 Task 3.5 — `#my-taste`: restructure into two columns (wall / crate) *(2026-08-15)*
+
+Direct feedback on Task 3's shipped result: the setlist sat below the artist grid as a
+second row, so total height was `wall + gap + setlist` — still "2 pages" even after Task
+2.5's own sizing pass. Named plainly in the brief and worth repeating here: Experience hit
+this exact wall once already (Stage 3 Tasks 7→8 tuned sizes and still didn't fit; Task 9
+replaced the paradigm — a pinned filmstrip — and that's what actually solved it). This
+task is the same move: restructure, not another round of shrinking numbers.
+
+**Two columns via a new outer grid, `.my-taste-layout`** (`3fr 2fr`, ~60/40): the wall
+(headliner + 4 support, unchanged mechanism, now 2 grid rows instead of 3) sits left, a
+new `.my-taste-crate` sits right. Total height becomes `max(wall, crate)` by construction.
+**Measured, not assumed:** desktop **1.15× → 1.02×** one screen — essentially exact.
+Laptop **1.32× → 1.18×**.
+
+**The crate is 5 small torn "singles," not a list** — each track is its own `TasteCard`
+(reusing the exact rotation/jitter/tear/tape mechanism Task 2 built, and `PhotoSlot`'s
+duotone/fallback/lazy-load/alt-text behavior from Task 3, applied to a new horizontal card
+shape rather than rebuilt for it, per the brief). All 5 tracks now carry album art (Task 3
+gave only the top 3 + 2 text-only rows; reconsidered per this task's own brief now that the
+container shape changed — a crate where 2 of 5 records have no sleeve art doesn't read as
+a crate). Track/artist text truncates with a single-line ellipsis, not Task 1/2's
+flex-wrap — deliberate, so 5 stacked singles keep a predictable height for the overlap
+math below.
+
+**Overlap margin recomputed for the new card shape, not copied from the wall.** A single's
+own aspect ratio (wide, short — ~389×89px at 1440px) makes rotation growth asymmetric in a
+way the wall's roughly-square cards don't show: the width term dominates the vertical-
+growth formula, working out to ~17-18px of growth-plus-jitter per side — more than the
+wall's own support cards need despite being a much smaller card. `.my-taste-card`'s default
+margin (12px, untouched) plus half the crate's own gap (12px → 6px) gives ~18px of dead
+space per side, matching that need. Verified live: zero overlapping pairs among the 5
+singles at 1440/1024/768px, same Playwright discipline as the wall's own check (also
+re-confirmed: zero overlap among the wall's own 5 cards, unaffected by this task).
+
+**A real bug found and fixed** (not assumed away): nesting `.my-taste-wall` inside a grid
+*track* (the new `.my-taste-layout` column) instead of it being a direct block-level child
+of `.my-taste-section` changed its overflow behavior at narrow widths — even though
+nothing about `.my-taste-wall`'s own CSS changed. An `fr` track's implicit minimum is
+`auto` (content-based), the grid-track version of the flex `min-width: auto` trap this
+project has hit before (`FINDINGS.md` B25). Measured: 37px of horizontal overflow at
+390px, 107px at 320px — **did not exist before this task**. Fixed with
+`minmax(0, 3fr) minmax(0, 2fr)` (and `minmax(0, 1fr)` in the mobile collapse) instead of
+bare `fr` values. Re-verified 0px overflow at all 8 widths, 320–1440px.
+
+**Duotone/fallback/alt-text re-verified in the new positions**, not assumed to still work
+because Task 3 already built them: mocked one track to an empty `images[]` and another to
+a broken URL, both landed on the correct flat-tint fallback with no broken-image icon and
+no JS exception (one benign 404 network log, expected). Real alt text confirmed present on
+the crate's own images.
+
+**Mobile got taller, not shorter — expected, called out rather than hidden:** 2.65× → 3.01×
+one screen. The crate now stacks its own 6 elements (label + 5 singles) below the wall's
+own stack at narrow widths, where before there was a single setlist card. Out of scope per
+the brief (deliberate mobile stacking is Stage 5's job); this task's only mobile obligation
+— no horizontal overflow — is met, and is exactly what the bug above threatened before
+being fixed.
+
+Build: JS 487.05 kB / 174.82 kB gz (+0.01 kB / +0.02 kB gz — code only), CSS 44.87 kB /
+9.50 kB gz (net -0.03 kB gz vs. Task 3, despite new rules — the deleted setlist-list CSS
+roughly offset the new crate/single rules). Lint unchanged (7 errors, 1 expected warning).
+Full-page smoke check clean.
+
+`stage4-my-taste-concept.md` updated: §1's concept description now describes two columns
+(the single-stacked-wall description is explicitly marked superseded, not silently
+replaced); §3's original 3-row grid code block gets an update blockquote rather than being
+rewritten in place; new §6 documents this task's mechanism; §7 (open items) gets three
+entries — Task 4 now also needs to animate the crate's singles, Task 5's `Flip` note is
+unchanged, and a new note flagging the crate specifically for Stage 5's mobile pass.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2411,8 +2481,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **487.04 kB / 174.80 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **44.71 kB / 9.53 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **487.05 kB / 174.82 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **44.87 kB / 9.50 kB gz** |
 | ESLint errors | 21 | **7** *(+1 warning, `vinyl-record.jsx` — expected, see Stage 4 Task 1)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

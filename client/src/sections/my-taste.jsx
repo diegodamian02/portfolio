@@ -27,13 +27,16 @@ import { colorwayFor } from "../components/vinyl-record.jsx";
 import { seeded01 } from "../lib/hash.js";
 
 // Stage 4 Task 2 — the wall's structure and hierarchy: headliner (large) + 4
-// support acts + 1 setlist card, arranged on a CSS Grid so overlap is
-// structurally impossible rather than something to verify after the fact —
-// full reasoning in design-review/stage4-my-taste-concept.md. Torn edges and
-// tape accents are real. Task 2.5 tuned card/photo sizes to fit within
-// roughly one screen. Task 3 (this task) swaps the flat --card-tint
-// placeholders for real Spotify images, duotone-tinted — still no motion,
-// no time-range UI (Tasks 4 and 5).
+// support acts, arranged on a CSS Grid so overlap is structurally impossible
+// rather than something to verify after the fact — full reasoning in
+// design-review/stage4-my-taste-concept.md. Torn edges and tape accents are
+// real. Task 2.5 tuned card/photo sizes to fit within roughly one screen.
+// Task 3 swapped the flat --card-tint placeholders for real Spotify images,
+// duotone-tinted. Task 3.5 (this task) split the section into two columns —
+// the wall (this grid, headliner + support only now) beside a new crate
+// column of setlist "singles" — so total section height is max(wall, crate)
+// instead of wall + a setlist row stacked below it. Still no motion, no
+// time-range UI (Tasks 4 and 5).
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
 
 async function fetchTopItems(kind) {
@@ -124,6 +127,10 @@ function cardTransform(id) {
 // turntable.jsx's `track` prop) — one block-disable rather than per-line,
 // since these props are read at several places in TasteCard/PhotoSlot, not
 // just their destructuring site.
+// `area` is optional (Task 3.5) — the wall's cards pass one (a named grid
+// area), the crate's singles don't (they're flex-column items, not grid
+// cells); `gridArea: undefined` is simply omitted by React/the style object,
+// so this is the same component either way, not a second card mechanism.
 function TasteCard({ id, area, className, children }) {
     const { rotate, jitterX, jitterY, tear, tapeRotate } = cardTransform(id);
     return (
@@ -196,8 +203,9 @@ export default function MyTaste() {
     // Reshape into the poster's actual roles, not one flat list each.
     // limit=5 on both server endpoints (server.js, untouched since Task 1) is
     // exactly headliner + 4 support acts — don't add a 6th artist or a 4th
-    // track without re-deriving this task's grid (4 named support-N areas,
-    // one setlist card sized for 5 rows).
+    // support act without re-deriving the wall's grid (4 named support-N
+    // areas). The crate (below) isn't grid-area-bound, but was still sized
+    // this task around exactly 5 singles.
     const headliner = artists.data[0]
         ? {
             ...artists.data[0],
@@ -222,69 +230,74 @@ export default function MyTaste() {
                 below is content, not a second or third heading for it. */}
             <h2 className="my-taste-heading">now spinning · my taste</h2>
 
-            <div className="my-taste-wall">
-                {artists.status === "ready" && headliner ? (
-                    <TasteCard id={headliner.id} area="headliner" className="my-taste-card--headliner">
-                        <PhotoSlot
-                            id={headliner.id}
-                            className="my-taste-photo-slot--headliner"
-                            imageUrl={headliner.imageUrl}
-                            imageAlt={headliner.imageAlt}
-                        />
-                        <p className="my-taste-headliner-name">{headliner.name}</p>
-                    </TasteCard>
-                ) : (
-                    <div className="my-taste-card-placeholder" style={{ gridArea: "headliner" }}>
-                        <SpotifyStatusMessage status={artists.status} kind="artists" />
-                    </div>
-                )}
-
-                {support.length > 0
-                    ? support.map((artist, i) => (
-                        <TasteCard key={artist.id} id={artist.id} area={`support-${i + 1}`} className="my-taste-card--support">
+            <div className="my-taste-layout">
+                <div className="my-taste-wall">
+                    {artists.status === "ready" && headliner ? (
+                        <TasteCard id={headliner.id} area="headliner" className="my-taste-card--headliner">
                             <PhotoSlot
-                                id={artist.id}
-                                className="my-taste-photo-slot--support"
-                                imageUrl={artist.imageUrl}
-                                imageAlt={artist.imageAlt}
+                                id={headliner.id}
+                                className="my-taste-photo-slot--headliner"
+                                imageUrl={headliner.imageUrl}
+                                imageAlt={headliner.imageAlt}
                             />
-                            <p className="my-taste-support-name">{artist.name}</p>
+                            <p className="my-taste-headliner-name">{headliner.name}</p>
                         </TasteCard>
-                    ))
-                    : artists.status !== "ready" && [1, 2, 3, 4].map((i) => (
-                        <div key={i} className="my-taste-card-placeholder" style={{ gridArea: `support-${i}` }} />
-                    ))}
+                    ) : (
+                        <div className="my-taste-card-placeholder" style={{ gridArea: "headliner" }}>
+                            <SpotifyStatusMessage status={artists.status} kind="artists" />
+                        </div>
+                    )}
 
-                {tracks.status === "ready" && setlist.length > 0 ? (
-                    <TasteCard id="setlist" area="setlist" className="my-taste-card--setlist">
-                        <div className="my-taste-setlist-thumbs">
-                            {setlist.slice(0, 3).map((track) => (
+                    {support.length > 0
+                        ? support.map((artist, i) => (
+                            <TasteCard key={artist.id} id={artist.id} area={`support-${i + 1}`} className="my-taste-card--support">
                                 <PhotoSlot
-                                    key={track.id}
+                                    id={artist.id}
+                                    className="my-taste-photo-slot--support"
+                                    imageUrl={artist.imageUrl}
+                                    imageAlt={artist.imageAlt}
+                                />
+                                <p className="my-taste-support-name">{artist.name}</p>
+                            </TasteCard>
+                        ))
+                        : artists.status !== "ready" && [1, 2, 3, 4].map((i) => (
+                            <div key={i} className="my-taste-card-placeholder" style={{ gridArea: `support-${i}` }} />
+                        ))}
+                </div>
+
+                {/* The crate — Task 3.5. Setlist as a stack of small torn
+                    "singles" beside the wall, not a row underneath it. Each
+                    single reuses TasteCard (same rotation/jitter/torn-edge/
+                    tape mechanism as the wall's own cards, no area prop since
+                    this is a flex column, not a grid) and PhotoSlot (same
+                    duotone/fallback/lazy-load behavior Task 3 built) — only
+                    the internal layout and size are new. */}
+                <div className="my-taste-crate">
+                    <p className="my-taste-crate-label">setlist</p>
+                    {tracks.status === "ready" && setlist.length > 0 ? (
+                        setlist.map((track, index) => (
+                            <TasteCard key={track.id ?? index} id={track.id ?? index} className="my-taste-single">
+                                <PhotoSlot
                                     id={track.id}
-                                    className="my-taste-photo-slot--thumb"
+                                    className="my-taste-photo-slot--single"
                                     imageUrl={track.imageUrl}
                                     imageAlt={track.imageAlt}
                                 />
-                            ))}
-                        </div>
-                        <ol className="my-taste-setlist">
-                            {setlist.map((track, index) => (
-                                <li key={track.id ?? index} className="my-taste-setlist-item">
-                                    <span className="my-taste-setlist-index">{index + 1}</span>
-                                    <span className="my-taste-setlist-track">{track.name}</span>
-                                    <span className="my-taste-setlist-artist">
+                                <div className="my-taste-single-text">
+                                    <span className="my-taste-single-index">{index + 1}</span>
+                                    <span className="my-taste-single-track">{track.name}</span>
+                                    <span className="my-taste-single-artist">
                                         {track.artists.map((a) => a.name).join(", ")}
                                     </span>
-                                </li>
-                            ))}
-                        </ol>
-                    </TasteCard>
-                ) : (
-                    <div className="my-taste-card-placeholder" style={{ gridArea: "setlist" }}>
-                        <SpotifyStatusMessage status={tracks.status} kind="tracks" />
-                    </div>
-                )}
+                                </div>
+                            </TasteCard>
+                        ))
+                    ) : (
+                        <div className="my-taste-card-placeholder my-taste-crate-placeholder">
+                            <SpotifyStatusMessage status={tracks.status} kind="tracks" />
+                        </div>
+                    )}
+                </div>
             </div>
         </section>
     );

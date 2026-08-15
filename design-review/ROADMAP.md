@@ -33,16 +33,18 @@ concept also changed: no longer "records as vinyl / tracks as a crate," now
 a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
 grain) — see Stage 4 below for the full 5-task sequence, and
 `stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1, 2, a
-retrofitted 2.5, and 3 (foundations, wall layout, fit-within-one-screen, real
-photography/duotone/grain) are all done — desktop still measures 1.15× one
-screen (real photos didn't move it), real Spotify images are wired in with
-duotone tinting, grain, and two verified fallback paths.
+retrofitted 2.5, 3, and a second retrofit at 3.5 are all done — foundations,
+wall layout, fit-within-one-screen, real photography/duotone/grain, and now a
+two-column restructure (wall beside a crate of setlist "singles," instead of
+a setlist row stacked below the wall). Desktop now measures **1.02×** one
+screen, down from 1.15× — the restructure, not another size cut, is what
+closed the rest of the gap.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3 — done |
+| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3, 3.5 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -58,11 +60,13 @@ duotone tinting, grain, and two verified fallback paths.
 5. Recurring: the Spotify refresh token expires roughly every 6 months (root `README.md`).
 
 **My read on immediate next step:** Stage 4 Task 4 (`#my-taste`'s entrance
-motion) — the wall is now fully built with real, duotoned photography and
-proven (no-overlap, deterministic, no-overflow, sized close to one screen,
-both fallback paths verified against real API traffic), so animating it in
-is a direct continuation with all the structural and visual risk already
-retired.
+motion) — the section is now fully built as two columns, real duotoned
+photography throughout, and proven (no-overlap in either column,
+deterministic, no-overflow down to 320px, sized to within 1.02× one screen
+at desktop, both fallback paths verified against real API traffic), so
+animating it in is a direct continuation with all the structural and visual
+risk already retired. Task 4 now needs to animate the crate's 5 singles as
+their own sequence too, not just the wall's cards.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
@@ -820,6 +824,11 @@ built and sitting next to everything else. Sequence:
    exported from `vinyl-record.jsx` in Task 1, not yet consumed), grain, image
    fallback cards. **DONE 2026-08-15** — `STATUS.md`, mechanism writeup in
    `stage4-my-taste-concept.md`.
+3.5. **Two columns** — restructure the wall + setlist row into a wall/crate
+   side-by-side layout, so section height is `max(wall, crate)` instead of
+   their sum. Retrofit, same idea as 2.5 — direct feedback that the shipped
+   result still read as "2 pages." **DONE 2026-08-15** — `STATUS.md`,
+   mechanism writeup in `stage4-my-taste-concept.md`.
 4. **Motion** — entrance animation, parallax, reduced-motion fallback.
 5. **Time-range switching** — the UI to flip between Spotify's `time_range`
    values (the server endpoints already accept it), with a `Flip`-powered
@@ -877,6 +886,26 @@ built and sitting next to everything else. Sequence:
 > desktop) — predicted, since the photo/tint layers sit outside layout flow.
 > No new product bugs found this task. Full detail in `FINDINGS.md` B26's own
 > update and `STATUS.md`.
+>
+> **Update, Task 3.5 (2026-08-15):** restructured into two columns — the wall
+> (headliner + support, unchanged mechanism) beside a new crate column of 5
+> small torn "singles" (one per track, all now carrying album art, replacing
+> Task 3's 3-thumbnail-plus-list-rows shape). Desktop **1.15× → 1.02×** one
+> screen, laptop **1.32× → 1.18×** — a structural fix, the same category of
+> move as Experience's own Task 7/8→9 (tuning a paradigm's sizes vs. replacing
+> the paradigm). Singles reuse the wall's own rotation/jitter/tear/tape
+> mechanism and Task 3's `PhotoSlot` unchanged, just applied to a new card
+> shape — their own overlap-margin recomputed for that shape's very different
+> (wide, short) proportions, and re-verified live: zero overlap in either
+> column at 1440/1024/768px. A real bug found and fixed: nesting the wall
+> inside a grid *track* instead of a block-level parent reintroduced the
+> `min-width: auto`-family trap (`FINDINGS.md` B25's own pattern, at the grid
+> level this time) — 37-107px of horizontal overflow at 390/320px that didn't
+> exist before this task, fixed with `minmax(0, ...)` tracks, re-verified 0px
+> at all 8 widths down to 320px. Mobile fit got worse on purpose (2.65× →
+> 3.01×) — the crate adds its own stacked elements below the wall at narrow
+> widths, explicitly Stage 5's problem to solve, not this task's. Full detail
+> in `STATUS.md`.
 
 ### Stage 5 — Mobile
 

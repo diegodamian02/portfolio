@@ -2504,6 +2504,39 @@ html {
   margin: var(--space-4) 0;
 }
 
+// The layout — Stage 4 Task 3.5. Two columns, wall beside crate, so the
+// section's total height is max(wall, crate) instead of wall + a setlist
+// row stacked below it (Task 3's shape). Roughly 60/40 (3fr/2fr) — the wall
+// holds 5 objects (headliner + 4 support), the crate up to 5 tracks; tuned
+// from there, not derived from a formula. Collapses to one column below
+// 600px, same breakpoint .my-taste-wall's own internal grid already used —
+// not deliberate mobile art direction (Stage 5's job), just guarding against
+// two increasingly-narrow columns breaking before that stage lands.
+.my-taste-layout {
+  display: grid;
+  // minmax(0, ...), not a bare 3fr/2fr/1fr — found live at 390/320px, not
+  // assumed: an `fr` track's own implicit minimum is `auto` (content-based),
+  // same root cause as the flex min-width: auto trap this project has hit
+  // before (FINDINGS.md B25), just at the grid-track level instead of a flex
+  // item. .my-taste-wall used to be a direct block-level child of
+  // .my-taste-section (a hard, definite width via content-column) — nesting
+  // it inside a grid TRACK instead (this task) means its own content's
+  // min-content width can now force the track wider than the section's
+  // actual available space, overflowing past the viewport at narrow widths
+  // even though nothing about .my-taste-wall's own CSS changed. Measured:
+  // without minmax(0, ...) here, .my-taste-wall rendered 403px wide inside a
+  // 342px-available mobile section, a 37px overflow at 390px (107px at
+  // 320px) that WASN'T there before this task restructured the layout.
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+  margin-top: var(--space-2);
+
+  @media (max-width: 600px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 // The wall — Stage 4 Task 2. grid-template-areas, not freehand absolute
 // positioning: overlap is structurally impossible by construction (a named
 // area can only ever be occupied by the one card assigned to it), rather
@@ -2511,10 +2544,10 @@ html {
 // fact. Headliner spans 2 columns × 2 rows so it reads as the dominant
 // object through sheer grid footprint, the way a real festival poster's
 // headliner does — not because it was placed to look bigger. The 4 support
-// acts fill the remaining 2×2 block as four independent 1×1 areas; the
-// setlist spans the full width along the bottom, sized by its own content
-// (grid-template-rows' trailing `auto`) since a 5-row track list needs more
-// height than the headliner/support rows do.
+// acts fill the remaining 2×2 block as four independent 1×1 areas. The
+// setlist is no longer part of this grid (Task 3.5 — see .my-taste-crate,
+// a sibling column via .my-taste-layout above) — was previously a third,
+// full-width row here.
 //
 // Collapses to a single un-rotated column below 600px — deliberately not a
 // second, independently-tuned set of breakpoint coordinates, it falls out
@@ -2523,18 +2556,16 @@ html {
 .my-taste-wall {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, minmax(180px, auto)) auto;
+  grid-template-rows: repeat(2, minmax(180px, auto));
   grid-template-areas:
     "headliner headliner support-1 support-2"
-    "headliner headliner support-3 support-4"
-    "setlist   setlist   setlist   setlist";
+    "headliner headliner support-3 support-4";
   // space-4 -> space-3, Task 2.5's fit pass — shrinks the margin budget
   // cardTransform() computes against from ~20px/side to ~18px/side (card
   // margin, unchanged at space-3/12px, + half this gap). Re-verified live
   // after this change (still zero overlapping pairs at 1440/1024/768px —
   // see STATUS.md), not just recomputed on paper.
   gap: var(--space-3);
-  margin-top: var(--space-2);
   text-align: left;
 
   @media (max-width: 600px) {
@@ -2545,9 +2576,34 @@ html {
       "support-1"
       "support-2"
       "support-3"
-      "support-4"
-      "setlist";
+      "support-4";
   }
+}
+
+// The crate — Task 3.5. A vertical stack of small torn "singles" beside the
+// wall (see .my-taste-single below), replacing Task 3's horizontal setlist
+// strip. display: flex + gap for vertical spacing between singles — see
+// .my-taste-single's own comment for why that gap's specific value matters,
+// not just visually.
+.my-taste-crate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-align: left;
+
+  @media (max-width: 600px) {
+    margin-top: var(--space-4);
+  }
+}
+
+.my-taste-crate-label {
+  font-family: var(--taste-font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--secondary-text);
+  margin: 0 0 var(--space-2);
 }
 
 // Occupies a card's own grid-area (loading/error/empty states, per-list —
@@ -2597,7 +2653,6 @@ html {
 .my-taste-card--support-2 { grid-area: support-2; }
 .my-taste-card--support-3 { grid-area: support-3; }
 .my-taste-card--support-4 { grid-area: support-4; }
-.my-taste-card--setlist { grid-area: setlist; }
 
 // Four distinct point sets, not one clip-path reused across every card —
 // identical torn edges on every card would read as a repeating stamp, not
@@ -2656,6 +2711,17 @@ html {
   @media (max-width: 600px) {
     display: none; // un-rotated, un-decorated single column below 600px
   }
+}
+
+// Scaled down for .my-taste-single (Task 3.5) — the default 56×20px tape
+// sized for the wall's own much bigger cards would dominate a ~70-80px-tall
+// single instead of accenting it. Same element/class as the wall's cards
+// (TasteCard renders it unconditionally), just a smaller size at this more
+// specific selector — not a second tape mechanism.
+.my-taste-single .my-taste-card-tape {
+  width: 32px;
+  height: 12px;
+  top: -6px;
 }
 
 // --card-tint fill is the FALLBACK now (Task 3), not the default — see
@@ -2769,91 +2835,85 @@ html {
   margin: 0;
 }
 
-.my-taste-setlist-thumbs {
-  display: flex;
-  // bottom margin: space-3 -> space-2, Task 2.5's fit pass.
-  margin: 0 0 var(--space-2) var(--space-3);
-}
-
-// Fanned/staggered (brief's own words), not a flat row — a small fixed
-// rotation per position (not per-id hashed; the brief only asks the CARDS'
-// own transforms to be id-derived) plus a negative margin so the three
-// thumbnails overlap slightly like real stacked photos. The lighter border
-// keeps overlapping edges legible against each other regardless of how close
-// two tints land.
-.my-taste-photo-slot--thumb {
+// Small, square, flex:none — sits beside the text block (.my-taste-single-
+// text) in a horizontal card, unlike the headliner/support slots which sit
+// ABOVE their text in a vertical one. No margin-bottom (nothing stacks below
+// it inside the single).
+.my-taste-photo-slot--single {
   flex: none;
-  width: 25%;
-  max-width: 72px;
+  width: 56px;
   aspect-ratio: 1 / 1;
-  border: 2px solid var(--taste-card-bg);
-  margin-left: -14px;
-
-  &:first-child {
-    margin-left: 0;
-    transform: rotate(-6deg);
-  }
-  &:nth-child(2) {
-    transform: rotate(3deg);
-    z-index: 1;
-  }
-  &:nth-child(3) {
-    transform: rotate(-3deg);
-  }
 }
 
-// The whole row shares the mono face — index, title and artist together —
-// rather than just the track title, so the list reads like a printed
-// setlist/ticket stub instead of mixed type sitting in a mono-styled shell.
-.my-taste-setlist {
-  font-family: var(--taste-font-mono);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  text-align: left;
-}
-
-// flex-wrap: wrap + min-width: 0 on the two text children — found live on a
-// 390px viewport in Task 1, not caught by a desktop screenshot alone: flex
-// items default to min-width: auto, which means "never shrink smaller than
-// my own content's intrinsic width" UNLESS overridden. Long combinations
-// ("I Ran (So Far Away) - Single Edit" × "A Flock Of Seagulls") don't fit
-// one line at phone widths, and without min-width: 0 the row refused to
-// shrink OR wrap — it just overflowed instead, and because nothing on this
-// page clips horizontal overflow, that widened what every OTHER element in
-// the section measured "100%" against too (FINDINGS.md B25). Carried
-// forward into the card layout unchanged — the same trap applies regardless
-// of what contains the row.
-.my-taste-setlist-item {
+// A small torn "single" sleeve — Task 3.5, replacing Task 2/3's horizontal
+// setlist strip (grid-template-areas "setlist" row + fanned thumbnails +
+// list). Deliberately reuses .my-taste-card's own base rules (background,
+// box-shadow, the id-driven rotate/jitter transform, mobile un-rotate) and
+// the SAME .my-taste-card--tear-N clip-path presets and .my-taste-card-tape
+// element TasteCard already renders — this is a new shape applied to an
+// existing mechanism, not a second one (the brief's own instruction).
+// margin/padding are intentionally NOT overridden here: .my-taste-card's own
+// defaults (space-3 margin, space-2 padding) already give this card its
+// rotation-safety budget, worked out the same way as the wall's cards —
+// see the comment below on why that specifically matters for a wide,
+// short shape like this one.
+.my-taste-single {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
-  // space-2 -> space-1, Task 2.5's fit pass — five rows means this cut
-  // compounds ×5, one of the larger single line-item wins in the pass.
-  // Still a real border-separated row, not touching the text itself.
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--secondary-text);
+  align-items: center;
+  gap: var(--space-2);
+  text-align: left;
 
-  &:last-child {
-    border-bottom: none;
-  }
+  // Rotation growth is NOT symmetric for a wide, short card the way it
+  // roughly is for the wall's more square cards: growth ≈
+  // (W·sinθ + H·(cosθ-1))/2 vertically, and a single's own width (≈389px at
+  // 1440px, 40% of the content column) massively outweighs its height
+  // (≈70-80px) in that term. At the brief's own 4° ceiling that works out to
+  // ~13-14px of vertical growth alone, ~17-18px with the ±4px jitter — more
+  // than the wall's own support cards need, despite a single being much
+  // smaller overall. .my-taste-card's margin (space-3, 12px) plus half of
+  // .my-taste-crate's own gap (space-3, 12px → 6px) gives ~18px of dead
+  // space per side, matching that need — verified live, not just by this
+  // math (a Playwright pass measures every single's real bounding box
+  // against its neighbors, same discipline as the wall's own check).
 }
 
-.my-taste-setlist-index {
-  min-width: 1.5em;
-  color: var(--secondary-text);
-}
-
-.my-taste-setlist-track {
+.my-taste-single-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0; // same flex-shrink trap as the old setlist row (FINDINGS.md
+                // B25) — a fixed-width sibling (the photo slot) plus long
+                // unpredictable text means this needs it from the start.
   flex: 1 1 auto;
+  font-family: var(--taste-font-mono);
+}
+
+.my-taste-single-index {
+  color: var(--secondary-text);
+  font-size: var(--text-xs);
+}
+
+// Single-line ellipsis, not flex-wrap (Task 1/2's own convention for the old
+// list rows) — deliberate: five differently-sized wrapped rows would break
+// the crate's own vertical rhythm (each single needs a predictable height
+// for the rotation-safety math above to hold), where a plain list row had
+// no such constraint.
+.my-taste-single-track,
+.my-taste-single-artist {
+  display: block;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-taste-single-track {
   font-weight: 700;
 }
 
-.my-taste-setlist-artist {
-  min-width: 0;
+.my-taste-single-artist {
   color: var(--secondary-text);
+  font-size: var(--text-sm);
 }
 
 //Thank you section
