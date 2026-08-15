@@ -35,4 +35,19 @@ gsap.registerPlugin(
 CustomEase.create("signature", "M0,0 C0.16,1 0.3,1 1,1");
 export const SIGNATURE_EASE = "signature";
 
+// A second, gentler curve — Experience's filmstrip snap (experience.jsx)
+// used SIGNATURE_EASE at first and live feedback called it out: "I get in
+// between years and then it locks... doesn't feel that natural." That's the
+// signature curve doing exactly what its own comment above says it's FOR —
+// front-loading almost all motion into the first third — which reads as
+// confident/snappy for instant UI feedback (a hover reveal, an entrance
+// pop), but for a scrub SETTLING to rest after a drag, the honest physical
+// comparison is a carousel or a turntable easing to a stop: an even
+// deceleration, not a lunge-then-hold. cubic-bezier(0.215, 0.61, 0.355, 1) —
+// "easeOutCubic" in most naming conventions — is the standard, well-worn
+// choice for exactly that: still a clear, un-springy ease-out, just spread
+// across the whole duration instead of front-loaded into the start of it.
+CustomEase.create("filmstripSettle", "M0,0 C0.215,0.61 0.355,1 1,1");
+export const FILMSTRIP_SETTLE_EASE = "filmstripSettle";
+
 export { gsap, ScrollTrigger, SplitText, Draggable, InertiaPlugin, DrawSVGPlugin, MotionPathPlugin, ScrambleTextPlugin };

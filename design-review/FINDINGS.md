@@ -1078,6 +1078,64 @@ rather than something that has to be independently re-verified at every
 breakpoint (the same discipline `--experience-gap`/`--experience-card-w` already
 established elsewhere in this file's history).
 
+### B23 — Experience's pin-engage flash, off-center cards (round 2), and a snap that read as a hard lock — **FOUND AND FIXED, Stage 3 Task 9 follow-up**
+
+Three more live reports arrived together after B22 shipped, on the same section.
+
+**The flash.** "Once you scroll down to experience the interaction is kinda
+abrupt... kinda glitchy." The pin's `onEnter` ran `gsap.fromTo(viewport,
+{opacity:0, scale:0.96}, {opacity:1, scale:1})`, written under the assumption
+that this WAS the section's reveal. It wasn't: `gsap.set()` already puts the
+viewport at `opacity:1` once, on mount — measured, `opacity` reads `1`
+continuously from ~450px away in normal scroll approach, well before the pin
+engages. `onEnter` was re-hiding and re-revealing already-visible content at the
+exact moment the section became `position:fixed`, measured dipping to
+**opacity 0.844** mid-fade right at that instant — the flash. Fixed by dropping
+opacity from the callback; a scale-only settle (`0.985 → 1`) keeps the "it
+caught" cue without touching opacity.
+
+**Off-center again, worse.** B22's fix (the `ENTRY_BUFFER`) solved momentum
+overshoot, but a separate cause remained: `.experience-section` (the pinned
+element) had no `min-height`, so it was only as tall as its own content, leaving
+~90px of dead space below it for the whole pin duration on a 900px window. First
+attempt — `min-height: 100(d)vh - navbar-height` plus centering title+viewport as
+one flex block (the `#about` precedent) — actually made the viewport's own
+offset from true center WORSE (582 vs. a true 522), because the title only ever
+sits above the viewport, never below it, so centering the combined block still
+leaves the viewport itself below the block's center by roughly half the title's
+footprint. Landed on centering `.experience-viewport` independently via
+`position: absolute; top: calc(50% - height/2)`, title left in normal flow at
+the top, entirely decoupled from where the viewport centers. Deliberately not
+`transform: translateY(-50%)` — `experience.jsx` runs `gsap.set/to` with `scale`
+on this same element, and GSAP's own inline `transform` write silently
+overwrites a stylesheet transform the instant either runs (confirmed: tried
+`translateY(-50%)` first, watched it snap back to the top the moment
+`gsap.set()` fired on mount). `top: calc(...)` never touches `transform`, so
+nothing conflicts. Also caught in the same pass: the `min-height` needed
+`box-sizing: border-box` — without it the section rendered 820px against a
+756px `min-height` (the 64px gap exactly matching top+bottom padding), the same
+gotcha `.navbar` already carries a comment about. Re-verified at three real
+viewports post-fix, card-center-vs-true-center: 1440×900 → 0.01px, 1280×800
+(MacBook 13" M2, the viewport named in both rounds of feedback) → 0.02px,
+390×844 → 0.0px.
+
+**The snap.** "I get in between years and then it locks... doesn't feel that
+natural." The snap used `SIGNATURE_EASE`, which by design (see its own comment
+in `lib/gsap.js`) front-loads almost all its motion into the first third of the
+duration — the right character for instant UI feedback, but for a scrub settling
+to rest it reads as a lunge-then-hold. Added a second `CustomEase`,
+`filmstripSettle` (`cubic-bezier(0.215, 0.61, 0.355, 1)`, standard
+"easeOutCubic"), spread evenly across the duration instead of front-loaded, and
+raised snap duration `0.3s → 0.45s`. Verified by sampling the track's live
+transform every 20ms through a stop-and-settle: the new curve still moves
+visibly in its final ~100ms rather than reading as an instant stop. Flagged as
+the hardest of the three to fully close with a number — it's a feel complaint —
+so this is the direct, verifiable half of the fix; worth a real live re-check.
+
+Full forward/backward scrub re-verified after all three fixes (all six entries,
+both directions, matching role names in order), pin-release into `#my-taste`
+re-confirmed reachable, lint and build both clean.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

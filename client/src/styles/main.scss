@@ -1895,7 +1895,40 @@ html {
 // every prior build of this section. --panel-text/--panel-text-secondary
 // stay in real use for .experience-info and .experience-client-badge — both
 // sit on a photo/motif scrim regardless of site theme.
+// Live feedback: "id like to center the cards more to the middle."
+// Measured, not guessed: with no min-height here, this section (the pinned
+// element itself — experience.jsx pins rootRef, THIS class) was only as
+// tall as its own content (title + the fixed-footprint viewport), which
+// left ~90px of empty space below it for the entire pin duration on a
+// 900px-tall window. min-height (the same `#about`/.about-me-section
+// min-height: 100(d)vh pattern used elsewhere) reserves the full
+// navbar-cleared viewport so that dead space stops collecting below the
+// section. Safe to add directly to the pinned element here (unlike that
+// about.jsx precedent, which deliberately keeps its min-height on an
+// OUTER, non-measured wrapper): nothing in this file reads rootRef's own
+// raw height, so inflating it doesn't flatten any other calculation the
+// way it would there.
+//
+// position: relative anchors .experience-viewport's own centering below —
+// deliberately NOT solved by centering title+viewport as one flex block
+// (tried first): that puts equal leftover space above and below the
+// COMBINED block, but the title only ever sits above the viewport, never
+// below it, so the viewport itself still ends up sitting below the
+// section's true center by roughly half the title's own footprint — the
+// same complaint with smaller numbers, not actually fixed.
 .experience-section {
+  position: relative;
+  // border-box is load-bearing here too (see .navbar's own comment on this
+  // same gotcha): without it, content-box min-height excludes this
+  // element's OWN padding, so the rendered box actually came out to
+  // min-height + padding — 64px taller than the navbar-cleared viewport it
+  // was meant to exactly fill, overflowing past the bottom of the window
+  // and undermining the centering this rule exists to fix. Caught by
+  // measuring, not assumed: computed height read 820px against a 756px
+  // min-height, the gap exactly matching top+bottom padding.
+  box-sizing: border-box;
+  min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
   padding: var(--space-6) 0;
 
   @media (max-width: 768px) {
@@ -1939,12 +1972,30 @@ html {
   --experience-card-w: clamp(340px, 34vw, 620px);
   --experience-rail-h: 56px;
   --experience-media-aspect: 1.5; // 3:2, landscape — a photo, not a portrait crop
-  position: relative;
   // card height = card-w / aspect; viewport height = rail + that + this
   // task's own headroom (2 × space-7) so the active card's 1.08x center-
   // focus scale-up (experience.jsx) never presses against this element's
-  // own overflow: hidden edge.
-  height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-7));
+  // own overflow: hidden edge. Named as its own token (not just an inline
+  // `height:` calc) because `top` below needs the SAME number to center
+  // this box within .experience-section — two independently-typed copies
+  // of this formula is exactly the "two guessed numbers drifted apart"
+  // mistake this file's own history already made once (the aspect-ratio
+  // bug above).
+  --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-7));
+  // Absolutely positioned and centered via top/height math, NOT
+  // `transform: translateY(-50%)` — experience.jsx runs gsap.set/to with
+  // `scale` on this exact element (the pin-engage settle, mount reveal),
+  // and GSAP writes its own inline `transform`, which would silently
+  // overwrite a stylesheet transform the instant either of those ran
+  // (effectively on mount, i.e. always) — this box would recenter to the
+  // top the first frame JS touched it. `top: calc(50% - height/2)` gets
+  // the same vertical centering without ever touching `transform`, so it
+  // has nothing to conflict with.
+  position: absolute;
+  top: calc(50% - var(--experience-vp-height) / 2);
+  left: 0;
+  right: 0;
+  height: var(--experience-vp-height);
   max-width: min(96vw, 1600px);
   margin: 0 auto;
   overflow: hidden;
@@ -1958,7 +2009,8 @@ html {
     --experience-card-w: clamp(240px, 78vw, 340px);
     --experience-rail-h: 44px;
     --experience-media-aspect: 1.2;
-    height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-5));
+    --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-5));
+    top: calc(50% - var(--experience-vp-height) / 2);
     max-width: 100vw;
     border-radius: 0;
   }

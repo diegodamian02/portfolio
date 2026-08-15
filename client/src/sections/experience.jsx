@@ -5,7 +5,7 @@ import rutgersCampus from "../assets/about/rutgers-campus.jpg";
 import trump from "../assets/trump.jpeg";
 import codewiz from "../assets/codewiz.jpeg";
 import { useGSAP } from "@gsap/react";
-import { gsap, SIGNATURE_EASE } from "../lib/gsap.js";
+import { gsap, SIGNATURE_EASE, FILMSTRIP_SETTLE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import WorkMotif from "../components/work-motif.jsx";
 
@@ -361,8 +361,17 @@ function ExperienceFilmstrip({ entries }) {
                         const snappedPx = ENTRY_BUFFER + cardIndex * (scrollDistance / (entries.length - 1));
                         return snappedPx / total;
                     },
-                    duration: 0.3,
-                    ease: SIGNATURE_EASE,
+                    // Live feedback: "I get in between years and then it
+                    // locks... doesn't feel that natural." Was
+                    // SIGNATURE_EASE at 0.3s — that curve front-loads
+                    // almost all its motion into the first third by design
+                    // (lib/gsap.js), which is exactly what read as a
+                    // lunge-then-hold "lock" instead of a settle. Swapped
+                    // to FILMSTRIP_SETTLE_EASE (an even, un-front-loaded
+                    // ease-out) with a slightly longer duration so the
+                    // snap reads as a glide to rest, not a snap-lock.
+                    duration: 0.45,
+                    ease: FILMSTRIP_SETTLE_EASE,
                 } : undefined,
                 onRefreshInit: measure,
                 onUpdate: updateEmphasis,
@@ -372,9 +381,25 @@ function ExperienceFilmstrip({ entries }) {
                     // cards (those are already independently driven every
                     // frame by updateEmphasis; animating them here too
                     // would fight those same-frame gsap.set() calls).
+                    //
+                    // Opacity is NOT part of this anymore. It used to
+                    // fromTo(0 -> 1) here on the theory that this was the
+                    // section's reveal — it isn't: gsap.set() below already
+                    // makes the viewport opacity:1 once, on mount, long
+                    // before the user has scrolled anywhere near this
+                    // section (confirmed by sampling: opacity already
+                    // reads 1 while the section is still 400px+ away in
+                    // normal document flow). So this fromTo was re-hiding
+                    // and re-revealing content that was already fully
+                    // visible, at the exact moment the pin engaged —
+                    // measured mid-fade opacity dipping to ~0.84 right as
+                    // the section snapped to `position: fixed`, which is
+                    // the "abrupt... glitchy" flash live feedback called
+                    // out. A scale-only settle keeps the tactile "it just
+                    // caught" cue without ever touching opacity.
                     gsap.fromTo(viewportRef.current,
-                        { opacity: 0, scale: 0.96 },
-                        { opacity: 1, scale: 1, duration: 0.5, ease: SIGNATURE_EASE });
+                        { scale: 0.985 },
+                        { scale: 1, duration: 0.4, ease: SIGNATURE_EASE });
                 },
             },
         });

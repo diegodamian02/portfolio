@@ -1919,6 +1919,90 @@ was never updated. Worth a correction next time that file is touched.
 dependency — flat vs. Task 7's 483.51/173.53). CSS 38.47 kB / 8.19 kB gz (up from
 Task 7's 37.08/7.96 — new selectors for the filmstrip/rail/two-tier captions).
 
+### Stage 3 Task 9 follow-up — live feedback: pin-engage flash, off-center cards, snap feel *(2026-08-15)*
+Three more live reports, all traced to real code, all fixed, none guessed at:
+
+**1. "abrupt... kinda glitchy once you scroll down there."** The pin's `onEnter`
+callback ran `gsap.fromTo(viewport, {opacity:0, scale:0.96}, {opacity:1, scale:1})`
+on the theory that this was the section's reveal. It wasn't — `gsap.set()` already
+sets the viewport to `opacity:1` once, on mount, long before the user has scrolled
+anywhere near the section. Measured by sampling `opacity` across the scroll range
+approaching the section: it read `1` continuously from ~450px away, well before
+the pin engaged. So `onEnter` was re-hiding and re-revealing content that was
+already fully visible, at the exact moment the section snapped to
+`position: fixed` — measured opacity dipping to **0.844** mid-fade right at
+engagement, the flash. Fixed by dropping opacity from the callback entirely;
+kept a small scale-only settle (`0.985 → 1`, `SIGNATURE_EASE`, unchanged) for the
+tactile "it caught" cue. Re-verified with 63 samples at 8px scroll resolution
+through the engagement threshold — zero samples below `opacity: 1`.
+
+**2. "id like to center the cards more to the middle."** Measured, not eyeballed:
+`.experience-section` (the pinned element itself) had no `min-height` — it was
+only as tall as its own content (title + the fixed-footprint viewport), which on
+a 900px-tall window left ~90px of dead space below the section for the *entire*
+pin duration. First attempt centered title+viewport as one flex block within a
+`min-height: 100(d)vh - navbar-height` box (the `#about` precedent) — this
+removed the dead space below but didn't actually fix the complaint: the title
+only ever sits *above* the viewport, never below it, so centering the combined
+block still left the viewport itself sitting below the section's true center by
+roughly half the title's own footprint (measured: card center at window-y 582
+against a true center of 522 — worse than the original 85px-ish offset this was
+meant to fix). Landed instead on centering `.experience-viewport` independently:
+`position: absolute; top: calc(50% - var(--experience-vp-height) / 2)`, with the
+title left in normal flow at the top, unrelated to the viewport's own placement.
+`--experience-vp-height` is the same height formula the viewport already used,
+named once so `top` and `height` can't drift apart from each other the way two
+independently-guessed clamps already caused a bug once this task (the media
+aspect-ratio fix, above). Deliberately **not** `transform: translateY(-50%)` —
+`experience.jsx` runs `gsap.set/to` with `scale` on this exact element (mount
+reveal, pin-engage settle), and GSAP writes its own inline `transform`, which
+silently overwrites a stylesheet transform the instant either of those runs
+(effectively always, since mount happens immediately) — confirmed by trying
+`translateY(-50%)` first and watching the viewport snap back to the section's
+top the moment `gsap.set()` fired. The `top: calc(...)` approach never touches
+`transform` at all, so there's nothing for GSAP to fight. Also caught, same pass:
+`.experience-section`'s `min-height` needs `box-sizing: border-box` — without it,
+the section rendered 64px *taller* than its own `min-height` (measured: 820px
+against a 756px min-height, the 64px gap exactly matching top+bottom padding),
+overflowing past the window's bottom edge and reintroducing the same class of
+bug. Same gotcha `.navbar` already has a comment about.
+
+Re-verified at three real viewports, including the MacBook 13" specifically
+named in the live feedback: card center vs. true navbar-cleared center, once
+settled —
+
+| Viewport | Card center Y | True center Y | Diff |
+|---|---|---|---|
+| 1440×900 (desktop) | 521.99 | 522.0 | **0.01px** |
+| 1280×800 (MacBook 13" M2) | 471.98 | 472.0 | **0.02px** |
+| 390×844 (mobile) | 476.0 | 476.0 | **0.0px** |
+
+**3. "the scrolling interaction to the years... I get in between years and then
+it locks... doesn't feel that natural."** The snap used `SIGNATURE_EASE` — which,
+by its own definition (`lib/gsap.js`), deliberately front-loads almost all its
+motion into the first third of the duration. That's the right character for
+instant UI feedback (a hover reveal, an entrance pop), but for a scrub *settling*
+to rest after a drag, it reads as a lunge-then-hold: nearly all the positional
+change happens in ~100ms, then the card sits dead-flat at 0.3s. Added a second,
+gentler `CustomEase` — `filmstripSettle`, the standard "easeOutCubic" curve
+(`cubic-bezier(0.215, 0.61, 0.355, 1)`), spread evenly across the whole duration
+instead of front-loaded — and bumped snap duration `0.3s → 0.45s`. Verified by
+sampling the track's live transform every 20ms through a stop-and-settle: the old
+curve's signature (~90%+ of motion in the first 25% of the window, flat
+afterward) is gone; the new curve still moves visibly in its final ~100ms rather
+than reading as an instant stop. This one is inherently the hardest of the three
+to reduce to a single number — it's a feel complaint — so the ease swap is
+the direct, verifiable fix; final judgment on whether it reads as "natural"
+enough is still worth a real live re-check.
+
+No new dependency, no new plugin. Build clean: JS 485.05 kB / 174.11 kB gz, CSS
+38.78 kB / 8.24 kB gz. Lint unchanged, 8-error baseline.
+
+**Screenshots** (`design-review/screenshots/t9-experience-followup-*.png`):
+centered desktop dark + light, the MacBook 13" viewport named in the feedback,
+mobile — all captured settled (post-pin, post-snap), confirming the centering
+fix and the absence of the opacity flash together in one set.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -1946,8 +2030,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **484.98 kB / 174.07 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **38.47 kB / 8.19 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **485.05 kB / 174.11 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **38.78 kB / 8.24 kB gz** |
 | ESLint errors | 21 | **8** |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
