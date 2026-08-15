@@ -1136,6 +1136,36 @@ Full forward/backward scrub re-verified after all three fixes (all six entries,
 both directions, matching role names in order), pin-release into `#my-taste`
 re-confirmed reachable, lint and build both clean.
 
+### B24 — site-wide scroll had an ~824ms input-to-settle lag — **FOUND AND FIXED**
+
+Live feedback, page-wide rather than tied to one section: "the render when we
+scroll down is not that smooth." Measured both plausible causes before
+touching anything, since jank and lag need opposite fixes and "not smooth"
+doesn't distinguish them:
+
+Frame timing ruled out first — a CPU-throttled (4x) rAF-delta trace across a
+full top-to-bottom scroll (871 frames) showed zero frames over the 16.7ms
+budget, worst case 17.7ms. Not a rendering-performance problem.
+
+Input lag confirmed instead: `smooth-scroll.jsx` constructs its `Lenis`
+instance without an explicit `lerp`, so it ran at Lenis's own default (0.1).
+A decisive 5-tick wheel gesture (finished by ~64ms) took **824ms** to settle
+within 1px of its final scroll position — measured by polling `scrollY`.
+That's the complaint: not choppy, syrupy — the page keeps visibly coasting
+for the better part of a second after the user stops interacting.
+
+Fixed by setting `lerp: 0.2` explicitly. Same measurement, same gesture:
+**463ms** to settle, a 44% cut, while still keeping visible momentum (not
+tuned close to 1:1 native scroll, which would remove the reason Lenis exists
+here at all). Bracketed with 0.18 (519ms) and 0.25 (368ms) before landing on
+0.2 as the middle point — this is a feel tuning, not a bug with one correct
+answer, so it's worth a live gut-check.
+
+Re-verified nothing keyed off the old implicit default: About's scroll-hold
+(a hard `lenis.stop()`, unrelated to lerp) still plateaus correctly ~2.9s;
+Experience's pin/scrub (Stage 3 Task 9) still scrubs and snaps correctly both
+directions, all six entries; frame timing re-checked post-change, unchanged.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

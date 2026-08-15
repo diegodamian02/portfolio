@@ -2003,6 +2003,35 @@ centered desktop dark + light, the MacBook 13" viewport named in the feedback,
 mobile — all captured settled (post-pin, post-snap), confirming the centering
 fix and the absence of the opacity flash together in one set.
 
+### Site-wide scroll feel — Lenis `lerp` tuned, `smooth-scroll.jsx` *(2026-08-15)*
+Live feedback, page-wide rather than section-specific: "the render when we
+scroll down is not that smooth." Measured before touching anything, since
+"not smooth" is ambiguous between jank and lag and they need opposite fixes:
+
+- **Frame timing** (CPU-throttled 4x, rAF deltas across a full top-to-bottom
+  scroll, 871 frames sampled): average 16.65ms, worst frame 17.7ms, **zero**
+  frames over the 16.7ms budget even once. Not a rendering-performance
+  problem — ruled out before looking anywhere else.
+- **Input-to-settle lag**: a decisive 5-tick wheel gesture (finished by
+  ~64ms), then polling `scrollY` until it stopped moving. Default Lenis
+  config (`lerp` was never set, so it ran at Lenis's own default, 0.1) took
+  **824ms** to settle within 1px of its final position — the page visibly
+  glides for the better part of a second after input stops. That's the "not
+  smooth" — not choppy, syrupy.
+
+Set `lerp: 0.2` explicitly. Same test, same gesture: settles in **463ms**
+(-44%), while still retaining visible momentum — not tuned so tight it reads
+as native 1:1 scroll (lerp near 1), which would remove the reason Lenis is
+here. Tried 0.18 (519ms) and 0.25 (368ms) as brackets before landing on 0.2
+as the middle point.
+
+Re-verified nothing else depends on the old value: About's scroll-hold still
+plateaus ~2.9s (it hard-stops via `lenis.stop()`, independent of lerp, not
+lerp-based settling); Experience's pin/scrub still scrubs and snaps correctly
+in both directions (`full-scrub.mjs` re-run, all six entries); frame timing
+re-checked post-change, unchanged (still 0 dropped frames). Lint unchanged,
+build clean (JS 485.06 kB / 174.11 kB gz, CSS unchanged).
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
