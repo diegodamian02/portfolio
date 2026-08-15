@@ -26,6 +26,27 @@ export function colorwayFor(id) {
     return (hash32(id) % COLORWAY_COUNT) + 1;
 }
 
+// Photo-duotone-only variant (Stage 4 Task 3.6) — NOT a second hash, the
+// same hash32(id) this file already uses for colorwayFor, just remapped
+// into 3 buckets instead of 5. colorwayFor's own 5 tokens include two
+// (--vinyl-1 "classic black", --vinyl-5 "marbled smoke") that are
+// deliberately near-neutral — correct for an actual vinyl pressing below,
+// but #my-taste applies grayscale(1) + a mix-blend-mode wash to a PHOTO,
+// not a flat label, and a near-neutral wash on top of a grayscale photo
+// just reads as a plain gray photo. With colorwayFor's 5 roughly even
+// buckets, ~2 in 5 photos hit this by construction, not chance — a real bug
+// (FINDINGS.md), not a perception issue. Scoped narrowly: colorwayFor
+// itself is untouched (black/smoke stay correct for the turntable's own
+// real vinyl below), this only governs which token a PHOTO gets tinted
+// with. Restricted to the three tokens that still read as genuinely
+// colored once blended onto a photo: amber (2), oxblood (3), midnight
+// blue (4).
+const PHOTO_COLORWAYS = [2, 3, 4];
+export function photoColorwayFor(id) {
+    if (id === null || id === undefined) return PHOTO_COLORWAYS[0];
+    return PHOTO_COLORWAYS[hash32(id) % PHOTO_COLORWAYS.length];
+}
+
 export default function VinylRecord({ track }) {
     if (!track) return null;
 

@@ -1274,6 +1274,55 @@ checks for this notation before trusting a low number.
 > purpose, so a slot never visibly changes shape between its image and
 > fallback states.
 
+### B27 — `#my-taste` photos: ~2 in 5 landed on a plain gray duotone wash — **FOUND AND FIXED, Stage 4 Task 3.6**
+
+Direct user feedback: some album/artist photos in `#my-taste` rendered visibly gray
+instead of colored. Root cause: every photo gets `grayscale(1)` then a color wash
+blended back on top via `mix-blend-mode`, using whichever `--vinyl-N` token
+`colorwayFor(id)` assigns. Two of `colorwayFor`'s five tokens — `--vinyl-1` ("classic
+black") and `--vinyl-5` ("marbled smoke") — are *deliberately* near-neutral, correct for
+an actual vinyl pressing on the turntable elsewhere on the site, but there's barely any
+color in them to blend back onto a photo. With five roughly even buckets, ~2 in 5 photos
+hit this by construction, not chance — confirmed live: Oasis's own real artist id (the
+headliner in this session's data) hashes to `colorwayFor` 1.
+
+Fixed scoped narrowly, per the brief: `colorwayFor` itself is untouched (still correct
+for the turntable's own `VinylRecord`, byte-for-byte unchanged). Added
+`photoColorwayFor(id)` (`vinyl-record.jsx`) — the *same* `hash32(id)` mixing, remapped
+into 3 buckets instead of 5, restricted to the tokens that read as genuinely colored on
+a photo: amber (`--vinyl-2`), oxblood (`--vinyl-3`), midnight blue (`--vinyl-4`). Not a
+second hash implementation, just a narrower output range on the existing one.
+`my-taste.jsx`'s `PhotoSlot` is the only call site that changed, from `colorwayFor` to
+`photoColorwayFor`.
+
+Verified two ways: a standalone reimplementation of both functions run against ~20 real
+and synthetic ids confirmed `photoColorwayFor` never returns 1 or 5 (bucket distribution
+6/6/8 across the sample — no lopsided skew toward one of the three), and that
+`colorwayFor`'s own output space is completely unaffected by the change (the same ids
+that hash to 1 or 5 under `colorwayFor` still do). Live screenshots, both themes, confirm
+no gray photos across the wall or the setlist's thumbnails.
+
+### B28 — `#my-taste` setlist card overflowed 8-11px at 1024/768px — **FOUND AND FIXED, Stage 4 Task 3.6**
+
+Introduced and fixed within the same task. Task 3.6's own rebuild of the crate's setlist
+card added `.my-taste-card--setlist { width: 100%; }`, reasoning it was a harmless,
+explicit statement of what the layout already did implicitly. Measured live instead of
+assuming: it caused 8px of horizontal overflow at 1024px, 11px at 768px.
+
+Root cause — the fourth occurrence in this codebase of the "`width: 100%` + margin or
+padding" overflow class `.navbar`'s and `.experience-section`'s own comments already
+document (previously also `#my-taste`'s own section wrapper, Task 1, `FINDINGS.md` B25):
+`.my-taste-crate`'s flex `align-items: stretch` default already sizes the card to fill
+the container's width *minus* the card's own margin (`--space-3`, `.my-taste-card`'s own
+rule); an explicit `width: 100%` on top of that claims the *full* container width in
+addition to that same margin, so the card's true footprint (width + margin) exceeds its
+container by ~24px. Only visible at 1024/768px — at 1440/1280px there's enough slack
+around the section's own `max-width`-capped content column to absorb it invisibly, which
+is exactly why a visual check alone didn't catch it.
+
+Fixed by deleting the `width: 100%` declaration — flex `stretch` was already correct
+without it. Re-verified 0px overflow at all 8 widths this project checks, 320–1440px.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

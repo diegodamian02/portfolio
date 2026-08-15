@@ -24,22 +24,24 @@ Mapped onto this site's own data:
   display typeface.
 - **Support acts (4)** — top artists #2–5 (`artists.data.slice(1, 5)`). Uniform size
   among themselves, smaller than the headliner.
-- **Setlist** — the top 5 tracks (`tracks.data`), styled like small torn "singles"
-  sleeves — album art, index, title, artist, monospace.
+- **Setlist** — the top 5 tracks (`tracks.data`), one plain numbered monospace list
+  inside a single torn/taped card — a fanned row of the top 3 tracks' album art above
+  it, the other 2 text-only. (Task 3.5 briefly rebuilt this as 5 individually torn
+  "singles," all with art; reverted at Task 3.6 — direct feedback that it read too busy.)
 
 **Layout, as of Task 3.5:** two columns, not one stacked wall. The headliner + 4 support
-acts form "the wall" (left, ~60%); the 5 setlist singles form "the crate" (right, ~40%),
-a vertical stack beside the wall rather than a strip underneath it. This is what makes the
-section's total height `max(wall, crate)` instead of `wall + crate` — see §7. Before
-Task 3.5, all six objects (headliner + 4 support + one setlist card) sat in a single
-stacked wall, setlist as a full-width row at the bottom; that shape is superseded, not a
-current description.
+acts form "the wall" (left, ~60%); the setlist forms "the crate" (right, ~40%), beside
+the wall rather than a strip underneath it. This is what makes the section's total height
+`max(wall, crate)` instead of `wall + crate` — see §7. Before Task 3.5, all six objects
+(headliner + 4 support + one setlist card) sat in a single stacked wall, setlist as a
+full-width row at the bottom; that shape is superseded, not a current description.
 
 Visual language: duotoned photos, torn/deckle card edges, tape/pin accents holding each
-card in place, a "pinned to a corkboard" tilt on every card (or "single," in the crate),
-film grain. All built as of Task 3 (§5). Three self-hosted typefaces, one per role — a
-display face for the headliner, a compressed sans for support acts, a monospace for the
-setlist — never Avenir Next, which is the system font everywhere else on the site.
+card in place, a "pinned to a corkboard" tilt on every card, film grain. All built as of
+Task 3 (§5). Three self-hosted typefaces, one per role — a display face for the headliner,
+a compressed sans for support acts, a monospace for the setlist — never Avenir Next, which
+is the system font everywhere else on the site. Photo duotones (Task 3.6) use a narrower
+`photoColorwayFor` (`vinyl-record.jsx`), not `colorwayFor` — see §8.
 
 `limit=5` on both `/api/spotify/top-artists` and `/api/spotify/top-tracks` (server.js,
 untouched since before Stage 4) is exactly headliner + 4 support, and exactly 5 setlist
@@ -62,10 +64,11 @@ everything else. Splitting keeps each task's risk isolated.
 | 2.5 | **Fit within one screen** — retrofit of the section's own first requirement ("one panel, one page"), which never got a checkable target until now. Card/photo sizes and spacing tuned down; grid architecture, tinting, torn edges/tape all untouched | **DONE** 2026-08-15 |
 | 3 | **Photography** — real photos, duotone blend layer, grain, image fallback cards | **DONE** 2026-08-15 |
 | 3.5 | **Two columns** — restructure into wall (left) + crate (right) so total height is `max(wall, crate)`, not their sum. Setlist rebuilt as small torn "singles," not a list row | **DONE** 2026-08-15 |
+| 3.6 | **Refinement pass** — headliner less dominant, crate back to one plain list (Task 3.5's "singles" read too busy), duotone bug fixed (2 of `colorwayFor`'s 5 tokens read as plain gray on a photo) | **DONE** 2026-08-15 |
 | 4 | **Motion** — entrance animation, parallax, reduced-motion fallback | Not started |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
-Full detail on Tasks 1, 2, 2.5, 3 and 3.5 (numbers, bugs found, verification) is in
+Full detail on Tasks 1, 2, 2.5, 3, 3.5 and 3.6 (numbers, bugs found, verification) is in
 `STATUS.md`'s own dated entries — this file is the durable *concept* record, `STATUS.md`
 is the *work log*.
 
@@ -319,7 +322,84 @@ six new stacked elements. Explicitly out of scope per the brief — deliberate m
 stacking is Stage 5's job; this task's only mobile obligation (no horizontal overflow) is
 met.
 
-## 7. Open items for later tasks
+> **Update, Task 3.6 (2026-08-15):** the crate's "5 individually torn singles, all with
+> art" shape above is **reverted** — direct feedback that it read too busy. Back to one
+> plain numbered list in a single card (closer to Task 3's own original shape than to
+> this section). `.my-taste-crate-label` and every `.my-taste-single*` rule this section
+> describes are deleted, not just unused. See §8 for what replaced them.
+
+## 8. Task 3.6's mechanism — dominance pull-back, list simplification, duotone fix
+
+A refinement pass on Task 3.5's shipped result, not a structural change — the two-column
+fit fix (§6) is untouched and still measures correctly (re-confirmed below).
+
+**Headliner, less dominant.** Only one lever actually did anything: the name's own
+`font-size` clamp, `clamp(2rem,4.2vw,3.5rem)` → `clamp(1.75rem,3.4vw,2.75rem)` — reverting
+to Task 2's own original value (Task 2.5 had bumped it specifically to compensate for a
+*shrinking photo*, the opposite problem). The old max (56px) exceeded this site's own
+section-title scale (`--text-xl`, max 40px) by 40% — a reasonable definition of "content
+competing with the section for attention." Tried cutting the photo `aspect-ratio` too
+(16:9 → 2:1) first; measured it had **zero effect** on the headliner's own rendered
+height, because the wall's row-spanning grid item stretches to whatever the two rows
+actually need — and the support cards (not the headliner) already set that, both before
+and after this task (see below). Reverted the aspect-ratio cut, kept only the font cut.
+
+**A real finding, not assumed:** the wall's own top-block height is set by the **support
+cards' wrapped names**, not the headliner — "Red Hot Chili Peppers" and "Stone Temple
+Pilots" wrap to 3 lines at the wall's own (narrower, since Task 3.5) column width. This
+predates Task 3.6 (present already in Task 3.5's own screenshots) and is unrelated to
+anything this task touched. Left alone — support-card sizing is outside this task's brief
+(headliner, setlist, duotone only), and touching it wasn't necessary to satisfy "headliner
+still reads less dominant."
+
+**Setlist, back to one plain list.** Reverted to Task 3's original shape (checked against
+that commit before rebuilding, per the brief) — one `TasteCard` wrapping a fanned row of
+the top 3 tracks' album art (`.my-taste-setlist-thumbs`/`.my-taste-photo-slot--thumb`)
+above a plain numbered `.my-taste-setlist` list of all 5, mono font throughout. Task 3.5's
+`.my-taste-single*` rules and `.my-taste-crate-label` are deleted, not left dead.
+
+**Duotone gray-photo bug, fixed.** `colorwayFor`'s 5 tokens include two deliberately
+near-neutral ones (`--vinyl-1` "classic black", `--vinyl-5` "marbled smoke") — correct for
+an actual vinyl pressing, wrong once `grayscale(1)` + a `mix-blend-mode` wash is applied to
+a *photo* instead: ~2 in 5 photos landed on a plain gray wash, by construction. Fixed with
+`photoColorwayFor(id)` (`vinyl-record.jsx`) — the *same* `hash32(id)` `colorwayFor` uses,
+remapped into 3 buckets instead of 5 (amber/oxblood/midnight-blue only), not a second hash.
+`colorwayFor` itself is byte-for-byte unchanged; only `my-taste.jsx`'s `PhotoSlot` switched
+which function it calls. Verified two ways: a standalone reimplementation of both functions
+against ~20 real and synthetic ids confirmed `photoColorwayFor` never returns 1 or 5 (buckets
+landed 6/6/8 — no lopsided skew), and confirmed `colorwayFor`'s own output space is
+unaffected (same ids that map to 1 or 5 under `colorwayFor` still do — e.g. Oasis's real id
+→ `colorwayFor` 1, `photoColorwayFor` 4).
+
+**A real bug found and fixed, own to this task:** the first pass added
+`.my-taste-card--setlist { width: 100%; }`, reasoning it was a harmless explicit statement.
+Measured live instead: it caused 8–11px of horizontal overflow at 1024/768px specifically.
+Root cause — `.my-taste-crate`'s flex `align-items: stretch` default already sizes the
+card correctly (container width minus the card's own margin); an explicit `width: 100%`
+claims the *full* container width on top of that same margin, so the card's true footprint
+(width + margin) exceeds its container by ~24px. The same "`width: 100%` + margin/padding"
+overflow class `.navbar`'s and `.experience-section`'s own comments already document, a
+fourth occurrence, with margin instead of padding this time. Only visible at 1024/768px —
+at 1440/1280px there was enough slack around the (already `max-width`-capped) content
+column to hide it. Fixed by deleting the `width: 100%` declaration; re-verified 0px
+overflow at all 8 widths, 320–1440px.
+
+**Fit ratio re-run — undershoots now, on purpose, not a regression.** Desktop **1.02× →
+0.72×** one screen; laptop **1.18× → 0.82×**. Two separate, both-expected causes: (1) the
+crate's own height dropped sharply (654px-equivalent territory → ~360px) simply because
+simplifying 5 separate torn cards into 1 list card removes 4 cards' worth of margin/
+padding/tape/torn-edge overhead — an inherent, correct consequence of "read too busy,
+simplify," not a bug; (2) the wall's own height (424px) is unchanged by this task (see the
+support-name-wrap finding above), so it was never the thing keeping the ratio near 1.0× in
+the first place. A ratio under 1.0× is not a failure of "fits in one screen" — it means the
+section fits **more** comfortably, with room to spare, not less. Grew the crate back
+modestly using an in-scope lever (`.my-taste-setlist-item`'s own padding, `--space-1` →
+`--space-2`) to narrow the wall/crate height gap a little (104px → 64px) without fighting
+the simplification itself; declined to chase an exact wall/crate match by inflating the
+list further, or by touching support-card sizing (out of scope). Re-verified: zero overlap
+in either column, zero horizontal overflow 320–1440px, unchanged from §6's own numbers.
+
+## 9. Open items for later tasks
 
 - **Task 5**'s `Flip` re-rank needs to account for the deterministic-by-id transform:
   if the headliner changes after a time-range switch, its new rotation/jitter/tear/tape
@@ -329,11 +409,16 @@ met.
 - **Task 4**'s entrance animation should account for the now-real `<img>` elements — a
   `SplitText`/fade-in timed against `naturalWidth`/`complete` on a lazy-loaded image that
   hasn't finished fetching yet could animate an empty box. Worth a load-state check that
-  didn't need to exist while every slot was a synchronous flat `<div>`. Also now needs to
-  animate the crate's 5 singles as their own sequence, not just the wall's cards — a new
-  set of elements Task 3.5 added.
-- **Stage 5**'s mobile pass should look at the crate specifically — a stack of six
-  additional elements (label + 5 singles) below the wall's own stack is the direct cause
-  of mobile's fit ratio getting worse this task (2.65× → 3.01×), and is exactly the kind
-  of thing deliberate mobile art direction (rather than "guard against outright breakage,"
-  this task's only mobile obligation) should address.
+  didn't need to exist while every slot was a synchronous flat `<div>`. (Task 3.6's revert
+  means this is back to animating one setlist card, not 5 singles — simpler than Task 3.5
+  left it.)
+- **Support-card name wrapping** ("Red Hot Chili Peppers," "Stone Temple Pilots" → 3
+  lines) is now a *confirmed* driver of the wall's own height, not a guess — found while
+  investigating Task 3.6's fit-ratio drop. Not fixed this task (out of scope), but worth a
+  deliberate look whenever support-card styling is next touched: three-line names read
+  more cramped than a one/two-line name would, independent of the fit-ratio question.
+- **Stage 5**'s mobile pass should look at the crate specifically — Task 3.5 found a stack
+  of six additional elements (label + 5 singles) drove mobile's fit ratio up (2.65×→3.01×);
+  Task 3.6's revert to one list card brought it back down to **2.73×**, still worse than
+  Task 3's own 2.65×, still not this task's job to fully address — mobile art direction is
+  Stage 5's.

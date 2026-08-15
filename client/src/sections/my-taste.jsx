@@ -23,7 +23,7 @@ import "@fontsource/space-mono/latin-700.css";
 import "@fontsource/space-mono/latin-ext-400.css";
 import "@fontsource/space-mono/latin-ext-700.css";
 import "../styles/main.scss";
-import { colorwayFor } from "../components/vinyl-record.jsx";
+import { photoColorwayFor } from "../components/vinyl-record.jsx";
 import { seeded01 } from "../lib/hash.js";
 
 // Stage 4 Task 2 — the wall's structure and hierarchy: headliner (large) + 4
@@ -32,11 +32,16 @@ import { seeded01 } from "../lib/hash.js";
 // design-review/stage4-my-taste-concept.md. Torn edges and tape accents are
 // real. Task 2.5 tuned card/photo sizes to fit within roughly one screen.
 // Task 3 swapped the flat --card-tint placeholders for real Spotify images,
-// duotone-tinted. Task 3.5 (this task) split the section into two columns —
-// the wall (this grid, headliner + support only now) beside a new crate
-// column of setlist "singles" — so total section height is max(wall, crate)
-// instead of wall + a setlist row stacked below it. Still no motion, no
-// time-range UI (Tasks 4 and 5).
+// duotone-tinted. Task 3.5 split the section into two columns — the wall
+// (this grid, headliner + support only) beside a crate column for the
+// setlist — so total section height is max(wall, crate) instead of wall +
+// a setlist row stacked below it. Task 3.6 (this task) is a refinement pass:
+// the headliner reads smaller now, the crate went back to one plain
+// numbered list (Task 3.5's five individually-torn "singles" read too busy)
+// with art on only the top 3 tracks, and photo duotones use a narrower
+// photoColorwayFor (vinyl-record.jsx) instead of colorwayFor — two of
+// colorwayFor's five tokens are near-neutral (correct for real vinyl,
+// wrong for a photo wash). Still no motion, no time-range UI (Tasks 4/5).
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
 
 async function fetchTopItems(kind) {
@@ -166,13 +171,19 @@ function TasteCard({ id, area, className, children }) {
 // are position:absolute + inset:0 inside the slot (position:relative,
 // main.scss), so neither touches the slot's own aspect-ratio/rotation/
 // jitter box — additive to Task 2's structure, per the brief.
+//
+// photoColorwayFor, not colorwayFor (Task 3.6) — same deterministic hash,
+// restricted to the 3 tokens that read as genuinely colored once blended
+// onto a photo (vinyl-record.jsx's own comment has the full reasoning);
+// colorwayFor's other 2 tokens are correct for real vinyl but read as a
+// plain gray photo here.
 function PhotoSlot({ id, className, imageUrl, imageAlt }) {
     const [failed, setFailed] = useState(false);
     const showImage = Boolean(imageUrl) && !failed;
     return (
         <div
             className={`my-taste-photo-slot ${className}`}
-            style={{ "--card-tint": `var(--vinyl-${colorwayFor(id)})` }}
+            style={{ "--card-tint": `var(--vinyl-${photoColorwayFor(id)})` }}
         >
             {showImage && (
                 <>
@@ -204,8 +215,8 @@ export default function MyTaste() {
     // limit=5 on both server endpoints (server.js, untouched since Task 1) is
     // exactly headliner + 4 support acts — don't add a 6th artist or a 4th
     // support act without re-deriving the wall's grid (4 named support-N
-    // areas). The crate (below) isn't grid-area-bound, but was still sized
-    // this task around exactly 5 singles.
+    // areas). The crate's own list is sized around exactly 5 tracks too
+    // (setlist.slice(0, 3) for thumbnails assumes at least 3 exist).
     const headliner = artists.data[0]
         ? {
             ...artists.data[0],
@@ -265,35 +276,42 @@ export default function MyTaste() {
                         ))}
                 </div>
 
-                {/* The crate — Task 3.5. Setlist as a stack of small torn
-                    "singles" beside the wall, not a row underneath it. Each
-                    single reuses TasteCard (same rotation/jitter/torn-edge/
-                    tape mechanism as the wall's own cards, no area prop since
-                    this is a flex column, not a grid) and PhotoSlot (same
-                    duotone/fallback/lazy-load behavior Task 3 built) — only
-                    the internal layout and size are new. */}
+                {/* The crate — one plain numbered list again as of Task 3.6,
+                    not Task 3.5's five individually torn "singles" (read too
+                    busy per direct feedback). Closer to Task 3's original
+                    shape: one TasteCard (torn edge + tape, same mechanism as
+                    the wall's own cards), a fanned row of the top 3 tracks'
+                    art up top, then the full 5-track list below it — only
+                    the top 3 carry art, not all 5, so the crate isn't
+                    "1 card containing a card each." */}
                 <div className="my-taste-crate">
-                    <p className="my-taste-crate-label">setlist</p>
                     {tracks.status === "ready" && setlist.length > 0 ? (
-                        setlist.map((track, index) => (
-                            <TasteCard key={track.id ?? index} id={track.id ?? index} className="my-taste-single">
-                                <PhotoSlot
-                                    id={track.id}
-                                    className="my-taste-photo-slot--single"
-                                    imageUrl={track.imageUrl}
-                                    imageAlt={track.imageAlt}
-                                />
-                                <div className="my-taste-single-text">
-                                    <span className="my-taste-single-index">{index + 1}</span>
-                                    <span className="my-taste-single-track">{track.name}</span>
-                                    <span className="my-taste-single-artist">
-                                        {track.artists.map((a) => a.name).join(", ")}
-                                    </span>
-                                </div>
-                            </TasteCard>
-                        ))
+                        <TasteCard id="setlist" className="my-taste-card--setlist">
+                            <div className="my-taste-setlist-thumbs">
+                                {setlist.slice(0, 3).map((track) => (
+                                    <PhotoSlot
+                                        key={track.id}
+                                        id={track.id}
+                                        className="my-taste-photo-slot--thumb"
+                                        imageUrl={track.imageUrl}
+                                        imageAlt={track.imageAlt}
+                                    />
+                                ))}
+                            </div>
+                            <ol className="my-taste-setlist">
+                                {setlist.map((track, index) => (
+                                    <li key={track.id ?? index} className="my-taste-setlist-item">
+                                        <span className="my-taste-setlist-index">{index + 1}</span>
+                                        <span className="my-taste-setlist-track">{track.name}</span>
+                                        <span className="my-taste-setlist-artist">
+                                            {track.artists.map((a) => a.name).join(", ")}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ol>
+                        </TasteCard>
                     ) : (
-                        <div className="my-taste-card-placeholder my-taste-crate-placeholder">
+                        <div className="my-taste-card-placeholder">
                             <SpotifyStatusMessage status={tracks.status} kind="tracks" />
                         </div>
                     )}

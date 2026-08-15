@@ -2454,6 +2454,98 @@ rewritten in place; new §6 documents this task's mechanism; §7 (open items) ge
 entries — Task 4 now also needs to animate the crate's singles, Task 5's `Flip` note is
 unchanged, and a new note flagging the crate specifically for Stage 5's mobile pass.
 
+### Stage 4 Task 3.6 — `#my-taste`: tone down headliner, simplify setlist, fix gray duotone *(2026-08-15)*
+
+Refinement pass on Task 3.5's shipped two-column layout — three direct pieces of
+feedback, not a structural change (the wall/crate fit fix itself is untouched).
+
+**Headliner size.** Only the name's own `font-size` clamp actually mattered:
+`clamp(2rem,4.2vw,3.5rem)` → `clamp(1.75rem,3.4vw,2.75rem)`, reverting to Task 2's own
+original value (Task 2.5 had bumped it to compensate for a *shrinking photo* — the
+opposite problem). The old max (56px) exceeded this site's own section-title scale
+(`--text-xl`, 40px max) by 40%. **Tried cutting the photo `aspect-ratio` too (16:9 →
+2:1) first — measured zero effect** on the headliner's own rendered height: the wall's
+row-spanning headliner stretches to whatever its two grid rows actually need, and a
+real finding surfaced doing this check — **the support cards' own wrapped names**
+("Red Hot Chili Peppers," "Stone Temple Pilots" → 3 lines at the wall's narrower,
+post-3.5 column width), not the headliner, set that height, both before and after this
+task. Confirmed this predates Task 3.6 (present in Task 3.5's own screenshots already).
+Reverted the aspect-ratio cut (no benefit), kept the font cut, left support-card sizing
+alone — outside this task's brief.
+
+**Setlist simplified back to one plain list.** Checked Task 3's original implementation
+before rebuilding, per the brief — reused almost exactly: one `TasteCard` wrapping a
+fanned row of the top 3 tracks' album art, then a plain numbered mono-font list of all 5
+below it. Task 3.5's five individually torn/taped "singles" (all carrying art) are
+deleted — `.my-taste-single*`, `.my-taste-crate-label` — not left as dead CSS.
+
+**Gray-duotone bug, fixed.** `colorwayFor`'s 5 tokens include two deliberately
+near-neutral ones (`--vinyl-1` "classic black," `--vinyl-5` "marbled smoke") — correct
+for an actual vinyl pressing, wrong once `grayscale(1)` + a blend wash hits a *photo*
+instead: ~2 in 5 photos landed on a plain gray wash, by construction, not chance. Fixed
+with a new `photoColorwayFor(id)` (`vinyl-record.jsx`) — the *same* `hash32(id)`
+`colorwayFor` already uses, remapped into 3 buckets (amber/oxblood/midnight-blue) instead
+of 5, not a second hash implementation. `colorwayFor` itself is byte-for-byte unchanged
+(still used, unmodified, by the turntable's own `VinylRecord`); only `my-taste.jsx`'s
+`PhotoSlot` switched which function it calls. **Verified two ways, not just read from the
+diff:** a standalone reimplementation of both functions against ~20 real and synthetic
+ids confirmed `photoColorwayFor` never returns 1 or 5 (bucket distribution 6/6/8 — no
+lopsided skew) and that `colorwayFor`'s own output space is completely unaffected (e.g.
+Oasis's real artist id still maps to `colorwayFor` 1, same as before — just
+`photoColorwayFor` 4 for the photo wash specifically). Live screenshots confirm no gray
+photos across the wall or setlist thumbnails, both themes.
+
+**A real bug found and fixed, own to this task:** the first pass added
+`.my-taste-card--setlist { width: 100%; }`, reasoning it was a harmless explicit
+statement. Measured live instead of assuming: it caused 8–11px of horizontal overflow at
+1024/768px specifically. Root cause — `.my-taste-crate`'s flex `align-items: stretch`
+default already sizes the card correctly (container width minus the card's own margin);
+an explicit `width: 100%` claims the *full* container width on top of that same margin,
+so the card's true footprint (width + margin) exceeds its container by ~24px — the same
+"`width: 100%` + margin/padding" overflow class `.navbar`'s and `.experience-section`'s
+own comments already document, a fourth occurrence in this codebase, margin instead of
+padding this time. Only visible at 1024/768px — at 1440/1280px there was enough slack
+around the (already `max-width`-capped) content column to hide it, which is exactly why
+it wasn't caught by eye. Fixed by deleting the `width: 100%` declaration entirely (flex
+stretch was already correct); re-verified 0px overflow at all 8 widths, 320–1440px.
+
+**Fit ratio re-run — undershoots now, on purpose, not a regression:**
+
+| Breakpoint | Task 3.5 | Task 3.6 |
+|---|---|---|
+| Desktop (1440×900) | 1.02× | **0.72×** |
+| Laptop (1280×800) | 1.18× | **0.82×** |
+| Mobile (390×844) | 3.01× | **2.73×** |
+
+Two separate, both-expected causes for the desktop/laptop drop: (1) the crate's own
+height fell sharply (~654px-equivalent territory down to ~360px) simply because
+collapsing 5 separate torn cards into 1 list card removes 4 cards' worth of margin/
+padding/tape/torn-edge overhead — the direct, correct consequence of "read too busy,
+simplify," not a bug; (2) the wall's own height (424px) is **unchanged** by this task
+(see the support-name-wrap finding above), so it was never the thing keeping desktop
+near 1.0× in the first place — that was mostly the OLD crate's own height. A ratio under
+1.0× is not a failure of "fits in one screen": the section fits *more* comfortably, with
+room to spare, not less. Grew the crate back modestly with an in-scope lever
+(`.my-taste-setlist-item`'s own padding, `--space-1` → `--space-2`) to narrow the
+wall/crate height gap (104px → 64px) without fighting the simplification itself;
+deliberately declined to chase an exact match by inflating the list further or by
+touching support-card sizing (outside this task's brief). Re-verified after every
+change: zero overlap in either column at 1440/1024/768px, zero horizontal overflow at
+all 8 widths 320–1440px.
+
+Build: JS 487.18 kB / 174.85 kB gz (+0.13 kB / +0.03 kB gz), CSS 44.95 kB / 9.57 kB gz
+(+0.08 kB / +0.07 kB gz). Lint: **7 errors, 2 expected warnings** (was 1) —
+`photoColorwayFor` is a second non-component export from `vinyl-record.jsx`, same
+`react-refresh/only-export-components` tradeoff `colorwayFor`'s own export already
+carries, not a new class of issue. Full-page smoke check clean (real data, and the two
+synthetic fallback tests below) — zero console/page errors beyond one expected 404.
+
+`design-review/stage4-my-taste-concept.md` updated: §1's setlist description reverted,
+status table's Task 3.6 row added, an update blockquote on §6 flags the "singles" shape
+as superseded, new §8 documents this task's mechanism in full, §9 (open items) gets the
+support-name-wrap finding as a new entry and the Task 4/Stage 5 items adjusted for the
+simpler (1 card, not 5) crate shape.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2481,9 +2573,9 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **487.05 kB / 174.82 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **44.87 kB / 9.50 kB gz** |
-| ESLint errors | 21 | **7** *(+1 warning, `vinyl-record.jsx` — expected, see Stage 4 Task 1)* |
+| JS bundle | 407 KB / 147 KB gz | **487.18 kB / 174.85 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **44.95 kB / 9.57 kB gz** |
+| ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
 ---

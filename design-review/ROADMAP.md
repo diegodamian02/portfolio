@@ -33,18 +33,21 @@ concept also changed: no longer "records as vinyl / tracks as a crate," now
 a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
 grain) — see Stage 4 below for the full 5-task sequence, and
 `stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1, 2, a
-retrofitted 2.5, 3, and a second retrofit at 3.5 are all done — foundations,
-wall layout, fit-within-one-screen, real photography/duotone/grain, and now a
-two-column restructure (wall beside a crate of setlist "singles," instead of
-a setlist row stacked below the wall). Desktop now measures **1.02×** one
-screen, down from 1.15× — the restructure, not another size cut, is what
-closed the rest of the gap.
+retrofitted 2.5, 3, a second retrofit at 3.5, and a refinement pass at 3.6 are
+all done — foundations, wall layout, fit-within-one-screen, real photography/
+duotone/grain, a two-column restructure (wall beside a crate for the
+setlist), and now: a smaller headliner, the crate simplified back to one
+plain list (Task 3.5's five individually-torn "singles" read too busy), and a
+real bug fix — ~2 in 5 photos were landing on a plain gray duotone wash
+(`colorwayFor`'s own near-neutral tokens, correct for real vinyl, wrong on a
+photo). Desktop now measures **0.72×** one screen — comfortably under, not a
+regression; see Task 3.6's own update for why.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3, 3.5 — done |
+| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3, 3.5, 3.6 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -61,12 +64,13 @@ closed the rest of the gap.
 
 **My read on immediate next step:** Stage 4 Task 4 (`#my-taste`'s entrance
 motion) — the section is now fully built as two columns, real duotoned
-photography throughout, and proven (no-overlap in either column,
-deterministic, no-overflow down to 320px, sized to within 1.02× one screen
-at desktop, both fallback paths verified against real API traffic), so
-animating it in is a direct continuation with all the structural and visual
-risk already retired. Task 4 now needs to animate the crate's 5 singles as
-their own sequence too, not just the wall's cards.
+photography throughout (no gray photos), and proven (no-overlap in either
+column, deterministic, no-overflow down to 320px, both fallback paths
+verified against real API traffic), so animating it in is a direct
+continuation with all the structural and visual risk already retired. The
+crate is back to one setlist card (Task 3.6 reverted Task 3.5's five
+separate "singles"), so Task 4 has one fewer independent element to
+sequence than it would have a task ago.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
@@ -829,6 +833,11 @@ built and sitting next to everything else. Sequence:
    their sum. Retrofit, same idea as 2.5 — direct feedback that the shipped
    result still read as "2 pages." **DONE 2026-08-15** — `STATUS.md`,
    mechanism writeup in `stage4-my-taste-concept.md`.
+3.6. **Refinement pass** — headliner less dominant, crate simplified back to
+   one plain list (Task 3.5's five separate "singles" read too busy), and a
+   real bug fix: ~2 in 5 photos were landing on a plain gray duotone wash.
+   **DONE 2026-08-15** — `STATUS.md`, mechanism writeup in
+   `stage4-my-taste-concept.md`.
 4. **Motion** — entrance animation, parallax, reduced-motion fallback.
 5. **Time-range switching** — the UI to flip between Spotify's `time_range`
    values (the server endpoints already accept it), with a `Flip`-powered
@@ -906,6 +915,29 @@ built and sitting next to everything else. Sequence:
 > 3.01×) — the crate adds its own stacked elements below the wall at narrow
 > widths, explicitly Stage 5's problem to solve, not this task's. Full detail
 > in `STATUS.md`.
+>
+> **Update, Task 3.6 (2026-08-15):** refinement pass, not structural — three
+> direct pieces of feedback. Headliner dominance cut via the name's own
+> `font-size` only (reverted to Task 2's original clamp value); tried cutting
+> the photo `aspect-ratio` too but measured it had **zero effect** — the
+> wall's height turned out to be set by the support cards' own wrapped names
+> ("Red Hot Chili Peppers" → 3 lines), not the headliner, a pre-existing
+> condition from Task 3.5, left alone as outside this task's scope. Crate
+> reverted from Task 3.5's five individually torn "singles" back to one plain
+> numbered list (checked Task 3's original implementation first, reused most
+> of it) — direct feedback the singles read too busy. Real bug fixed:
+> `colorwayFor`'s two near-neutral tokens (correct for real vinyl) were
+> washing ~2 in 5 photos plain gray; fixed with a new `photoColorwayFor`
+> restricted to 3 colored tokens, sharing the same hash, `colorwayFor` itself
+> untouched — full detail in `FINDINGS.md` B27. A second real bug, introduced
+> and fixed within this same task: an explicit `width: 100%` on the setlist
+> card overflowed 8-11px at 1024/768px specifically (`FINDINGS.md` B28) — a
+> fourth occurrence of the `width: 100%` + margin/padding class of bug this
+> codebase keeps re-finding. Fit ratio dropped to **0.72×** desktop (from
+> 1.02×) — not a regression: the crate's own height fell because simplifying
+> 5 cards to 1 removes real overhead, and the wall's height was never
+> touched by this task at all. Under 1.0× means comfortable room to spare,
+> not a failure of "fits in one screen." Full detail in `STATUS.md`.
 
 ### Stage 5 — Mobile
 

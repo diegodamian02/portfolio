@@ -209,7 +209,7 @@ server/
 
 design-review/     design/build planning, readable by a chat with no repo access
   ROADMAP.md        order of work (Stages 0–8) — authoritative for sequencing
-  FINDINGS.md       design analysis: numbered bugs (currently B1–B24),
+  FINDINGS.md       design analysis: numbered bugs (currently B1–B28),
                     design problems (currently D1–D13)
   STATUS.md         goal scorecard, commit changelog, decisions already made
   screenshots/      current state at desktop/mobile/light — regenerate with
