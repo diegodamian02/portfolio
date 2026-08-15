@@ -2032,6 +2032,118 @@ in both directions (`full-scrub.mjs` re-run, all six entries); frame timing
 re-checked post-change, unchanged (still 0 dropped frames). Lint unchanged,
 build clean (JS 485.06 kB / 174.11 kB gz, CSS unchanged).
 
+### Stage 4 Task 1 — `#my-taste` foundations: data, typography, semantic skeleton *(2026-08-15)*
+
+First of five tasks rebuilding `#my-taste` as a festival-lineup poster
+(headliner/support/setlist, duotoned photos, torn-edge cards, grain — full
+sequence now in `ROADMAP.md`'s Stage 4 entry, not just this session's chat).
+Deliberately jumps ahead of `ROADMAP.md`'s prior "next step" recommendation
+(`#projects`/`#connect`) — a direct call, noted here and in `ROADMAP.md` per
+the working agreement on sequencing deviations.
+
+**Split into five small tasks, not one large one, on purpose** — the same
+lesson Experience's Stage 3 Tasks 7→8→9 already paid for: bundling structural
+risk with visual polish meant each of those rebuilds only found its real
+problem once it was fully built and living next to the other. This task
+carries none of Task 2/3's layout or image risk; it only proves the data is
+shaped right and the three new typefaces are legible.
+
+**Data reshaped**, no endpoint changes: `headliner = artists.data[0]`,
+`support = artists.data.slice(1, 5)` (4 acts), `setlist = tracks.data` (all
+5). `limit=5` on both server endpoints confirmed untouched. `imageAlt` is
+computed on each reshaped object now (`headliner.name` / `artist.name` /
+`` `Album cover — ${track} by ${artist}` ``) even though nothing renders an
+`<img>` yet — the convention lives with the data, ready for Task 3, same
+discipline as `experience.jsx`'s `imageAlt` fields.
+
+**`colorwayFor` exported** from `vinyl-record.jsx` (named export, per the
+brief — not moved to its own module, which would've been the more
+Fast-Refresh-friendly choice but isn't what was asked). Console-verified:
+same id → same colorway across 20 calls; four different real artist ids
+→ colorways `[1, 4, 3, 2]`, not collapsed to one value. Not called from
+`my-taste.jsx` yet — Task 3's job.
+
+**Typography** — self-hosted via `@fontsource` (Vite-bundled, not a runtime
+Google Fonts `<link>`): Anton (headliner), Oswald 400/500/600 (support acts),
+Space Mono 400/700 (setlist). First deliberate exception to "Avenir Next
+everywhere" since Stage 3 Task 1, commented the same way
+`--panel-text`/`--panel-accent` were. Scoped entirely to `.my-taste-section`
+(`--taste-font-*` custom properties), not `:root`.
+
+Caught before shipping, not after: the package-default imports
+(`@fontsource/oswald/400.css` etc.) pull **every** unicode subset the family
+ships — cyrillic, cyrillic-ext, vietnamese — which measured out to **46 font
+files / 620KB** for three families this English-language site only ever
+renders in Latin script. Switched to the `latin-*`/`latin-ext-*` subpaths
+specifically (latin-ext kept deliberately, not trimmed further — Spotify
+artist/track names are live, uncontrolled data, and an accented name like
+Beyoncé or Björk is a real case for a "top artists" list, not a hypothetical
+one). Down to **24 files / 408KB** — smaller than one of the site's own
+photo assets (`rutgers-campus.jpg`, 425KB alone).
+
+**Semantic skeleton**: one real `<h2>` ("now spinning · my taste", styled
+small — a kicker label, not the section's own visual focus), replacing three
+equal, unhierarchied h2s ("My Spotify Journey" / "My Favorite Tracks" /
+"My Favorite Artists"). Verified via `ariaSnapshot()`: exactly one `heading
+[level=2]` announced, everything else reads as plain lists/paragraphs.
+
+**`.spotify-section` deleted entirely** (`FINDINGS.md` D10, now fixed rather
+than partially fixed) — base rule + both dead responsive blocks, ~230 lines,
+none of it carried forward or "activated." `.spotify-icon` (footer.jsx,
+unrelated) confirmed still in use and left alone. New root class
+`.my-taste-section`, per the brief, specifically to avoid reproducing D10's
+own nesting-specificity trap under a new name.
+
+**Two real bugs found and fixed before shipping** (`FINDINGS.md` B25) — both
+caught by the mobile screenshot the task's own verification step asked for,
+neither visible on desktop: a flex row missing `min-width: 0` (the classic
+`min-width: auto` flex-shrink trap) let long track/artist combinations
+overflow instead of wrapping, and that overflow cascaded into the
+support-act list overflowing too since nothing on this page clips
+`overflow-x`. Fixing it surfaced a *third* recurrence of the
+`width: 100%` + padding + missing `box-sizing: border-box` bug `.navbar` and
+Experience (`B23`) already have comments about. Re-verified zero overflow at
+320/375/390/480/768/1024/1440px.
+
+**Doc/reality mismatch flagged, not silently absorbed:** the brief states
+`popularity`/`followers` were "removed entirely from artist/track objects,
+February 2026 changelog." Checked directly against the live API response
+(not assumed): both fields, plus `genres`, are present and populated right
+now — `followers.total: 14169607`, `popularity: 84`, `genres: ["britpop",
+"madchester"]` on the live headliner. Doesn't change this task (the brief's
+actual instruction — don't reference any of the three — was followed
+regardless of the reasoning given), but worth surfacing in case a later task
+either relies on "these don't exist" or wants to revisit using them now that
+they appear to be back.
+
+**Verified**: real Spotify data end-to-end (headliner "Oasis", 4 real support
+acts, 5 real setlist tracks — not fixtures); single-h2 screen-reader pass;
+contrast measured, not eyeballed — every text role **7.65–17.44:1** in both
+themes (heading/index/artist at `--secondary-text`, headliner/support/track
+at `--text-color`, no inverted-band tokens involved so no B1/B2-class risk
+here). Lint: 7 errors (down from 8 — the reshape's own copy fixed a
+pre-existing unescaped-entity error) + 1 new warning (`react-refresh/only-
+export-components` on `vinyl-record.jsx`, an expected, harmless consequence
+of exporting `colorwayFor` from a component file, not suppressed). Build:
+JS 484.72 kB / 174.07 kB gz (flat), CSS 40.66 kB / 8.61 kB gz (+1.88 kB /
++0.37 kB gz over the pre-Task-1 baseline — small, once the subset-import fix
+landed; the naive default-import version would have added +13.48 kB / +5.76
+kB gz instead).
+
+Screenshots re-captured (`design-review/capture-screenshots.mjs`, both
+themes): `my-taste-desktop.png`, `my-taste-mobile.png`, plus `home`/
+`projects`/`about`/`connect`'s own routine re-capture from the same run
+(byte-identical content, not a regression — the script always re-captures
+its full section list). The blanket `sips` downscale command the script
+prints touches every `*-desktop.png`/`*-light.png` in the directory
+regardless of what was just captured — narrowed to only the files this run
+actually changed before running it, to avoid re-encoding ~30 unrelated
+historical screenshots from earlier tasks.
+
+Not done in this task, by design: no wall, no cards, no rotation, no photos,
+no duotone, no grain, no motion, no time-range switching. The section reads
+plainer than before — correct for where this is at, not a regression.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2059,9 +2171,9 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **485.05 kB / 174.11 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **38.78 kB / 8.24 kB gz** |
-| ESLint errors | 21 | **8** |
+| JS bundle | 407 KB / 147 KB gz | **484.72 kB / 174.07 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **40.66 kB / 8.61 kB gz** |
+| ESLint errors | 21 | **7** *(+1 warning, `vinyl-record.jsx` — expected, see Stage 4 Task 1)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
 ---

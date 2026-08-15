@@ -7,7 +7,12 @@ const COLORWAY_COUNT = 5;
 //
 // iTunes trackIds are numeric, but this falls back to a string hash so a
 // non-numeric id can't collapse every record onto colourway 1.
-function colorwayFor(id) {
+// Exported (Stage 4 Task 1) — #my-taste needs the same deterministic
+// id -> colourway mapping the hero's records already use, so a given
+// artist/track lands on the same pressing there too. Not consumed there yet
+// (Task 3 wires in the actual tinting); this only makes the function
+// reachable from outside this file, nothing about its behavior changes.
+export function colorwayFor(id) {
     if (id === null || id === undefined) return 1;
 
     // Hash the id's DIGITS rather than taking the raw value mod 5. iTunes

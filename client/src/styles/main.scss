@@ -2398,174 +2398,158 @@ html {
   color: var(--secondary-text);
 }
 
-// Spotify Action
+// My Taste — Stage 4 Task 1. Replaces .spotify-section entirely (deleted,
+// not repaired — FINDINGS.md D10 already recommended this: 9 of its 11
+// responsive declarations were dead code, silently outranked by their own
+// base rule's higher specificity, and had literally never rendered). New
+// class root per this task's own brief: reusing .spotify-section or
+// .about-section would reproduce the exact `.spotify-section .selector`
+// nesting-specificity trap D10 documents.
+//
+// This task is data/typography foundations only — no wall, no cards, no
+// photos, no motion. Layout geometry (Task 2), real images/duotone (Task 3)
+// and entrance motion (Task 4) all still read as a plain stacked list until
+// their own task lands; that starkness is correct for where this is at,
+// not a regression.
+.my-taste-section {
+  // Self-hosted (@fontsource), scoped to THIS section only — not :root, and
+  // not used anywhere else on the site. A deliberate, named exception to
+  // Stage 3's "Avenir Next everywhere" (the design-system audit above), the
+  // same way --panel-text/--panel-accent were a deliberate, commented
+  // exception for Experience's photo panels rather than silent drift: the
+  // festival-poster concept this section is becoming (ROADMAP.md, Stage 4)
+  // needs a display face for the headliner, a compressed sans for support
+  // acts and a monospace for the setlist, none of which Avenir Next can be.
+  // Self-hosting (Vite-bundled @fontsource imports, not a runtime Google
+  // Fonts <link>) keeps that need from costing a render-blocking request on
+  // a section every visitor scrolls past — goal 2's whole 152MB→9.6MB
+  // load-speed story would be working against itself otherwise.
+  --taste-font-display: "Anton", "Avenir Next", sans-serif;
+  --taste-font-support: "Oswald", "Avenir Next", sans-serif;
+  --taste-font-mono: "Space Mono", "Courier New", monospace;
 
-.spotify-section {
+  @include content-column($width: var(--content-width-wide));
+  // border-box is load-bearing here — the exact gotcha .navbar's and
+  // .experience-section's own comments already document, made again here:
+  // content-column sets width: 100%, and content-box (the default) adds
+  // padding OUTSIDE that 100% instead of inside it, so with the horizontal
+  // padding below and no border-box, this rendered 438px wide on a 390px
+  // viewport (measured — exactly 100% + 2 × 24px). Whole section overflowed
+  // the viewport as a result, and because nothing on this page clips
+  // overflow-x, that overflow is also what made the flex-wrap children
+  // below (support acts, setlist rows) measure "100%" against a wider box
+  // than the true viewport and overflow too, even where their own wrap
+  // logic was otherwise correct.
+  box-sizing: border-box;
+  // Horizontal padding, not just vertical — matches .contact-section's own
+  // fixed horizontal padding; content shouldn't touch the true edge.
+  padding: var(--space-8) var(--space-5);
+  color: var(--text-color);
+  text-align: center;
+}
+
+// Small and quiet on purpose — the headliner's own name is the section's
+// real focal content, not this label. "one real h2" per this task's brief:
+// was three equal, unhierarchied h2s before this ("My Spotify Journey" /
+// "My Favorite Tracks" / "My Favorite Artists"), which announced three
+// section headings to a screen reader for what is one section.
+.my-taste-heading {
+  font-family: var(--taste-font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--secondary-text);
+  margin: 0 0 var(--space-7);
+}
+
+.my-taste-status {
+  color: var(--secondary-text);
+  margin: var(--space-4) 0;
+}
+
+.my-taste-headliner {
+  margin-bottom: var(--space-7);
+}
+
+// Anton ships one weight (400) — there is no heavier cut to reach for, and
+// none needed: the face itself is already a condensed, all-caps poster
+// display style at 400.
+.my-taste-headliner-name {
+  font-family: var(--taste-font-display);
+  font-size: clamp(2.75rem, 8vw, 5.5rem);
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+.my-taste-support {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: 50px 0;
-  gap: 80px;
-  height: auto;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3) var(--space-6);
+  list-style: none;
+  margin: 0 0 var(--space-8);
+  padding: 0;
+}
 
-  h2 {
-    font-size: 2rem;
-    margin-bottom: 20px;
-    font-weight: bold;
-    align-items: center;
-    justify-content: center;
-  }
-  .spotify-track-image {
-    display: flex;
-    align-items: center;
-    gap: 40px;  /* Adds space between the image and the track list */
-    justify-content: center; /* Centers the image and track list */
-  }
+.my-taste-support-name {
+  font-family: var(--taste-font-support);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
 
-  .track-image {
-    width: 120px;  /* Size of the image */
-    height: 120px;
-    border-radius: 50%;  /* Crop into a circle */
-    object-fit: cover;  /* Ensure the image covers the circle without distortion */
-  }
+// The whole row shares the mono face — index, title and artist together —
+// rather than just the track title, so the list reads like a printed
+// setlist/ticket stub instead of mixed type sitting in a mono-styled shell.
+.my-taste-setlist {
+  font-family: var(--taste-font-mono);
+  list-style: none;
+  margin: 0 auto;
+  max-width: var(--content-width);
+  padding: 0;
+  text-align: left;
+}
 
+// flex-wrap: wrap + min-width: 0 on the two text children — found live on a
+// 390px viewport, not caught by the desktop screenshot alone: flex items
+// default to min-width: auto, which means "never shrink smaller than my own
+// content's intrinsic width" UNLESS overridden. Long combinations ("I Ran
+// (So Far Away) - Single Edit" × "A Flock Of Seagulls") don't fit one line
+// at phone widths, and without min-width: 0 the row refused to shrink OR
+// wrap — it just overflowed the viewport instead, and because nothing on
+// this page clips horizontal overflow, that widened what every OTHER
+// element in the section measured "100%" against (see .my-taste-section's
+// own padding comment). wrap lets the artist name drop to its own line when
+// track + artist can't both fit; min-width: 0 lets each one actually wrap
+// its own text instead of forcing the row wider.
+.my-taste-setlist-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--secondary-text);
+}
 
-  /* Top Tracks styling */
-  .spotify-track-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    align-items: center;
-    width: 80%;
-    margin-right: 70px;
-  }
+.my-taste-setlist-index {
+  min-width: 1.5em;
+  color: var(--secondary-text);
+}
 
-  .spotify-track-item {
-    display: flex;
-    // baseline, not center: center aligned the number against the midpoint of
-    // the whole two-line block, so "1" floated between "Just Like Heaven" and
-    // "The Cure" instead of labelling the title. baseline puts it on the track
-    // title's own baseline, which is the line it actually refers to.
-    align-items: baseline;
-    gap: 40px;
-    width: 80%;
-    border-bottom: 1px solid var(--text-color);
-    padding: 10px 0;
-  }
+.my-taste-setlist-track {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 700;
+}
 
-  .track-number {
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: var(--text-color);
-    // Was `padding: 5px 10px`, which started the number 10px inside the row's
-    // own border-bottom — the rule and the content it separates began at
-    // different offsets. Zero padding puts the number's left edge on the rule's
-    // left edge; the fixed width keeps every title in one column.
-    padding: 0;
-    flex: none;
-    min-width: 1.25em;
-  }
-
-  .track-details {
-    display: flex;
-    flex-direction: column;
-  }
-
-
-
-  .track-name {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--text-color);  /* Keep text color consistent */
-    text-decoration: none;  /* Remove the default underline */
-  }
-
-  .track-artist {
-    font-size: 1rem;
-    color: var(--secondary-text);
-  }
-
-
-  .track-name, .track-artist a {
-    text-decoration: none;
-    color: var(--text-color);
-  }
-
-  /* Hover effects for links (optional) */
-  .track-name:hover, .track-artist a:hover {
-    color: var(--accent);
-  }
-
-
-  /* Top Artists styling */
-  // Was flex with `justify-content: space-between` + `flex-wrap`, which threw a
-  // short final row out to the container's two edges, and `align-items: center`,
-  // which made any item with a two-line name ("Red Hot Chili Peppers") sit at a
-  // different vertical offset than its single-line neighbours — so the row of
-  // circles stepped up and down instead of sharing a top edge.
-  //
-  // Grid fixes both mechanically: columns are fixed, so a short last row stays
-  // column-aligned rather than spreading, and `align-items: start` puts every
-  // image on the same line regardless of how many lines its name takes.
-  // Explicit column counts, not auto-fit. The server hardcodes `limit=5`
-  // (server.js /me/top/:type), so there are always exactly 5 artists, and with
-  // 5 items only 5 columns (one row) or 3 columns (3+2) avoid stranding one
-  // alone on the last row. auto-fit resolved to 4 at 768px and 2 at 480px,
-  // giving 4+1 and 2+2+1 — the orphan this task exists to remove. That is
-  // arithmetic, not a design choice; revisit the counts if the limit changes.
-  .top-artists-list {
-    display: grid;
-    // minmax(0, 1fr), not 1fr: a bare 1fr floors at min-content, so the columns
-    // could not shrink below the 100px image and 5 of them overflowed the
-    // container at mobile widths. The 0 minimum lets the track shrink and the
-    // image follow it.
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    justify-items: center;
-    align-items: start;
-    gap: 28px 12px;
-    margin-top: 40px;
-    width: 70%;
-    padding: 0 20px;
-  }
-
-  .artist-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    // Fills its grid track, capped at the original 100px so desktop is
-    // unchanged. Fixed widths here can't respond to the track shrinking.
-    width: 100%;
-    max-width: 100px;
-
-    // The item's only child is the <a> wrapping image + name, so it has to do
-    // the stacking; otherwise the name's alignment depends on inherited
-    // text-align rather than the item's own box.
-    a {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-    }
-  }
-
-  // Scales with its grid track instead of a fixed 100px. The breakpoint
-  // overrides for this element (80px / 60px) have never actually applied — see
-  // the specificity note on the responsive block — so sizing has to be handled
-  // here to work at mobile widths at all. Caps at 100px, so desktop is
-  // pixel-identical to before.
-  .spotify-artist-img {
-    width: 100%;
-    aspect-ratio: 1;
-    height: auto;
-    object-fit: cover;
-    border-radius: 50%;
-  }
-
-  /* Ensure all anchor tags have no blue color or underline */
-  a {
-    color: inherit !important;  /* Inherit the color from parent */
-    text-decoration: none !important;  /* Remove underline */
-  }
+.my-taste-setlist-artist {
+  min-width: 0;
+  color: var(--secondary-text);
 }
 
 //Thank you section
@@ -3091,58 +3075,6 @@ html {
     --start-button-size: 36px;
   }
 
-  .spotify-section {
-    margin: 20px 0;  /* Reduce margin on smaller screens */
-    gap: 50px;  /* Adjust space between sections */
-  }
-
-  .spotify-track-list {
-    width: 90%;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    align-items: center;
-
-  }
-
-  // `flex-direction: column` was the whole of B8's first defect: it stacked the
-  // number ABOVE the title and, with the list's align-items: center, centred it
-  // on its own line — so "1" read as a heading rather than a label for "Just
-  // Like Heaven". The row direction from the base rule is correct at every
-  // width; only the gap needs to come down.
-  .spotify-track-item {
-    gap: 16px;
-    width: 80%;  /* Make it smaller to fit on smaller screens */
-    margin: 0 auto;
-  }
-
-  .track-image {
-    width: 60px;
-    height: 60px;
-  }
-
-  /* Adjust top artists layout */
-  // NOTE the selector: it must carry `.spotify-section` to outrank the base
-  // rule, which is nested under it. Every other override in this responsive
-  // block is written bare and therefore loses to the base and does nothing —
-  // see FINDINGS D10. Only rules the base does not declare have ever applied.
-  //
-  // 5 across is too cramped below this width, and 4 or 2 columns would strand
-  // the 5th artist alone on the last row. 3 gives a clean 3+2.
-  .spotify-section .top-artists-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .artist-item {
-    width: 80px;  /* Reduce width of artist items */
-  }
-
-  .spotify-artist-img {
-    width: 80px;  /* Reduce the size of the artist image */
-    height: 80px;
-  }
-
   .logo {
     font-size: 1.8rem;
   }
@@ -3211,38 +3143,6 @@ html {
 }
 
 @media only screen and (max-width: 480px) {
-  .spotify-section {
-    gap: 30px;  /* Reduce gap further for smaller screens */
-  }
-
-  .spotify-track-list {
-    width: 80%;
-    align-items: center;/* Make the track list almost full width */
-  }
-
-  .spotify-track-item {
-    gap: 10px;  /* Reduce gap between track number and details */
-  }
-
-  .track-image {
-    width: 60px;  /* Further reduce the image size */
-    height: 60px;
-  }
-
-  // Same as at 768px — grid now, so the flex alignment props are dropped.
-  .top-artists-list {
-    width: 100%;  /* Full width for artists list */
-  }
-
-  .artist-item {
-    width: 60px;  /* Further reduce width of artist items */
-  }
-
-  .spotify-artist-img {
-    width: 60px;  /* Reduce size of artist image */
-    height: 60px;
-  }
-
   .body {
     overflow-x: hidden;
   }
@@ -3268,16 +3168,6 @@ html {
   /* Contact Section */
   .contact-section {
     padding: 1rem;
-  }
-
-  /* Spotify Section */
-  .spotify-item {
-    width: 100px;
-  }
-  .spotify-artist-img,
-  .spotify-track-img {
-    width: 60px;
-    height: 60px;
   }
 
   /* Footer */

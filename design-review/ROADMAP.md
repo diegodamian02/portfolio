@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-14)*
+## 0. Current state — quick summary *(updated 2026-08-15)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -22,15 +22,25 @@ turntable actually plays audio), Stage 2 (Lenis/ScrollTrigger foundation),
 and — within Stage 3 — the design system itself plus a full rebuild of
 `#about` (intro card + Experience). Experience alone went through three
 builds (Tasks 7, 8, 9) chasing "big photos" and "fits on screen" at once;
-Task 9's pinned horizontal filmstrip is what actually landed both.
+Task 9's pinned horizontal filmstrip is what actually landed both. Also a
+site-wide scroll-feel tuning (Lenis `lerp`) outside any one section.
+
+**Reordered, deliberately:** Stage 4 (`#my-taste`) jumped ahead of finishing
+Stage 3's remainder (`#projects`/`#connect`) — this file's own prior "next
+step" recommendation. A direct call, not something the repo forced; noted
+here per the working agreement on sequencing deviations. `#my-taste`'s
+concept also changed: no longer "records as vinyl / tracks as a crate," now
+a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
+grain) — see Stage 4 below for the full 5-task sequence. Task 1 of 5
+(foundations — data, typography, semantic skeleton) is done.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
+| **4 (remainder)** | `#my-taste` Tasks 2–5: wall layout, real photography/duotone, entrance motion, time-range switching | Task 1 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
-| **4** | `#my-taste` redesign — the one section that gets the record/crate material language | Stage 3 (system) + Stage 1 (hero components) — both done |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
 | **6** | Turntable delight — pitch fader, scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
 | **7** | "WOW layer" — audio-reactive waveform, `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done |
@@ -43,11 +53,12 @@ Task 9's pinned horizontal filmstrip is what actually landed both.
 4. Do **not** click the Resend "Confirm email change" email sitting in the inbox — it would move the account off the working address.
 5. Recurring: the Spotify refresh token expires roughly every 6 months (root `README.md`).
 
-**My read on immediate next step:** `#projects` and `#connect` — they're what's
-left of Stage 3's own original plan, the tokens/mixins/motion signature are
-already built and proven on `#about`, and it closes out a stage instead of
-opening a new one. But this is a call for you to make, not something the repo
-forces — see §3 below for the full stage list if you want to reorder.
+**My read on immediate next step:** Stage 4 Task 2 (`#my-taste`'s wall
+layout) — it's a direct continuation of what Task 1 just set up, and the
+festival-poster concept has real momentum/context right now. `#projects`/
+`#connect` haven't gone anywhere and are still the natural close-out for
+Stage 3 whenever that's picked back up. Your call either way — see §3 below
+for the full stage list.
 
 ---
 
@@ -772,12 +783,42 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 
 ### Stage 4 — `#my-taste` redesign
 
-The one section that gets the material language. Top artists as records, top tracks
-as a crate, reusing the hero's sleeve component.
+**Superseded concept.** This section originally read "top artists as records, top
+tracks as a crate, reusing the hero's sleeve component." That's replaced —
+`#my-taste` is being rebuilt as a **festival-lineup poster** instead: a headliner
+(top artist), four support acts, and a five-track setlist, styled like a gig
+poster — duotoned photos, torn-edge cards, tape, grain, one display/support/mono
+type trio. Held until now for the same reason as before: it depends on both the
+design system (Stage 3) and the finished hero components (Stage 1). Note Stage 0's
+**B8** only made the old layout *not broken* — this stage replaces it outright.
 
-Held until now because it depends on both the design system (Stage 3) and the
-finished hero components (Stage 1). Note Stage 0's **B8** only makes the current
-layout *not broken* — this stage replaces it.
+Split into five small tasks deliberately, not one large one — Experience's own
+Stage 3 (Tasks 7→8→9) already paid for the alternative: bundling structural risk
+with visual polish meant each rebuild only found its real problem once fully
+built and sitting next to everything else. Sequence:
+
+1. **Foundations** — data reshaped into headliner/support/setlist roles, three
+   self-hosted typefaces wired (Anton/Oswald/Space Mono, scoped to this section
+   only), one real `h2`, `.spotify-section` deleted entirely. No wall, no photos,
+   no motion. **DONE 2026-08-15** — `STATUS.md`.
+2. **Layout** — the wall geometry: card positions, rotation, overlap. Flat-color
+   placeholders, still no real photos.
+3. **Photography** — real images wired in, duotone tint (`colorwayFor`, already
+   exported from `vinyl-record.jsx` in Task 1, not yet consumed), grain, image
+   fallback cards.
+4. **Motion** — entrance animation, parallax, reduced-motion fallback.
+5. **Time-range switching** — the UI to flip between Spotify's `time_range`
+   values (the server endpoints already accept it), with a `Flip`-powered
+   re-rank when the data changes underneath the poster.
+
+> **Update, Task 1 (2026-08-15):** data/typography/skeleton landed. Jumped ahead
+> of this file's own prior "next step" recommendation (`#projects`/`#connect`,
+> §0 below) — a direct call, not a forced reorder; noted here per the working
+> agreement on sequencing deviations. Two real bugs found and fixed in the same
+> pass (a flex `min-width: auto` overflow trap, and a third recurrence of the
+> `width: 100%` + padding + missing `box-sizing: border-box` bug `.navbar` and
+> Experience already have comments about) — full detail in `FINDINGS.md` B25.
+> `#projects`/`#connect` are still there, just not next anymore.
 
 ### Stage 5 — Mobile
 

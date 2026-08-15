@@ -497,7 +497,17 @@ grid using `align-items: start`, so every image shares a top edge.
 Verified at 1440 / 1024 / 768 / 480 / 390, both themes, and no horizontal overflow down
 to 320px.
 
-### D10 — every `#my-taste` responsive override is dead code — **partially fixed**
+### D10 — every `#my-taste` responsive override is dead code — **FIXED, Stage 4 Task 1**
+
+> **Update, Stage 4 Task 1:** done — this section's own closing recommendation
+> ("delete this block rather than repair it") is exactly what happened.
+> `.spotify-section` and all three of its blocks (base + 768px + 480px,
+> ~230 lines total) are deleted entirely, replaced by `.my-taste-section` and
+> a new semantic skeleton. None of the dead declarations below were carried
+> forward or "activated" — the new layout was built fresh, not patched.
+> `.spotify-icon` (footer.jsx's Spotify link icon, a different element
+> entirely) was confirmed still in use and left untouched. The history below
+> is kept for the record.
 
 Found while fixing B8, and it is the *reason* B8 existed.
 
@@ -1165,6 +1175,44 @@ Re-verified nothing keyed off the old implicit default: About's scroll-hold
 (a hard `lenis.stop()`, unrelated to lerp) still plateaus correctly ~2.9s;
 Experience's pin/scrub (Stage 3 Task 9) still scrubs and snaps correctly both
 directions, all six entries; frame timing re-checked post-change, unchanged.
+
+### B25 — `#my-taste`'s new layout overflowed the viewport at phone widths — **FOUND AND FIXED, Stage 4 Task 1**
+
+Caught by the mobile screenshot the task's own verification step asked for, not
+by the desktop one — support-act names and setlist rows bled off both edges of
+a 390px viewport. Two compounding causes, both already-documented gotchas in
+this file recurring in new selectors:
+
+1. **`.my-taste-setlist-item`'s flex row had no `min-width: 0`.** Flex items
+   default to `min-width: auto`, which means "never shrink below my own
+   content's intrinsic width" unless overridden. A long track/artist
+   combination ("I Ran (So Far Away) - Single Edit" × "A Flock Of Seagulls")
+   doesn't fit one line at phone widths, and without the override the row
+   refused to shrink or wrap — it just overflowed instead. Fixed with
+   `flex-wrap: wrap` on the row plus `min-width: 0` on the two text children,
+   so the artist drops to its own line when it doesn't fit.
+2. **That overflow cascaded.** Nothing on this page clips `overflow-x`, so the
+   oversized setlist row silently widened what every OTHER child in the
+   section measured "100%" against — the support-act list overflowed too, even
+   though its own `flex-wrap` was correctly configured and not itself at
+   fault. One root cause, two visibly broken lists.
+3. **Fixing it exposed a second, unrelated bug**: adding horizontal padding to
+   `.my-taste-section` (itself needed regardless, content shouldn't touch the
+   true edge) revealed the section had no `box-sizing: border-box` — the exact
+   gotcha `.navbar` and `.experience-section` (`B23`) already carry comments
+   about, a third time now in a third file. `width: 100%` (from the
+   `content-column` mixin) plus content-box padding rendered the section
+   48px wider than its own container (measured: 438px on a 390px viewport,
+   exactly 100% + 2 × 24px). Fixed the same way as the other two.
+
+Re-verified with zero overflow at 320/375/390/480/768/1024/1440px, and via a
+full DOM sweep for any element crossing the viewport's left/right edge (none,
+post-fix — 17 elements flagged before). Worth carrying forward as a pattern:
+any new section using `width: 100%` (directly or via `content-column`) needs
+`box-sizing: border-box` the moment padding is added to it, and any flex row
+holding two pieces of unpredictable-length text (not a fixed label) needs
+`min-width: 0` on its shrinkable children from the start, not discovered via a
+mobile screenshot after the fact.
 
 ### D13 — the two spacing systems this project has been carrying
 
