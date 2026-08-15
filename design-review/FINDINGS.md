@@ -1214,6 +1214,49 @@ holding two pieces of unpredictable-length text (not a fixed label) needs
 `min-width: 0` on its shrinkable children from the start, not discovered via a
 mobile screenshot after the fact.
 
+### B26 — `#my-taste`'s headliner photo placeholder was visually invisible in dark theme — **FOUND AND FIXED, Stage 4 Task 2**
+
+Found by looking at the first screenshot, not by measurement — the headliner
+card's placeholder photo slot rendered as a near-black rectangle
+indistinguishable from the card behind it. Root cause: the placeholder reuses
+`colorwayFor(id)` + `var(--vinyl-N)` exactly as `vinyl-record.jsx` does (per
+the task's own brief — don't invent a second tinting mechanism), and this
+particular headliner's id hashes to colorway 1, `--vinyl-1`, main.scss's own
+"classic black." That's deliberately near-invisible against a dark turntable
+deck — correct there — but the same token reused as a large flat rectangle
+next to `#my-taste`'s own card background (also dark in dark theme) reads as
+a missing/broken box instead of "black vinyl." A small record label never has
+to solve this; a large placeholder rectangle does.
+
+Fixed without touching the tinting mechanism at all (the brief's own
+constraint): added a theme-derived, low-opacity inset border to every photo
+slot — `box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-color)
+38%, transparent)` — so a slot's own boundary reads clearly regardless of how
+close a given colorway lands to the card behind it. `colorwayFor` and
+`var(--vinyl-N)` are unchanged; only the slot's own edge got a border.
+
+A second pass, same screenshot: the headliner name (Anton, the card's most
+important text after the photo) read visually small relative to how much
+card it was competing with. Traced to the photo slot's own `aspect-ratio`:
+started at 4/5 (poster-portrait), which ate almost the entire card's height
+and crowded the name into a thin strip at the bottom. Changed to 4/3 and
+raised the name's font-size clamp
+(`clamp(1.75rem,3.4vw,2.75rem)` → `clamp(2rem,4.2vw,3.5rem)`) so the name
+carries some of "headliner reads as dominant" too, not just the photo.
+
+Not a contrast-ratio bug in the WCAG sense — re-measured directly (not
+eyeballed) after fixing a separate bug in the *measurement itself*: computed
+colors from a `color-mix()` value at rest return as `color(srgb 0.91 0.91
+0.93)` (0–1 scale), not `rgb(232, 233, 238)` (0–255) — the exact notation
+gotcha `D8` already documents. A first pass parsed those digits as if they
+were already 0–255 and reported 1.12:1 (i.e., "invisible") for text that was
+clearly legible in the screenshot sitting right next to that number.
+Corrected the parser to detect and scale `color(srgb ...)` values; real
+contrast is 15.10–15.43:1 for primary text, 6.79–6.82:1 for secondary, both
+themes — comfortably passing, nowhere near the failure the unfixed script
+reported. Recorded here so the next contrast measurement in this codebase
+checks for this notation before trusting a low number.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

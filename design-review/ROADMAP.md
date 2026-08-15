@@ -31,14 +31,15 @@ step" recommendation. A direct call, not something the repo forced; noted
 here per the working agreement on sequencing deviations. `#my-taste`'s
 concept also changed: no longer "records as vinyl / tracks as a crate," now
 a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
-grain) — see Stage 4 below for the full 5-task sequence. Task 1 of 5
-(foundations — data, typography, semantic skeleton) is done.
+grain) — see Stage 4 below for the full 5-task sequence, and
+`stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1–2 of
+5 (foundations, wall layout) are done.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Tasks 2–5: wall layout, real photography/duotone, entrance motion, time-range switching | Task 1 — done |
+| **4 (remainder)** | `#my-taste` Tasks 3–5: real photography/duotone, entrance motion, time-range switching | Tasks 1–2 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -53,12 +54,13 @@ grain) — see Stage 4 below for the full 5-task sequence. Task 1 of 5
 4. Do **not** click the Resend "Confirm email change" email sitting in the inbox — it would move the account off the working address.
 5. Recurring: the Spotify refresh token expires roughly every 6 months (root `README.md`).
 
-**My read on immediate next step:** Stage 4 Task 2 (`#my-taste`'s wall
-layout) — it's a direct continuation of what Task 1 just set up, and the
-festival-poster concept has real momentum/context right now. `#projects`/
-`#connect` haven't gone anywhere and are still the natural close-out for
-Stage 3 whenever that's picked back up. Your call either way — see §3 below
-for the full stage list.
+**My read on immediate next step:** Stage 4 Task 3 (`#my-taste`'s real
+photography/duotone) — the wall's structure is now built and proven
+(no-overlap, deterministic, no-overflow), so dropping real photos in is a
+direct continuation with the riskiest structural work already done.
+`#projects`/`#connect` haven't gone anywhere and are still the natural
+close-out for Stage 3 whenever that's picked back up. Your call either way —
+see §3 below for the full stage list.
 
 ---
 
@@ -802,7 +804,8 @@ built and sitting next to everything else. Sequence:
    only), one real `h2`, `.spotify-section` deleted entirely. No wall, no photos,
    no motion. **DONE 2026-08-15** — `STATUS.md`.
 2. **Layout** — the wall geometry: card positions, rotation, overlap. Flat-color
-   placeholders, still no real photos.
+   placeholders, still no real photos. **DONE 2026-08-15** — `STATUS.md`,
+   full mechanism writeup in `stage4-my-taste-concept.md`.
 3. **Photography** — real images wired in, duotone tint (`colorwayFor`, already
    exported from `vinyl-record.jsx` in Task 1, not yet consumed), grain, image
    fallback cards.
@@ -819,6 +822,20 @@ built and sitting next to everything else. Sequence:
 > `width: 100%` + padding + missing `box-sizing: border-box` bug `.navbar` and
 > Experience already have comments about) — full detail in `FINDINGS.md` B25.
 > `#projects`/`#connect` are still there, just not next anymore.
+>
+> **Update, Task 2 (2026-08-15):** wall geometry landed — CSS Grid
+> (`grid-template-areas`), overlap structurally impossible by construction,
+> additionally verified live (zero overlapping card pairs at 1440/1024/768px).
+> Rotation/jitter deterministic per card id via a new `lib/hash.js`, shared
+> with `colorwayFor` (both now use one mixing implementation, not two).
+> `design-review/stage4-my-taste-concept.md` — the file this task's own brief
+> pointed to for prior context — **didn't exist**; written this task instead
+> of guessed around, from Tasks 1+2's briefs. Two real bugs found from the
+> first screenshot, one in the product (headliner photo placeholder
+> near-invisible in dark theme — colorway 1 reused from a context where
+> that's correct) and one in this session's own contrast-measurement script
+> (`FINDINGS.md` D8's `color(srgb ...)` 0-1-scale notation, parsed as 0-255) —
+> full detail in `FINDINGS.md` B26.
 
 ### Stage 5 — Mobile
 

@@ -2144,6 +2144,68 @@ Not done in this task, by design: no wall, no cards, no rotation, no photos,
 no duotone, no grain, no motion, no time-range switching. The section reads
 plainer than before — correct for where this is at, not a regression.
 
+### Stage 4 Task 2 — `#my-taste` layout: the wall geometry *(2026-08-15)*
+
+Second of five tasks. **The concept doc this task's brief pointed to
+(`design-review/stage4-my-taste-concept.md`) didn't exist** — flagged rather
+than guessed around, and written this task (from Task 1 + Task 2's own
+briefs, plus what actually got built) so Tasks 3–5 have it. Read that file
+for the full concept and mechanism writeup; this entry is the work-log
+version.
+
+**Grid, not freehand position** — `grid-template-areas`, 4 columns × 3 rows,
+headliner spanning 2×2 (dominant by grid footprint, not by careful
+placement), 4 support acts as independent 1×1 areas, setlist spanning the
+full width along the bottom with its own `auto`-sized row (5 track rows need
+more height than the top two rows carry). Collapses to one un-rotated column
+below 600px per the brief, confirmed zero overflow 320–1440px (9 widths
+checked).
+
+**Rotation/jitter deterministic per card id**, via a new `lib/hash.js`
+extracted from `colorwayFor`'s own mixing (Stage 1) — both now share one
+implementation instead of two that could drift. Verified: three fresh page
+loads produced byte-identical `--card-rotate`/`-jitter-x`/`-jitter-y`/
+`--tape-rotate` values per card. Overlap is structurally impossible by grid
+construction; the rotation/jitter margin budget (real math, in
+`cardTransform()`'s own comment and the concept doc) was additionally
+verified live — a Playwright pass measured every card's real post-transform
+bounding box against every other card's at 1440/1024/768px. **Zero
+overlapping pairs at all three.**
+
+**Two real bugs found and fixed, both from the first screenshot**
+(`FINDINGS.md` B26): the headliner's placeholder photo slot was
+near-invisible in dark theme (colorway 1 — "classic black" — correctly
+near-invisible against a dark turntable deck, wrong reused as a large flat
+rectangle next to this section's own card background); fixed with a
+theme-derived inset border on every photo slot, tinting mechanism itself
+untouched. And the headliner name read too small for how much card it had —
+traced to the photo slot's `aspect-ratio` (started 4/5, crowded the name into
+a thin strip; corrected to 4/3) plus a font-size bump.
+
+**A third bug, in the verification tooling itself**: a first contrast pass
+reported 1.12:1 for headliner text clearly legible in its own screenshot.
+Root cause was the measurement script, not the product — `D8`'s own
+documented `color(srgb ...)` 0-1-scale notation for a `color-mix()` value at
+rest, parsed as if it were already 0-255. Fixed the parser; real contrast is
+**15.10-15.43:1** primary text, **6.79-6.82:1** secondary, both themes.
+
+**Verified**: `colorwayFor` reused exactly as instructed (no second tinting
+mechanism); every photo slot (headliner + 4 support + 3 setlist thumbnails,
+8 total) has `isolation: isolate` set, forward-compat for Task 3's blend
+layer; setlist artist text confirmed NOT exceeding its card's own padding
+box (1220.8px vs. a 1221.9px inner edge — close by design, not overflowing);
+lint unchanged (7 errors, 1 expected warning); build JS 486.41 kB / 174.63 kB
+gz (+1.69 kB / +0.56 kB gz — `lib/hash.js`'s extraction plus the wall's own
+markup/logic), CSS 43.94 kB / 9.46 kB gz (+3.28 kB / +0.85 kB gz — the grid,
+card, tear-preset and photo-slot rules).
+
+Screenshots re-captured (both themes, desktop + mobile), same narrowed
+`sips` downscale discipline as Task 1 (only files this run actually changed,
+not the full historical set).
+
+Not done in this task, by design: no real photos, no duotone blend, no
+grain, no motion, no time-range switching UI.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2171,8 +2233,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **484.72 kB / 174.07 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **40.66 kB / 8.61 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **486.41 kB / 174.63 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **43.94 kB / 9.46 kB gz** |
 | ESLint errors | 21 | **7** *(+1 warning, `vinyl-record.jsx` — expected, see Stage 4 Task 1)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

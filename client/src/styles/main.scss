@@ -2428,6 +2428,15 @@ html {
   --taste-font-support: "Oswald", "Avenir Next", sans-serif;
   --taste-font-mono: "Space Mono", "Courier New", monospace;
 
+  // A "paper" surface for each card, distinct from the page background —
+  // computed from the theme's own tokens rather than two hand-picked hex
+  // values, so it stays correctly related to whichever theme is active
+  // without a separate light/dark declaration to keep in sync. 6% of
+  // --text-color mixed into --bg-color reads as a faint warm lift in light
+  // theme and a faint lightened navy in dark theme — "aged paper," not a
+  // flat colour swap.
+  --taste-card-bg: color-mix(in srgb, var(--text-color) 6%, var(--bg-color));
+
   @include content-column($width: var(--content-width-wide));
   // border-box is load-bearing here — the exact gotcha .navbar's and
   // .experience-section's own comments already document, made again here:
@@ -2468,16 +2477,195 @@ html {
   margin: var(--space-4) 0;
 }
 
-.my-taste-headliner {
-  margin-bottom: var(--space-7);
+// The wall — Stage 4 Task 2. grid-template-areas, not freehand absolute
+// positioning: overlap is structurally impossible by construction (a named
+// area can only ever be occupied by the one card assigned to it), rather
+// than something achieved by careful coordinates and verified after the
+// fact. Headliner spans 2 columns × 2 rows so it reads as the dominant
+// object through sheer grid footprint, the way a real festival poster's
+// headliner does — not because it was placed to look bigger. The 4 support
+// acts fill the remaining 2×2 block as four independent 1×1 areas; the
+// setlist spans the full width along the bottom, sized by its own content
+// (grid-template-rows' trailing `auto`) since a 5-row track list needs more
+// height than the headliner/support rows do.
+//
+// Collapses to a single un-rotated column below 600px — deliberately not a
+// second, independently-tuned set of breakpoint coordinates, it falls out
+// of redeclaring grid-template-areas as one column per the brief (deliberate
+// mobile art direction is Stage 5's job, not this task's).
+.my-taste-wall {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, minmax(180px, auto)) auto;
+  grid-template-areas:
+    "headliner headliner support-1 support-2"
+    "headliner headliner support-3 support-4"
+    "setlist   setlist   setlist   setlist";
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+  text-align: left;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas:
+      "headliner"
+      "support-1"
+      "support-2"
+      "support-3"
+      "support-4"
+      "setlist";
+  }
 }
 
-// Anton ships one weight (400) — there is no heavier cut to reach for, and
-// none needed: the face itself is already a condensed, all-caps poster
-// display style at 400.
+// Occupies a card's own grid-area (loading/error/empty states, per-list —
+// same discipline Task 1 established, extended here so a status message
+// keeps the grid's shape rather than collapsing it) without any of the
+// torn-edge/tape/rotation treatment real content gets.
+.my-taste-card-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+// Base card — .my-taste-wall's own `gap` plus this margin is the real,
+// laid-out (not just visual) dead space the rotation/jitter budget in
+// my-taste.jsx's cardTransform() is computed against. transform is declared
+// ONCE here, driven by --card-rotate/-jitter-x/-jitter-y custom properties
+// set per-card from JS — keeps the actual numbers in one place
+// (cardTransform's own comment) rather than duplicated into an inline
+// `transform:` string per card.
+.my-taste-card {
+  position: relative;
+  margin: var(--space-3);
+  padding: var(--space-4);
+  background: var(--taste-card-bg);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  transform:
+    rotate(var(--card-rotate, 0deg))
+    translate(var(--card-jitter-x, 0px), var(--card-jitter-y, 0px));
+  transform-origin: center center;
+
+  @media (max-width: 600px) {
+    // Un-rotated single column (brief) — overrides the per-card custom
+    // properties rather than needing JS to know the viewport width.
+    margin: var(--space-2) 0;
+    transform: none;
+  }
+}
+
+.my-taste-card--headliner { grid-area: headliner; }
+.my-taste-card--support-1 { grid-area: support-1; }
+.my-taste-card--support-2 { grid-area: support-2; }
+.my-taste-card--support-3 { grid-area: support-3; }
+.my-taste-card--support-4 { grid-area: support-4; }
+.my-taste-card--setlist { grid-area: setlist; }
+
+// Four distinct point sets, not one clip-path reused across every card —
+// identical torn edges on every card would read as a repeating stamp, not
+// hand-torn paper (the brief's own words). Each stays within 0-100% (no
+// point pokes outside the card's own box), so the torn edge never adds to
+// the rotation/jitter margin budget above — it only clips inward.
+.my-taste-card--tear-1 {
+  clip-path: polygon(
+    0% 0%, 12% 2%, 25% 0%, 38% 3%, 52% 0%, 65% 2%, 78% 0%, 90% 3%, 100% 0%,
+    98% 14%, 100% 28%, 97% 42%, 100% 56%, 98% 70%, 100% 84%, 97% 100%,
+    85% 98%, 72% 100%, 58% 97%, 45% 100%, 32% 98%, 18% 100%, 5% 97%, 0% 100%,
+    2% 86%, 0% 72%, 3% 58%, 0% 44%, 2% 30%, 0% 16%
+  );
+}
+.my-taste-card--tear-2 {
+  clip-path: polygon(
+    0% 3%, 10% 0%, 22% 2%, 35% 0%, 48% 3%, 62% 0%, 75% 2%, 88% 0%, 100% 2%,
+    97% 12%, 100% 25%, 98% 38%, 100% 52%, 97% 66%, 100% 80%, 98% 93%, 100% 100%,
+    88% 97%, 75% 100%, 62% 98%, 48% 100%, 35% 97%, 22% 100%, 8% 98%, 0% 100%,
+    3% 88%, 0% 75%, 2% 62%, 0% 48%, 3% 35%, 0% 22%, 2% 10%
+  );
+}
+.my-taste-card--tear-3 {
+  clip-path: polygon(
+    0% 1%, 15% 3%, 28% 0%, 42% 2%, 55% 0%, 68% 3%, 82% 0%, 95% 2%, 100% 0%,
+    100% 18%, 97% 32%, 100% 46%, 98% 60%, 100% 74%, 97% 88%, 100% 100%,
+    82% 98%, 68% 100%, 55% 97%, 42% 100%, 28% 98%, 15% 100%, 0% 97%,
+    2% 82%, 0% 68%, 3% 55%, 0% 42%, 2% 28%, 0% 15%
+  );
+}
+.my-taste-card--tear-4 {
+  clip-path: polygon(
+    0% 2%, 8% 0%, 20% 3%, 33% 0%, 47% 2%, 60% 0%, 73% 3%, 87% 0%, 100% 3%,
+    98% 16%, 100% 30%, 97% 44%, 100% 58%, 98% 72%, 100% 86%, 96% 100%,
+    83% 97%, 70% 100%, 56% 98%, 43% 100%, 30% 97%, 17% 100%, 3% 98%, 0% 85%,
+    2% 71%, 0% 57%, 3% 43%, 0% 29%, 2% 15%
+  );
+}
+
+// A small piece of "tape" pinning each card, rotated independently of the
+// card's own rotation (--tape-rotate, a separately-salted hash — the brief's
+// own ask, so the tape doesn't just mirror the card's tilt). Sized and
+// positioned to stay within .my-taste-wall's gap, not crossing into the row
+// above — verified live alongside the card-overlap check, not just eyeballed.
+.my-taste-card-tape {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 56px;
+  height: 20px;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  opacity: 0.55;
+  transform: translateX(-50%) rotate(var(--tape-rotate, 0deg));
+  pointer-events: none;
+
+  @media (max-width: 600px) {
+    display: none; // un-rotated, un-decorated single column below 600px
+  }
+}
+
+// Flat --card-tint fill, no image yet. isolation: isolate is load-bearing
+// for Task 3, not decoration now: a future mix-blend-mode duotone overlay
+// composites only within this element's own stacking context when it's set,
+// rather than blending against the whole page — set now so Task 3 can drop
+// an <img> + overlay in here without touching this element's own rules.
+// Found live, not eyeballed: colorway 1 ("classic black" — main.scss's own
+// --vinyl-1 comment) is deliberately near-invisible against a dark deck in
+// vinyl-record.jsx, which is correct THERE, but the same token reused here
+// as a large flat rectangle next to --taste-card-bg (also dark in dark
+// theme) reads as a missing/broken box rather than "black vinyl" — a real
+// legibility problem a small record label never has to solve. Not fixed by
+// swapping the tinting mechanism (the brief's explicit instruction is to
+// reuse var(--vinyl-N) exactly, not invent a second one) — fixed with a
+// theme-derived, low-opacity border so the SLOT's own boundary always reads
+// clearly regardless of how close a given tint lands to the card behind it.
+.my-taste-photo-slot {
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--card-tint);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-color) 38%, transparent);
+}
+
+.my-taste-photo-slot--headliner {
+  // 4:3, not the more poster-like 4:5 this started as — measured live: at
+  // 4:5 the photo alone ate almost the entire card height, crowding the
+  // headliner's own name down into a thin strip and undercutting "headliner
+  // reads as dominant," which is supposed to come from the name too, not
+  // just the photo.
+  aspect-ratio: 4 / 3;
+  margin-bottom: var(--space-3);
+}
+
+.my-taste-photo-slot--support {
+  aspect-ratio: 1 / 1;
+  margin-bottom: var(--space-2);
+}
+
 .my-taste-headliner-name {
   font-family: var(--taste-font-display);
-  font-size: clamp(2.75rem, 8vw, 5.5rem);
+  // Anton ships one weight (400) — there is no heavier cut to reach for, and
+  // none needed: the face itself is already a condensed, all-caps poster
+  // display style at 400. Sized for the headliner's own card, not the full
+  // section width the way Task 1's plain stacked layout was.
+  font-size: clamp(2rem, 4.2vw, 3.5rem);
   font-weight: 400;
   line-height: 1;
   text-transform: uppercase;
@@ -2485,22 +2673,45 @@ html {
   margin: 0;
 }
 
-.my-taste-support {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-3) var(--space-6);
-  list-style: none;
-  margin: 0 0 var(--space-8);
-  padding: 0;
-}
-
 .my-taste-support-name {
   font-family: var(--taste-font-support);
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.my-taste-setlist-thumbs {
+  display: flex;
+  margin: 0 0 var(--space-3) var(--space-3);
+}
+
+// Fanned/staggered (brief's own words), not a flat row — a small fixed
+// rotation per position (not per-id hashed; the brief only asks the CARDS'
+// own transforms to be id-derived) plus a negative margin so the three
+// thumbnails overlap slightly like real stacked photos. The lighter border
+// keeps overlapping edges legible against each other regardless of how close
+// two tints land.
+.my-taste-photo-slot--thumb {
+  flex: none;
+  width: 25%;
+  max-width: 72px;
+  aspect-ratio: 1 / 1;
+  border: 2px solid var(--taste-card-bg);
+  margin-left: -14px;
+
+  &:first-child {
+    margin-left: 0;
+    transform: rotate(-6deg);
+  }
+  &:nth-child(2) {
+    transform: rotate(3deg);
+    z-index: 1;
+  }
+  &:nth-child(3) {
+    transform: rotate(-3deg);
+  }
 }
 
 // The whole row shares the mono face — index, title and artist together —
@@ -2509,31 +2720,33 @@ html {
 .my-taste-setlist {
   font-family: var(--taste-font-mono);
   list-style: none;
-  margin: 0 auto;
-  max-width: var(--content-width);
+  margin: 0;
   padding: 0;
   text-align: left;
 }
 
 // flex-wrap: wrap + min-width: 0 on the two text children — found live on a
-// 390px viewport, not caught by the desktop screenshot alone: flex items
-// default to min-width: auto, which means "never shrink smaller than my own
-// content's intrinsic width" UNLESS overridden. Long combinations ("I Ran
-// (So Far Away) - Single Edit" × "A Flock Of Seagulls") don't fit one line
-// at phone widths, and without min-width: 0 the row refused to shrink OR
-// wrap — it just overflowed the viewport instead, and because nothing on
-// this page clips horizontal overflow, that widened what every OTHER
-// element in the section measured "100%" against (see .my-taste-section's
-// own padding comment). wrap lets the artist name drop to its own line when
-// track + artist can't both fit; min-width: 0 lets each one actually wrap
-// its own text instead of forcing the row wider.
+// 390px viewport in Task 1, not caught by a desktop screenshot alone: flex
+// items default to min-width: auto, which means "never shrink smaller than
+// my own content's intrinsic width" UNLESS overridden. Long combinations
+// ("I Ran (So Far Away) - Single Edit" × "A Flock Of Seagulls") don't fit
+// one line at phone widths, and without min-width: 0 the row refused to
+// shrink OR wrap — it just overflowed instead, and because nothing on this
+// page clips horizontal overflow, that widened what every OTHER element in
+// the section measured "100%" against too (FINDINGS.md B25). Carried
+// forward into the card layout unchanged — the same trap applies regardless
+// of what contains the row.
 .my-taste-setlist-item {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) 0;
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--secondary-text);
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
 .my-taste-setlist-index {

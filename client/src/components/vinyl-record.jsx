@@ -1,3 +1,5 @@
+import { hash32 } from "../lib/hash.js";
+
 const COLORWAY_COUNT = 5;
 
 // Deterministic, never random. The pressing is derived from the track's own id,
@@ -5,35 +7,23 @@ const COLORWAY_COUNT = 5;
 // switches and reloads. Randomising per render would make the record flicker
 // between pressings every time React re-ran.
 //
-// iTunes trackIds are numeric, but this falls back to a string hash so a
+// iTunes trackIds are numeric, but hash32 falls back to a string hash so a
 // non-numeric id can't collapse every record onto colourway 1.
+//
 // Exported (Stage 4 Task 1) — #my-taste needs the same deterministic
 // id -> colourway mapping the hero's records already use, so a given
-// artist/track lands on the same pressing there too. Not consumed there yet
-// (Task 3 wires in the actual tinting); this only makes the function
-// reachable from outside this file, nothing about its behavior changes.
+// artist/track lands on the same pressing there too. The mixing itself now
+// lives in lib/hash.js (Stage 4 Task 2, reused for card rotation/jitter) —
+// this function's own behavior is unchanged by that move, re-verified same
+// ids still produce the same colorway numbers.
 export function colorwayFor(id) {
     if (id === null || id === undefined) return 1;
-
-    // Hash the id's DIGITS rather than taking the raw value mod 5. iTunes
-    // trackIds are allocated in runs, so consecutive ids share low-order
-    // structure and a plain `% 5` clusters them — measured, five real tracks
-    // came out 5, 5, 5, 3, 4. Mixing every character spreads them.
-    let n = 0;
-    const s = String(id);
-    for (let i = 0; i < s.length; i++) {
-        n = (Math.imul(n, 31) + s.charCodeAt(i)) >>> 0;
-    }
-    // Final avalanche so the low bits aren't dominated by the last character.
-    // Every step re-coerces with >>> 0: JS bitwise operators return SIGNED
-    // 32-bit ints, so a bare `n ^= n >>> 13` flips negative above 2^31 and
-    // `n % 5` then yields a negative index — which produced var(--vinyl--1),
-    // an undefined token that silently fell back to black.
-    n = (n ^ (n >>> 15)) >>> 0;
-    n = Math.imul(n, 0x2545f491) >>> 0;
-    n = (n ^ (n >>> 13)) >>> 0;
-
-    return (n % COLORWAY_COUNT) + 1;
+    // n % 5 can't go negative here: hash32's own final step already
+    // re-coerces with >>> 0 before returning, so n is always a non-negative
+    // 32-bit value — the negative-index bug (var(--vinyl--1), silently
+    // falling back to black) was in an EARLIER version of this mixing that
+    // skipped that re-coercion; hash32 doesn't.
+    return (hash32(id) % COLORWAY_COUNT) + 1;
 }
 
 export default function VinylRecord({ track }) {
