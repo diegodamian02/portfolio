@@ -1323,6 +1323,59 @@ is exactly why a visual check alone didn't catch it.
 Fixed by deleting the `width: 100%` declaration — flex `stretch` was already correct
 without it. Re-verified 0px overflow at all 8 widths this project checks, 320–1440px.
 
+### B29 — Experience's title overlapped the cards on real windowed-browser heights — **FOUND AND FIXED**
+
+Live report: "the experience title is overlapping the display cards." Reproduced and
+measured, not just eyeballed — at a set of ordinary windowed-browser heights (not
+exotic ones — a laptop's *visible* content height after browser chrome routinely lands
+well under its full screen height), `.experience-title`'s bottom edge sat BELOW
+`.experience-viewport`'s top edge:
+
+| Viewport | Overlap |
+|---|---|
+| 1440×800 | 31px |
+| 1440×700/660/600 | 55px |
+| 1280×800 (MacBook 13" M2 — the reference size `STATUS.md`'s own B15/B22 history
+  already uses) | 13px |
+| 1280×700/600 | 55px |
+| 1024×768 | 0.25px |
+| 1024×660 | 54px |
+| 768×700 | 5.5px |
+| 390×600 | 21px |
+| 320×568 | 14.5px |
+
+Root cause: Stage 3 Task 9's own centering fix ("id like to center the cards more to
+the middle") absolutely-positioned `.experience-viewport` and centered it via
+`top: calc(50% - height / 2)` against `.experience-section`'s TOTAL height —
+deliberately blind to the title, which sits above it in normal flow. That's safe only
+as long as the section is tall enough that a section-center offset always lands below
+the title's real flow height. It isn't, reliably: `--experience-vp-height` is a fixed
+formula independent of viewport height, while the section's own height
+(`100vh - navbar`) shrinks with the window — so on a short-enough window the
+mathematically-centered box rises above the title.
+
+Fixed structurally, not by clamping `top` against a second guessed pixel floor (which
+would repeat the exact "two guessed numbers drifted apart" mistake
+`--experience-vp-height`'s own comment already warns about): `.experience-section` is
+now a flex column (title, `flex-shrink: 0`, always first; a new
+`.experience-viewport-shell`, `flex: 1 1 auto; min-height: 0`, absorbing whatever
+vertical space is actually left). The shell centers the untouched, still-exactly-
+`--experience-vp-height`-tall `.experience-viewport` within that real, browser-computed
+remainder — real layout arithmetic instead of a number that has to be re-verified by
+hand at every breakpoint. `.experience-viewport` itself, and everything inside it
+(track/rail/cards, the tuned `--space-7` headroom math the rail's alignment depends
+on), is unchanged — only where the box sits moved, not its own size or the mechanism
+GSAP scales for the pin-engage flourish.
+
+Re-verified: 0px overlap at all 17 width/height combinations above (including the
+worst ones), 0px overlap sampled continuously through an actual scroll-driven pin
+engagement (not just a hash-jump snapshot), 0px new horizontal overflow at the
+project's usual 320–1440px sweep, the reduced-motion `ExperienceStatic` fallback
+unaffected (plain document flow, no absolute positioning to begin with), and the
+pre-existing ~13px rail/date-badge vertical offset confirmed unchanged (present
+identically before this fix — not something this touched). Screenshots:
+`b29-experience-title-overlap-fixed-macbook13-{dark,light}.png`.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

@@ -2546,6 +2546,46 @@ as superseded, new §8 documents this task's mechanism in full, §9 (open items)
 support-name-wrap finding as a new entry and the Task 4/Stage 5 items adjusted for the
 simpler (1 card, not 5) crate shape.
 
+### Experience — title/cards overlap on real windowed-browser heights, fixed *(2026-08-15)*
+
+Live report: "the experience title is overlapping the display cards." Reproduced and
+measured before touching anything — at ordinary windowed-browser heights (1440×800,
+1280×800 "MacBook 13" M2," 1024×768, 768×700, 390×600, 320×568, and shorter), the
+title's bottom edge sat 0.25-55px below `.experience-viewport`'s top edge. Full table
+and root-cause writeup: `FINDINGS.md` B29.
+
+Root cause: Task 9's own centering fix ("id like to center the cards more to the
+middle") absolutely-positioned `.experience-viewport` and centered it against
+`.experience-section`'s TOTAL height via `top: calc(50% - height / 2)` — deliberately
+blind to the title sitting above it in flow. `--experience-vp-height` is a fixed
+formula independent of window height, while the section's own height shrinks with the
+window (`100vh - navbar`), so short enough windows put the mathematically-centered box
+above the title.
+
+Fixed structurally rather than by clamping `top` against a second guessed pixel
+number: `.experience-section` is now a flex column (title first, `flex-shrink: 0`,
+then a new `.experience-viewport-shell`, `flex: 1 1 auto; min-height: 0`) so the shell
+centers the untouched, still-exactly-`--experience-vp-height`-tall
+`.experience-viewport` within whatever space is actually left below the title —
+real, browser-computed layout instead of a number to re-verify by hand at every
+breakpoint. Nothing inside `.experience-viewport` changed (track/rail/cards, the
+`--space-7` headroom math the rail's alignment depends on) — only where the box sits.
+
+**Verified, not assumed:** 0px overlap at all 17 width/height combinations checked
+(the worst was 1440×600 at 55px before the fix); 0px overlap sampled continuously
+through an actual scroll-driven pin engagement, not just a hash-jump snapshot; 0px new
+horizontal overflow across the usual 320–1440px sweep; the reduced-motion
+`ExperienceStatic` fallback re-checked and unaffected (plain flow, never used absolute
+positioning); confirmed the pre-existing ~13px rail/date-badge vertical offset is
+identical before and after this fix (not something this change touched, and not a new
+issue — out of scope here). Screenshots:
+`b29-experience-title-overlap-fixed-macbook13-{dark,light}.png`.
+
+Build: JS 487.24 kB / 174.86 kB gz (+0.06 kB / +0.01 kB gz), CSS 45.05 kB / 9.58 kB gz
+(+0.10 kB / +0.01 kB gz) — a new selector (`.experience-viewport-shell`) and a
+one-element JSX wrapper, nothing structural. Lint unchanged: 7 errors, 2 expected
+warnings (same baseline as Task 3.6).
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2573,8 +2613,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **487.18 kB / 174.85 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **44.95 kB / 9.57 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **487.24 kB / 174.86 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **45.05 kB / 9.58 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

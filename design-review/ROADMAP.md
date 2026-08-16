@@ -23,7 +23,12 @@ and — within Stage 3 — the design system itself plus a full rebuild of
 `#about` (intro card + Experience). Experience alone went through three
 builds (Tasks 7, 8, 9) chasing "big photos" and "fits on screen" at once;
 Task 9's pinned horizontal filmstrip is what actually landed both. Also a
-site-wide scroll-feel tuning (Lenis `lerp`) outside any one section.
+site-wide scroll-feel tuning (Lenis `lerp`) outside any one section, and —
+most recently, a live-feedback fix landed outside the Stage 4 sequence
+below since it touches an already-"done" section — Experience's title
+overlapping its cards on real (not exotic) short windowed-browser heights;
+`STATUS.md`/`FINDINGS.md` B29 has the measurements and the structural fix
+(a flex-centered spacer replacing a section-blind absolute-center calc).
 
 **Reordered, deliberately:** Stage 4 (`#my-taste`) jumped ahead of finishing
 Stage 3's remainder (`#projects`/`#connect`) — this file's own prior "next

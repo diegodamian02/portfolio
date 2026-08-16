@@ -430,41 +430,49 @@ function ExperienceFilmstrip({ entries }) {
     return (
         <section className="experience-section" ref={rootRef}>
             <h2 className="experience-title">Experience</h2>
-            <div className="experience-viewport" ref={viewportRef}>
-                <div className="experience-track" ref={trackRef}>
-                    <svg className="experience-rail" aria-hidden="true" ref={railSvgRef}>
-                        <path className="experience-rail-path" ref={railPathRef} />
-                        <circle className="experience-rail-dot" ref={railDotRef} cx={0} cy={0} r={4} />
-                    </svg>
-                    {EXPERIENCE_ENTRIES.map((entry, i) => (
-                        <div
-                            className="experience-card"
-                            key={entry.id}
-                            ref={(el) => { if (el) cardRefs.current[i] = el; }}
-                            // Focusable so a keyboard user can reach every
-                            // card's peek-on-focus description (main.scss),
-                            // not just whichever one is currently active —
-                            // doesn't drive the scrub itself (see STATUS.md
-                            // for why: syncing scroll position to focus
-                            // order risks fighting Lenis/the pin, and
-                            // nothing in the brief asked for it).
-                            tabIndex={0}
-                            role="group"
-                            aria-label={entry.year + " — " + entry.role + (entry.caption ? " — " + entry.caption : "")}
-                        >
-                            <span
-                                className="experience-date"
-                                ref={(el) => { if (el) dateRefs.current[i] = el; }}
+            {/* Shell exists purely so the fixed-height .experience-viewport can be
+                centered within the space actually left BELOW the title (real flex
+                layout) instead of the section's total height (the old fixed
+                top: calc(50%...), which never accounted for the title at all) —
+                see main.scss for why that overlapped the title on real, common
+                window heights. */}
+            <div className="experience-viewport-shell">
+                <div className="experience-viewport" ref={viewportRef}>
+                    <div className="experience-track" ref={trackRef}>
+                        <svg className="experience-rail" aria-hidden="true" ref={railSvgRef}>
+                            <path className="experience-rail-path" ref={railPathRef} />
+                            <circle className="experience-rail-dot" ref={railDotRef} cx={0} cy={0} r={4} />
+                        </svg>
+                        {EXPERIENCE_ENTRIES.map((entry, i) => (
+                            <div
+                                className="experience-card"
+                                key={entry.id}
+                                ref={(el) => { if (el) cardRefs.current[i] = el; }}
+                                // Focusable so a keyboard user can reach every
+                                // card's peek-on-focus description (main.scss),
+                                // not just whichever one is currently active —
+                                // doesn't drive the scrub itself (see STATUS.md
+                                // for why: syncing scroll position to focus
+                                // order risks fighting Lenis/the pin, and
+                                // nothing in the brief asked for it).
+                                tabIndex={0}
+                                role="group"
+                                aria-label={entry.year + " — " + entry.role + (entry.caption ? " — " + entry.caption : "")}
                             >
-                                {entry.year}
-                            </span>
-                            <EntryMedia entry={entry} />
-                            <div className="experience-info">
-                                <h3>{entry.role}</h3>
-                                {entry.caption && <p>{entry.caption}</p>}
+                                <span
+                                    className="experience-date"
+                                    ref={(el) => { if (el) dateRefs.current[i] = el; }}
+                                >
+                                    {entry.year}
+                                </span>
+                                <EntryMedia entry={entry} />
+                                <div className="experience-info">
+                                    <h3>{entry.role}</h3>
+                                    {entry.caption && <p>{entry.caption}</p>}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
         </section>
