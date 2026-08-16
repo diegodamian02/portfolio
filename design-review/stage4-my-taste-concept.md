@@ -18,41 +18,55 @@ what Tasks 1 and 2 knew.
 `#my-taste` is being rebuilt from a plain Spotify-stats list into a **festival-lineup
 poster** — the kind of poster that lists a festival's acts by billing size, headliner
 largest at the top, support acts smaller below, with a printed setlist/schedule strip.
-Mapped onto this site's own data:
+Mapped onto this site's own data, **as of Task 3.7** (this restructured the wall's own
+hierarchy — see §10; earlier tasks' briefs below describe the shape that predates it):
 
-- **Headliner** — the visitor's #1 top artist (`artists.data[0]`). Largest card, own
-  display typeface.
-- **Support acts (4)** — top artists #2–5 (`artists.data.slice(1, 5)`). Uniform size
-  among themselves, smaller than the headliner.
+- **Featured (2)** — the visitor's #1 and #2 top artists (`artists.data.slice(0, 2)`).
+  Deliberately identical size/treatment to each other — two cards sharing one billing
+  tier, not one dominant headliner plus a second, smaller card. (Before Task 3.7: a
+  single "headliner," `artists.data[0]`, at roughly 2× the size of every other card —
+  direct feedback that this still read as one card taking too much space, even after
+  Task 3.6's font-size cut, because the wall's *entire* hierarchy lived in that one
+  comparison.)
+- **Secondary (3)** — top artists #3–5 (`artists.data.slice(2, 5)`). Uniform size among
+  themselves, clearly smaller than the featured pair. (Before Task 3.7: 4 cards, top
+  artists #2–5.)
 - **Setlist** — the top 5 tracks (`tracks.data`), one plain numbered monospace list
   inside a single torn/taped card — a fanned row of the top 3 tracks' album art above
   it, the other 2 text-only. (Task 3.5 briefly rebuilt this as 5 individually torn
   "singles," all with art; reverted at Task 3.6 — direct feedback that it read too busy.)
 
-**Layout, as of Task 3.5:** two columns, not one stacked wall. The headliner + 4 support
-acts form "the wall" (left, ~60%); the setlist forms "the crate" (right, ~40%), beside
-the wall rather than a strip underneath it. This is what makes the section's total height
-`max(wall, crate)` instead of `wall + crate` — see §7. Before Task 3.5, all six objects
-(headliner + 4 support + one setlist card) sat in a single stacked wall, setlist as a
-full-width row at the bottom; that shape is superseded, not a current description.
+**Layout, as of Task 3.5, unchanged by Task 3.7:** two columns, not one stacked wall. The
+featured pair + 3 secondary acts form "the wall" (left, ~60%); the setlist forms "the
+crate" (right, ~40%), beside the wall rather than a strip underneath it. This is what
+makes the section's total height `max(wall, crate)` instead of `wall + crate` — see §6.
+Before Task 3.5, all six objects sat in a single stacked wall, setlist as a full-width row
+at the bottom; that shape is superseded, not a current description. Task 3.7 restructured
+what's *inside* the wall column (two tiers instead of one dominant card) without touching
+this wall/crate macro-layout at all — the brief's own suggestion to try that first,
+because it reuses every already-tuned wall/crate proportion rather than re-deriving them.
 
 Visual language: duotoned photos, torn/deckle card edges, tape/pin accents holding each
 card in place, a "pinned to a corkboard" tilt on every card, film grain. All built as of
-Task 3 (§5). Three self-hosted typefaces, one per role — a display face for the headliner,
-a compressed sans for support acts, a monospace for the setlist — never Avenir Next, which
-is the system font everywhere else on the site. Photo duotones (Task 3.6) use a narrower
-`photoColorwayFor` (`vinyl-record.jsx`), not `colorwayFor` — see §8.
+Task 3 (§5), unaffected by Task 3.7's regrouping — same mechanisms, reused, not rebuilt.
+Three self-hosted typefaces, one per role — a display face for the featured pair, a
+compressed sans for secondary acts, a monospace for the setlist — never Avenir Next,
+which is the system font everywhere else on the site. Photo duotones (Task 3.6) use a
+narrower `photoColorwayFor` (`vinyl-record.jsx`), not `colorwayFor` — see §8.
 
 As of Task 3.8, the poster is a real gateway out to Spotify, not just decoration: the
 kicker links to the real profile, and every artist card and setlist track links to its
 own real Spotify page. Only the crate's own card lost its tilt (rotation/jitter, not the
-torn edge or tape) — the wall stays exactly as tilted as it's always been. See §10.
+torn edge or tape) — the wall stays exactly as tilted as it's always been. See §9. (Task
+3.7 landed after 3.8 despite its lower number — see §2's own note — so this still holds
+for both wall tiers unchanged.)
 
 `limit=5` on both `/api/spotify/top-artists` and `/api/spotify/top-tracks` (server.js,
-untouched since before Stage 4) is exactly headliner + 4 support, and exactly 5 setlist
-rows. This is a **load-bearing number**, not an arbitrary default — the grid geometry
-(§3) is built around 4 named support areas and a setlist card sized for 5 rows. Changing
-`limit` means re-deriving the layout, not just fetching more data.
+untouched since before Stage 4) is exactly 2 featured + 3 secondary, and exactly 5
+setlist rows. This is a **load-bearing number**, not an arbitrary default — the grid
+geometry (§10) is built around 2 named featured areas + 3 named secondary areas, and a
+setlist card sized for 5 rows. Changing `limit` means re-deriving the layout, not just
+fetching more data.
 
 ## 2. The five tasks
 
@@ -71,20 +85,23 @@ everything else. Splitting keeps each task's risk isolated.
 | 3.5 | **Two columns** — restructure into wall (left) + crate (right) so total height is `max(wall, crate)`, not their sum. Setlist rebuilt as small torn "singles," not a list row | **DONE** 2026-08-15 |
 | 3.6 | **Refinement pass** — headliner less dominant, crate back to one plain list (Task 3.5's "singles" read too busy), duotone bug fixed (2 of `colorwayFor`'s 5 tokens read as plain gray on a photo) | **DONE** 2026-08-15 |
 | 3.8 | **Spotify link, clickable cards, straighten the setlist** — kicker links out to the real profile, every artist/track card is a real `<a>` to its own Spotify page, crate's rotation/jitter removed (torn edge/tape kept) | **DONE** 2026-08-15 |
+| 3.7 | **Three-zone restructure** — the wall's 1 headliner + 4 support cards regrouped into 2 "featured" (comparably sized to each other) + 3 "secondary" (clearly smaller) — hierarchy from tiers, not one card's raw size. Landed *after* 3.8, see note below | **DONE** 2026-08-15 |
 | 4 | **Motion** — entrance animation, parallax, reduced-motion fallback | Not started |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
 > Task 3.8's own brief referred to it as a follow-up to "Task 3.7's three-zone
-> structure." No such task landed in this repo — the task list above skips straight from
-> 3.6 to 3.8, and no "Zone A/B/C" terminology exists anywhere in this file or the code.
-> Checked before building anything, flagged rather than guessed around (CLAUDE.md). The
-> three concrete asks mapped cleanly onto the real, current two-column wall/crate
-> structure regardless ("Zones A/B" = the wall, "Zone C" = the crate), so nothing was
-> blocked on it.
+> structure." No such task had landed in this repo at the time — the task list's build
+> order above genuinely goes 3.6 → 3.8 → 3.7, not numeric order, because 3.7's own brief
+> (which arrived after 3.8 shipped) referenced only Task 3.6 and never mentioned 3.8.
+> Building 3.7 on top of what 3.8 had already shipped (links, straightened crate) is a
+> superset of 3.7's own ask, not a conflict with it — checked and flagged rather than
+> silently reordered, per CLAUDE.md's own instruction to note a brief/tree mismatch. No
+> "Zone A/B/C" terminology exists in the code itself; this file uses "featured"/
+> "secondary" instead — see §10.
 
-Full detail on Tasks 1, 2, 2.5, 3, 3.5, 3.6 and 3.8 (numbers, bugs found, verification) is
-in `STATUS.md`'s own dated entries — this file is the durable *concept* record, `STATUS.md`
-is the *work log*.
+Full detail on Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8 and 3.7 (numbers, bugs found,
+verification) is in `STATUS.md`'s own dated entries, in that same real build order — this
+file is the durable *concept* record, `STATUS.md` is the *work log*.
 
 ## 3. Task 2's mechanism — grid placement, not freehand position
 
@@ -473,7 +490,88 @@ light-theme list is `['home', 'about']` only, so it doesn't cover `#my-taste` in
 supplemented with the same scoped light-theme capture prior tasks in this section already
 use, `t4-my-taste-wall-desktop-light.png`).
 
-## 10. Open items for later tasks
+## 10. Task 3.7's mechanism — two tiers instead of one dominant card
+
+Lands **after** Task 3.8 despite the lower number. This brief called itself a follow-up
+to Task 3.6 specifically — it never references 3.8 — so building it on top of 3.8's
+already-shipped links and straightened crate is a superset of what it asked for, not a
+conflict with it. Recorded in real build order here and in `STATUS.md`, not by task
+number, so the sequence stays honest.
+
+**The diagnosis.** Task 3.6 already cut the headliner's own font-size and it still read
+as dominant. The real problem was never "how big is one card" — it was that the wall's
+*entire* hierarchy lived in one comparison, one big card against four uniform small ones.
+Splitting into two tiers moves hierarchy to group membership instead, so no single card
+has to carry it through raw size alone.
+
+**Regrouped the same 5 cards, not a new card shape.** `artists.data[0..1]` are now
+"featured" (Zone A, the brief's term — was the singular "headliner"): both render with
+one shared className, one shared photo-slot aspect-ratio (16:9, unchanged from the old
+headliner's own ratio), one shared name font-size — deliberately identical to each
+other, since that's what "comparably prominent to each other" actually requires, not a
+looser "both kind of big." `artists.data[2..4]` are "secondary" (Zone B — was the 4-card
+"support" tier, now 3): one shared, visibly smaller treatment (3:2 photo ratio, same as
+the old support cards). Every mechanism underneath — `TasteCard`, `PhotoSlot`, duotone,
+torn edges, tape, the `href`/focus-outline work Task 3.8 built — is completely unchanged;
+this task only changes which named grid area each card renders into and which of two
+shared style treatments it gets.
+
+**The grid.** `.my-taste-wall` moved from 4 columns (headliner spanning 2×2, four 1×1
+support cells) to 6 columns: `featured-1`/`featured-2` each span 3 columns × 2 rows,
+`secondary-1/2/3` each span 2 columns in a single, shorter row. 6 columns specifically
+because it divides evenly by both 2 (the featured pair) and 3 (the secondary trio) — a
+4-column grid can't express a 3-way split without uneven, independently-tuned spans that
+would need their own separate justification. Chose this over the brief's other suggested
+arrangement (three even columns, A | B | C) because it reuses `.my-taste-layout`'s
+already-working wall/crate proportions and every fit-ratio/overflow number already tuned
+for that macro-shape — the brief itself flagged this as an acceptable choice ("grouping
+A+B into one wall area beside C is fine too").
+
+Found and removed 5 now-dead CSS rules while rebuilding this (`.my-taste-card--headliner`
+and `--support-1` through `--support-4`, one `grid-area` declaration each) — checked
+before deleting rather than assumed: `TasteCard` already sets `gridArea` as an inline
+style from its own `area` prop on the same element, and inline `style` always wins the
+cascade over an external stylesheet rule for the same property. These were inert
+leftovers from whenever that inline mechanism was added (Task 3.5), not something
+deleting them changes the rendered result of.
+
+**Measured the actual gap, not just relabeled it.** Real rendered card areas at 1440px:
+old headliner ≈121,437px² vs. old support ≈25,480px² — a **4.77:1** ratio. New featured
+≈105,387–111,078px² vs. new secondary ≈35,518–37,273px² — **~2.9:1**. A genuine,
+measured reduction, not just new class names on the old proportions. Checked the specific
+failure case the brief called out by name: the two featured cards' own areas differ by
+under 5% from each other (ordinary variance from different name lengths and per-id
+rotation/jitter — both share the identical grid footprint, aspect-ratio, and font-size),
+confirmed by screenshot to read as clearly comparable to each other, not "headliner,
+slightly smaller" beside a same-size second card.
+
+**Used the fit-ratio headroom deliberately, then checked what it cost.** Ratio table:
+
+| Breakpoint | Task 3.6 | Task 3.7 |
+|---|---|---|
+| Desktop (1440×900) | 0.72× | **0.94×** |
+| Laptop (1280×800) | 0.82× | **1.09×** |
+| Mobile (390×844) | 2.73× | **2.68×** |
+
+Desktop's dead space is essentially gone (wall 596px against 756px available, not the
+gap Task 3.6 left). Laptop's 1.09× is a real, modest overshoot past one literal screen —
+weighed against this project's own precedent rather than chasing an unexamined ≤1.0×:
+Experience's own Task 9 landed at 1.13–1.25× and Task 2.5 (the task that introduced this
+exact fit-ratio method for `#my-taste`) explicitly measured success against that same
+band. 1.09× sits comfortably inside it. Mobile improved slightly (un-rotated regardless
+of this task, and the taller featured cards collapse into the same single column the old
+headliner did).
+
+**Verification:** zero overlap among all 5 wall cards at 1440/1280/1024/768px; zero
+horizontal overflow at the usual 320–1440px sweep; zero console errors across a full
+scroll-through; every one of Task 3.8's own checks re-run and unchanged afterward — all
+5 artist hrefs and 5 track hrefs still correct, a real Tab-order keyboard walk still
+reaches every card with a visible outline, the wall's cards still carry their original
+rotation (-2.2° to 3.84°), the crate's card is still exactly `transform: none`.
+Screenshots re-captured both themes via `capture-screenshots.mjs`, supplemented with the
+same scoped light-theme capture prior tasks in this section already use.
+
+## 11. Open items for later tasks
 
 - **Task 4**'s entrance animation now has real `<a>` elements to animate, not bare
   `<article>`s — a GSAP hover/tilt effect that targets `.my-taste-card` directly should
@@ -481,23 +579,35 @@ use, `t4-my-taste-wall-desktop-light.png`).
   added, and any pointer-events trickery should account for the whole card now being one
   focusable, navigable link, not inert.
 - **Task 5**'s `Flip` re-rank needs to account for the deterministic-by-id transform:
-  if the headliner changes after a time-range switch, its new rotation/jitter/tear/tape
-  values will differ from the old headliner's (different id → different hash) — that's
-  correct, not a bug, but worth confirming the `Flip` transition doesn't fight the CSS
-  `transform` these cards already carry.
+  if the featured pair changes after a time-range switch, each new artist's rotation/
+  jitter/tear/tape values will differ from whoever they replaced (different id →
+  different hash) — that's correct, not a bug, but worth confirming the `Flip`
+  transition doesn't fight the CSS `transform` these cards already carry. Also now needs
+  to handle an artist moving BETWEEN tiers (e.g. today's #2 featured artist becomes
+  tomorrow's #3, now secondary) — Task 3.7 didn't need to consider this since tier
+  membership was static within a single page load, but a re-rank makes it a real case.
 - **Task 4**'s entrance animation should account for the now-real `<img>` elements — a
   `SplitText`/fade-in timed against `naturalWidth`/`complete` on a lazy-loaded image that
   hasn't finished fetching yet could animate an empty box. Worth a load-state check that
   didn't need to exist while every slot was a synchronous flat `<div>`. (Task 3.6's revert
   means this is back to animating one setlist card, not 5 singles — simpler than Task 3.5
   left it.)
-- **Support-card name wrapping** ("Red Hot Chili Peppers," "Stone Temple Pilots" → 3
-  lines) is now a *confirmed* driver of the wall's own height, not a guess — found while
-  investigating Task 3.6's fit-ratio drop. Not fixed this task (out of scope), but worth a
-  deliberate look whenever support-card styling is next touched: three-line names read
-  more cramped than a one/two-line name would, independent of the fit-ratio question.
+- **Secondary-card name wrapping** ("Red Hot Chili Peppers," "Stone Temple Pilots" → 3
+  lines, still true post-Task 3.7 for the same 2 of the 3 secondary cards) is a
+  *confirmed* driver of card height, not a guess — found while investigating Task 3.6's
+  fit-ratio drop, still present in Task 3.7's own new secondary tier. Not fixed by either
+  task (out of scope for both), but worth a deliberate look whenever secondary-card
+  styling is next touched: three-line names read more cramped than a one/two-line name
+  would, independent of the fit-ratio question.
+- **Task 4**'s entrance animation needs to account for Task 3.7's new wall shape — 2
+  "featured" cards (`.my-taste-card--featured`) + 3 "secondary" cards
+  (`.my-taste-card--secondary`), not 1 "headliner" + 4 uniform "support" cards. Any
+  sequencing that staggers by role (e.g. headliner-in-first, support-cards-follow) needs
+  to be re-thought as featured-pair-together vs. secondary-trio, not reuse the old
+  1-then-4 beat.
 - **Stage 5**'s mobile pass should look at the crate specifically — Task 3.5 found a stack
   of six additional elements (label + 5 singles) drove mobile's fit ratio up (2.65×→3.01×);
-  Task 3.6's revert to one list card brought it back down to **2.73×**, still worse than
-  Task 3's own 2.65×, still not this task's job to fully address — mobile art direction is
-  Stage 5's.
+  Task 3.6's revert to one list card brought it back down to 2.73×, and Task 3.7's wall
+  restructure nudged it slightly further to **2.68×** (taller featured cards, but mobile
+  un-rotates and single-columns regardless) — still worse than Task 3's own 2.65×, still
+  not any of these tasks' job to fully address — mobile art direction is Stage 5's.

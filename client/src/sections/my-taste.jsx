@@ -46,20 +46,24 @@ import spotifyBlack from "../assets/spotify_black.png";
 // with art on only the top 3 tracks, and photo duotones use a narrower
 // photoColorwayFor (vinyl-record.jsx) instead of colorwayFor — two of
 // colorwayFor's five tokens are near-neutral (correct for real vinyl,
-// wrong for a photo wash). Task 3.8 (this task, brief titled it a follow-up
-// to a "Task 3.7 three-zone structure" — no such commit exists in this
-// repo's history, and no "Zone A/B/C" terminology exists anywhere in this
-// file or design-review/; checked before writing anything, per CLAUDE.md's
-// own instruction to flag a brief/tree mismatch rather than build against
-// the description. The three concrete asks map onto the real, current
-// two-column wall/crate structure without any ambiguity — "Zones A/B" =
-// the wall's headliner+support cards, "Zone C" = the crate — so nothing
-// here was blocked on it, just noted) is a polish pass, no structural
+// wrong for a photo wash). Task 3.8 was a polish pass, no structural
 // change: the kicker links out to Spotify (real profile URL, reused from
 // footer.jsx, not invented here), every artist/track card is a real link to
 // its own Spotify page, and the crate's own card lost its rotation/jitter
 // (kept its torn edge/tape) so it reads as a straight list beside the
 // wall's still-tilted cards.
+//
+// Task 3.7 (THIS task, landing after 3.8 despite the number — brief called
+// it a follow-up to Task 3.6 and didn't reference 3.8 at all, so building it
+// on top of 3.8's already-shipped links/straightened-crate is a superset of
+// what it asked for, not a conflict; noted rather than silently reordering
+// history) restructures the wall's hierarchy. Was: 1 "headliner" (data[0])
+// at 2x size + 4 uniform "support" cards (data[1..4]) — hierarchy expressed
+// entirely through one card's raw size. Now: "featured" (data[0..1], 2
+// cards, deliberately SAME size/treatment as each other — the actual fix,
+// not a rename) + "secondary" (data[2..4], 3 cards, a clearly smaller
+// tier). The crate (Zone C in the brief's terms) is unchanged structurally
+// — still the same single TasteCard Task 3.6 shaped and Task 3.8 straightened.
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
 
 // Same account footer.jsx's own Spotify link already points at — reused
@@ -80,21 +84,25 @@ async function fetchTopItems(kind) {
 // against real /api/spotify/top-artists and /api/spotify/top-tracks
 // responses this task, not assumed from docs) — typically 640/320/160 for
 // artist photos, 640/300/64 for album art. `large` picks the biggest
-// available for the headliner's own bigger slot; everything else prefers
-// something already close to the size it'll render at (<=400px covers every
-// support/thumb slot on this wall at any breakpoint) over pulling the same
-// 640px original into a ~200px box for nothing — the whole reason this
-// project's own load-speed story (152MB -> 9.6MB) is worth protecting.
-// Falls back to whatever's smallest/largest available if an artist only
-// ships one size (seen on some lower-popularity artists).
+// available for a card sized to deserve it (both Zone A "featured" cards
+// as of Task 3.7, was just the old singular headliner before); everything
+// else prefers something already close to the size it'll render at
+// (<=400px covers every secondary/thumb slot on this wall at any
+// breakpoint) over pulling the same 640px original into a ~200px box for
+// nothing — the whole reason this project's own load-speed story (152MB ->
+// 9.6MB) is worth protecting. Falls back to whatever's smallest/largest
+// available if an artist only ships one size (seen on some lower-popularity
+// artists).
 function pickImageUrl(images, { large = false } = {}) {
     if (!Array.isArray(images) || images.length === 0) return null;
     if (large) return images[0].url;
     // Walking largest -> smallest (Spotify's own order) and taking the FIRST
     // one at or under 400px lands on the biggest size that's still small —
     // e.g. 320px out of [640, 320, 160], not the smallest available. Retina
-    // displays render a ~230px CSS-wide support slot at ~460px actual
-    // pixels, so 320px is close to native there without pulling the full
+    // displays render a ~165px CSS-wide secondary photo slot at ~330px
+    // actual pixels (measured live, Task 3.7 — was ~200px/400px when there
+    // were 4 uniform support cards instead of 3 secondary ones), so 320px
+    // is still comfortably close to native there without pulling the full
     // 640px original.
     const small = images.find((img) => !img.width || img.width <= 400);
     return (small ?? images[images.length - 1]).url;
@@ -127,17 +135,17 @@ const TEAR_PRESET_COUNT = 4;
 // axis-aligned bounding box by roughly ((W·(cosθ-1) + H·sinθ)) / 2
 // horizontally and ((W·sinθ + H·(cosθ-1))) / 2 vertically (W/H = the card's
 // unrotated size). At the brief's own 4° ceiling, the smallest cards on this
-// wall (support acts, ~230×196px at 1440px post-Task-2.5 — smaller than
-// Task 2's own ~250×220px, the fit pass shrank the photo slots) grow by
-// roughly 7-8px per side; adding the ±4px jitter tops out around 11-12px per
-// side. .my-taste-card's own margin (--space-3, 12px, unchanged by the fit
-// pass on purpose) plus half of .my-taste-wall's gap (--space-3 as of
-// Task 2.5, down from --space-4 — 12px → 6px per side) gives ~18px of real
-// dead space per side — still comfortably clear, tighter than Task 2's ~20px
-// but not a photo-finish. Verified live too, not just by this math: a
-// Playwright pass measures every rendered card's actual bounding box against
-// its neighbors at 1440/1024/768px, re-run after Task 2.5's resizing with
-// the same zero-overlap result (see stage4-my-taste-concept.md).
+// wall (secondary acts as of Task 3.7, ~185×197px at 1440px, measured live
+// — was ~230×196px for the old 4-card "support" tier, Task 2.5) grow by
+// roughly 6-7px per side; adding the ±4px jitter tops out around 10-11px
+// per side. .my-taste-card's own margin (--space-3, 12px, unchanged by
+// this task) plus half of .my-taste-wall's gap (--space-3, also unchanged)
+// gives ~18px of real dead space per side — comfortably clear, a similar
+// margin to before Task 3.7's regrid even though the card shape itself
+// changed. Verified live too, not just by this math: a Playwright pass
+// measures every rendered card's actual bounding box against its
+// neighbors at 1440/1024/768px, re-run after Task 3.7's regrid with the
+// same zero-overlap result (see stage4-my-taste-concept.md).
 function cardTransform(id) {
     const magnitude = ROTATE_MIN_DEG + seeded01(id, "rotate-mag") * (ROTATE_MAX_DEG - ROTATE_MIN_DEG);
     const sign = seeded01(id, "rotate-sign") < 0.5 ? -1 : 1;
@@ -159,9 +167,10 @@ function cardTransform(id) {
 // cells); `gridArea: undefined` is simply omitted by React/the style object,
 // so this is the same component either way, not a second card mechanism.
 //
-// `href` is optional too (Task 3.8), same pattern: the wall's headliner/
-// support cards pass their artist's real `external_urls.spotify` and get
-// wrapped in a real `<a>` (keyboard/screen-reader access, not a `div` +
+// `href` is optional too (Task 3.8), same pattern: the wall's featured/
+// secondary cards (Task 3.7's rename of headliner/support — see this
+// file's top comment) pass their artist's real `external_urls.spotify` and
+// get wrapped in a real `<a>` (keyboard/screen-reader access, not a `div` +
 // onClick — same discipline this section's alt text already follows); the
 // crate's own setlist-container card passes none (it isn't itself a link —
 // each track inside it links individually, see the setlist markup below),
@@ -262,18 +271,23 @@ export default function MyTaste() {
 
     // Reshape into the poster's actual roles, not one flat list each.
     // limit=5 on both server endpoints (server.js, untouched since Task 1) is
-    // exactly headliner + 4 support acts — don't add a 6th artist or a 4th
-    // support act without re-deriving the wall's grid (4 named support-N
-    // areas). The crate's own list is sized around exactly 5 tracks too
+    // exactly 2 featured + 3 secondary acts (Task 3.7 — was 1 headliner + 4
+    // support before) — don't add a 6th artist without re-deriving the
+    // wall's grid (2 named featured-N areas + 3 secondary-N areas). The
+    // crate's own list is sized around exactly 5 tracks too
     // (setlist.slice(0, 3) for thumbnails assumes at least 3 exist).
-    const headliner = artists.data[0]
-        ? {
-            ...artists.data[0],
-            imageAlt: artists.data[0].name,
-            imageUrl: pickImageUrl(artists.data[0].images, { large: true }),
-        }
-        : null;
-    const support = artists.data.slice(1, 5).map((artist) => ({
+    //
+    // Both featured artists get the LARGE image variant (Task 3.7) — before,
+    // only data[0] (the old headliner) did, since it was the only card sized
+    // to deserve it. Now both Zone A cards render at that same larger size,
+    // so both get the larger source image; secondary keeps the ≤400px pick,
+    // same reasoning as before, just fewer cards (3, not 4).
+    const featured = artists.data.slice(0, 2).map((artist) => ({
+        ...artist,
+        imageAlt: artist.name,
+        imageUrl: pickImageUrl(artist.images, { large: true }),
+    }));
+    const secondary = artists.data.slice(2, 5).map((artist) => ({
         ...artist,
         imageAlt: artist.name,
         imageUrl: pickImageUrl(artist.images),
@@ -286,7 +300,7 @@ export default function MyTaste() {
 
     return (
         <section className="my-taste-section">
-            {/* The section's own title — headliner/support/setlist content
+            {/* The section's own title — featured/secondary/setlist content
                 below is content, not a second or third heading for it.
                 Task 3.8: now the ONE real outbound link for this whole
                 section too — "now spinning · my taste" replaced with a
@@ -309,48 +323,58 @@ export default function MyTaste() {
             </h2>
 
             <div className="my-taste-layout">
+                {/* Two tiers (Task 3.7), not one dominant card + four uniform
+                    ones. Zone A ("featured", data[0..1]) share ONE className/
+                    photo-slot/name treatment — same size, same styling — so
+                    they read as comparably prominent to EACH OTHER, which is
+                    the actual fix this task is for, not just a bigger label
+                    on the same old hierarchy. Zone B ("secondary",
+                    data[2..4]) is the clearly smaller tier below. */}
                 <div className="my-taste-wall">
-                    {artists.status === "ready" && headliner ? (
-                        <TasteCard
-                            id={headliner.id}
-                            area="headliner"
-                            className="my-taste-card--headliner"
-                            href={headliner.external_urls?.spotify}
-                        >
-                            <PhotoSlot
-                                id={headliner.id}
-                                className="my-taste-photo-slot--headliner"
-                                imageUrl={headliner.imageUrl}
-                                imageAlt={headliner.imageAlt}
-                            />
-                            <p className="my-taste-headliner-name">{headliner.name}</p>
-                        </TasteCard>
-                    ) : (
-                        <div className="my-taste-card-placeholder" style={{ gridArea: "headliner" }}>
-                            <SpotifyStatusMessage status={artists.status} kind="artists" />
-                        </div>
-                    )}
-
-                    {support.length > 0
-                        ? support.map((artist, i) => (
+                    {featured.length > 0
+                        ? featured.map((artist, i) => (
                             <TasteCard
                                 key={artist.id}
                                 id={artist.id}
-                                area={`support-${i + 1}`}
-                                className="my-taste-card--support"
+                                area={`featured-${i + 1}`}
+                                className="my-taste-card--featured"
                                 href={artist.external_urls?.spotify}
                             >
                                 <PhotoSlot
                                     id={artist.id}
-                                    className="my-taste-photo-slot--support"
+                                    className="my-taste-photo-slot--featured"
                                     imageUrl={artist.imageUrl}
                                     imageAlt={artist.imageAlt}
                                 />
-                                <p className="my-taste-support-name">{artist.name}</p>
+                                <p className="my-taste-featured-name">{artist.name}</p>
                             </TasteCard>
                         ))
-                        : artists.status !== "ready" && [1, 2, 3, 4].map((i) => (
-                            <div key={i} className="my-taste-card-placeholder" style={{ gridArea: `support-${i}` }} />
+                        : artists.status !== "ready" && [1, 2].map((i) => (
+                            <div key={i} className="my-taste-card-placeholder" style={{ gridArea: `featured-${i}` }}>
+                                {i === 1 && <SpotifyStatusMessage status={artists.status} kind="artists" />}
+                            </div>
+                        ))}
+
+                    {secondary.length > 0
+                        ? secondary.map((artist, i) => (
+                            <TasteCard
+                                key={artist.id}
+                                id={artist.id}
+                                area={`secondary-${i + 1}`}
+                                className="my-taste-card--secondary"
+                                href={artist.external_urls?.spotify}
+                            >
+                                <PhotoSlot
+                                    id={artist.id}
+                                    className="my-taste-photo-slot--secondary"
+                                    imageUrl={artist.imageUrl}
+                                    imageAlt={artist.imageAlt}
+                                />
+                                <p className="my-taste-secondary-name">{artist.name}</p>
+                            </TasteCard>
+                        ))
+                        : artists.status !== "ready" && [1, 2, 3].map((i) => (
+                            <div key={i} className="my-taste-card-placeholder" style={{ gridArea: `secondary-${i}` }} />
                         ))}
                 </div>
 

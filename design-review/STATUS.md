@@ -2653,6 +2653,79 @@ Build: JS 488.23 kB / 175.06 kB gz (+0.99 kB / +0.20 kB gz), CSS 46.07 kB / 9.71
 new asset weight), new link/focus/hover CSS. Lint unchanged: 7 errors, 2 expected
 warnings.
 
+### Stage 4 Task 3.7 — `#my-taste`: three-zone restructure *(2026-08-15)*
+
+Lands **after** Task 3.8 despite the lower number — this brief called itself a follow-up
+to Task 3.6 specifically and made no reference to 3.8, so building it on top of 3.8's
+already-shipped links/straightened-crate is a superset of what it asked for, not a
+conflict. Noted here rather than silently reordering the historical record; the task list
+above and `stage4-my-taste-concept.md`'s own status table both record 3.7 as landing after
+3.8, in real build order.
+
+**The actual problem, restated.** Task 3.6 already cut the headliner's own font-size, and
+it still read as taking too much space. This brief's own diagnosis: the issue was never
+"how big is one card," it was that *all* the wall's hierarchy lived in a single
+comparison — one big card against four uniform small ones. Splitting into two tiers lets
+hierarchy come from group membership instead, so no single card carries it alone.
+
+**Regrouped, not rebuilt.** `artists.data[0..1]` ("featured", Zone A in the brief's
+terms — was the old singular "headliner") now render with one shared `className`/photo-
+slot/name treatment each, deliberately identical to each other; `artists.data[2..4]`
+("secondary", Zone B — was the old 4-card "support" tier, now 3) get a second, clearly
+smaller shared treatment. Same `TasteCard`/`PhotoSlot`/duotone/tear/tape/`href`
+mechanisms throughout — Task 3.8's links, straightened crate, and every other section
+already built are completely untouched; this only regroups the wall's own 5 artist cards.
+
+**Grid:** `.my-taste-wall` moved from a 4-column grid (headliner spanning 2×2, four
+1×1 support cells) to 6 columns (featured-1/featured-2 each spanning 3 cols × 2 rows,
+secondary-1/2/3 each spanning 2 cols × 1 row, in a shorter row). 6 columns specifically
+because it divides evenly by both 2 (the featured pair) and 3 (the secondary trio) — a
+4-column grid can't express a 3-way split without uneven, independently-tuned spans.
+Found and removed 5 now-dead CSS rules in the process (`.my-taste-card--headliner`/
+`--support-1..4`, one `grid-area` declaration each) — checked before deleting, not
+assumed: `TasteCard` already sets `gridArea` as an inline style from its own `area` prop
+on the same element, which always wins the cascade over an external stylesheet rule for
+the same property, so these were inert leftovers from whenever that inline mechanism was
+added (Task 3.5), not something removing them changes.
+
+**Measured, not assumed, that the size gap actually shrank.** Real rendered card areas,
+1440px: old headliner ≈121,437px² vs. old support ≈25,480px² — a **4.77:1** ratio. New
+featured ≈105,387–111,078px² vs. new secondary ≈35,518–37,273px² — a **~2.9:1** ratio.
+Checked the thing the brief specifically called out as the failure case: the two featured
+cards' own areas are within ~5% of each other (natural variance from different name
+lengths and per-id rotation/jitter, not a size difference — both share the exact same
+grid footprint, aspect-ratio, and font-size), confirmed via screenshot as reading clearly
+comparable, not "headliner, slightly smaller."
+
+**Used the headroom, checked whether it left dead space.** Fit ratio (`STATUS.md`'s own
+established method) went **0.72× → 0.94×** desktop, **0.82× → 1.09×** laptop, **2.73× →
+2.68×** mobile (mobile improved slightly — un-rotated at this width regardless, taller
+featured cards this task added get flattened into one column same as before). Laptop's
+1.09× is a real, if modest, overshoot past one screen — checked against this project's
+own precedent rather than chasing an arbitrary ≤1.0×: Experience's own Task 9 achieved
+1.13–1.25× and Task 2.5 explicitly measured this section against that exact band as
+success. 1.09× sits comfortably inside it. Desktop's dead space is gone — 596px wall
+against 756px available, not the ~245px of empty section-bottom this task's brief flagged
+as worth checking for.
+
+**Verification:** zero overlap among all 5 wall cards at 1440/1280/1024/768px; zero
+horizontal overflow at the usual 320–1440px sweep; zero console errors on a full scroll-
+through; every one of Task 3.8's own checks re-run and unchanged — all 5 artist hrefs and
+5 track hrefs still correct, real Tab-order keyboard walk still reaches every card with a
+visible outline, wall cards still carry their original rotation (-2.2° to 3.84°), the
+crate's own card is still exactly `transform: none`. Screenshots re-captured both themes
+via `design-review/capture-screenshots.mjs`, supplemented with the same scoped light-
+theme capture Task 3.8 used (that script's own light-theme list doesn't cover
+`#my-taste`).
+
+Build: JS 488.29 kB / 175.02 kB gz, CSS 46.00 kB / 9.68 kB gz — CSS went *down* slightly
+despite the new grid (5 dead rules removed roughly offset the new ones added). Lint
+unchanged: 7 errors, 2 expected warnings.
+
+`design-review/stage4-my-taste-concept.md` updated: §1's layout description, status
+table (3.7 row, noted as landing after 3.8), and a new §11 documenting this task's
+mechanism in full.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2680,8 +2753,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **488.23 kB / 175.06 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **46.07 kB / 9.71 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **488.29 kB / 175.02 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **46.00 kB / 9.68 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 

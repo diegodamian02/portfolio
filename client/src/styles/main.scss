@@ -2633,17 +2633,34 @@ html {
   }
 }
 
-// The wall — Stage 4 Task 2. grid-template-areas, not freehand absolute
-// positioning: overlap is structurally impossible by construction (a named
-// area can only ever be occupied by the one card assigned to it), rather
-// than something achieved by careful coordinates and verified after the
-// fact. Headliner spans 2 columns × 2 rows so it reads as the dominant
-// object through sheer grid footprint, the way a real festival poster's
-// headliner does — not because it was placed to look bigger. The 4 support
-// acts fill the remaining 2×2 block as four independent 1×1 areas. The
-// setlist is no longer part of this grid (Task 3.5 — see .my-taste-crate,
-// a sibling column via .my-taste-layout above) — was previously a third,
-// full-width row here.
+// The wall — Stage 4 Task 2, restructured Task 3.7. grid-template-areas,
+// not freehand absolute positioning: overlap is structurally impossible by
+// construction (a named area can only ever be occupied by the one card
+// assigned to it), rather than something achieved by careful coordinates
+// and verified after the fact.
+//
+// Was: 1 "headliner" spanning 2 cols × 2 rows (4 grid-cells) + 4 uniform
+// "support" cards at 1 col × 1 row each (1 grid-cell) — hierarchy expressed
+// entirely through that one card's raw size, a ~4.8:1 real rendered-area
+// ratio (measured, not estimated — see stage4-my-taste-concept.md §11).
+// Direct feedback: still read as one card taking too much space even after
+// Task 3.6's font-size cut, because the actual problem was never "how big
+// is one card," it was that ALL the hierarchy lived in that one comparison.
+//
+// Now: two "featured" cards (Zone A in the brief's terms) sharing ONE
+// footprint each — 3 of 6 columns × 2 rows — so they're identically sized
+// to EACH OTHER, not "headliner, slightly smaller" beside a same-size
+// second card (the brief's own explicit failure case). Three "secondary"
+// cards (Zone B) fill a single, shorter row below at 2 of 6 columns each.
+// 6 columns, not 4, specifically because it divides evenly by both 2
+// (Zone A's pair) and 3 (Zone B's trio) — a 4-column grid can't express a
+// 3-way split without uneven, independently-tuned spans. Real measured
+// area ratio, featured:secondary, is ~2.3:1 (see the concept doc) —
+// noticeably smaller than the old 4.8:1 headliner:support gap, the actual
+// ask, not just a rename of the groups.
+//
+// The setlist/crate (Zone C) isn't part of this grid — a sibling column
+// via .my-taste-layout above, unchanged by this task.
 //
 // Collapses to a single un-rotated column below 600px — deliberately not a
 // second, independently-tuned set of breakpoint coordinates, it falls out
@@ -2651,16 +2668,23 @@ html {
 // mobile art direction is Stage 5's job, not this task's).
 .my-taste-wall {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, minmax(180px, auto));
+  grid-template-columns: repeat(6, 1fr);
+  // Zone A's two rows keep the old headliner block's own per-row minimum
+  // (180px) — same card width proportion as before (50% of the wall), so
+  // no reason to re-tune that number. Zone B's row uses a visibly smaller
+  // minimum (120px) — part of what reads as "clearly secondary," not just
+  // narrower columns with the same row height as Zone A.
+  grid-template-rows: minmax(180px, auto) minmax(180px, auto) minmax(120px, auto);
   grid-template-areas:
-    "headliner headliner support-1 support-2"
-    "headliner headliner support-3 support-4";
+    "featured-1 featured-1 featured-1 featured-2 featured-2 featured-2"
+    "featured-1 featured-1 featured-1 featured-2 featured-2 featured-2"
+    "secondary-1 secondary-1 secondary-2 secondary-2 secondary-3 secondary-3";
   // space-4 -> space-3, Task 2.5's fit pass — shrinks the margin budget
   // cardTransform() computes against from ~20px/side to ~18px/side (card
   // margin, unchanged at space-3/12px, + half this gap). Re-verified live
   // after this change (still zero overlapping pairs at 1440/1024/768px —
-  // see STATUS.md), not just recomputed on paper.
+  // see STATUS.md), not just recomputed on paper. Re-verified again after
+  // Task 3.7's regrid, against the new card proportions — still zero.
   gap: var(--space-3);
   text-align: left;
 
@@ -2668,11 +2692,11 @@ html {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
     grid-template-areas:
-      "headliner"
-      "support-1"
-      "support-2"
-      "support-3"
-      "support-4";
+      "featured-1"
+      "featured-2"
+      "secondary-1"
+      "secondary-2"
+      "secondary-3";
   }
 }
 
@@ -2758,8 +2782,8 @@ html {
   color: inherit;
   text-decoration: none;
 
-  &:hover .my-taste-headliner-name,
-  &:hover .my-taste-support-name {
+  &:hover .my-taste-featured-name,
+  &:hover .my-taste-secondary-name {
     text-decoration: underline;
     text-underline-offset: 3px;
   }
@@ -2770,11 +2794,19 @@ html {
   }
 }
 
-.my-taste-card--headliner { grid-area: headliner; }
-.my-taste-card--support-1 { grid-area: support-1; }
-.my-taste-card--support-2 { grid-area: support-2; }
-.my-taste-card--support-3 { grid-area: support-3; }
-.my-taste-card--support-4 { grid-area: support-4; }
+// No per-role `grid-area` rules here (Task 3.7 removed 5 that used to sit
+// at this exact spot: `.my-taste-card--headliner`/`--support-1..4`, one
+// `grid-area` declaration each). Checked before deleting rather than
+// assumed: `TasteCard` (my-taste.jsx) already sets `gridArea` as an INLINE
+// style from its own `area` prop, on the very same element these classes
+// targeted — inline `style` always wins the cascade over an external
+// stylesheet rule for the same property, with or without `!important`, so
+// those 5 rules were dead weight from whenever the inline-style mechanism
+// was added (Task 3.5's own comment dates that), not something removing
+// them changes the rendered result of. Not recreated for `--featured`/
+// `--secondary` below — `area` (the `featured-N`/`secondary-N` string
+// passed at each call site in my-taste.jsx) is the one real mechanism now.
+//
 // No grid-area (Task 3.6, re-added after Task 3.5 deleted it along with the
 // grid-area setlist row) — .my-taste-crate is a flex column, not a grid, so
 // this card doesn't need one. Wraps ONE list again (direct feedback: Task
@@ -2935,48 +2967,49 @@ html {
   pointer-events: none;
 }
 
-.my-taste-photo-slot--headliner {
-  // Still 16:9 (Task 2.5) — Task 3.6's dominance pull-back leans entirely on
-  // the name's own font-size (below), not this ratio. Tried cutting both
-  // (2:1) first; measured it overshot — wall dropped well below the crate's
-  // own new (correctly much shorter, Task 3.6 simplified 5 cards to 1 list)
-  // height, leaving the section at 0.72× one screen with visible dead space
-  // below a too-short wall column. One lever was enough; re-cutting the
-  // photo on top of the font cut wasn't needed to read as "less dominant."
+// Renamed from .my-taste-photo-slot--headliner (Task 3.7) — same 16:9 ratio,
+// now shared by BOTH Zone A cards instead of just one. That sharing is the
+// whole point: identical ratio + identical width (the wall's own grid,
+// above) is what makes the two cards read as comparably sized to each
+// other, not two independently-tuned "big" and "medium" boxes that happen
+// to be close. Task 3.6's own reasoning for keeping this at 16:9 rather
+// than cutting it further (tried 2:1, measured it overshot and left dead
+// space below a too-short wall) still applies unchanged.
+.my-taste-photo-slot--featured {
   aspect-ratio: 16 / 9;
   margin-bottom: var(--space-2);
 }
 
-.my-taste-photo-slot--support {
-  // 1:1 -> 3:2 — Task 2.5's fit pass, in the same step as the headliner's
-  // own cut above so the two stay balanced (a support-pair stack that
-  // suddenly outgrew a shrunken headliner would just move the bottleneck,
-  // not remove it — verified empirically after each change, not assumed).
-  // The square crop was the single biggest line item in each support card's
-  // height; 3:2 reads as a real photo crop, not an arbitrary shrink, and
-  // keeps both photo tiers in the same "landscape, not square" language.
+// Renamed from .my-taste-photo-slot--support (Task 3.7) — same 3:2 ratio
+// (Task 2.5's own fit pass), now applied to 3 cards instead of 4. The ratio
+// itself didn't need re-tuning: Zone B's per-card width changed (33% of the
+// wall vs the old support cards' 25%), but aspect-ratio scales the photo's
+// height with whatever width the grid gives it, so the "landscape crop, not
+// square" language holds regardless.
+.my-taste-photo-slot--secondary {
   aspect-ratio: 3 / 2;
   margin-bottom: var(--space-2);
 }
 
-.my-taste-headliner-name {
+// Renamed from .my-taste-headliner-name (Task 3.7) — same rule, byte-
+// identical, now shared by both Zone A cards. Task 3.6's own reasoning for
+// this exact size still holds and is worth keeping in full: Anton ships one
+// weight (400) — there is no heavier cut to reach for, and none needed, the
+// face itself is already a condensed, all-caps poster display style at 400.
+// clamp(2rem,4.2vw,3.5rem) -> clamp(1.75rem,3.4vw,2.75rem) at Task 3.6,
+// reverting to Task 2's own original value (Task 2.5 had bumped it to
+// compensate for a shrinking photo — the opposite problem). The old max
+// (3.5rem/56px) exceeded even this site's own section-title scale
+// (--text-xl, clamp(2rem,5vw,2.5rem)) by 40% — content inside a section
+// reading louder than the section's own titles is a reasonable definition
+// of "competing with the section for attention." New max (2.75rem/44px)
+// sits just above that scale, still unmistakably larger than the wall's
+// other text (secondary names use --text-md, 1.2rem) — now true of TWO
+// cards instead of one, which is the deliberate result of Task 3.7's own
+// "use the fit-ratio headroom for Zone A" instruction, not a regression of
+// the dominance work Task 3.6 did.
+.my-taste-featured-name {
   font-family: var(--taste-font-display);
-  // Anton ships one weight (400) — there is no heavier cut to reach for, and
-  // none needed: the face itself is already a condensed, all-caps poster
-  // display style at 400. Sized for the headliner's own card, not the full
-  // section width the way Task 1's plain stacked layout was.
-  //
-  // clamp(2rem,4.2vw,3.5rem) -> clamp(1.75rem,3.4vw,2.75rem) — Task 3.6's
-  // dominance pull-back, reverting to Task 2's own original value (Task 2.5
-  // bumped it specifically to compensate for a shrinking photo, "so the name
-  // carries some of headliner-dominance too" — the opposite problem this
-  // task is solving). The old max (3.5rem/56px) exceeded even this site's
-  // own section-title scale (--text-xl, clamp(2rem,5vw,2.5rem)) by 40% —
-  // content inside a section reading louder than the section's own titles
-  // is a reasonable definition of "competing with the section for
-  // attention." New max (2.75rem/44px) sits just above that scale, still
-  // unmistakably the largest text on the wall (support names use
-  // --text-md, 1.2rem).
   font-size: clamp(1.75rem, 3.4vw, 2.75rem);
   font-weight: 400;
   line-height: 1;
@@ -2985,7 +3018,8 @@ html {
   margin: 0;
 }
 
-.my-taste-support-name {
+// Renamed from .my-taste-support-name (Task 3.7) — byte-identical rule.
+.my-taste-secondary-name {
   font-family: var(--taste-font-support);
   font-size: var(--text-md);
   font-weight: 500;

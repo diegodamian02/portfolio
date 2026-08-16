@@ -38,21 +38,28 @@ concept also changed: no longer "records as vinyl / tracks as a crate," now
 a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
 grain) — see Stage 4 below for the full 5-task sequence, and
 `stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1, 2, a
-retrofitted 2.5, 3, a second retrofit at 3.5, a refinement pass at 3.6, and a
-polish pass at 3.8 are all done — foundations, wall layout, fit-within-one-
-screen, real photography/duotone/grain, a two-column restructure (wall
-beside a crate for the setlist), a smaller headliner + simplified crate + a
-gray-duotone fix, and now: the whole poster links out to real Spotify pages
-(kicker, every artist card, every track) and the crate lost its tilt while
-the wall kept its. Desktop still measures **0.72×** one screen — Task 3.8
-touched no element's size, only what wraps/rotates it, so Task 3.6's own
-numbers carry over unchanged.
+retrofitted 2.5, 3, a second retrofit at 3.5, a refinement pass at 3.6, a
+polish pass at 3.8, and a wall restructure at 3.7 are all done — foundations,
+wall layout, fit-within-one-screen, real photography/duotone/grain, a
+two-column restructure (wall beside a crate for the setlist), a smaller
+headliner + simplified crate + a gray-duotone fix, the whole poster linking
+out to real Spotify pages, and now: the wall's old 1-headliner-plus-4-support
+hierarchy regrouped into 2 "featured" cards (deliberately sized identically
+to each other) beside 3 clearly-smaller "secondary" cards — hierarchy from
+tier membership, not one card's raw size. **Task 3.7 landed after 3.8**
+despite the lower number (its brief referenced only 3.6, not 3.8 — noted in
+`stage4-my-taste-concept.md` §2 rather than silently reordered). Desktop
+now measures **0.94×** one screen, laptop **1.09×** — up from 0.72×/0.82×,
+deliberately using the headroom Task 3.6 left rather than a regression;
+laptop's modest overshoot sits inside the same 1.13–1.25× band Experience's
+own Task 9 already established as this project's working definition of
+"fits."
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8 — done |
+| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -70,14 +77,17 @@ numbers carry over unchanged.
 **My read on immediate next step:** Stage 4 Task 4 (`#my-taste`'s entrance
 motion) — the section is now fully built as two columns, real duotoned
 photography throughout (no gray photos), every card a real outbound link,
-and proven (no-overlap in either column, deterministic, no-overflow down to
-320px, both fallback paths verified against real API traffic), so animating
-it in is a direct continuation with all the structural and visual risk
-already retired. Task 4's own brief should account for the cards now being
-real `<a>`s, not inert `<article>`s — noted in `stage4-my-taste-concept.md`
-§10's open items. The crate is one setlist card (Task 3.6 reverted Task
-3.5's five separate "singles"), so Task 4 has one fewer independent element
-to sequence than it would have two tasks ago.
+a two-tier wall hierarchy that reads correctly, and proven (no-overlap
+anywhere in the wall, deterministic, no-overflow down to 320px, both
+fallback paths verified against real API traffic), so animating it in is a
+direct continuation with all the structural and visual risk already
+retired. Task 4's own brief should account for the cards now being real
+`<a>`s, not inert `<article>`s, and for the wall's new two-tier grid (2
+featured + 3 secondary, not 1 headliner + 4 support) — noted in
+`stage4-my-taste-concept.md` §11's open items. The crate is one setlist
+card (Task 3.6 reverted Task 3.5's five separate "singles"), so Task 4 has
+one fewer independent element to sequence than it would have three tasks
+ago.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
