@@ -2551,6 +2551,50 @@ html {
   margin: 0 0 var(--space-6);
 }
 
+// The kicker's own link (Task 3.8) — inherits everything above (font, size,
+// tracking, case, color) from .my-taste-heading, the <h2> it lives inside;
+// this rule only adds what a LINK needs on top of that: reset the browser
+// default underline/color, lay the text+dot+text+icon out in one inline
+// row, and a real hover/focus affordance so it doesn't read as pure
+// decoration (the brief's own bar for this element).
+.my-taste-heading-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--text-color);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 2px;
+  }
+}
+
+// Quieter than the surrounding text, same idea as a typographic middot
+// separator anywhere else on the site — a divider, not a third word.
+.my-taste-heading-dot {
+  opacity: 0.5;
+}
+
+// Spotify's own mark, used as-is (brand guidelines: approved shape/color,
+// not tinted) — this is the theme-swapped white/black cut footer.jsx's own
+// Spotify link already uses, NOT run through this section's duotone
+// treatment (PhotoSlot's grayscale + mix-blend-mode wash is for the
+// festival-poster photos; this is a UI icon, a different kind of image).
+// Sized off the surrounding text's own line-height (1em) rather than a
+// fixed px value, so it scales if --text-xs ever does.
+.my-taste-heading-icon {
+  height: 1em;
+  width: auto;
+}
+
 .my-taste-status {
   color: var(--secondary-text);
   margin: var(--space-4) 0;
@@ -2689,6 +2733,43 @@ html {
   }
 }
 
+// Wraps a card's whole photo+name (Task 3.8, my-taste.jsx's TasteCard —
+// only rendered when that card was given an `href`, i.e. the wall's
+// headliner/support cards, never the crate's own container card). `display:
+// block` so the photo slot and name paragraph inside it keep stacking in
+// normal block flow exactly as they did as direct children of .my-taste-card
+// before this task — this wrapper doesn't change their own layout, just
+// makes them one clickable/focusable unit. color/text-decoration reset
+// because an <a> isn't neutral like the article it replaces as the direct
+// parent.
+//
+// Focus ring is a plain `outline`, same convention as every other
+// interactive element on this site (.navbar-links a, .theme-toggle,
+// .experience-card) — NOT adjusted for this section's own clip-path torn
+// edges. Checked live: clip-path on the ancestor .my-taste-card DOES clip an
+// inner outline wherever a tear cuts inward, so the ring isn't a perfect
+// unbroken rectangle on every card — but the vast majority of each ring's
+// perimeter (the tears only cut a few percent inward at their deepest
+// points) renders exactly as normal, which comfortably clears "a visible
+// focus indicator exists," the actual bar here, without adding a second,
+// bespoke focus mechanism for four card shapes.
+.my-taste-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover .my-taste-headliner-name,
+  &:hover .my-taste-support-name {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
 .my-taste-card--headliner { grid-area: headliner; }
 .my-taste-card--support-1 { grid-area: support-1; }
 .my-taste-card--support-2 { grid-area: support-2; }
@@ -2716,6 +2797,21 @@ html {
 // and the crate's real available width shrinks enough for the extra ~24px
 // to actually cross the viewport edge — at 1440/1280px there was enough
 // slack around the (already max-width-capped) content column to hide it.
+//
+// transform: none (Task 3.8, "straighten the setlist") — overrides
+// .my-taste-card's own base rotate+jitter transform for THIS card
+// specifically, so the crate reads as a clean, straight list beside the
+// wall's still-tilted cards. Scoped to rotation/jitter only, per the
+// brief's own wording ("rotation/jitter... specifically") — torn edge
+// (--tear-N, still applied via TasteCard) and the tape accent are
+// untouched, so this card keeps the same paper/pinned-up material
+// language as the wall, it just isn't crooked anymore. Mobile's existing
+// `transform: none` override (.my-taste-card, above) already did this for
+// every card below 600px; this just makes it permanent for this one card
+// at every width, not only the un-rotated mobile breakpoint.
+.my-taste-card--setlist {
+  transform: none;
+}
 
 // Four distinct point sets, not one clip-path reused across every card —
 // identical torn edges on every card would read as a repeating stamp, not
@@ -2943,19 +3039,37 @@ html {
   text-align: left;
 }
 
-// flex-wrap: wrap + min-width: 0 on the two text children — found live on a
-// 390px viewport in Task 1, not caught by a desktop screenshot alone: flex
-// items default to min-width: auto, which means "never shrink smaller than
-// my own content's intrinsic width" UNLESS overridden. Long combinations
-// ("I Ran (So Far Away) - Single Edit" × "A Flock Of Seagulls") don't fit
-// one line at phone widths, and without min-width: 0 the row refused to
-// shrink OR wrap — it just overflowed instead, and because nothing on this
-// page clips horizontal overflow, that widened what every OTHER element in
-// the section measured "100%" against too (FINDINGS.md B25). Re-introduced
-// in Task 3.6 at the crate column's own (narrower than Task 3's original
-// full-width setlist row) width — re-verified, the same trap and the same
-// fix still apply regardless of container width.
+// The row is now an <a> (Task 3.8) wrapping index+track+artist, one real
+// link per track — .my-taste-setlist-item (the <li>) only keeps the row
+// SEPARATOR (border-bottom) now; every layout property that used to live
+// here (flex-wrap: wrap + min-width: 0 on the two text children — found
+// live on a 390px viewport in Task 1, not caught by a desktop screenshot
+// alone: flex items default to min-width: auto, which means "never shrink
+// smaller than my own content's intrinsic width" UNLESS overridden. Long
+// combinations ("I Ran (So Far Away) - Single Edit" × "A Flock Of
+// Seagulls") don't fit one line at phone widths, and without min-width: 0
+// the row refused to shrink OR wrap — it just overflowed instead, and
+// because nothing on this page clips horizontal overflow, that widened
+// what every OTHER element in the section measured "100%" against too,
+// FINDINGS.md B25) moved down onto .my-taste-setlist-link below, since
+// that's the actual flex parent of those two children now. Re-verified
+// after the move — the same trap and the same fix still apply regardless
+// of which element is the flex container.
 .my-taste-setlist-item {
+  border-bottom: 1px solid var(--secondary-text);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+// The actual flex row (moved here from .my-taste-setlist-item, above, when
+// each row became a real link). Padding moved here too, not left on the
+// <li> — the padding should be part of the clickable/tappable area, not
+// dead space around it. display: block reset (an <a> is inline by default)
+// plus color/text-decoration resets, same pattern .my-taste-card-link uses
+// for the wall's own card links.
+.my-taste-setlist-link {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -2969,10 +3083,18 @@ html {
   // Restoring some breathing room here brings the crate back closer to the
   // wall's own height instead of leaving a bigger gap beside it.
   padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--secondary-text);
+  color: inherit;
+  text-decoration: none;
 
-  &:last-child {
-    border-bottom: none;
+  &:hover .my-taste-setlist-track {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
 }
 

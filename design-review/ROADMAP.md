@@ -38,21 +38,21 @@ concept also changed: no longer "records as vinyl / tracks as a crate," now
 a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
 grain) — see Stage 4 below for the full 5-task sequence, and
 `stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1, 2, a
-retrofitted 2.5, 3, a second retrofit at 3.5, and a refinement pass at 3.6 are
-all done — foundations, wall layout, fit-within-one-screen, real photography/
-duotone/grain, a two-column restructure (wall beside a crate for the
-setlist), and now: a smaller headliner, the crate simplified back to one
-plain list (Task 3.5's five individually-torn "singles" read too busy), and a
-real bug fix — ~2 in 5 photos were landing on a plain gray duotone wash
-(`colorwayFor`'s own near-neutral tokens, correct for real vinyl, wrong on a
-photo). Desktop now measures **0.72×** one screen — comfortably under, not a
-regression; see Task 3.6's own update for why.
+retrofitted 2.5, 3, a second retrofit at 3.5, a refinement pass at 3.6, and a
+polish pass at 3.8 are all done — foundations, wall layout, fit-within-one-
+screen, real photography/duotone/grain, a two-column restructure (wall
+beside a crate for the setlist), a smaller headliner + simplified crate + a
+gray-duotone fix, and now: the whole poster links out to real Spotify pages
+(kicker, every artist card, every track) and the crate lost its tilt while
+the wall kept its. Desktop still measures **0.72×** one screen — Task 3.8
+touched no element's size, only what wraps/rotates it, so Task 3.6's own
+numbers carry over unchanged.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3, 3.5, 3.6 — done |
+| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -69,13 +69,15 @@ regression; see Task 3.6's own update for why.
 
 **My read on immediate next step:** Stage 4 Task 4 (`#my-taste`'s entrance
 motion) — the section is now fully built as two columns, real duotoned
-photography throughout (no gray photos), and proven (no-overlap in either
-column, deterministic, no-overflow down to 320px, both fallback paths
-verified against real API traffic), so animating it in is a direct
-continuation with all the structural and visual risk already retired. The
-crate is back to one setlist card (Task 3.6 reverted Task 3.5's five
-separate "singles"), so Task 4 has one fewer independent element to
-sequence than it would have a task ago.
+photography throughout (no gray photos), every card a real outbound link,
+and proven (no-overlap in either column, deterministic, no-overflow down to
+320px, both fallback paths verified against real API traffic), so animating
+it in is a direct continuation with all the structural and visual risk
+already retired. Task 4's own brief should account for the cards now being
+real `<a>`s, not inert `<article>`s — noted in `stage4-my-taste-concept.md`
+§10's open items. The crate is one setlist card (Task 3.6 reverted Task
+3.5's five separate "singles"), so Task 4 has one fewer independent element
+to sequence than it would have two tasks ago.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
@@ -843,6 +845,12 @@ built and sitting next to everything else. Sequence:
    real bug fix: ~2 in 5 photos were landing on a plain gray duotone wash.
    **DONE 2026-08-15** — `STATUS.md`, mechanism writeup in
    `stage4-my-taste-concept.md`.
+3.8. **Spotify link, clickable cards, straighten the setlist** — the kicker
+   links out to the real profile, every artist/track card is a real link to
+   its own Spotify page, and the crate's rotation/jitter is removed (torn
+   edge/tape kept) so it reads straight beside the still-tilted wall.
+   **DONE 2026-08-15** — `STATUS.md`, mechanism writeup in
+   `stage4-my-taste-concept.md`.
 4. **Motion** — entrance animation, parallax, reduced-motion fallback.
 5. **Time-range switching** — the UI to flip between Spotify's `time_range`
    values (the server endpoints already accept it), with a `Flip`-powered
@@ -943,6 +951,26 @@ built and sitting next to everything else. Sequence:
 > 5 cards to 1 removes real overhead, and the wall's height was never
 > touched by this task at all. Under 1.0× means comfortable room to spare,
 > not a failure of "fits in one screen." Full detail in `STATUS.md`.
+>
+> **Update, Task 3.8 (2026-08-15):** brief called itself a follow-up to "Task
+> 3.7's three-zone structure" — no such task exists in this repo's history;
+> checked against the tree and flagged rather than guessed around (the three
+> asks mapped cleanly onto the real two-column wall/crate structure anyway).
+> Polish pass, no structural change. Kicker replaced with a real outbound
+> link to the site's actual Spotify profile (reused from `footer.jsx`, not
+> invented) plus its icon, theme-swapped, used as-is per Spotify's own brand
+> guidelines rather than run through this section's duotone treatment. Every
+> artist card and setlist track is now a real `<a>` to its own
+> `external_urls.spotify` (verified live against the real API, not assumed —
+> spot-checked all 10 hrefs against raw payload data), with a visible
+> `:focus-visible` outline confirmed by screenshot to read clearly even
+> across each card's own torn `clip-path` edge. Crate's rotation/jitter
+> removed (`transform: none`, torn edge/tape kept) so it reads as a straight
+> list beside the wall's still-tilted cards, confirmed live (wall: -2.2° to
+> 3.84°, within the original 2-4° band; crate: exactly `none`). No new
+> product bugs found this task. Fit ratio unchanged from Task 3.6 (0.72×/
+> 0.82×/2.73×) — nothing this task did resizes any element. Full detail in
+> `STATUS.md`.
 
 ### Stage 5 — Mobile
 

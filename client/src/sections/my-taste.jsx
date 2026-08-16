@@ -25,6 +25,11 @@ import "@fontsource/space-mono/latin-ext-700.css";
 import "../styles/main.scss";
 import { photoColorwayFor } from "../components/vinyl-record.jsx";
 import { seeded01 } from "../lib/hash.js";
+// Same theme-swapped pair footer.jsx's own Spotify link already uses — no
+// third icon asset, no icon library, per the brief's own instruction to
+// reuse whatever already renders platform marks on this site.
+import spotifyWhite from "../assets/spotify_white.png";
+import spotifyBlack from "../assets/spotify_black.png";
 
 // Stage 4 Task 2 — the wall's structure and hierarchy: headliner (large) + 4
 // support acts, arranged on a CSS Grid so overlap is structurally impossible
@@ -41,8 +46,25 @@ import { seeded01 } from "../lib/hash.js";
 // with art on only the top 3 tracks, and photo duotones use a narrower
 // photoColorwayFor (vinyl-record.jsx) instead of colorwayFor — two of
 // colorwayFor's five tokens are near-neutral (correct for real vinyl,
-// wrong for a photo wash). Still no motion, no time-range UI (Tasks 4/5).
+// wrong for a photo wash). Task 3.8 (this task, brief titled it a follow-up
+// to a "Task 3.7 three-zone structure" — no such commit exists in this
+// repo's history, and no "Zone A/B/C" terminology exists anywhere in this
+// file or design-review/; checked before writing anything, per CLAUDE.md's
+// own instruction to flag a brief/tree mismatch rather than build against
+// the description. The three concrete asks map onto the real, current
+// two-column wall/crate structure without any ambiguity — "Zones A/B" =
+// the wall's headliner+support cards, "Zone C" = the crate — so nothing
+// here was blocked on it, just noted) is a polish pass, no structural
+// change: the kicker links out to Spotify (real profile URL, reused from
+// footer.jsx, not invented here), every artist/track card is a real link to
+// its own Spotify page, and the crate's own card lost its rotation/jitter
+// (kept its torn edge/tape) so it reads as a straight list beside the
+// wall's still-tilted cards.
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
+
+// Same account footer.jsx's own Spotify link already points at — reused
+// verbatim (not a second profile) rather than hardcoding a placeholder.
+const SPOTIFY_PROFILE_URL = "https://open.spotify.com/user/12182870270?si=ff914bbc78404c66";
 
 async function fetchTopItems(kind) {
     try {
@@ -136,8 +158,24 @@ function cardTransform(id) {
 // area), the crate's singles don't (they're flex-column items, not grid
 // cells); `gridArea: undefined` is simply omitted by React/the style object,
 // so this is the same component either way, not a second card mechanism.
-function TasteCard({ id, area, className, children }) {
+//
+// `href` is optional too (Task 3.8), same pattern: the wall's headliner/
+// support cards pass their artist's real `external_urls.spotify` and get
+// wrapped in a real `<a>` (keyboard/screen-reader access, not a `div` +
+// onClick — same discipline this section's alt text already follows); the
+// crate's own setlist-container card passes none (it isn't itself a link —
+// each track inside it links individually, see the setlist markup below),
+// so `content` just falls back to plain `children`, unchanged from before
+// this task. One component, one conditional, not two card mechanisms.
+function TasteCard({ id, area, className, href, children }) {
     const { rotate, jitterX, jitterY, tear, tapeRotate } = cardTransform(id);
+    const content = href ? (
+        <a className="my-taste-card-link" href={href} target="_blank" rel="noopener noreferrer">
+            {children}
+        </a>
+    ) : (
+        children
+    );
     return (
         <article
             className={`my-taste-card my-taste-card--tear-${tear} ${className}`}
@@ -150,7 +188,7 @@ function TasteCard({ id, area, className, children }) {
             }}
         >
             <div className="my-taste-card-tape" />
-            {children}
+            {content}
         </article>
     );
 }
@@ -205,10 +243,21 @@ function PhotoSlot({ id, className, imageUrl, imageAlt }) {
 export default function MyTaste() {
     const [tracks, setTracks] = useState({ status: "loading", data: [] });
     const [artists, setArtists] = useState({ status: "loading", data: [] });
+    // Same minimal theme-listener footer.jsx and navbar.jsx already each
+    // carry their own copy of (no shared hook exists in this codebase for
+    // it) — needed here only for the kicker's Spotify mark, which theme-
+    // swaps the same way footer.jsx's own copy of that exact icon does.
+    const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
 
     useEffect(() => {
         fetchTopItems("tracks").then(setTracks);
         fetchTopItems("artists").then(setArtists);
+    }, []);
+
+    useEffect(() => {
+        const handleTheme = () => setTheme(document.documentElement.getAttribute("data-theme") || "dark");
+        window.addEventListener("themeChange", handleTheme);
+        return () => window.removeEventListener("themeChange", handleTheme);
     }, []);
 
     // Reshape into the poster's actual roles, not one flat list each.
@@ -238,13 +287,36 @@ export default function MyTaste() {
     return (
         <section className="my-taste-section">
             {/* The section's own title — headliner/support/setlist content
-                below is content, not a second or third heading for it. */}
-            <h2 className="my-taste-heading">now spinning · my taste</h2>
+                below is content, not a second or third heading for it.
+                Task 3.8: now the ONE real outbound link for this whole
+                section too — "now spinning · my taste" replaced with a
+                kicker that reads as a link, not decoration, per the brief.
+                The <a> lives INSIDE the <h2> (not the reverse) so the
+                section keeps exactly one real heading, same as before this
+                task — its accessible name is just the link's own text now. */}
+            <h2 className="my-taste-heading">
+                <a className="my-taste-heading-link" href={SPOTIFY_PROFILE_URL} target="_blank" rel="noopener noreferrer">
+                    my taste
+                    <span className="my-taste-heading-dot" aria-hidden="true">·</span>
+                    listen on spotify
+                    {/* alt="" (decorative), unlike footer.jsx's OWN copy of
+                        this same icon (alt="Spotify" there) — this icon
+                        rides alongside text that already says "listen on
+                        spotify," so announcing it a second time would be
+                        redundant, not helpful. */}
+                    <img className="my-taste-heading-icon" src={theme === "dark" ? spotifyWhite : spotifyBlack} alt="" />
+                </a>
+            </h2>
 
             <div className="my-taste-layout">
                 <div className="my-taste-wall">
                     {artists.status === "ready" && headliner ? (
-                        <TasteCard id={headliner.id} area="headliner" className="my-taste-card--headliner">
+                        <TasteCard
+                            id={headliner.id}
+                            area="headliner"
+                            className="my-taste-card--headliner"
+                            href={headliner.external_urls?.spotify}
+                        >
                             <PhotoSlot
                                 id={headliner.id}
                                 className="my-taste-photo-slot--headliner"
@@ -261,7 +333,13 @@ export default function MyTaste() {
 
                     {support.length > 0
                         ? support.map((artist, i) => (
-                            <TasteCard key={artist.id} id={artist.id} area={`support-${i + 1}`} className="my-taste-card--support">
+                            <TasteCard
+                                key={artist.id}
+                                id={artist.id}
+                                area={`support-${i + 1}`}
+                                className="my-taste-card--support"
+                                href={artist.external_urls?.spotify}
+                            >
                                 <PhotoSlot
                                     id={artist.id}
                                     className="my-taste-photo-slot--support"
@@ -283,7 +361,12 @@ export default function MyTaste() {
                     the wall's own cards), a fanned row of the top 3 tracks'
                     art up top, then the full 5-track list below it — only
                     the top 3 carry art, not all 5, so the crate isn't
-                    "1 card containing a card each." */}
+                    "1 card containing a card each." No `href` on this
+                    TasteCard (Task 3.8) — the crate ITSELF isn't a link,
+                    each track below links individually instead. Rotation/
+                    jitter also comes off this specific card in main.scss
+                    (.my-taste-card--setlist) — the wall's cards keep theirs
+                    exactly as-is; only the crate straightens. */}
                 <div className="my-taste-crate">
                     {tracks.status === "ready" && setlist.length > 0 ? (
                         <TasteCard id="setlist" className="my-taste-card--setlist">
@@ -301,11 +384,24 @@ export default function MyTaste() {
                             <ol className="my-taste-setlist">
                                 {setlist.map((track, index) => (
                                     <li key={track.id ?? index} className="my-taste-setlist-item">
-                                        <span className="my-taste-setlist-index">{index + 1}</span>
-                                        <span className="my-taste-setlist-track">{track.name}</span>
-                                        <span className="my-taste-setlist-artist">
-                                            {track.artists.map((a) => a.name).join(", ")}
-                                        </span>
+                                        {/* Whole row is one <a> (Task 3.8),
+                                            not just the track name — a
+                                            bigger, single focusable/tappable
+                                            target per row, same "real <a>,
+                                            not a div+onClick" discipline the
+                                            wall's cards use. */}
+                                        <a
+                                            className="my-taste-setlist-link"
+                                            href={track.external_urls?.spotify}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <span className="my-taste-setlist-index">{index + 1}</span>
+                                            <span className="my-taste-setlist-track">{track.name}</span>
+                                            <span className="my-taste-setlist-artist">
+                                                {track.artists.map((a) => a.name).join(", ")}
+                                            </span>
+                                        </a>
                                     </li>
                                 ))}
                             </ol>

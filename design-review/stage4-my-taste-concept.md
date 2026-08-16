@@ -43,6 +43,11 @@ a compressed sans for support acts, a monospace for the setlist — never Avenir
 is the system font everywhere else on the site. Photo duotones (Task 3.6) use a narrower
 `photoColorwayFor` (`vinyl-record.jsx`), not `colorwayFor` — see §8.
 
+As of Task 3.8, the poster is a real gateway out to Spotify, not just decoration: the
+kicker links to the real profile, and every artist card and setlist track links to its
+own real Spotify page. Only the crate's own card lost its tilt (rotation/jitter, not the
+torn edge or tape) — the wall stays exactly as tilted as it's always been. See §10.
+
 `limit=5` on both `/api/spotify/top-artists` and `/api/spotify/top-tracks` (server.js,
 untouched since before Stage 4) is exactly headliner + 4 support, and exactly 5 setlist
 rows. This is a **load-bearing number**, not an arbitrary default — the grid geometry
@@ -65,11 +70,20 @@ everything else. Splitting keeps each task's risk isolated.
 | 3 | **Photography** — real photos, duotone blend layer, grain, image fallback cards | **DONE** 2026-08-15 |
 | 3.5 | **Two columns** — restructure into wall (left) + crate (right) so total height is `max(wall, crate)`, not their sum. Setlist rebuilt as small torn "singles," not a list row | **DONE** 2026-08-15 |
 | 3.6 | **Refinement pass** — headliner less dominant, crate back to one plain list (Task 3.5's "singles" read too busy), duotone bug fixed (2 of `colorwayFor`'s 5 tokens read as plain gray on a photo) | **DONE** 2026-08-15 |
+| 3.8 | **Spotify link, clickable cards, straighten the setlist** — kicker links out to the real profile, every artist/track card is a real `<a>` to its own Spotify page, crate's rotation/jitter removed (torn edge/tape kept) | **DONE** 2026-08-15 |
 | 4 | **Motion** — entrance animation, parallax, reduced-motion fallback | Not started |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
-Full detail on Tasks 1, 2, 2.5, 3, 3.5 and 3.6 (numbers, bugs found, verification) is in
-`STATUS.md`'s own dated entries — this file is the durable *concept* record, `STATUS.md`
+> Task 3.8's own brief referred to it as a follow-up to "Task 3.7's three-zone
+> structure." No such task landed in this repo — the task list above skips straight from
+> 3.6 to 3.8, and no "Zone A/B/C" terminology exists anywhere in this file or the code.
+> Checked before building anything, flagged rather than guessed around (CLAUDE.md). The
+> three concrete asks mapped cleanly onto the real, current two-column wall/crate
+> structure regardless ("Zones A/B" = the wall, "Zone C" = the crate), so nothing was
+> blocked on it.
+
+Full detail on Tasks 1, 2, 2.5, 3, 3.5, 3.6 and 3.8 (numbers, bugs found, verification) is
+in `STATUS.md`'s own dated entries — this file is the durable *concept* record, `STATUS.md`
 is the *work log*.
 
 ## 3. Task 2's mechanism — grid placement, not freehand position
@@ -399,8 +413,73 @@ the simplification itself; declined to chase an exact wall/crate match by inflat
 list further, or by touching support-card sizing (out of scope). Re-verified: zero overlap
 in either column, zero horizontal overflow 320–1440px, unchanged from §6's own numbers.
 
-## 9. Open items for later tasks
+## 9. Task 3.8's mechanism — real links, and a straight crate
 
+Three independent, unrelated asks, no structural change — Task 3.6's fit fix (§8) is
+untouched, and its own two numbers (0.72×/0.82× desktop/laptop) don't move, since nothing
+this task did changes any element's box size, only what wraps it or how it's rotated.
+
+**The kicker is a real outbound link.** "now spinning · my taste" is gone; the `<h2>` now
+contains one `<a>` ("my taste · listen on spotify" — text-transformed to caps by the
+existing `.my-taste-heading` rule, not typed in caps) whose whole line, dot separator
+included, is the link — plus the Spotify glyph at its trailing edge. The URL is the real
+profile already in production, `footer.jsx`'s own `open.spotify.com/user/...` link — reused,
+not a second profile invented for this task. The icon is the *same* theme-swapped
+white/black PNG pair `footer.jsx` already uses (no new asset, no icon library), rendered
+`alt=""` here (decorative — the link's own text already says "listen on spotify," unlike
+`footer.jsx`'s standalone icon-only link, which needs `alt="Spotify"` as its only
+accessible name) and deliberately **not** run through this section's own duotone treatment
+— Spotify's brand guidelines call for the mark's approved shape/color; `PhotoSlot`'s
+`grayscale(1)` + `mix-blend-mode` wash is for the festival-poster photos, not a UI glyph.
+The `<a>` lives *inside* the `<h2>`, not the reverse, so the section keeps exactly the one
+real heading Task 1 established — its accessible name is just the link's text now.
+
+**Every artist and track card is a real link.** `TasteCard` (`my-taste.jsx`) takes an
+optional `href` — when present, it wraps its `children` in a real `<a>` before returning
+them inside the `<article>`; when absent (the crate's own container card), behavior is
+byte-identical to before this task. Headliner and all 4 support cards pass
+`artist.external_urls.spotify`; each setlist row is now its own `<a>` wrapping
+index+track+artist (`external_urls.spotify` from the track object) rather than plain
+`<span>`s — a bigger, single tappable target per row, not just the track name. Verified
+live against real API responses, not assumed from the brief: `external_urls.spotify` is
+present, unmodified, on both `/api/spotify/top-artists` and `/api/spotify/top-tracks`
+responses (`server.js` forwards Spotify's own `items` array verbatim, no reshaping) — spot-
+checked all 5 artist hrefs and all 5 track hrefs against the raw API payload, all correct.
+Real `<a>` throughout, never a `div` + `onClick`, matching this section's own existing
+alt-text accessibility discipline; `target="_blank" rel="noopener noreferrer"` on every
+one, since all of them take the visitor off the portfolio. Focus is a plain `outline`
+(same convention as every other interactive element on the site) — checked live on a
+torn-edge card specifically, since clip-path on the card clips an inner element's outline
+wherever a tear cuts inward: the ring isn't a mathematically perfect rectangle on every
+card, but the vast majority of its perimeter renders normally (the tears only cut a few
+percent inward at their deepest points) and the result is clearly, unambiguously visible —
+confirmed by screenshot, not just computed styles.
+
+**The crate is straight now; the wall isn't.** `.my-taste-card--setlist` overrides
+`.my-taste-card`'s base `transform` (rotate + jitter) back to `none` — scoped to rotation/
+jitter only, per the brief's own wording. Torn edge (`--tear-N`) and the tape accent are
+untouched, so the crate keeps the same paper/pinned-material language as the wall, it's
+just not crooked anymore. The wall's headliner and 4 support cards are completely
+unchanged — confirmed live, real computed rotation on all 5 (-2.2° to 3.84°, within the
+brief's own original 2-4° band) beside the setlist card's exactly-`none` transform.
+
+**Verification, beyond what's above:** every card and track's href spot-checked against
+raw API data (not just "non-empty"); a real sequential Tab walk (not just programmatic
+`.focus()`) reaches the kicker, then all 5 wall cards, then all 5 setlist rows, each
+getting the same visible outline; zero horizontal overflow at the usual 320-1440px sweep;
+zero console errors across a full-page scroll-through; screenshots re-captured both
+themes — `design-review/capture-screenshots.mjs` (note: that script's own hardcoded
+light-theme list is `['home', 'about']` only, so it doesn't cover `#my-taste` in light —
+supplemented with the same scoped light-theme capture prior tasks in this section already
+use, `t4-my-taste-wall-desktop-light.png`).
+
+## 10. Open items for later tasks
+
+- **Task 4**'s entrance animation now has real `<a>` elements to animate, not bare
+  `<article>`s — a GSAP hover/tilt effect that targets `.my-taste-card` directly should
+  double check it doesn't fight the new `.my-taste-card-link:hover` underline this task
+  added, and any pointer-events trickery should account for the whole card now being one
+  focusable, navigable link, not inert.
 - **Task 5**'s `Flip` re-rank needs to account for the deterministic-by-id transform:
   if the headliner changes after a time-range switch, its new rotation/jitter/tear/tape
   values will differ from the old headliner's (different id → different hash) — that's

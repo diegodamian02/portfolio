@@ -2586,6 +2586,73 @@ Build: JS 487.24 kB / 174.86 kB gz (+0.06 kB / +0.01 kB gz), CSS 45.05 kB / 9.58
 one-element JSX wrapper, nothing structural. Lint unchanged: 7 errors, 2 expected
 warnings (same baseline as Task 3.6).
 
+### Stage 4 Task 3.8 — `#my-taste`: Spotify link, clickable cards, straighten the setlist *(2026-08-15)*
+
+Brief referred to this as a follow-up to "Task 3.7's three-zone structure" — no such
+task exists in this repo's history (latest `#my-taste` commit going in was Task 3.6) and
+no "Zone A/B/C" terminology exists anywhere in the code or `design-review/`. Checked
+against the tree before writing anything, per this project's own working agreement —
+the three concrete asks mapped cleanly onto the real, current two-column wall/crate
+structure regardless ("Zones A/B" = the wall's headliner+support cards, "Zone C" = the
+crate), so nothing was blocked on it, just flagged (`stage4-my-taste-concept.md` §2).
+
+**Kicker linked to Spotify.** "now spinning · my taste" → "MY TASTE · LISTEN ON SPOTIFY"
+plus the Spotify glyph, the whole line one real `<a>` inside the existing `<h2>` (not the
+reverse — keeps exactly one real heading for the section, Task 1's own requirement).
+Found the real profile URL already in the codebase rather than inventing one:
+`footer.jsx`'s own working Spotify link, reused verbatim. Icon is the *same* theme-swapped
+white/black PNG pair `footer.jsx` already uses — no new asset, no icon library. Rendered
+`alt=""` (decorative — the link's own text already says "listen on spotify"), and
+deliberately **not** run through this section's `PhotoSlot` duotone treatment, per the
+brief's own instruction to respect Spotify's brand mark as-is.
+
+**Every artist/track card is a real link.** `TasteCard` takes an optional `href`
+(`my-taste.jsx`) — wraps `children` in a real `<a>` when present (headliner + 4 support
+cards, each passing `artist.external_urls.spotify`), falls back to plain `children`
+when absent (the crate's own container card, unchanged). Each setlist row became its own
+`<a>` (index+track+artist together, not just the track name) using
+`track.external_urls.spotify`. Verified live against the real API, not assumed from the
+brief: confirmed `external_urls.spotify` is present, unmodified, on both
+`/api/spotify/top-artists` and `/api/spotify/top-tracks` responses (`server.js` forwards
+Spotify's `items` array verbatim) — spot-checked all 5 artist hrefs and all 5 track hrefs
+against the raw payload, all correct, not just non-empty. Real `<a>`, not `div`+`onClick`,
+matching this section's own alt-text accessibility discipline; `target="_blank"
+rel="noopener noreferrer"` throughout. Focus is a plain `outline` (this site's usual
+convention) — checked live specifically because these cards have a `clip-path` torn edge,
+which does clip an inner outline wherever a tear cuts inward; confirmed by screenshot that
+the ring still reads clearly and continuously across the vast majority of each card's
+perimeter, comfortably clearing "a visible focus indicator" without a second, bespoke
+focus mechanism.
+
+**Crate straightened, wall untouched.** `.my-taste-card--setlist { transform: none; }`
+overrides the base card's rotate+jitter — scoped to rotation/jitter only, per the brief's
+own wording; torn edge and tape stay. Confirmed live: all 5 wall cards still carry real
+rotation (-2.2° to 3.84°, within the original 2-4° band), the setlist card's computed
+transform is exactly `none`.
+
+**No new product bugs found this task** — stated plainly rather than padded. The CSS
+refactor moving `.my-taste-setlist-item`'s flex layout down onto the new
+`.my-taste-setlist-link` (the actual flex parent of the track/artist spans now) was
+re-verified against the exact overflow trap it originally fixed (FINDINGS.md B25) — 0px
+overflow at all 9 widths checked, 320–1440px, unchanged from before this task.
+
+**Verification:** every card/track href spot-checked against raw API data; a real
+sequential Tab walk (not just programmatic `.focus()`) reaches the kicker then all 5 wall
+cards then all 5 setlist rows, each with a visible outline; zero console errors across a
+full-page scroll-through; zero horizontal overflow 320–1440px; Task 3.6's own fit-ratio
+numbers (0.72×/0.82×/2.73×) unchanged, confirmed rather than assumed, since nothing this
+task did resizes any element. Screenshots re-captured both themes via
+`design-review/capture-screenshots.mjs` (`my-taste-desktop.png`/`my-taste-mobile.png`) —
+that script's own hardcoded light-theme list is `['home', 'about']` only, so it doesn't
+cover `#my-taste`; supplemented with the same scoped light-theme capture prior tasks in
+this section already use (`t4-my-taste-wall-desktop-{dark,light}.png`,
+`t4-my-taste-wall-mobile-dark.png`).
+
+Build: JS 488.23 kB / 175.06 kB gz (+0.99 kB / +0.20 kB gz), CSS 46.07 kB / 9.71 kB gz
+(+1.02 kB / +0.13 kB gz) — two new imported PNGs (already bundled for `footer.jsx`, no
+new asset weight), new link/focus/hover CSS. Lint unchanged: 7 errors, 2 expected
+warnings.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2613,8 +2680,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **487.24 kB / 174.86 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **45.05 kB / 9.58 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **488.23 kB / 175.06 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **46.07 kB / 9.71 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
 
