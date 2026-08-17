@@ -133,12 +133,12 @@ touching first.
 - Per-visitor, interactive, real-time — every visitor searches and plays whatever they want.
 
 **Spotify Web API — my music.**
-- Server-side only (`server/server.js`). Powers the `#my-taste` section: **my** top tracks and top
-  artists, nothing else.
+- Server-side only (`server/server.js`). Powers the `#my-taste` section: **my** top tracks, top
+  artists, and (Stage 4 Task 3.9) my own profile photo for the kicker's avatar — nothing else.
 - Exactly **one** authenticated identity — mine. There is no per-visitor Spotify auth anywhere in
-  this app, and visitors never see a Spotify login/consent prompt. `GET /api/spotify/top-tracks`
-  and `GET /api/spotify/top-artists` just return my already-fetched, server-cached data as
-  read-only display content.
+  this app, and visitors never see a Spotify login/consent prompt. `GET /api/spotify/top-tracks`,
+  `GET /api/spotify/top-artists`, and `GET /api/spotify/profile` just return my already-fetched,
+  server-cached data as read-only display content.
 - Auth model: one-time manual authorization-code flow. I visit `/login?key=<SPOTIFY_LOGIN_SECRET>`
   myself, approve Spotify's consent screen once, and `/callback` mints an access token + a
   long-lived **refresh token** (persisted as the `SPOTIFY_REFRESH_TOKEN` env var). From then on the
@@ -156,15 +156,21 @@ touching first.
   that actually serves that data.
 - Endpoints used — confirmed still supported as of the Nov 2024 and Feb 2026 Spotify Web API
   changes: `GET /me/top/tracks` and `GET /me/top/artists` ("Get User's Top Items," scope
-  `user-top-read`, `time_range` = `short_term`/`medium_term`/`long_term`). Nothing else is called.
+  `user-top-read`, `time_range` = `short_term`/`medium_term`/`long_term`); `GET /me` ("Get Current
+  User's Profile," Stage 4 Task 3.9, `images[]` only) — confirmed live against the real refresh
+  token before shipping, not assumed from docs: 200 with a populated `images[]` on the SAME
+  `user-top-read`-only scope, no scope change needed. **Not** the same endpoint as "another user's
+  Profile" below — that's `GET /users/{user_id}` (someone else's), a genuinely different,
+  deprecated route; `/me` (the app's own single authenticated identity, same as Top Items) was
+  never affected by that change.
 - Endpoints **not** used here and deprecated for Development Mode apps — don't reach for these:
   Recommendations, Related Artists, Audio Features, Audio Analysis, Get Featured/Category
   Playlists (Nov 2024); Get Several Tracks/Artists/Albums, Get an Artist's Top Tracks, Get New
   Releases, Get Available Markets, another user's Profile/Playlists (Feb 2026, along with fields
   `available_markets`, `popularity`, `followers`, `country`, `email`, `explicit_content`,
   `product` being dropped from responses generally). Re-check Spotify's changelog before adding
-  any endpoint beyond Top Items — this API's Development Mode surface has shrunk twice in the last
-  18 months.
+  any endpoint beyond Top Items/current-user Profile — this API's Development Mode surface has
+  shrunk twice in the last 18 months.
 - Quota mode: **Development Mode**, capped at 5 allowlisted users as of Feb 2026 (down from 25) —
   irrelevant here since only my own account is ever allowlisted. As of the same Feb 2026 change,
   **Spotify requires the app owner's account to have an active Premium subscription for a

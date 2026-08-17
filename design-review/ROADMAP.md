@@ -65,13 +65,27 @@ crate cascade in, in that order — real scroll input held via
 Deliberately skipped below 601px (mobile's own 2.68× fit ratio makes
 pinning it a real regression, not an untuned one) and under
 prefers-reduced-motion. `stage4-my-taste-concept.md` §11 has the full
-mechanism writeup.
+mechanism writeup. Two days later, **Task 3.9** added the kicker's own
+avatar (Diego's real Spotify profile photo, a new `GET /api/spotify/profile`
+route, same duotone treatment as everything else in this section) and
+**Task 4.1** refined Task 4's own cascade — `CustomBounce`'s strength
+pulled back so the wall cards read as pinned rather than bounced, a
+deliberate pause before each tape/pin snap, each card's settle pivoted
+around the tape's own anchor instead of its center, and two new zone
+titles ("MY TOP ARTISTS"/"MY TOP 5 TRACKS") with their own pop-in beats.
+Both landed together; fit ratio moved again as a result — desktop
+**0.83×**, laptop **0.95×** (still comfortably under one screen), mobile
+**2.80×** (still Stage 5's own territory). One real regression caught and
+fixed in the same pass: the avatar pushed the kicker's text into a
+mid-word wrap at 390px, fixed with `flex-wrap: wrap` + `white-space:
+nowrap` on the kicker link. `stage4-my-taste-concept.md` §12/§13 have the
+full writeups.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Task 5: time-range switching + `Flip` re-rank | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7, 4 — done |
+| **4 (remainder)** | `#my-taste` Task 5: time-range switching + `Flip` re-rank | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7, 4, 3.9, 4.1 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -88,13 +102,13 @@ mechanism writeup.
 
 **My read on immediate next step:** Stage 4 Task 5 (`#my-taste`'s
 time-range switching + `Flip` re-rank) — the section now has its final
-layout, real linked content, AND its entrance motion, so this is the last
-piece of Stage 4's original 5-task sequence. Task 5's own brief should
-account for the wall's current two-tier grid (2 featured + 3 secondary,
-grid-area names `featured-1/2`/`secondary-1/2/3`) when a re-rank moves an
-artist BETWEEN tiers, not just within one — noted in
-`stage4-my-taste-concept.md` §12's open items, unresolved from Task 3.7 and
-still open after Task 4.
+layout, real linked content, its entrance motion, AND the kicker's avatar,
+so this is the last piece of Stage 4's original 5-task sequence. Task 5's
+own brief should account for the wall's current two-tier grid (2 featured
++ 3 secondary, grid-area names `featured-1/2`/`secondary-1/2/3`) when a
+re-rank moves an artist BETWEEN tiers, not just within one — noted in
+`stage4-my-taste-concept.md` §14's open items, unresolved from Task 3.7 and
+still open after Tasks 4/4.1.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
@@ -877,6 +891,16 @@ built and sitting next to everything else. Sequence:
 4. **Motion** — entrance animation, parallax, reduced-motion fallback.
    **DONE 2026-08-17** — `STATUS.md`, mechanism writeup in
    `stage4-my-taste-concept.md`.
+3.9. **Profile avatar** — a small circular, duotoned photo of Diego's own
+   Spotify profile left of "MY TASTE," a new `GET /api/spotify/profile`
+   server route. **DONE 2026-08-17** — `STATUS.md`, mechanism writeup in
+   `stage4-my-taste-concept.md`.
+4.1. **Sell "pinning," not "bouncing" + zone titles** — refinement pass on
+   Task 4's own cascade: pulled back `CustomBounce`'s strength, added a
+   deliberate pause before each tape/pin snap, pivoted each card's settle
+   around the tape's own anchor, added "MY TOP ARTISTS"/"MY TOP 5 TRACKS"
+   zone titles. **DONE 2026-08-17** — `STATUS.md`, mechanism writeup in
+   `stage4-my-taste-concept.md`.
 5. **Time-range switching** — the UI to flip between Spotify's `time_range`
    values (the server endpoints already accept it), with a `Flip`-powered
    re-rank when the data changes underneath the poster.
@@ -1058,6 +1082,42 @@ built and sitting next to everything else. Sequence:
 > time here (GSAP's Lenis-aware pin uses transform-based pinning, not
 > `position: fixed`) — the wrong signal to check, found live. Full detail in
 > `STATUS.md`.
+>
+> **Update, Task 3.9 (2026-08-17):** the kicker's own avatar landed —
+> Diego's real Spotify profile photo, a new `GET /api/spotify/profile`
+> route reusing the same auth/cache mechanism as the two top-items routes.
+> Scope checked live against the real refresh token before writing any
+> frontend code (`user-top-read`, the existing scope, turned out to already
+> cover `/me`'s `images[]` — confirmed, not assumed, nothing to report as a
+> blocked finding). Same duotone treatment as every other photo in this
+> section, tried first per the brief and kept. One real regression caught
+> in the same pass: the avatar's own width broke the kicker's mobile
+> single-line fit, wrapping "MY TASTE" mid-word at 390px — fixed with
+> `flex-wrap: wrap` + `white-space: nowrap` on the kicker link, now wraps as
+> two clean whole-chunk lines instead. Fit ratio (landed alongside Task 4.1,
+> below, measured together): desktop 0.83×, laptop 0.95×, mobile 2.80×.
+>
+> **Update, Task 4.1 (2026-08-17):** refinement pass on Task 4's own
+> cascade, not a rebuild — the pin mechanism itself untouched. Sampled
+> `CustomBounce`'s own eased output directly rather than guessing why live
+> feedback called the landing "generic bounce": pulled `strength` back from
+> 0.6 to 0.3 (and `squash` from 2 to 1) so each card touches its target once
+> with one shallow dip instead of three visible bounces. Added a deliberate
+> 0.15s pause before each tape/pin snap (was firing the instant the card's
+> own land tween finished) — verified via a real frame-sequence capture
+> that the two beats read as separate on screen, not just separated by a
+> number. Each card's settle now pivots around the tape's own anchor point
+> (`transform-origin: 50% 0%`) instead of the card's center, rotating from
+> level into its real tilt as it lands. Added "MY TOP ARTISTS"/"MY TOP 5
+> TRACKS" zone titles above the wall/crate, each with the kicker's own
+> `SplitText` pop, requiring a new title+content wrapper around each column
+> (`.my-taste-layout`'s own grid needed no changes). Also ran Task 3.9 for
+> real after a follow-up brief claimed its file "was already written
+> earlier and simply never run" — checked against the tree, no such file
+> existed anywhere; built it for real instead of searching for one that was
+> never going to exist. Timeline duration grew from ~2.1s to ~2.76s, stated
+> plainly rather than forced back down by cutting the pacing this task
+> itself asked for. Full detail in `STATUS.md`.
 
 ### Stage 5 — Mobile
 

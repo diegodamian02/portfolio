@@ -80,7 +80,25 @@ export const FILMSTRIP_SETTLE_EASE = "filmstripSettle";
 // duration on the SAME element (GSAP's own documented CustomBounce demo
 // pattern) — one drives a position property, the other drives scaleX/scaleY,
 // together reading as an object dropping in and squashing on each contact.
-CustomBounce.create("cardLand", { strength: 0.6, squash: 2 });
+//
+// strength: 0.6 -> 0.3, squash: 2 -> 1 (Task 4.1) — live feedback on the
+// first version: "reads as a generic bounce, not specifically a flyer being
+// pinned." Sampled the actual eased curve (gsap.parseEase("cardLand")) at
+// 0.6 rather than guessing why: it touches 1 (arrived) three separate times
+// with two visible dips between (down to ~0.64, then ~0.88) — a real
+// multi-bounce ball. At 0.3 it touches 1 ONCE around 65% of the way through,
+// dips to a single, shallow ~0.92, and settles — one clear beat instead of a
+// rally. Also confirmed live: this ease NEVER exceeds 1 at any strength
+// (it approaches the target from below, dips back, approaches again — not a
+// spring passing through rest) — so "arrives, slight overshoot once, stops"
+// is read here as "arrives, one shallow dip, stops," not a literal
+// past-target overshoot; CustomBounce's own shape doesn't produce the
+// latter at all, at any strength. The bouncier, more energetic motion Task
+// 4.1 asked to reserve for the tape/pin instead lives in PIN_SNAP_EASE
+// below, unchanged — reducing the card's own strength is what makes room
+// for the tape's snap to read as the more energetic beat, not a change to
+// the tape's own config.
+CustomBounce.create("cardLand", { strength: 0.3, squash: 1 });
 export const CARD_LAND_EASE = "cardLand";
 export const CARD_LAND_SQUASH_EASE = "cardLand-squash";
 

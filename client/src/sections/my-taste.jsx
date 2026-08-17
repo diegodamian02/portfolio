@@ -75,25 +75,57 @@ import spotifyBlack from "../assets/spotify_black.png";
 // old headliner block's own floor, and the unused 180px was forcing dead
 // space under both featured cards' names (main.scss has the full story).
 //
-// Task 4 (THIS task) adds motion on top of the above — no layout/grid/
-// sizing change, per its own brief. A ScrollTrigger pin (reusing Experience's
-// own `pin: true` mechanism) holds the section in view while a paused,
-// non-scrubbed GSAP timeline cascades the kicker, then the wall's cards
-// (CustomBounce landings + CustomWiggle tape snaps, one MotionPathPlugin arc
-// on the first card), then the crate (plain fade/slide, no bounce — it's
-// this section's one already-straightened object). Real scroll input is
-// held via lenis.stop()/start() for the hold's duration, the same primitive
-// About's own Task 5 entrance-hold uses, NOT Experience's scrub (this
-// timeline runs on its own clock, not tied to scroll distance). Skipped
-// entirely below 601px — see the mm.add() comment further down for why —
-// and under prefers-reduced-motion, same as every other animated section on
-// this site. The brief's own mockup also named two things that don't exist
-// in this file: a profile avatar next to "MY TASTE" (Task 3.9 — checked
-// against git log/ROADMAP.md/STATUS.md before starting this task; it never
-// shipped, flagged as its own separate open item, not built here) and a
-// "MY TOP 5 TRACKS" label inside the crate (no such element has ever existed
-// in this file — the crate's entrance animates its real content, the 3
-// thumbnails and 5 rows, with no separate label beat to pop).
+// Task 4 adds motion on top of the above — no layout/grid/sizing change, per
+// its own brief. A ScrollTrigger pin (reusing Experience's own `pin: true`
+// mechanism) holds the section in view while a paused, non-scrubbed GSAP
+// timeline cascades the kicker, then the wall's cards (CustomBounce
+// landings + CustomWiggle tape snaps, one MotionPathPlugin arc on the first
+// card), then the crate (plain fade/slide, no bounce — it's this section's
+// one already-straightened object). Real scroll input is held via
+// lenis.stop()/start() for the hold's duration, the same primitive About's
+// own Task 5 entrance-hold uses, NOT Experience's scrub (this timeline runs
+// on its own clock, not tied to scroll distance). Skipped entirely below
+// 601px — see the mm.add() comment further down for why — and under
+// prefers-reduced-motion, same as every other animated section on this
+// site. Task 4's own brief mockup named two things that didn't exist in
+// this file at the time: a profile avatar next to "MY TASTE" (Task 3.9,
+// then unbuilt — checked against git log/ROADMAP.md/STATUS.md; flagged as
+// its own separate open item rather than built inside Task 4) and a
+// "MY TOP 5 TRACKS" label inside the crate (built for real in Task 4.1,
+// below, once actually asked for).
+//
+// Task 3.9 adds the kicker's own avatar — AvatarSlot, below, Diego's real
+// Spotify profile photo via a new GET /me-backed server route
+// (server/server.js), same duotone treatment as every other photo in this
+// section (tried first per the brief, kept — a real face reads fine
+// through it). Renders nothing at all when there's no image to show, same
+// "hide rather than show broken" discipline as PhotoSlot's own fallback.
+// Not part of Task 4's own cascade (out of scope for 3.9) — renders
+// immediately, same as the kicker's existing dot/Spotify-icon.
+//
+// Task 4.1 is a refinement pass on Task 4's cascade, not a rebuild: (1)
+// CustomBounce's own `strength` on the wall cards themselves pulled back
+// (0.6 -> 0.3, lib/gsap.js) after live feedback that the landing read as a
+// generic ball-bounce rather than specifically "a flyer being pinned" — the
+// tape/pin keeps the more energetic motion (CustomWiggle, unchanged) by
+// contrast; (2) a deliberate pause (PIN_BEAT_GAP) now separates "the card
+// arrives" from "it gets pinned" into two beats instead of one
+// near-simultaneous motion; (3) each card's settle now includes a small
+// rotation from level (0deg) into its own real tilt, pivoted around the
+// tape's own anchor point (transform-origin: 50% 0%, not the card's
+// center) so it reads as hinged at the pin, not spinning around its own
+// middle; (4) two new zone titles ("MY TOP ARTISTS" / "MY TOP 5 TRACKS"),
+// each with the kicker's own SplitText pop treatment, each popping in just
+// before its own zone's cascade starts. Also ran Task 3.9's file for real
+// (a follow-up brief claimed it "was already written earlier and simply
+// never run" — checked against the tree: no such file existed anywhere:
+// no commit, nothing in STATUS.md/ROADMAP.md beyond Task 4's own
+// "flagged, not built" note. Most likely explanation, consistent with this
+// project's own established workflow: the design-research chat that writes
+// these briefs has no repo access and doesn't know what has or hasn't
+// shipped — so "already written" probably meant "I already drafted this
+// brief," not "this exists in the codebase." Built it for real here rather
+// than searching for a file that was never going to exist.
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
 
 // Same account footer.jsx's own Spotify link already points at — reused
@@ -107,6 +139,25 @@ async function fetchTopItems(kind) {
     } catch (error) {
         console.error(`Error fetching top ${kind}:`, error);
         return { status: "error", data: [] };
+    }
+}
+
+// Stage 4 Task 3.9 — the kicker's own avatar. Same account, same token, same
+// server-side auth/refresh already built for the two top-items endpoints
+// (server.js's ensureAccessToken()); this just points at Spotify's Get
+// Current User's Profile endpoint instead of /me/top/*. `imageUrl: null`
+// (no `images` at all, or an empty array) is a real, not hypothetical,
+// response shape — Spotify only populates profile images for accounts that
+// have set one — so this returns null rather than throwing, and AvatarSlot
+// (below) renders nothing at all for it, same "hide rather than show a
+// broken image" discipline as PhotoSlot's own onError fallback.
+async function fetchProfile() {
+    try {
+        const { data } = await axios.get(`${apiBaseUrl}/api/spotify/profile`);
+        return { status: "ready", imageUrl: pickImageUrl(data.images) };
+    } catch (error) {
+        console.error("Error fetching profile:", error);
+        return { status: "error", imageUrl: null };
     }
 }
 
@@ -208,6 +259,14 @@ function jitterOf(card) {
     };
 }
 
+// Task 4.1 — the settle's own rotation target, same "read the real inline
+// value back" discipline as jitterOf just above (and for the same reason:
+// the entrance's rotation tween needs to land exactly where cardTransform()
+// actually put this specific card, not a re-derived guess).
+function rotationOf(card) {
+    return parseFloat(card.style.getPropertyValue("--card-rotate")) || 0;
+}
+
 /* eslint-disable react/prop-types */
 // No propTypes convention/dependency in this codebase (same precedent as
 // turntable.jsx's `track` prop) — one block-disable rather than per-line,
@@ -298,11 +357,49 @@ function PhotoSlot({ id, className, imageUrl, imageAlt }) {
         </div>
     );
 }
+
+// Stage 4 Task 3.9 — the kicker's own circular avatar. Deliberately a small,
+// bespoke duotone (not PhotoSlot reused as-is): PhotoSlot's own scaffolding
+// — aspect-ratio slot, torn-edge parent, tape — is built for a wall/crate
+// CARD, none of which applies to a tiny circular badge sitting inline in a
+// text row. Same two-layer technique underneath, though (grayscale+contrast
+// photo, a mix-blend-mode: color tint layer above it, one shared --card-tint
+// custom property) — tried duotone first per the brief's own instruction
+// ("consistency has been the right call everywhere else in this stage"),
+// and a real face read fine through it, not muddy — kept, not reverted.
+// photoColorwayFor needs an id to hash against; this is the one image in the
+// section with no natural Spotify id of its own (it's the owner's account,
+// not an artist/track), so it hashes a fixed literal instead — deterministic
+// across reloads same as every other id-driven value in this file, just
+// salted from a string constant rather than an API id.
+//
+// Renders nothing at all — not a broken-image icon, not a placeholder ring —
+// when there's no image to show (fetch failed, or the account has no photo
+// set, a real Spotify response shape, not hypothetical) or a real URL that
+// failed to load. Same "hide rather than show broken" discipline as
+// PhotoSlot's own onError fallback, just with nothing to fall back TO here
+// (no flat-tint placeholder makes sense for "a photo of a specific person").
+function AvatarSlot({ imageUrl, imageAlt }) {
+    const [failed, setFailed] = useState(false);
+    if (!imageUrl || failed) return null;
+    return (
+        <span className="my-taste-avatar" style={{ "--card-tint": `var(--vinyl-${photoColorwayFor("diego-avatar")})` }}>
+            <img
+                className="my-taste-avatar-img"
+                src={imageUrl}
+                alt={imageAlt}
+                onError={() => setFailed(true)}
+            />
+            <span className="my-taste-avatar-tint" aria-hidden="true" />
+        </span>
+    );
+}
 /* eslint-enable react/prop-types */
 
 export default function MyTaste() {
     const [tracks, setTracks] = useState({ status: "loading", data: [] });
     const [artists, setArtists] = useState({ status: "loading", data: [] });
+    const [avatar, setAvatar] = useState({ status: "loading", imageUrl: null });
     // Same minimal theme-listener footer.jsx and navbar.jsx already each
     // carry their own copy of (no shared hook exists in this codebase for
     // it) — needed here only for the kicker's Spotify mark, which theme-
@@ -310,10 +407,13 @@ export default function MyTaste() {
     const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
     const rootRef = useRef(null);
     const kickerRef = useRef(null);
+    const wallTitleRef = useRef(null);
+    const crateTitleRef = useRef(null);
 
     useEffect(() => {
         fetchTopItems("tracks").then(setTracks);
         fetchTopItems("artists").then(setArtists);
+        fetchProfile().then(setAvatar);
     }, []);
 
     useEffect(() => {
@@ -360,6 +460,13 @@ export default function MyTaste() {
             if (!context.conditions.fullMotion) return undefined;
 
             const kickerSplit = new SplitText(kickerRef.current, { type: "words" });
+            // Task 4.1 — the two zone titles, same SplitText/whole-word-pop
+            // treatment as the kicker itself ("consistent with the kicker's
+            // existing pop treatment," the brief's own wording) — plain
+            // text, no dot/icon to worry about, so nothing about the
+            // "words, not lines" reasoning above needs re-litigating here.
+            const wallTitleSplit = new SplitText(wallTitleRef.current, { type: "words" });
+            const crateTitleSplit = new SplitText(crateTitleRef.current, { type: "words" });
             const wallCards = gsap.utils.toArray(".my-taste-wall > .my-taste-card", rootRef.current);
             const wallTapes = gsap.utils.toArray(".my-taste-wall > .my-taste-card > .my-taste-card-tape", rootRef.current);
             const crateCard = rootRef.current.querySelector(".my-taste-crate .my-taste-card");
@@ -379,18 +486,32 @@ export default function MyTaste() {
             const restCards = wallCards.slice(1);
             const restTapes = wallTapes.slice(1);
             const headJitter = jitterOf(headliner);
+            const headRotation = rotationOf(headliner);
 
             // Hidden until the timeline reveals it — applied immediately
             // (plain gsap.set, not inside `tl`) so nothing flashes fully
             // visible before the pin/timeline actually engages, same
             // convention About's own mask-reset uses.
             gsap.set(kickerSplit.words, { opacity: 0, y: 10 });
-            gsap.set(restCards, { opacity: 0, y: -36 });
+            gsap.set(wallTitleSplit.words, { opacity: 0, y: 8 });
+            gsap.set(crateTitleSplit.words, { opacity: 0, y: 8 });
+            // Task 4.1 — rotation starts level (0deg), settling INTO each
+            // card's own real tilt as it lands, rather than starting at
+            // that tilt already. transform-origin moved to the tape's own
+            // anchor point (tape sits at top: -10px; left: 50% — top-center
+            // of the card, main.scss) instead of the card's own geometric
+            // center, so that settle reads as hinged at the pin, the way a
+            // real pinned sheet sways around where it's actually pinned,
+            // not around its own middle. Reset back to center via
+            // clearProps once the cascade settles (below) — this shouldn't
+            // outlive the entrance for any future transform this card gets
+            // (e.g. a hover effect).
+            gsap.set(restCards, { opacity: 0, y: -36, rotation: 0, transformOrigin: "50% 0%" });
             // Headliner gets its own start state (a MotionPathPlugin arc
             // start point, not the plain vertical -36 the rest use) —
             // set separately so it isn't overwritten by/doesn't overwrite
             // the line above.
-            gsap.set(headliner, { opacity: 0, x: -22, y: -58 });
+            gsap.set(headliner, { opacity: 0, x: -22, y: -58, rotation: 0, transformOrigin: "50% 0%" });
             gsap.set(wallTapes, { opacity: 0, scale: 0.5 });
             gsap.set(crateCard, { opacity: 0, y: 24 });
             gsap.set(crateTape, { opacity: 0, scale: 0.5 });
@@ -426,10 +547,15 @@ export default function MyTaste() {
             //    something that already has to hold together right.
             tl.to(kickerSplit.words, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 0);
 
+            // Task 4.1 — "MY TOP ARTISTS" pops in just before the wall's own
+            // cascade starts, same unified-pop treatment as the kicker.
+            tl.to(wallTitleSplit.words, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, ">-=0.2");
+
             // 2. Headliner — MotionPathPlugin arc handing off into
             //    CustomBounce for the actual landing, tape snapping via
-            //    CustomWiggle immediately after. Arc scoped to ONE card,
-            //    not the whole wall: CustomBounce's own eased output isn't
+            //    CustomWiggle a beat after it settles (Task 4.1 — see the
+            //    PIN_BEAT_GAP note below). Arc scoped to ONE card, not the
+            //    whole wall: CustomBounce's own eased output isn't
             //    monotonic (it revisits values below its target between
             //    each simulated bounce, by design — that's what reads as a
             //    bounce) — driving a motionPath's progress with that same
@@ -441,35 +567,64 @@ export default function MyTaste() {
             //    sidesteps that entirely — satisfies "landing into the
             //    CustomBounce ease at the end" literally without the two
             //    plugins ever animating the same property at once.
+            //
+            //    Rotation is now part of this same land tween too (Task
+            //    4.1): starts level (0deg, set above) and settles INTO the
+            //    card's own real tilt (headRotation), pivoting around the
+            //    tape's own anchor (transform-origin, set above) rather
+            //    than the card's center — reads as the sheet swinging into
+            //    its pinned tilt, not a ball dropping straight down.
             tl.to(headliner, {
                 motionPath: { path: [{ x: -22, y: -58 }, { x: 6, y: -20 }, { x: 0, y: -6 }], curviness: 1.25 },
                 opacity: 1,
                 duration: 0.18,
                 ease: "power2.in",
-            }, 0.18);
-            tl.to(headliner, { x: headJitter.jx, y: headJitter.jy, duration: 0.4, ease: CARD_LAND_EASE }, ">");
+            }, 0.2);
+            tl.to(headliner, { x: headJitter.jx, y: headJitter.jy, rotation: headRotation, duration: 0.4, ease: CARD_LAND_EASE }, ">");
             tl.to(headliner, { scaleX: 1.05, scaleY: 0.92, duration: 0.4, ease: CARD_LAND_SQUASH_EASE }, "<");
-            tl.to(headTape, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, ">");
+            // PIN_BEAT_GAP (Task 4.1): "the card arrives" and "it gets
+            // pinned" are now two deliberately separate beats, not one
+            // near-simultaneous motion — live feedback on the first version
+            // was that the tape's snap, fired the INSTANT the card's own
+            // land tween finished, buried the pinning action inside the
+            // card's bounce instead of reading as its own event. ">+=0.15"
+            // (was plain ">") holds on the card's OWN settled state for a
+            // beat before the tape does anything at all.
+            tl.to(headTape, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, ">+=0.15");
             tl.to(headTape, { rotation: "+=10", duration: 0.3, ease: PIN_SNAP_EASE }, "<");
 
             // 3. Remaining 4 wall cards — plain vertical drop (no arc),
             //    staggered ~0.1s apart per the brief, same
-            //    land-then-tape-snap pairing each, just batched via
-            //    `stagger` instead of one-off tweens per card.
+            //    land-then-tape-snap pairing each (now with the same
+            //    PIN_BEAT_GAP and pin-pivot rotation as the headliner),
+            //    just batched via `stagger` instead of one-off tweens per
+            //    card.
             tl.to(restCards, {
                 y: (i, target) => jitterOf(target).jy,
+                rotation: (i, target) => rotationOf(target),
                 opacity: 1, duration: 0.4, ease: CARD_LAND_EASE, stagger: 0.1,
-            }, "-=0.3");
+            }, "-=0.35");
             tl.to(restCards, { scaleX: 1.05, scaleY: 0.92, duration: 0.4, ease: CARD_LAND_SQUASH_EASE, stagger: 0.1 }, "<");
-            tl.to(restTapes, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out", stagger: 0.1 }, "<+=0.4");
+            // "<+=0.55", not "<+=0.4" — the land tween's own 0.4s duration
+            // plus the same 0.15s PIN_BEAT_GAP as the headliner above.
+            // Stagger on both this batch and the land batch above share the
+            // same 0.1s interval, so tape[i] still starts exactly
+            // PIN_BEAT_GAP after card[i]'s OWN land finishes, for every i —
+            // not just card 0 — the same self-consistency the pre-4.1
+            // version already had, just with a real gap added on top.
+            tl.to(restTapes, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out", stagger: 0.1 }, "<+=0.55");
             tl.to(restTapes, { rotation: "+=10", duration: 0.3, ease: PIN_SNAP_EASE, stagger: 0.1 }, "<");
+
+            // Task 4.1 — "MY TOP 5 TRACKS" pops in just before the crate's
+            // own cascade starts, same treatment as the wall's title.
+            tl.to(crateTitleSplit.words, { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" }, "-=0.35");
 
             // 4. Crate, last. No CustomBounce/CustomWiggle here — a clean
             //    slide/fade instead, per the brief's own call: this is the
             //    section's one deliberately-straightened object (Task 3.8),
             //    so its entrance stays calm rather than borrowing the
             //    wall's tactile "pinned-up" language.
-            tl.to(crateCard, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }, "-=0.5");
+            tl.to(crateCard, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }, ">-=0.05");
             tl.to(crateTape, { opacity: 1, scale: 1, duration: 0.25, ease: "power2.out" }, "<");
             tl.to(crateThumbs, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out", stagger: 0.06 }, ">-=0.1");
             tl.to(setlistRows, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out", stagger: 0.045 }, ">-=0.12");
@@ -487,8 +642,13 @@ export default function MyTaste() {
             // having played this entrance above it — clearProps removes
             // the inline properties entirely, so the stylesheet (including
             // its own media queries) regains normal authority once this
-            // section is done animating anything on its own.
-            tl.set([...wallCards, headTape, ...restTapes], { clearProps: "transform" });
+            // section is done animating anything on its own. transformOrigin
+            // included for the cards specifically (Task 4.1's own pin-pivot
+            // addition) — same reasoning, a future transform on these cards
+            // (a hover effect, say) shouldn't inherit this entrance's
+            // top-center pivot.
+            tl.set(wallCards, { clearProps: "transform,transformOrigin" });
+            tl.set([headTape, ...restTapes], { clearProps: "transform" });
 
             const navbarHeight = () =>
                 parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navbar-height")) || 0;
@@ -589,6 +749,8 @@ export default function MyTaste() {
                 st.kill();
                 tl.kill();
                 kickerSplit.revert();
+                wallTitleSplit.revert();
+                crateTitleSplit.revert();
             };
         });
 
@@ -636,6 +798,13 @@ export default function MyTaste() {
                 task — its accessible name is just the link's own text now. */}
             <h2 className="my-taste-heading">
                 <a className="my-taste-heading-link" href={SPOTIFY_PROFILE_URL} target="_blank" rel="noopener noreferrer" ref={kickerRef}>
+                    {/* Task 3.9 — Diego's own Spotify profile photo, left of
+                        the text. Not part of kickerRef's SplitText pop (that
+                        only ever touched the surrounding TEXT nodes, same as
+                        the dot/icon already didn't) — renders immediately,
+                        same as those two, rather than joining Task 4's
+                        cascade (out of scope for this task). */}
+                    <AvatarSlot imageUrl={avatar.imageUrl} imageAlt="Diego's Spotify profile photo" />
                     my taste
                     <span className="my-taste-heading-dot" aria-hidden="true">·</span>
                     listen on spotify
@@ -649,14 +818,24 @@ export default function MyTaste() {
             </h2>
 
             <div className="my-taste-layout">
-                {/* Two tiers (Task 3.7), not one dominant card + four uniform
-                    ones. Zone A ("featured", data[0..1]) share ONE className/
-                    photo-slot/name treatment — same size, same styling — so
-                    they read as comparably prominent to EACH OTHER, which is
-                    the actual fix this task is for, not just a bigger label
-                    on the same old hierarchy. Zone B ("secondary",
-                    data[2..4]) is the clearly smaller tier below. */}
-                <div className="my-taste-wall">
+                {/* Task 4.1 — a title per zone (wall/crate), each its own
+                    grid item now instead of .my-taste-wall/.my-taste-crate
+                    sitting directly in .my-taste-layout's two columns —
+                    .my-taste-layout's own grid-template-columns doesn't
+                    need to change for this: it's defined on the COLUMN
+                    TRACKS, not tied to which element occupies them, so
+                    wrapping the same two children one level deeper doesn't
+                    touch that rule at all. */}
+                <div className="my-taste-wall-column">
+                    <p className="my-taste-zone-title" ref={wallTitleRef}>my top artists</p>
+                    {/* Two tiers (Task 3.7), not one dominant card + four uniform
+                        ones. Zone A ("featured", data[0..1]) share ONE className/
+                        photo-slot/name treatment — same size, same styling — so
+                        they read as comparably prominent to EACH OTHER, which is
+                        the actual fix this task is for, not just a bigger label
+                        on the same old hierarchy. Zone B ("secondary",
+                        data[2..4]) is the clearly smaller tier below. */}
+                    <div className="my-taste-wall">
                     {featured.length > 0
                         ? featured.map((artist, i) => (
                             <TasteCard
@@ -702,22 +881,25 @@ export default function MyTaste() {
                         : artists.status !== "ready" && [1, 2, 3].map((i) => (
                             <div key={i} className="my-taste-card-placeholder" style={{ gridArea: `secondary-${i}` }} />
                         ))}
+                    </div>
                 </div>
 
-                {/* The crate — one plain numbered list again as of Task 3.6,
-                    not Task 3.5's five individually torn "singles" (read too
-                    busy per direct feedback). Closer to Task 3's original
-                    shape: one TasteCard (torn edge + tape, same mechanism as
-                    the wall's own cards), a fanned row of the top 3 tracks'
-                    art up top, then the full 5-track list below it — only
-                    the top 3 carry art, not all 5, so the crate isn't
-                    "1 card containing a card each." No `href` on this
-                    TasteCard (Task 3.8) — the crate ITSELF isn't a link,
-                    each track below links individually instead. Rotation/
-                    jitter also comes off this specific card in main.scss
-                    (.my-taste-card--setlist) — the wall's cards keep theirs
-                    exactly as-is; only the crate straightens. */}
-                <div className="my-taste-crate">
+                <div className="my-taste-crate-column">
+                    <p className="my-taste-zone-title" ref={crateTitleRef}>my top 5 tracks</p>
+                    {/* The crate — one plain numbered list again as of Task 3.6,
+                        not Task 3.5's five individually torn "singles" (read too
+                        busy per direct feedback). Closer to Task 3's original
+                        shape: one TasteCard (torn edge + tape, same mechanism as
+                        the wall's own cards), a fanned row of the top 3 tracks'
+                        art up top, then the full 5-track list below it — only
+                        the top 3 carry art, not all 5, so the crate isn't
+                        "1 card containing a card each." No `href` on this
+                        TasteCard (Task 3.8) — the crate ITSELF isn't a link,
+                        each track below links individually instead. Rotation/
+                        jitter also comes off this specific card in main.scss
+                        (.my-taste-card--setlist) — the wall's cards keep theirs
+                        exactly as-is; only the crate straightens. */}
+                    <div className="my-taste-crate">
                     {tracks.status === "ready" && setlist.length > 0 ? (
                         <TasteCard id="setlist" className="my-taste-card--setlist">
                             <div className="my-taste-setlist-thumbs">
@@ -761,6 +943,7 @@ export default function MyTaste() {
                             <SpotifyStatusMessage status={tracks.status} kind="tracks" />
                         </div>
                     )}
+                    </div>
                 </div>
             </div>
         </section>

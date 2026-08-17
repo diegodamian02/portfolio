@@ -87,6 +87,8 @@ everything else. Splitting keeps each task's risk isolated.
 | 3.8 | **Spotify link, clickable cards, straighten the setlist** — kicker links out to the real profile, every artist/track card is a real `<a>` to its own Spotify page, crate's rotation/jitter removed (torn edge/tape kept) | **DONE** 2026-08-15 |
 | 3.7 | **Three-zone restructure** — the wall's 1 headliner + 4 support cards regrouped into 2 "featured" (comparably sized to each other) + 3 "secondary" (clearly smaller) — hierarchy from tiers, not one card's raw size. Landed *after* 3.8, see note below. Follow-up 2026-08-17 fixed 139px of dead space under each featured card's name (a copied, unverified grid-row minimum) — see §10 | **DONE** 2026-08-15, follow-up 2026-08-17 |
 | 4 | **Motion** — `ScrollTrigger` pin + timed cascade (kicker → wall cards → crate), `CustomBounce`/`CustomWiggle` landings, reduced-motion and mobile (<601px) both skip straight to the settled end-state | **DONE** 2026-08-17 |
+| 3.9 | **Profile avatar** — a small circular, duotoned photo of Diego's own Spotify profile, left of "MY TASTE." New `GET /api/spotify/profile` server route (`GET /me`, same auth/cache mechanism as the two top-items routes) | **DONE** 2026-08-17 |
+| 4.1 | **Sell "pinning," not "bouncing" + zone titles** — pulled back `CustomBounce`'s own strength on the wall cards, added a deliberate pause before each tape/pin snap, pivoted each card's settle around the tape's own anchor instead of its center, added "MY TOP ARTISTS"/"MY TOP 5 TRACKS" zone titles with their own pop-in beats | **DONE** 2026-08-17 |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
 > Task 3.8's own brief referred to it as a follow-up to "Task 3.7's three-zone
@@ -99,9 +101,9 @@ everything else. Splitting keeps each task's risk isolated.
 > "Zone A/B/C" terminology exists in the code itself; this file uses "featured"/
 > "secondary" instead — see §10.
 
-Full detail on Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7 and 4 (numbers, bugs found,
-verification) is in `STATUS.md`'s own dated entries, in that same real build order — this
-file is the durable *concept* record, `STATUS.md` is the *work log*.
+Full detail on Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7, 4, 3.9 and 4.1 (numbers, bugs
+found, verification) is in `STATUS.md`'s own dated entries, in that same real build
+order — this file is the durable *concept* record, `STATUS.md` is the *work log*.
 
 ## 3. Task 2's mechanism — grid placement, not freehand position
 
@@ -719,7 +721,135 @@ existed in `my-taste.jsx` — the crate has only ever been a fanned row of thumb
 a plain numbered list (Task 3.6 onward). The crate's entrance animates that real content
 instead (3 thumbnails, then 5 rows), with no separate label beat to pop.
 
-## 12. Open items for later tasks
+> **Both landed for real two days later** — Task 3.9 (§12) built the avatar, Task 4.1
+> (§13) built the zone titles and refined this section's own `CustomBounce`/tape-gap/
+> pivot mechanics described above. The pin mechanism itself (`end: "+=200"`, the <601px
+> fallback, the reduced-motion skip) is untouched by either.
+
+## 12. Task 3.9's mechanism — the kicker's own avatar
+
+**Reused the auth, not just the pattern.** `GET /api/spotify/profile` (`server.js`) is a
+new route, but a new `fetchProfile()` function shaped exactly like the existing
+`fetchTopItems()` — same `ensureAccessToken()`/`spotifyDataCache` mechanism, same
+stale-while-revalidate fallback, just pointed at `GET /me` instead of `/me/top/*`. One
+Spotify identity, one token, one cache — never a second auth path for a second endpoint.
+
+**Confirmed the scope live before writing any frontend code.** This project's own
+authorization scope is `user-top-read` only. Spotify's docs are explicit that `/me`'s
+`email` field needs `user-read-email` and `country`/`product` need `user-read-private`,
+and silent on `images` — read as "no scope needed," then actually verified by calling
+the route against the real refresh token: `200`, a populated `images[]`, on the existing
+scope. The brief asked to report back a real finding if the scope came up short; it
+didn't, so there's nothing to report beyond "checked, confirmed working."
+
+**A bespoke duotone circle, not PhotoSlot reused.** Same two-layer technique
+(`grayscale(1) contrast(1.1)` on the photo, a `mix-blend-mode: color` tint layer above
+it, one shared `--card-tint` custom property) — but PhotoSlot's own scaffolding (a
+fixed-aspect-ratio slot meant to sit inside a torn-edge, taped wall/crate card) doesn't
+apply to a 32px circular badge sitting inline in a text row, so `AvatarSlot`
+(my-taste.jsx) is its own small component instead of PhotoSlot with different props.
+`photoColorwayFor` needs an id to hash a tint from; this is the one image in the section
+with no natural Spotify id (it's the owner's own account, not an artist/track), so it
+hashes a fixed string constant instead — still deterministic across reloads, just salted
+from a literal rather than an API id. Tried duotone first per the brief's own
+instruction ("consistency has been the right call everywhere else in this stage") and
+kept it — a real face reads fine through the tint in both themes, not muddy.
+
+**No fallback content, unlike every other image in this section.** PhotoSlot's own flat
+`--card-tint` fill is a real, intentional fallback for "no photo yet." `AvatarSlot` has
+no equivalent — when there's no image (a failed request, or a real Spotify response
+shape this brief itself called out: an account with `images: []`, no photo ever set) it
+renders nothing at all, not a placeholder circle. There's no sensible flat-color stand-in
+for "a photo of a specific person," so hiding the whole element is the honest fallback,
+not a missing feature. Verified both failure paths live via Playwright route
+interception (a `500`, and separately a real `200` with `images: []`) — avatar absent
+either way, kicker text and the rest of the section completely unaffected, zero console
+errors.
+
+**A real regression, found and fixed in the same pass.** The avatar's own width pushed
+the kicker row past what fits at 390px — before this task, "MY TASTE · LISTEN ON
+SPOTIFY" fit on one line there; a live mobile screenshot (not assumed safe because the
+change looked small) showed it wrapping **mid-phrase** instead ("MY" / "TASTE" split
+across two lines). Root cause: a bare text node between flex items is itself an
+anonymous flex item, and an anonymous flex item can still shrink and wrap internally at
+word boundaries even while the row's own `flex-wrap` stays `nowrap` — the row "not
+wrapping" only means it doesn't split into multiple flex ROWS, not that its own text
+content can't break internally once width-constrained. Fixed with `white-space: nowrap`
+(stops any single text run from ever breaking internally) plus `flex-wrap: wrap` on
+`.my-taste-heading-link` (the actual release valve — if the row still doesn't fit as one
+line, a WHOLE chunk drops to its own line instead of a word). Mobile now reads as two
+clean lines ("[avatar] MY TASTE · LISTEN ON SPOTIFY" / "[icon]"), not the pixel-tuned
+mobile composition Stage 5 still owns, but no longer a broken one.
+
+**Fit-ratio re-run, not assumed harmless.** Desktop 0.77× → 0.83×, laptop 0.89× → 0.95×
+(both still comfortably under one screen), mobile 2.68× → 2.80× (mobile's own art
+direction is still entirely Stage 5's). The growth is real, split between this task's
+avatar and Task 4.1's two zone titles (both landed in the same pass, measured together)
+— not free, but nowhere close to costing the "fits" bar either desktop or laptop already
+clears.
+
+## 13. Task 4.1's mechanism — pin over bounce, zone titles
+
+**"Bounce" vs. "pin" is a real, measurable difference in this ease's own shape, not just
+a vibe.** Sampled `CustomBounce`'s eased output directly (`gsap.parseEase("cardLand")`)
+rather than trusting the "reads as generic" feedback without checking why: at the
+original `strength: 0.6` the curve touches its target three separate times, with two
+visible dips between (down to ~0.64, then ~0.88) — an honest multi-bounce ball. At
+`strength: 0.3` (kept, `squash` also pulled back from 2 to 1) it touches once around 65%
+of the way through, dips to one shallow ~0.92, and settles — a single decisive beat.
+Also confirmed live and worth recording so a future tuning pass doesn't re-litigate it:
+this ease never exceeds 1 at ANY strength — it approaches the target from below and dips
+back, it doesn't pass through rest the way a spring/`back.out` ease would — so "arrives,
+slight overshoot once, stops" (the brief's own words) reads here as "arrives, one
+shallow dip, stops." The tape/pin keeps the more energetic motion by contrast, unchanged
+(`CustomWiggle`/`PIN_SNAP_EASE`) — reducing the card's own strength is what makes room
+for the tape's snap to read as the section's most energetic beat, not a separate change
+to the tape's own config.
+
+**Two beats, verified as two beats, not assumed from the code alone.** Added a
+`PIN_BEAT_GAP`-style pause (0.15s) between each card's land tween finishing and its own
+tape's pop/snap starting — was `>`/`<+=0.4` (fires the instant landing finishes), now
+`>+=0.15`/`<+=0.55`. Captured a frame sequence through the live cascade (screenshots at
+0/400/550/700/900/1200/1500/2000/2800ms) specifically to check the FEEL, not just the
+numbers: at 550ms Oasis has landed with no tape visible yet; by 900ms its tape (and Mac
+Miller's) has popped in and snapped. The pause reads as a genuinely separate beat on
+screen, not just a number that's technically nonzero.
+
+**Pivoted at the pin, not the card's own center.** Each wall card's rotation now starts
+level (0deg) and animates to its own real `--card-rotate` tilt as part of the same land
+tween, with `transform-origin: 50% 0%` — the tape's own anchor point (`top: -10px;
+left: 50%`, main.scss's `.my-taste-card-tape`), not the card's geometric middle. Reads
+as the sheet swinging into its pinned tilt around where it's actually pinned, rather
+than a ball rotating around its own center on the way down. `clearProps` at the end
+includes `transformOrigin` alongside `transform` so neither outlives the entrance for
+any future transform this card gets (a hover effect, say — still an open item, §14).
+
+**Zone titles needed a new wrapper layer, not new grid rules.** "MY TOP ARTISTS" /
+"MY TOP 5 TRACKS," same font/case/tracking as the kicker but quieter (`opacity: 0.7`,
+still a `<p>` — this section keeps exactly one real heading, Task 1's own decision,
+unchanged). Putting a title above each of `.my-taste-layout`'s two columns meant wrapping
+`.my-taste-wall`/`.my-taste-crate` in new `.my-taste-wall-column`/`.my-taste-crate-column`
+flex containers (title + content) rather than touching `.my-taste-layout`'s own grid —
+its `minmax(0, ...)` column-track fix (Task 3.5) lives on the TRACK, so it keeps working
+regardless of how many wrapper layers sit inside it, re-confirmed live (0px overflow,
+320–1440px) rather than assumed. `.my-taste-crate`'s own mobile `margin-top` moved to
+`.my-taste-crate-column` in the same pass — left on the inner element, it would land
+between the crate's own new title and its content, not between the two stacked zones,
+once mobile has two titled zones instead of two plain ones.
+
+**Duration grew, honestly, not silently.** ~2.1s (Task 4) → ~2.76s. Two new pop beats
+plus two real 0.15s pauses cost real time; tightened tween overlaps after the first
+build measured 3.19s, landing at a number honest about what this task actually added
+rather than forced back to the original figure by cutting the very pacing it asked for.
+
+**Verification, same rigor as Task 4's own report.** Pin engage/release re-confirmed via
+`getBoundingClientRect().top` stability (not `getComputedStyle().position`, which still
+reads `"relative"` on this page's transform-based pin — Task 4's own finding, reused
+rather than rediscovered); zero overflow at the usual sweep; zero console errors across
+a full scroll-through; fit ratio re-run (§12, above — landed in the same pass as Task
+3.9 so the numbers move together). Screenshots re-captured both themes.
+
+## 14. Open items for later tasks
 
 - **Still open, not Task 4's job:** a future GSAP hover/tilt effect on `.my-taste-card`
   should double check it doesn't fight `.my-taste-card-link:hover`'s underline (Task 3.8)
@@ -760,6 +890,14 @@ instead (3 thumbnails, then 5 rows), with no separate label beat to pop.
 - **Stage 5**'s mobile pass should look at the crate specifically — Task 3.5 found a stack
   of six additional elements (label + 5 singles) drove mobile's fit ratio up (2.65×→3.01×);
   Task 3.6's revert to one list card brought it back down to 2.73×, and Task 3.7's wall
-  restructure nudged it slightly further to **2.68×** (taller featured cards, but mobile
-  un-rotates and single-columns regardless) — still worse than Task 3's own 2.65×, still
-  not any of these tasks' job to fully address — mobile art direction is Stage 5's.
+  restructure nudged it slightly further to 2.68× (taller featured cards, but mobile
+  un-rotates and single-columns regardless) — still worse than Task 3's own 2.65×. Tasks
+  3.9/4.1 pushed it again, to **2.80×** (the avatar row plus two zone titles) — still not
+  any of these tasks' job to fully address, mobile art direction is Stage 5's, but the
+  running total is worth Stage 5 seeing in one place rather than re-deriving from commits.
+- **Partially addressed by Task 3.9, worth a full pass in Stage 5:** the kicker row's own
+  mobile wrap (`.my-taste-heading-link`, `flex-wrap: wrap` + `white-space: nowrap`) stops
+  it breaking mid-word, but the result — text on one line, the Spotify icon alone on a
+  second, centered line below — is a functional fallback, not a composed one. A real
+  mobile pass could size the avatar/icon down, or choose a deliberate two-line split,
+  rather than whatever the browser's own flex-wrap happens to produce.

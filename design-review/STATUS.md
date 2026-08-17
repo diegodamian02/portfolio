@@ -2871,6 +2871,148 @@ Lint unchanged: 7 errors, 2 expected warnings.
 `design-review/stage4-my-taste-concept.md` gets a new §11 for this task's mechanism;
 `ROADMAP.md` §3's Stage 4 task list gets a "4." row and update blockquote.
 
+### Stage 4 Task 3.9 — `#my-taste`: Spotify profile avatar *(2026-08-17)*
+
+A small circular photo of Diego's own Spotify profile, left of "MY TASTE" in the kicker
+row. New server route, `GET /api/spotify/profile`, reusing the exact same
+auth/token-refresh/cache mechanism the two top-items endpoints already use (one new
+`fetchProfile()` function in `server.js`, same shape as `fetchTopItems`) — points at
+Spotify's `GET /me` instead of `/me/top/*`.
+
+**Scope check, done live, not assumed:** this project's Spotify authorization scope is
+`user-top-read` only. Spotify's own docs say `/me`'s `email` field needs
+`user-read-email` and `country`/`product` need `user-read-private`, silent on whether
+`images` needs anything — read as "it doesn't," then actually confirmed by calling the
+route against the real refresh token before wiring up any frontend code: `200`, a
+populated `images[]`, on the existing scope. No scope change needed, nothing to report
+as a blocked finding.
+
+Frontend: `AvatarSlot` (my-taste.jsx), a small bespoke duotone circle — same
+grayscale+contrast photo / `mix-blend-mode: color` tint layer PhotoSlot uses, not
+PhotoSlot itself (its aspect-ratio-slot/torn-edge/tape scaffolding is built for a wall
+card, none of which applies to an inline avatar). Duotone tried first per the brief's
+own instruction ("consistency has been the right call everywhere else in this stage")
+and kept — a real face reads fine through it in both themes, not muddy. Renders nothing
+at all (not a placeholder, not a broken-image icon) when there's no image to show — a
+failed request, or a real Spotify response with an empty `images[]` (an account with no
+photo set, a real shape, not hypothetical) — same "hide rather than show broken"
+discipline as PhotoSlot's own `onError` fallback. Both paths verified live against a
+deliberately-broken route (Playwright request interception: a `500`, and separately a
+`200` with `images: []`) — avatar absent, kicker text and the rest of the wall
+completely unaffected either way, zero console errors.
+
+**One real regression found and fixed in the same pass, not shipped and found later:**
+the avatar's own width pushed the kicker row past what fits on a 390px mobile
+viewport — found live via a real mobile screenshot, not assumed safe because the change
+"is small." Before this task, "MY TASTE · LISTEN ON SPOTIFY" fit on one line at 390px;
+adding the avatar made a bare text node inside the flex row shrink and wrap
+**mid-phrase** ("MY" / "TASTE" split across lines) — a real rendering bug, not just a
+tighter fit. Root cause: an anonymous flex item (unwrapped text between flex children)
+can still wrap internally at word boundaries even while the row itself has
+`flex-wrap: nowrap`, if the flex container is width-constrained. Fixed with
+`white-space: nowrap` (stops any single text run from breaking internally) +
+`flex-wrap: wrap` (the release valve — if the whole row still doesn't fit, a WHOLE
+chunk drops to its own line, never mid-word) on `.my-taste-heading-link`. Mobile now
+wraps as "[avatar] MY TASTE · LISTEN ON SPOTIFY" / "[icon]" — two clean lines, not a
+pixel-tuned mobile composition (that's still Stage 5's job, per this file's own
+repeated precedent), but no longer broken.
+
+Fit-ratio re-run per the brief's own instruction to confirm rather than assume "small
+element, harmless": desktop 0.77× → **0.83×**, laptop 0.89× → **0.95×** (both still
+comfortably under one screen), mobile 2.68× → **2.80×** (mobile is Stage 5's own
+territory regardless). The growth is real — an avatar row plus, in the same push, Task
+4.1's two zone titles below — not free, but not a regression against the "fits" bar
+either.
+
+Zero horizontal overflow at the usual 320–1440px sweep, zero console errors across a
+full scroll-through. Screenshots re-captured both themes.
+
+Build: JS 496.88 kB / 177.53 kB gz (+1.55 kB / +0.37 kB gz over Task 4), CSS 46.88 kB /
+9.79 kB gz (+0.88 kB / +0.11 kB gz). Lint unchanged: 7 errors, 2 expected warnings.
+
+### Stage 4 Task 4.1 — `#my-taste`: sell "pinning," not "bouncing" + zone titles *(2026-08-17)*
+
+Refinement pass on Task 4's own cascade — no change to the pin mechanism, its timing, or
+its release (`end: "+=200"`, the <601px fallback, and the reduced-motion skip are all
+untouched, per the brief's own explicit instruction). Landed alongside Task 3.9 in the
+same session; both briefs arrived together, and this one repeated the avatar request
+with a claim worth flagging: "Task 3.9's file was already written earlier and simply
+never run... don't rebuild this." Checked against the tree first (CLAUDE.md) — no such
+file existed anywhere (no commit, no trace in this file or `ROADMAP.md` beyond Task 4's
+own "flagged, not built" note). Most likely explanation: the design-research chat that
+writes these briefs has no repository access, so "already written" most likely meant
+"I already drafted the brief text," not "this exists in the codebase." Built Task 3.9
+for real (above) rather than searching for a file that was never going to exist.
+
+**Why the landing read as "bounce," and the fix.** Sampled `CustomBounce`'s own eased
+output (`gsap.parseEase("cardLand")`) rather than guessing why live feedback called it
+generic: at the original `strength: 0.6` it touches its target three separate times
+with two visible dips between — a genuine multi-bounce ball. Pulled back to
+`strength: 0.3, squash: 1` (`lib/gsap.js`): one clear touch, one shallow dip, settled —
+a single decisive beat instead of a rally. Also confirmed live, useful for calibrating
+expectations: this ease never exceeds 1 at any strength (it approaches the target from
+below and dips back, it doesn't overshoot past it like a spring) — so "arrives, slight
+overshoot once, stops" reads here as "arrives, one shallow dip, stops," which is what
+`CustomBounce`'s own shape actually produces, not a literal past-target overshoot.
+
+**Two beats, not one.** The tape's `CustomWiggle` snap used to fire the INSTANT each
+card's own land tween finished (`>`). Live feedback: this buried the pinning action
+inside the card's own bounce instead of it reading as its own event. Added a deliberate
+`+=0.15s` pause before every tape/pin animation starts (`>+=0.15` for the headliner,
+`<+=0.55` — the land tween's 0.4s duration plus the same 0.15s gap — for the remaining
+four, same per-card self-consistency the pre-4.1 version already had: tape[i] still
+starts exactly `PIN_BEAT_GAP` after card[i]'s own land finishes, for every i). Verified
+visually via a frame-by-frame capture at 150–200ms intervals through the cascade: each
+card visibly settles, sits still for a beat with no tape, THEN the tape pops in and
+snaps — confirmed the sequencing actually reads as two separate events, not just
+theoretically separated by a number.
+
+**Pivoted at the pin, not the card's center.** Each wall card's settle now animates
+`rotation` from level (0deg) to its own real `--card-rotate` tilt, with
+`transform-origin: 50% 0%` (the tape's own anchor point — `top: -10px; left: 50%`,
+main.scss) instead of the card's geometric center. `clearProps` at the end includes
+`transformOrigin` alongside `transform` (my-taste.jsx) so this doesn't outlive the
+entrance for any future transform the card gets.
+
+**Zone titles.** "MY TOP ARTISTS" above the wall, "MY TOP 5 TRACKS" above the crate —
+same font/case/tracking as the kicker (`.my-taste-heading`) but visibly quieter
+(`opacity: 0.7`, not a second heading-weight element), and deliberately a `<p>`, not an
+`h3`/`h4` — this section still keeps exactly one real heading (Task 1's own decision).
+Each has the kicker's own `SplitText` whole-word pop, timed just before its own zone's
+cascade starts. Required wrapping `.my-taste-wall`/`.my-taste-crate` in new
+`.my-taste-wall-column`/`.my-taste-crate-column` flex wrappers (title + content) since
+`.my-taste-layout`'s own two-column grid needed a place to put a title ABOVE each
+column's content — the grid's own `minmax(0, ...)` column-track fix (Task 3.5) needed no
+changes, since it governs the whole track regardless of how many wrapper layers sit
+inside it, confirmed by re-running the same overflow sweep after adding them (still 0px
+at 320–1440px). `.my-taste-crate`'s own mobile `margin-top` moved to
+`.my-taste-crate-column` in the same pass — left on the inner element, it would now sit
+between the crate's own new title and its content instead of between the two stacked
+zones.
+
+Timeline duration grew from ~2.1s (Task 4) to **~2.76s** — two new pop beats plus two
+deliberate 0.15s pauses are real additions, not free; tightened several tween overlaps
+after the first build measured 3.19s, landing at a number that's honest about the
+brief's own asks rather than forced back to the original figure by cutting the very
+pacing this task requested.
+
+Verified: pin engage/release unaffected (re-confirmed via `getBoundingClientRect().top`
+stability, same method Task 4's own report established — not
+`getComputedStyle().position`, which still reads `"relative"` on this page's
+transform-based pin); zero overflow at the usual sweep; zero console errors across a
+full scroll-through; fit ratio re-run with both titles in place (see Task 3.9's entry
+above — the two numbers move together since both tasks landed in the same pass).
+Screenshots re-captured both themes, plus a frame-sequence capture used specifically to
+verify the "reads as pinned, not bounced" feel — not just a passing automated check.
+
+Build: JS 496.88 kB / 177.53 kB gz, CSS 46.88 kB / 9.79 kB gz — same final numbers as
+Task 3.9's entry above (both tasks landed in one build/commit). Lint unchanged: 7
+errors, 2 expected warnings.
+
+`design-review/stage4-my-taste-concept.md` gets a new §12 (Task 3.9's own mechanism) and
+§13 (this task's), plus a short forward-pointer added to §11; `ROADMAP.md` §3's Stage 4
+task list gets "3.9" and "4.1" rows and update blockquotes.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`

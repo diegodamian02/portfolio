@@ -2560,6 +2560,23 @@ html {
 .my-taste-heading-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  // Task 3.9 — the new avatar pushed this row past the available width at
+  // narrow (mobile) viewports for the first time; found live via a real
+  // 390px screenshot, not assumed. flex-wrap: nowrap (this row's own
+  // previous default) doesn't mean the ROW can't overflow — a bare text
+  // node between flex items is itself an anonymous flex item, and one of
+  // those can still SHRINK below its own content width and wrap internally
+  // at word boundaries even while the row stays visually "one line" of flex
+  // layout, which is what produced "MY" / "TASTE" breaking onto separate
+  // lines mid-phrase. white-space: nowrap stops that (an anonymous text
+  // item can no longer wrap internally at all); flex-wrap: wrap is the
+  // release valve for whatever width that frees up — if the whole row still
+  // doesn't fit, an entire chunk (the avatar, "my taste," the dot, "listen
+  // on spotify," the icon) drops to its own line instead, never a
+  // mid-phrase break.
+  flex-wrap: wrap;
+  white-space: nowrap;
   gap: var(--space-2);
   color: inherit;
   text-decoration: none;
@@ -2593,6 +2610,51 @@ html {
 .my-taste-heading-icon {
   height: 1em;
   width: auto;
+}
+
+// Task 3.9 — the kicker's own avatar, left of "my taste." Small and fixed
+// (--space-6, 32px) rather than text-relative like the Spotify icon above —
+// a photo reads as a photo at that size next to --text-xs type; sized to
+// --text-xs's own line-height (1em, ~14px) the way the icon is would have
+// read as a barely-visible speck. flex: none so the kicker's own row
+// doesn't try to shrink it alongside the text.
+.my-taste-avatar {
+  position: relative;
+  flex: none;
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: 50%;
+  overflow: hidden;
+  isolation: isolate;
+  // Same ring PhotoSlot's own base rule uses (below) — one consistent
+  // "photo has a hairline edge" language across every image in this
+  // section, avatar included.
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-color) 38%, transparent);
+}
+
+// Same two-layer duotone PhotoSlot uses (grayscale+contrast photo, a
+// mix-blend-mode: color tint layer above it) — tried first per the brief's
+// own instruction, kept because a real face read fine through it rather
+// than muddy. No flat-tint FALLBACK layer here unlike PhotoSlot: there's
+// nothing sensible to show in place of "a photo of a specific person" when
+// there isn't one, so AvatarSlot (my-taste.jsx) renders nothing at all
+// instead — this rule only ever has to describe the has-an-image case.
+.my-taste-avatar-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: grayscale(1) contrast(1.1);
+}
+
+.my-taste-avatar-tint {
+  position: absolute;
+  inset: 0;
+  background: var(--card-tint);
+  mix-blend-mode: color;
+  pointer-events: none;
 }
 
 .my-taste-status {
@@ -2631,6 +2693,51 @@ html {
   @media (max-width: 600px) {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+// Task 4.1 — one wrapper per zone (title + content), now the actual grid
+// items .my-taste-layout's two columns hold, instead of .my-taste-wall/
+// .my-taste-crate sitting directly in them. Plain flex columns; no min-width
+// override needed here even though .my-taste-layout's own comment above
+// documents a real grid-track-minimum trap at this exact nesting level —
+// that fix lives on the COLUMN TRACK (`minmax(0, ...)` above), which governs
+// every descendant regardless of how many wrapper layers sit inside it, not
+// on the item itself, so it doesn't need repeating each time a layer is
+// added. Re-verified live after adding these two, not assumed: still 0px
+// overflow at the usual 320–1440px sweep.
+.my-taste-wall-column,
+.my-taste-crate-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+// Moved from .my-taste-crate's own mobile rule (Task 3.5) to here — the gap
+// belongs between the two STACKED zones once Task 4.1 gave each one a title
+// of its own, not between the crate's title and its own content, which is
+// where it would land if left on .my-taste-crate directly.
+.my-taste-crate-column {
+  @media (max-width: 600px) {
+    margin-top: var(--space-4);
+  }
+}
+
+// Task 4.1 — one label per zone, same font/case/tracking as the kicker
+// (.my-taste-heading, above) but visibly quieter (opacity, not a second
+// --text-xs-sized heading-weight element) — a column label, not a second
+// "MY TASTE"-level heading. Deliberately a <p>, not an h3/h4: this section
+// keeps exactly one real heading (the kicker's own h2, per Task 1's own
+// "one real h2" decision, still true here) — wall/crate content, these
+// titles included, is content, not additional heading structure.
+.my-taste-zone-title {
+  font-family: var(--taste-font-mono);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--secondary-text);
+  opacity: 0.7;
+  margin: 0 0 var(--space-3);
 }
 
 // The wall — Stage 4 Task 2, restructured Task 3.7. grid-template-areas,
@@ -2716,16 +2823,14 @@ html {
 // The crate — beside the wall (Task 3.5), holding one plain numbered list
 // (Task 3.6, reverted from Task 3.5's five individually torn "singles" —
 // direct feedback that it read too busy). display: flex isn't load-bearing
-// for a single child, kept for the mobile margin-top below and as a stable
-// anchor if a future task adds a second element here.
+// for a single child, kept as a stable anchor if a future task adds a
+// second element here. Its own mobile margin-top moved to
+// .my-taste-crate-column (above, Task 4.1) once that wrapper gained a title
+// of its own to sit above.
 .my-taste-crate {
   display: flex;
   flex-direction: column;
   text-align: left;
-
-  @media (max-width: 600px) {
-    margin-top: var(--space-4);
-  }
 }
 
 // Occupies a card's own grid-area (loading/error/empty states, per-list —

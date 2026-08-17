@@ -255,6 +255,47 @@ async function fetchTopItems(type, timeRange) {
     }
 }
 
+// Get Current User's Profile — new endpoint for this project (Stage 4 Task
+// 3.9), everything above this line was /me/top/{type} only. Same account,
+// same token, same ensureAccessToken()/spotifyDataCache mechanism as
+// fetchTopItems — reusing rather than standing up a second auth path. Cache
+// key "profile" has no time_range component (this endpoint doesn't take one).
+//
+// Scope check, done live against the real API rather than assumed from
+// docs: this project's authorization scope (above) is 'user-top-read' only,
+// added for the two top-items endpoints. Spotify's own docs for Get Current
+// User's Profile say email needs user-read-email and country/product needs
+// user-read-private — silent on whether `images` needs anything at all,
+// which reads as "it doesn't," but confirmed by actually calling this route
+// against the live refresh token before wiring up the frontend: 200, with a
+// populated images[], on the existing user-top-read-only scope. No scope
+// change needed.
+async function fetchProfile() {
+    const cacheKey = 'profile';
+    const cached = spotifyDataCache.get(cacheKey);
+
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.items;
+    }
+
+    try {
+        await ensureAccessToken();
+        const response = await axios.get(
+            `${process.env.SPOTIFY_API_BASE_URL}/me`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        const items = response.data;
+        spotifyDataCache.set(cacheKey, { items, expiresAt: Date.now() + SPOTIFY_DATA_CACHE_TTL_MS });
+        return items;
+    } catch (error) {
+        if (cached) {
+            console.error(`🚨 [spotify] live refresh failed for ${cacheKey}, serving stale cache:`, error.response?.status || error.message);
+            return cached.items;
+        }
+        throw error;
+    }
+}
+
 // Maps a failed Spotify call to a clean, visitor-safe response — no auth
 // mechanics or internal error detail ever goes to the client. The real
 // status (401 = dead refresh token, 403 = dev-mode/scope issue, 429 = rate
@@ -287,6 +328,18 @@ app.get('/api/spotify/top-artists', async (req, res) => {
         res.json(items);
     } catch (error) {
         respondSpotifyError(error, res, 'top artists');
+    }
+});
+
+// Fetch profile (avatar) — only the piece #my-taste's kicker actually needs
+// (images[]) is exposed, not the full /me payload (email, country, product
+// etc. — none of it visitor-facing, no reason to forward it past this route).
+app.get('/api/spotify/profile', async (req, res) => {
+    try {
+        const profile = await fetchProfile();
+        res.json({ images: profile.images || [] });
+    } catch (error) {
+        respondSpotifyError(error, res, 'profile');
     }
 });
 
