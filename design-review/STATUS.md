@@ -2781,6 +2781,96 @@ Build: JS 488.29 kB / 175.02 kB gz (unchanged — CSS-only value change), CSS 46
 `design-review/stage4-my-taste-concept.md` §10 and the ratio table within it updated
 with the corrected numbers and this fix's own reasoning.
 
+### Stage 4 Task 4 — `#my-taste`: entrance motion (pin + pinboard cascade) *(2026-08-17)*
+
+Motion only — no grid/positioning/sizing change, confirmed unchanged from Task 3.7's
+follow-up. A `ScrollTrigger` pin (`pin: true`, the same primitive Experience's own
+filmstrip uses) holds the section on entry while a single paused, non-scrubbed GSAP
+timeline cascades: kicker (`SplitText`, whole-word pop, no per-character stagger) →
+headliner card (`MotionPathPlugin` arc handing off into `CustomBounce` for the landing,
+tape snapping via `CustomWiggle` immediately after) → remaining 4 wall cards (same
+land/snap pairing, staggered ~0.1s apart) → crate (plain fade/slide, no bounce — this
+section's one already-straightened object, Task 3.8). Real scroll input is held via
+`lenis.stop()`/`start()` for the hold's duration — About's own Task 5 entrance-hold
+mechanism, not Experience's scrub (this timeline runs on its own clock, not tied to
+scroll distance). `CustomBounce`/`CustomWiggle` newly registered in `lib/gsap.js`
+(confirmed present in the installed `gsap` package before writing any code against
+them, same discipline as every other plugin here) alongside two new named eases,
+`cardLand`/`cardLand-squash`/`pinSnap`, deliberately NOT built from `SIGNATURE_EASE` —
+this section's own motion identity, per the brief.
+
+**Two things the brief described that don't exist in this file, checked against the
+tree rather than built blind:** a profile avatar next to "MY TASTE" (Task 3.9 — no
+commit, no ROADMAP/STATUS/concept-doc mention anywhere; it never shipped, flagged as
+its own separate open item, not built as part of this task) and a "MY TOP 5 TRACKS"
+label inside the crate (no such element has ever existed in this file at any point in
+its history — the crate's entrance animates its real content instead, the 3 thumbnails
+and 5 track rows, with no separate label beat).
+
+**Mobile scoped out deliberately**, via its own `gsap.matchMedia()` branch (`(max-width:
+601px)` renders the settled end-state immediately, same as reduced-motion) — not named
+in this task's own "out of scope" list, but the reasoning still applies and is sharper
+here than it was for Tasks 3.7/3.8: mobile's own measured fit ratio is 2.68× viewport
+height, so pinning (`position: fixed`, or GSAP's transform-based pin equivalent — see
+below) a section that tall would hold a visitor captive against content mostly cut off
+above/below the viewport for the whole hold. Real regression, not an untuned one.
+Deliberate mobile art direction for this section is Stage 5's job, same as the layout.
+
+**One real bug found and fixed during this task's own build**, not shipped and found
+later: first tried `end: "+=1"` on the pin's `ScrollTrigger` (reasoning: the timeline
+isn't scroll-scrubbed, so the exact pixel span shouldn't matter). Found live
+(Playwright, realistic small-tick scrolling) that a single momentum jump can cross a
+1px-wide start-to-end span within one `ScrollTrigger` update tick — the pin never
+visually engaged at all under fast scroll, the same overshoot class Experience's own
+`ENTRY_BUFFER` and About's own hold-correction already exist to absorb, just fatal here
+instead of merely off-center. Fixed with `end: "+=200"` (same order of magnitude as
+Experience's own 220px buffer) — the hold's real duration is still governed entirely by
+`lenis.stop()`/`start()`, not by this number, which only has to be wide enough for
+`onEnter` to reliably fire.
+
+**Verification note on the pin mechanism itself:** checking `getComputedStyle(el).position
+=== "fixed"` is the WRONG signal for whether this pin is engaged — GSAP's Lenis-aware
+pin setup here uses transform-based pinning (`position` stays `relative` throughout),
+confirmed live. Verified engagement/release instead via the section's own
+`getBoundingClientRect().top` staying constant under continued scroll input, then moving
+again once released — the implementation-agnostic check. By that measure: pin holds for
+the cascade's real ~2.1s duration (confirmed against the timeline's own measured
+`totalDuration()`), then releases cleanly, with normal scroll resuming immediately after
+— no stuck pin under sustained scroll input across a full page scroll-through.
+
+Verified: `CustomBounce`/`CustomWiggle`/`cardLand`/`cardLand-squash`/`pinSnap` all
+genuinely registered (checked via a live `gsap.parseEase()` call, not assumed). Pin
+engages and releases cleanly under continued realistic scroll input, confirmed via
+real `getBoundingClientRect()` tracking. Reduced-motion and mobile (<601px) both render
+the fully settled end-state immediately — verified opacity:1/no-pin/(mobile only)
+`transform: none` on every wall card, matching the pre-existing CSS un-rotate rule
+exactly. Zero console errors/failed requests across a full organic scroll-through of the
+whole page. Keyboard focus still reaches wall-card and setlist links with a visible
+outline (unchanged from Task 3.8). `clearProps: "transform"` added as the timeline's own
+final step — without it, GSAP's inline `transform` (written the instant it first touches
+x/y/rotation/scale) would permanently shadow `.my-taste-card`'s mobile `transform: none`
+override the next time the viewport crossed back under 600px after having played this
+entrance above it; confirmed live that every wall card's `style.transform` reads empty
+after the cascade completes, handing authority back to the stylesheet (rotation/jitter
+still visibly present in both themes, screenshot-verified).
+
+Timeline tuned to ~2.1s total (brief's own "roughly 1.5-2s, not a strict target") by
+real measurement (`tl.duration()`), not by feel alone — first build measured 3.265s,
+tightened durations/overlaps and re-measured until it landed close to the stated range.
+
+`design-review/capture-screenshots.mjs` given a `#my-taste`-specific wait bump (700ms →
+3200ms) — found live that the default wait captured this section mid-cascade (Stone
+Temple Pilots' card and the whole crate missing from the shot, reading as broken rather
+than "captured too early"). Every other section's own 700ms is untouched.
+
+No layout/CSS changes at all beyond the capture-script wait — this task is JS-only.
+Build: JS 495.33 kB / 177.16 kB gz (+7.04 kB / +2.14 kB gz — `CustomBounce`/
+`CustomWiggle` plugin code plus the new effect), CSS 46.00 kB / 9.68 kB gz (unchanged).
+Lint unchanged: 7 errors, 2 expected warnings.
+
+`design-review/stage4-my-taste-concept.md` gets a new §11 for this task's mechanism;
+`ROADMAP.md` §3's Stage 4 task list gets a "4." row and update blockquote.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
@@ -2808,7 +2898,7 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **488.29 kB / 175.02 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **495.33 kB / 177.16 kB gz** |
 | CSS bundle | 26.96 kB / 5.99 kB gz | **46.00 kB / 9.68 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |

@@ -55,13 +55,23 @@ under every featured card's name. Desktop now measures **0.77×** one
 screen, laptop **0.89×** — corrected from an as-shipped 0.94×/1.09× that
 was partly inflated by that same bug, still up from Task 3.6's 0.72×/0.82×
 baseline on the genuine part (the featured pair really is wider than the
-old support cards, using real headroom, not padding).
+old support cards, using real headroom, not padding). **Task 4** (same day)
+added the section's entrance motion on top of that now-settled layout: a
+`ScrollTrigger` pin (reusing Experience's own `pin: true`) holds the
+section for a timed ~2.1s while the kicker, wall cards (`CustomBounce`
+landings + `CustomWiggle` tape snaps, one `MotionPathPlugin` arc), and
+crate cascade in, in that order — real scroll input held via
+`lenis.stop()`/`start()` (About's own Task 5 hold mechanism), not a scrub.
+Deliberately skipped below 601px (mobile's own 2.68× fit ratio makes
+pinning it a real regression, not an untuned one) and under
+prefers-reduced-motion. `stage4-my-taste-concept.md` §11 has the full
+mechanism writeup.
 
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
-| **4 (remainder)** | `#my-taste` Tasks 4–5: entrance motion, time-range switching | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7 — done |
+| **4 (remainder)** | `#my-taste` Task 5: time-range switching + `Flip` re-rank | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7, 4 — done |
 | **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
@@ -76,20 +86,15 @@ old support cards, using real headroom, not padding).
 4. Do **not** click the Resend "Confirm email change" email sitting in the inbox — it would move the account off the working address.
 5. Recurring: the Spotify refresh token expires roughly every 6 months (root `README.md`).
 
-**My read on immediate next step:** Stage 4 Task 4 (`#my-taste`'s entrance
-motion) — the section is now fully built as two columns, real duotoned
-photography throughout (no gray photos), every card a real outbound link,
-a two-tier wall hierarchy that reads correctly, and proven (no-overlap
-anywhere in the wall, deterministic, no-overflow down to 320px, both
-fallback paths verified against real API traffic), so animating it in is a
-direct continuation with all the structural and visual risk already
-retired. Task 4's own brief should account for the cards now being real
-`<a>`s, not inert `<article>`s, and for the wall's new two-tier grid (2
-featured + 3 secondary, not 1 headliner + 4 support) — noted in
-`stage4-my-taste-concept.md` §11's open items. The crate is one setlist
-card (Task 3.6 reverted Task 3.5's five separate "singles"), so Task 4 has
-one fewer independent element to sequence than it would have three tasks
-ago.
+**My read on immediate next step:** Stage 4 Task 5 (`#my-taste`'s
+time-range switching + `Flip` re-rank) — the section now has its final
+layout, real linked content, AND its entrance motion, so this is the last
+piece of Stage 4's original 5-task sequence. Task 5's own brief should
+account for the wall's current two-tier grid (2 featured + 3 secondary,
+grid-area names `featured-1/2`/`secondary-1/2/3`) when a re-rank moves an
+artist BETWEEN tiers, not just within one — noted in
+`stage4-my-taste-concept.md` §12's open items, unresolved from Task 3.7 and
+still open after Task 4.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
@@ -870,6 +875,8 @@ built and sitting next to everything else. Sequence:
    brief referenced only 3.6). **DONE 2026-08-15, follow-up 2026-08-17** —
    `STATUS.md`, mechanism writeup in `stage4-my-taste-concept.md`.
 4. **Motion** — entrance animation, parallax, reduced-motion fallback.
+   **DONE 2026-08-17** — `STATUS.md`, mechanism writeup in
+   `stage4-my-taste-concept.md`.
 5. **Time-range switching** — the UI to flip between Spotify's `time_range`
    values (the server endpoints already accept it), with a `Flip`-powered
    re-rank when the data changes underneath the poster.
@@ -1023,6 +1030,34 @@ built and sitting next to everything else. Sequence:
 > smaller gap than the old 4.77:1. Zero overlap, zero overflow, zero
 > console errors, all of Task 3.8's own links/focus/rotation re-verified
 > unchanged, both before and after the fix. Full detail in `STATUS.md`.
+>
+> **Update, Task 4 (2026-08-17):** entrance motion landed — no layout/grid
+> change, confirmed against the tree first. A `ScrollTrigger` pin (reusing
+> Experience's own `pin: true`) holds the section for a timed ~2.1s while a
+> single non-scrubbed timeline cascades kicker → wall cards → crate;
+> `CustomBounce`/`CustomWiggle` newly registered in `lib/gsap.js` (confirmed
+> present in the installed `gsap` package first), one `MotionPathPlugin` arc
+> on the first card. Real scroll input held via `lenis.stop()`/`start()` —
+> About's own Task 5 hold mechanism, not a scrub — because the cascade runs
+> on its own clock, not tied to scroll distance the way Experience's
+> filmstrip is. Two things the brief described that don't exist in this
+> file: a Task 3.9 profile avatar (checked against git log/this file/
+> `STATUS.md` — never shipped, flagged as its own open item) and a "MY TOP 5
+> TRACKS" crate label (no such element has ever existed here). Deliberately
+> skipped below 601px, not named in this task's own scope but the same
+> reasoning Tasks 3.7/3.8 already used for mobile applies more sharply here:
+> pinning a section at mobile's own 2.68× fit ratio would hold a visitor
+> captive against mostly-cut-off content. One real bug found and fixed
+> during the build (not shipped and found later): `end: "+=1"` on the pin
+> let fast scroll momentum cross the whole start-to-end span in a single
+> update tick, so the pin never visually engaged — fixed with `end: "+=200"`,
+> the same order of magnitude as Experience's own `ENTRY_BUFFER`. Verified
+> pin engage/release via the section's own `getBoundingClientRect().top`
+> staying constant under continued scroll input then moving again once
+> released, since `getComputedStyle().position` reads `"relative"` the whole
+> time here (GSAP's Lenis-aware pin uses transform-based pinning, not
+> `position: fixed`) — the wrong signal to check, found live. Full detail in
+> `STATUS.md`.
 
 ### Stage 5 — Mobile
 

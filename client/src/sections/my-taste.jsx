@@ -1,5 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { useGSAP } from "@gsap/react";
+import {
+    gsap, ScrollTrigger, SplitText,
+    CARD_LAND_EASE, CARD_LAND_SQUASH_EASE, PIN_SNAP_EASE,
+} from "../lib/gsap.js";
+import { getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
 // Latin + latin-ext subsets specifically, not the package-default imports
 // (`@fontsource/oswald/400.css` etc.) — the default pulls EVERY unicode
 // subset the family ships (cyrillic, cyrillic-ext, vietnamese...), which
@@ -53,9 +59,9 @@ import spotifyBlack from "../assets/spotify_black.png";
 // (kept its torn edge/tape) so it reads as a straight list beside the
 // wall's still-tilted cards.
 //
-// Task 3.7 (THIS task, landing after 3.8 despite the number — brief called
-// it a follow-up to Task 3.6 and didn't reference 3.8 at all, so building it
-// on top of 3.8's already-shipped links/straightened-crate is a superset of
+// Task 3.7 (landed after 3.8 despite the number — brief called it a
+// follow-up to Task 3.6 and didn't reference 3.8 at all, so building it on
+// top of 3.8's already-shipped links/straightened-crate was a superset of
 // what it asked for, not a conflict; noted rather than silently reordering
 // history) restructures the wall's hierarchy. Was: 1 "headliner" (data[0])
 // at 2x size + 4 uniform "support" cards (data[1..4]) — hierarchy expressed
@@ -64,6 +70,30 @@ import spotifyBlack from "../assets/spotify_black.png";
 // not a rename) + "secondary" (data[2..4], 3 cards, a clearly smaller
 // tier). The crate (Zone C in the brief's terms) is unchanged structurally
 // — still the same single TasteCard Task 3.6 shaped and Task 3.8 straightened.
+// A follow-up fix (2026-08-17) then cut a copied, unverified 180px grid-row
+// minimum down to 90px — the featured tier's real content never needed the
+// old headliner block's own floor, and the unused 180px was forcing dead
+// space under both featured cards' names (main.scss has the full story).
+//
+// Task 4 (THIS task) adds motion on top of the above — no layout/grid/
+// sizing change, per its own brief. A ScrollTrigger pin (reusing Experience's
+// own `pin: true` mechanism) holds the section in view while a paused,
+// non-scrubbed GSAP timeline cascades the kicker, then the wall's cards
+// (CustomBounce landings + CustomWiggle tape snaps, one MotionPathPlugin arc
+// on the first card), then the crate (plain fade/slide, no bounce — it's
+// this section's one already-straightened object). Real scroll input is
+// held via lenis.stop()/start() for the hold's duration, the same primitive
+// About's own Task 5 entrance-hold uses, NOT Experience's scrub (this
+// timeline runs on its own clock, not tied to scroll distance). Skipped
+// entirely below 601px — see the mm.add() comment further down for why —
+// and under prefers-reduced-motion, same as every other animated section on
+// this site. The brief's own mockup also named two things that don't exist
+// in this file: a profile avatar next to "MY TASTE" (Task 3.9 — checked
+// against git log/ROADMAP.md/STATUS.md before starting this task; it never
+// shipped, flagged as its own separate open item, not built here) and a
+// "MY TOP 5 TRACKS" label inside the crate (no such element has ever existed
+// in this file — the crate's entrance animates its real content, the 3
+// thumbnails and 5 rows, with no separate label beat to pop).
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
 
 // Same account footer.jsx's own Spotify link already points at — reused
@@ -155,6 +185,27 @@ function cardTransform(id) {
     const tear = 1 + Math.floor(seeded01(id, "tear") * TEAR_PRESET_COUNT);
     const tapeRotate = (seeded01(id, "tape-rotate") - 0.5) * 2 * TAPE_ROTATE_MAX_DEG;
     return { rotate, jitterX, jitterY, tear, tapeRotate };
+}
+
+// Task 4's entrance drops each wall card in from above, then animates it to
+// "landed." Landed can't just mean x:0/y:0 — the card's own REST position
+// already carries a --card-jitter-x/-y translate (this file's own
+// cardTransform, above), inline-set by TasteCard on the same element GSAP is
+// about to take over. GSAP decomposes whatever transform is already on an
+// element the FIRST time it touches x/y/rotation/scale on it, so rotation
+// survives automatically without this file ever touching it — but once a
+// tween explicitly targets x/y (the entrance drop does), the tween's own end
+// value is what the card rests at, not whatever the CSS custom property
+// said. Reading the SAME two custom properties back (not re-deriving them
+// from cardTransform/seeded01 a second time) keeps this honest: whatever
+// TasteCard actually set inline is what "landed" animates toward, so a
+// future change to cardTransform's own math can't silently desync the two.
+function jitterOf(card) {
+    const style = card.style;
+    return {
+        jx: parseFloat(style.getPropertyValue("--card-jitter-x")) || 0,
+        jy: parseFloat(style.getPropertyValue("--card-jitter-y")) || 0,
+    };
 }
 
 /* eslint-disable react/prop-types */
@@ -257,6 +308,8 @@ export default function MyTaste() {
     // it) — needed here only for the kicker's Spotify mark, which theme-
     // swaps the same way footer.jsx's own copy of that exact icon does.
     const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
+    const rootRef = useRef(null);
+    const kickerRef = useRef(null);
 
     useEffect(() => {
         fetchTopItems("tracks").then(setTracks);
@@ -268,6 +321,279 @@ export default function MyTaste() {
         window.addEventListener("themeChange", handleTheme);
         return () => window.removeEventListener("themeChange", handleTheme);
     }, []);
+
+    // Stage 4 Task 4 — the entrance cascade: a timed scroll-hold (pin, then
+    // each card lands individually) rather than one blanket reveal.
+    // Gated on both fetches actually being "ready" (dependencies below) —
+    // building this against placeholders would mean gsap.utils.toArray()
+    // below finds no real cards to select at all, and re-running once real
+    // data lands is exactly what useGSAP's own dependency-array re-invoke
+    // is for (same tool Experience/About already lean on for their own
+    // effects, just against async data here instead of a fixed roster).
+    useGSAP(() => {
+        if (artists.status !== "ready" || tracks.status !== "ready") return undefined;
+
+        const mm = gsap.matchMedia();
+
+        // Three conditions, not two — mobile is deliberately its OWN
+        // "do nothing" branch alongside reduced-motion, not folded into the
+        // full-motion branch with a runtime bail. Task 3.7/3.8 both scoped
+        // mobile out explicitly; this task's own brief doesn't repeat that
+        // line, but the reasoning still applies and is arguably sharper
+        // here: mobile's own measured fit ratio is 2.68× viewport height
+        // (stage4-my-taste-concept.md §10) — pinning (position: fixed) a
+        // section that tall would hold a visitor captive against content
+        // most of which is cut off above/below the viewport for the whole
+        // hold, which is a real regression, not just an untuned one. Every
+        // other animated section on this site (About, Experience) that
+        // pins/holds scroll already carries its own "section taller than
+        // available, don't hold" escape hatch for exactly this failure
+        // mode (see the runtime check inside onEnter below) — this is the
+        // same judgment made one media query earlier, before ever
+        // constructing the pin at all, since on mobile it isn't an edge
+        // case, it's the guaranteed case. Deliberate mobile art direction
+        // for this section (a real, tuned-for-the-breakpoint entrance) is
+        // Stage 5's job, same as the layout itself.
+        mm.add({
+            fullMotion: "(min-width: 601px) and (prefers-reduced-motion: no-preference)",
+        }, (context) => {
+            if (!context.conditions.fullMotion) return undefined;
+
+            const kickerSplit = new SplitText(kickerRef.current, { type: "words" });
+            const wallCards = gsap.utils.toArray(".my-taste-wall > .my-taste-card", rootRef.current);
+            const wallTapes = gsap.utils.toArray(".my-taste-wall > .my-taste-card > .my-taste-card-tape", rootRef.current);
+            const crateCard = rootRef.current.querySelector(".my-taste-crate .my-taste-card");
+            const crateTape = rootRef.current.querySelector(".my-taste-crate .my-taste-card-tape");
+            const crateThumbs = gsap.utils.toArray(".my-taste-photo-slot--thumb", rootRef.current);
+            const setlistRows = gsap.utils.toArray(".my-taste-setlist-item", rootRef.current);
+
+            // Defensive only — artists/tracks "ready" (checked above)
+            // already implies non-empty data (fetchTopItems's own status
+            // logic), so these selectors finding nothing would mean the
+            // DOM and this component's own data state have desynced, not
+            // an expected path.
+            if (wallCards.length === 0 || !crateCard) return undefined;
+
+            const headliner = wallCards[0];
+            const headTape = wallTapes[0];
+            const restCards = wallCards.slice(1);
+            const restTapes = wallTapes.slice(1);
+            const headJitter = jitterOf(headliner);
+
+            // Hidden until the timeline reveals it — applied immediately
+            // (plain gsap.set, not inside `tl`) so nothing flashes fully
+            // visible before the pin/timeline actually engages, same
+            // convention About's own mask-reset uses.
+            gsap.set(kickerSplit.words, { opacity: 0, y: 10 });
+            gsap.set(restCards, { opacity: 0, y: -36 });
+            // Headliner gets its own start state (a MotionPathPlugin arc
+            // start point, not the plain vertical -36 the rest use) —
+            // set separately so it isn't overwritten by/doesn't overwrite
+            // the line above.
+            gsap.set(headliner, { opacity: 0, x: -22, y: -58 });
+            gsap.set(wallTapes, { opacity: 0, scale: 0.5 });
+            gsap.set(crateCard, { opacity: 0, y: 24 });
+            gsap.set(crateTape, { opacity: 0, scale: 0.5 });
+            gsap.set(crateThumbs, { opacity: 0, y: -14 });
+            gsap.set(setlistRows, { opacity: 0, y: 10 });
+
+            let holding = false;
+            function releaseHold() {
+                if (!holding) return;
+                holding = false;
+                getActiveLenis()?.start();
+                window.removeEventListener("touchmove", blockTouchMove, { capture: true });
+                window.removeEventListener("keydown", blockScrollKeys, { capture: true });
+            }
+            const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "]);
+            function blockScrollKeys(e) {
+                if (SCROLL_KEYS.has(e.key)) e.preventDefault();
+            }
+            function blockTouchMove(e) {
+                e.preventDefault();
+            }
+
+            const tl = gsap.timeline({ paused: true, onComplete: releaseHold });
+
+            // 1. Kicker — SplitText's own words, all animated together with
+            //    NO stagger ("one unified pop, not a per-character reveal" —
+            //    the brief's own wording). type: "words", not "chars"/
+            //    "lines": the kicker <a> mixes text nodes with a dot <span>
+            //    and the Spotify <img> as siblings; word-splitting only
+            //    touches TEXT, leaving both untouched in place, rather than
+            //    risking "lines" (measures rendered line boxes — untested
+            //    against this element's own display: inline-flex row) on
+            //    something that already has to hold together right.
+            tl.to(kickerSplit.words, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 0);
+
+            // 2. Headliner — MotionPathPlugin arc handing off into
+            //    CustomBounce for the actual landing, tape snapping via
+            //    CustomWiggle immediately after. Arc scoped to ONE card,
+            //    not the whole wall: CustomBounce's own eased output isn't
+            //    monotonic (it revisits values below its target between
+            //    each simulated bounce, by design — that's what reads as a
+            //    bounce) — driving a motionPath's progress with that same
+            //    non-monotonic ease would drag the card backward along its
+            //    curve on every bounce, visibly fighting itself. Splitting
+            //    the arc into its OWN short tween (plain "power2.in", no
+            //    bounce) that lands just short of rest, THEN handing off to
+            //    a separate plain-axis bounce tween for the final settle,
+            //    sidesteps that entirely — satisfies "landing into the
+            //    CustomBounce ease at the end" literally without the two
+            //    plugins ever animating the same property at once.
+            tl.to(headliner, {
+                motionPath: { path: [{ x: -22, y: -58 }, { x: 6, y: -20 }, { x: 0, y: -6 }], curviness: 1.25 },
+                opacity: 1,
+                duration: 0.18,
+                ease: "power2.in",
+            }, 0.18);
+            tl.to(headliner, { x: headJitter.jx, y: headJitter.jy, duration: 0.4, ease: CARD_LAND_EASE }, ">");
+            tl.to(headliner, { scaleX: 1.05, scaleY: 0.92, duration: 0.4, ease: CARD_LAND_SQUASH_EASE }, "<");
+            tl.to(headTape, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out" }, ">");
+            tl.to(headTape, { rotation: "+=10", duration: 0.3, ease: PIN_SNAP_EASE }, "<");
+
+            // 3. Remaining 4 wall cards — plain vertical drop (no arc),
+            //    staggered ~0.1s apart per the brief, same
+            //    land-then-tape-snap pairing each, just batched via
+            //    `stagger` instead of one-off tweens per card.
+            tl.to(restCards, {
+                y: (i, target) => jitterOf(target).jy,
+                opacity: 1, duration: 0.4, ease: CARD_LAND_EASE, stagger: 0.1,
+            }, "-=0.3");
+            tl.to(restCards, { scaleX: 1.05, scaleY: 0.92, duration: 0.4, ease: CARD_LAND_SQUASH_EASE, stagger: 0.1 }, "<");
+            tl.to(restTapes, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out", stagger: 0.1 }, "<+=0.4");
+            tl.to(restTapes, { rotation: "+=10", duration: 0.3, ease: PIN_SNAP_EASE, stagger: 0.1 }, "<");
+
+            // 4. Crate, last. No CustomBounce/CustomWiggle here — a clean
+            //    slide/fade instead, per the brief's own call: this is the
+            //    section's one deliberately-straightened object (Task 3.8),
+            //    so its entrance stays calm rather than borrowing the
+            //    wall's tactile "pinned-up" language.
+            tl.to(crateCard, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }, "-=0.5");
+            tl.to(crateTape, { opacity: 1, scale: 1, duration: 0.25, ease: "power2.out" }, "<");
+            tl.to(crateThumbs, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out", stagger: 0.06 }, ">-=0.1");
+            tl.to(setlistRows, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out", stagger: 0.045 }, ">-=0.12");
+
+            // Hand transform authority back to plain CSS once the cascade
+            // settles — GSAP writes an inline `transform` the instant it
+            // first touches x/y/rotation/scale on an element (this
+            // timeline touches all four, across cards and tapes), and
+            // inline always outranks a stylesheet rule regardless of
+            // media query (this file's own Task 3.7 comment already
+            // documents that cascade fact for a different pair of rules).
+            // Left in place, that inline value would permanently shadow
+            // `.my-taste-card`'s mobile `transform: none` override the
+            // next time the viewport crosses back under 600px after
+            // having played this entrance above it — clearProps removes
+            // the inline properties entirely, so the stylesheet (including
+            // its own media queries) regains normal authority once this
+            // section is done animating anything on its own.
+            tl.set([...wallCards, headTape, ...restTapes], { clearProps: "transform" });
+
+            const navbarHeight = () =>
+                parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navbar-height")) || 0;
+
+            const st = ScrollTrigger.create({
+                trigger: rootRef.current,
+                // navbarHeight-aware "top top", same reasoning Experience's
+                // own trigger uses — keeps a nav click landing on this
+                // section and the pin's own engage point in sync.
+                start: () => "top top+=" + navbarHeight(),
+                // Pin mechanism reused from Experience (pin: true) — but
+                // unlike Experience's scrub-driven filmstrip, this timeline
+                // is NOT scroll-scrubbed; it plays on its own clock once,
+                // and real scroll input is held via lenis.stop()/start()
+                // (About's own established mechanism for a timed hold)
+                // instead. `end` doesn't gate the hold's DURATION (scroll
+                // can't advance toward it at all while stopped, below, so
+                // the pin holds for exactly as long as the hold does
+                // regardless of this number) — it only has to be wide
+                // enough that onEnter reliably FIRES under real scroll
+                // momentum. First tried "+=1": found live (Playwright, a
+                // fast multi-tick scroll) that a big-enough single momentum
+                // jump can cross a 1px-wide start-to-end span within one
+                // ScrollTrigger update tick, so the pin never visually
+                // engaged at all — the exact overshoot class Experience's
+                // own ENTRY_BUFFER and About's own hold-correction comments
+                // already document, just fatal here instead of merely
+                // off-center, because the span was thin enough to jump
+                // clean over. 200 (same order of magnitude as Experience's
+                // own 220px ENTRY_BUFFER) gives real momentum room to be
+                // caught mid-span before `end`, without meaningfully
+                // lengthening the bit of extra scroll needed to fully clear
+                // the section after the hold releases.
+                end: "+=200",
+                pin: true,
+                // Plays once per page view, same as About's own hold — a
+                // 1.5-2s scroll-hold replaying every time a visitor
+                // scrolls back up and down past this section would read as
+                // an obstacle, not a flourish, on the second pass.
+                once: true,
+                onEnter: (self) => {
+                    // A nav click (or any programmatic scrollToSection())
+                    // already carrying the visitor straight through this
+                    // section toward another one — same escape hatch
+                    // About's own hold uses: resolve to the finished state
+                    // instantly rather than holding scroll for content
+                    // they didn't ask to watch.
+                    if (isProgrammaticScrollActive()) {
+                        tl.progress(1);
+                        return;
+                    }
+
+                    // Same safety net About's own hold carries: if the
+                    // section is genuinely taller than the space available
+                    // (an unusually short/squeezed desktop window — the
+                    // 600px mobile case is already excluded above, before
+                    // the pin is even constructed), holding scroll captive
+                    // against a view that's already cut off just traps the
+                    // visitor. Still plays the cascade on its own clock,
+                    // just doesn't block scroll input for it.
+                    const available = window.innerHeight - navbarHeight();
+                    const sectionHeight = rootRef.current.getBoundingClientRect().height;
+                    if (sectionHeight > available) {
+                        tl.play();
+                        return;
+                    }
+
+                    holding = true;
+                    const lenis = getActiveLenis();
+                    if (lenis) {
+                        // Correct overshoot before stopping — same fix
+                        // About's own hold needed for the identical reason
+                        // (Lenis's easing can carry scroll position past
+                        // `start` before ScrollTrigger's next tick notices
+                        // the threshold was crossed).
+                        lenis.scrollTo(self.start, { immediate: true, force: true });
+                        lenis.stop();
+                    }
+                    window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
+                    window.addEventListener("keydown", blockScrollKeys, { capture: true });
+                    tl.play();
+                },
+            });
+
+            // Covers a nav click that starts WHILE already holding, not
+            // just one that arrives before entry — same reasoning and same
+            // mechanism as About's own subscription.
+            const unsubscribe = onProgrammaticScrollChange((active) => {
+                if (active && holding) {
+                    tl.progress(1);
+                    releaseHold();
+                }
+            });
+
+            return () => {
+                unsubscribe();
+                releaseHold();
+                st.kill();
+                tl.kill();
+                kickerSplit.revert();
+            };
+        });
+
+        return () => mm.revert();
+    }, { scope: rootRef, dependencies: [artists.status, tracks.status] });
 
     // Reshape into the poster's actual roles, not one flat list each.
     // limit=5 on both server endpoints (server.js, untouched since Task 1) is
@@ -299,7 +625,7 @@ export default function MyTaste() {
     }));
 
     return (
-        <section className="my-taste-section">
+        <section className="my-taste-section" ref={rootRef}>
             {/* The section's own title — featured/secondary/setlist content
                 below is content, not a second or third heading for it.
                 Task 3.8: now the ONE real outbound link for this whole
@@ -309,7 +635,7 @@ export default function MyTaste() {
                 section keeps exactly one real heading, same as before this
                 task — its accessible name is just the link's own text now. */}
             <h2 className="my-taste-heading">
-                <a className="my-taste-heading-link" href={SPOTIFY_PROFILE_URL} target="_blank" rel="noopener noreferrer">
+                <a className="my-taste-heading-link" href={SPOTIFY_PROFILE_URL} target="_blank" rel="noopener noreferrer" ref={kickerRef}>
                     my taste
                     <span className="my-taste-heading-dot" aria-hidden="true">·</span>
                     listen on spotify

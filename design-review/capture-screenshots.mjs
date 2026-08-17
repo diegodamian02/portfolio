@@ -60,7 +60,17 @@ for (const vp of VIEWPORTS) {
             continue;
         }
         await el.scrollIntoViewIfNeeded();
-        await page.waitForTimeout(700);
+        // #my-taste (Stage 4 Task 4) pins and runs a ~2s entrance cascade
+        // before settling — the default 700ms below was written for every
+        // OTHER section, which just fades/settles well inside that window.
+        // Without this, the capture landed mid-cascade (found live: Stone
+        // Temple Pilots' card and the whole crate missing from the shot,
+        // reading as broken/missing content rather than "captured too
+        // early"). 3200ms comfortably clears the cascade's own measured
+        // ~2.1s even accounting for scrollIntoViewIfNeeded() not
+        // necessarily landing scroll at the same position a real organic
+        // scroll would.
+        await page.waitForTimeout(id === 'my-taste' ? 3200 : 700);
         const box = await el.boundingBox();
         await el.screenshot({ path: `${OUT}/${id}-${vp.name}.png` });
         console.log(`  ${vp.name}: #${id} ${Math.round(box?.width)}x${Math.round(box?.height)}`);

@@ -7,6 +7,8 @@ import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { CustomEase } from "gsap/CustomEase";
 import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin";
+import { CustomBounce } from "gsap/CustomBounce";
+import { CustomWiggle } from "gsap/CustomWiggle";
 
 // DrawSVGPlugin/CustomEase/MotionPathPlugin/ScrambleTextPlugin — added for
 // Stage 3 Task 7 (Experience). All four used to be Club GreenSock-only
@@ -16,9 +18,17 @@ import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin";
 // this, not assumed from an earlier task's note. No new dependency, no
 // separate registry: `package.json` already pins "gsap": "^3.15.0", which
 // bundles all four.
+//
+// CustomBounce/CustomWiggle — added for Stage 4 Task 4 (#my-taste's entrance
+// cascade). Same free-tier status, re-confirmed the same way (both files
+// genuinely exist under node_modules/gsap/, not assumed from CustomEase's
+// own precedent). Both are thin builders ON TOP of CustomEase — each one's
+// own source warns "Please gsap.registerPlugin(CustomEase, CustomBounce)" /
+// "...CustomWiggle" if CustomEase isn't registered first — so CustomEase
+// stays listed before them below, not just alphabetically/incidentally.
 gsap.registerPlugin(
     ScrollTrigger, SplitText, Draggable, InertiaPlugin,
-    DrawSVGPlugin, CustomEase, MotionPathPlugin, ScrambleTextPlugin,
+    DrawSVGPlugin, CustomEase, CustomBounce, CustomWiggle, MotionPathPlugin, ScrambleTextPlugin,
 );
 
 // One shared motion signature (Task 7's own ask, then retrofitted onto
@@ -50,4 +60,38 @@ export const SIGNATURE_EASE = "signature";
 CustomEase.create("filmstripSettle", "M0,0 C0.215,0.61 0.355,1 1,1");
 export const FILMSTRIP_SETTLE_EASE = "filmstripSettle";
 
-export { gsap, ScrollTrigger, SplitText, Draggable, InertiaPlugin, DrawSVGPlugin, MotionPathPlugin, ScrambleTextPlugin };
+// #my-taste's own pair (Stage 4 Task 4), deliberately NOT built from
+// SIGNATURE_EASE the way FILMSTRIP_SETTLE_EASE above still is (that one is
+// a variant CURVE SHAPE for the same "confident, no-overshoot" register
+// SIGNATURE_EASE itself occupies). These two are a different register
+// entirely — physical squash-and-stretch and an oscillating snap, the brief's
+// own framing being "pinning a flyer" is a distinct enough motion identity to
+// earn its own signature rather than borrowing one built for the calm-intro/
+// snappy-UI feeling SIGNATURE_EASE (About, Experience's viewport-settle) is
+// FOR. Scoped to my-taste.jsx only, same as FILMSTRIP_SETTLE_EASE is scoped
+// to experience.jsx only — not every section needs to share one curve.
+//
+// CustomBounce.create() registers TWO eases from one call, confirmed by
+// reading node_modules/gsap/CustomBounce.js directly rather than assumed
+// from the brief's own snippet: `id` itself (here "cardLand") for a position
+// tween, PLUS `(vars.squashID || id + "-squash")` — so "cardLand-squash" —
+// for a paired scale tween, only created because `squash` is truthy below.
+// Both are meant to run in the SAME timeline position with the SAME
+// duration on the SAME element (GSAP's own documented CustomBounce demo
+// pattern) — one drives a position property, the other drives scaleX/scaleY,
+// together reading as an object dropping in and squashing on each contact.
+CustomBounce.create("cardLand", { strength: 0.6, squash: 2 });
+export const CARD_LAND_EASE = "cardLand";
+export const CARD_LAND_SQUASH_EASE = "cardLand-squash";
+
+// CustomWiggle output returns to exactly 0 at progress 1 (confirmed reading
+// node_modules/gsap/CustomWiggle.js — the path's last point is `(1, 0)`),
+// which is what makes it safe to drive a RELATIVE, net-zero tween ("+=0")
+// with this ease: the property oscillates away from its starting value and
+// lands back exactly where it started, reading as a wiggle/snap rather than
+// a directional move. Used for each card's tape "snapping" the instant the
+// card itself lands.
+CustomWiggle.create("pinSnap", { wiggles: 3, type: "easeOut" });
+export const PIN_SNAP_EASE = "pinSnap";
+
+export { gsap, ScrollTrigger, SplitText, Draggable, InertiaPlugin, DrawSVGPlugin, MotionPathPlugin, ScrambleTextPlugin, CustomBounce, CustomWiggle };

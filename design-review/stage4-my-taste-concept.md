@@ -86,7 +86,7 @@ everything else. Splitting keeps each task's risk isolated.
 | 3.6 | **Refinement pass** — headliner less dominant, crate back to one plain list (Task 3.5's "singles" read too busy), duotone bug fixed (2 of `colorwayFor`'s 5 tokens read as plain gray on a photo) | **DONE** 2026-08-15 |
 | 3.8 | **Spotify link, clickable cards, straighten the setlist** — kicker links out to the real profile, every artist/track card is a real `<a>` to its own Spotify page, crate's rotation/jitter removed (torn edge/tape kept) | **DONE** 2026-08-15 |
 | 3.7 | **Three-zone restructure** — the wall's 1 headliner + 4 support cards regrouped into 2 "featured" (comparably sized to each other) + 3 "secondary" (clearly smaller) — hierarchy from tiers, not one card's raw size. Landed *after* 3.8, see note below. Follow-up 2026-08-17 fixed 139px of dead space under each featured card's name (a copied, unverified grid-row minimum) — see §10 | **DONE** 2026-08-15, follow-up 2026-08-17 |
-| 4 | **Motion** — entrance animation, parallax, reduced-motion fallback | Not started |
+| 4 | **Motion** — `ScrollTrigger` pin + timed cascade (kicker → wall cards → crate), `CustomBounce`/`CustomWiggle` landings, reduced-motion and mobile (<601px) both skip straight to the settled end-state | **DONE** 2026-08-17 |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
 > Task 3.8's own brief referred to it as a follow-up to "Task 3.7's three-zone
@@ -99,7 +99,7 @@ everything else. Splitting keeps each task's risk isolated.
 > "Zone A/B/C" terminology exists in the code itself; this file uses "featured"/
 > "secondary" instead — see §10.
 
-Full detail on Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8 and 3.7 (numbers, bugs found,
+Full detail on Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7 and 4 (numbers, bugs found,
 verification) is in `STATUS.md`'s own dated entries, in that same real build order — this
 file is the durable *concept* record, `STATUS.md` is the *work log*.
 
@@ -587,13 +587,145 @@ same scoped light-theme capture prior tasks in this section already use.
 > Laptop no longer overshoots one screen at all, a strictly better result. Full
 > measurements in `STATUS.md`.
 
-## 11. Open items for later tasks
+## 11. Task 4's mechanism — a timed pin, not a scrub
 
-- **Task 4**'s entrance animation now has real `<a>` elements to animate, not bare
-  `<article>`s — a GSAP hover/tilt effect that targets `.my-taste-card` directly should
-  double check it doesn't fight the new `.my-taste-card-link:hover` underline this task
-  added, and any pointer-events trickery should account for the whole card now being one
-  focusable, navigable link, not inert.
+**The two primitives this reuses, and why neither alone was the right fit.** The brief
+asked for the section to pin in place (Experience's own `pin: true` mechanism) while a
+timed cascade plays, then release. Experience's own pin IS scroll-scrubbed — its
+timeline's progress is driven directly by how far the visitor has scrolled, which is
+right for a filmstrip the visitor should feel like they're dragging through by hand, but
+wrong here: a card-landing cascade that sped up or slowed down with scroll velocity would
+read as broken, not intentional. About's own Task 5 entrance hold is the other half —
+`lenis.stop()`/`start()` blocking real scroll input while a plain, paused, non-scrubbed
+timeline plays on its own clock and calls `start()` again on completion — but About never
+pins (`position: fixed`); it just holds scroll while content that's already naturally in
+view finishes animating. This task combines them: Experience's `pin: true` for the visual
+lock, About's hold for a timeline that runs on wall-clock time instead of scroll distance.
+
+**Sequence, in build order:** kicker (`SplitText`, `type: "words"`, all words animated
+together with no stagger — "one unified pop," the brief's own words, not a per-character
+reveal) → the first wall card (a short `MotionPathPlugin` arc, ~0.18s, handing off into a
+`CustomBounce` landing + `CustomWiggle` tape snap) → the remaining 4 wall cards (same
+land/snap pairing, no arc, staggered ~0.1s apart via GSAP's own `stagger`) → the crate
+(plain fade/slide, no bounce/wiggle — this section's one already-straightened object,
+Task 3.8, so its entrance stays calm rather than borrowing the wall's tactile language).
+
+**Why the arc is on one card, not all five.** `CustomBounce`'s own eased output isn't
+monotonic — reading `node_modules/gsap/CustomBounce.js` directly rather than assuming
+from the brief's snippet, its value touches 1 at each simulated ground-contact, dips
+below 1 between contacts (the ball briefly airborne again), and only settles near 1 at
+the very end. Driving a `motionPath`'s progress with that same ease would drag the object
+backward along its curve on every bounce — the two plugins fighting each other, exactly
+the failure mode the brief's own "keep it only if it doesn't fight the bounce" caveat
+anticipated. Splitting the arc into its own short, plain-eased (`power2.in`) tween that
+lands just short of rest, THEN handing off to a separate, plain-axis `CustomBounce` tween
+for the final settle, sidesteps that: the two plugins never animate the same property in
+the same tween. Kept to one card as the section's signature flourish rather than all
+five, both to limit that risk's surface area and because five simultaneous/staggered arcs
+read as busier than the brief's own "gentle curved trajectory" language suggested for one.
+
+**Why `CustomBounce`'s squash tween needs its OWN target value, read at runtime, not a
+bare 0.** Confirmed via `CustomBounce.create(id, {squash})`'s own source: it registers a
+SECOND ease at `id + "-squash"` alongside the primary one, meant to drive a parallel
+scale tween on the same element over the same duration — the standard GSAP demo pairs
+`{y: target, ease: "myBounce"}` with `{scaleX, scaleY, ease: "myBounce-squash"}` at the
+same timeline position. Both eases return to their start value at progress 1 by
+construction, so a plain `.to()` (not `.fromTo()`) correctly rests back at whatever
+scale/position the element already had. That "already had" value matters for THIS
+file specifically: each wall card's rest position isn't `x:0, y:0` — it's whatever
+`--card-jitter-x`/`-y` `cardTransform()` (my-taste.jsx) set inline on that exact card.
+GSAP decomposes an element's EXISTING transform the first time it touches x/y/rotation/
+scale on it, so rotation survives automatically without this task ever touching it — but
+once a tween explicitly targets x/y (the entrance drop does), the tween's own end value
+IS what the card rests at. `jitterOf()` (my-taste.jsx) reads the same two custom
+properties back rather than re-deriving them, so "landed" always means "wherever
+`cardTransform()` actually put this specific card," not a value that could silently
+drift out of sync with it.
+
+**Why `clearProps: "transform"` is the timeline's own last step.** The same
+transform-authority fact cuts the other way at the mobile breakpoint: `.my-taste-card`'s
+own `@media (max-width: 600px)` rule sets `transform: none` to un-rotate the wall on
+mobile, and inline `style` always wins the cascade over that rule regardless of which
+media query is active — the same cascade fact already documented in this file for Task
+3.7's five deleted `grid-area` rules, now mattering for a different pair. Left in place,
+GSAP's own inline `transform` (written the instant it first touched x/y/rotation/scale)
+would permanently shadow that mobile override the next time the viewport crossed back
+under 600px after having played this entrance above it. `clearProps` removes the inline
+properties entirely once the cascade settles, handing authority back to the stylesheet —
+confirmed live: every wall card's `style.transform` reads empty after the timeline
+completes, with rotation/jitter still visibly present in both themes (screenshot-verified)
+because the CSS rule that was there all along is doing the work again.
+
+**Mobile and reduced-motion are their own `gsap.matchMedia()` branch, not a runtime
+bail inside the full-motion path.** Both About's own entrance hold and this task's
+`onEnter` carry a runtime "section taller than available viewport, don't hold scroll for
+it" escape hatch — but that's a defensive check for an unusual SHORT desktop window, not
+the expected case. Mobile's own measured fit ratio is 2.68× viewport height (§10's own
+table) — a section that tall being genuinely pinned (whether via `position: fixed` or
+GSAP's transform-based equivalent, see below) would hold a visitor captive against
+content mostly cut off above/below the viewport for the whole hold, every time, not as an
+edge case. Deciding this one media query earlier — before the pin is ever constructed at
+all — means mobile visitors get the section's fully settled end-state immediately, the
+same as reduced-motion, rather than a runtime check quietly deciding not to hold scroll
+for a pin that still visually engaged moments before. Not named in this task's own "out
+of scope" list (unlike Tasks 3.7/3.8, which named mobile explicitly), but the same
+reasoning this section has used for mobile throughout Stage 4 still applies.
+
+**The pin mechanism itself doesn't use `position: fixed` here — found live, not
+assumed.** Checking `getComputedStyle(el).position === "fixed"` reads `"relative"` the
+entire time this section is genuinely pinned; GSAP's own pin setup on this page, paired
+with Lenis, uses transform-based pinning instead (auto-detected by GSAP, not configured
+by this task). Verified engagement/release with an implementation-agnostic check instead
+— the section's own `getBoundingClientRect().top` staying constant under continued
+realistic scroll input, then moving again once released. By that measure the pin holds
+for the cascade's real ~2.1s duration and releases cleanly, with normal scroll resuming
+immediately after, across a full page scroll-through with zero console errors.
+
+**One real bug found and fixed during the build.** First tried `end: "+=1"` on the pin's
+`ScrollTrigger`, reasoning that since the timeline isn't scroll-scrubbed, the exact pixel
+span shouldn't matter — scroll can't advance toward `end` at all while held, so the hold's
+real duration is governed by `lenis.stop()`/`start()`, not by this number. True as far as
+it went, but it missed why `end` still has to be wide enough for `onEnter` to reliably
+FIRE in the first place: found live (Playwright, realistic small-tick scrolling, not the
+big single-jump ticks that had masked this at first) that a normal momentum jump can
+cross a 1px-wide start-to-end span within one `ScrollTrigger` update tick, so the pin
+never visually engaged at all under fast scroll — the exact overshoot class Experience's
+own `ENTRY_BUFFER` and About's own hold-correction (`lenis.scrollTo(self.start, ...)`,
+both already documented elsewhere in this codebase) exist to absorb, just fatal here
+instead of merely off-center, because the span was thin enough to jump clean over.
+`end: "+=200"` (the same order of magnitude as Experience's own 220px buffer) fixed it.
+
+**Timeline duration tuned by real measurement, not by feel alone.** The brief's own
+"roughly 1.5–2s, not a strict target" was checked against the timeline's actual
+`tl.duration()`, not estimated from the individual tween numbers by hand — the first
+build measured 3.265s, meaningfully outside that range even accounting for "not a strict
+target." Tightened durations and increased tween overlaps, re-measuring after each pass,
+until it landed at ~2.1s.
+
+**`capture-screenshots.mjs` needed a one-line, section-scoped fix.** Its default
+per-section wait (700ms, tuned for every OTHER section's own fade/settle time) captured
+this section mid-cascade — found live: Stone Temple Pilots' card and the whole crate
+missing from the shot, which reads as broken/missing content to anyone looking at the
+screenshot later, not as "captured 1.4s too early." Bumped to 3200ms for `#my-taste`
+specifically; every other section's own 700ms is untouched.
+
+**Two things the brief described that don't exist in this file — checked against the
+tree, not built blind (CLAUDE.md's own instruction).** A profile avatar next to "MY
+TASTE" (Task 3.9): no commit under that number, no mention in this file, `ROADMAP.md`, or
+`STATUS.md` at any point in Stage 4's own history — it never shipped, and building it
+was never part of this task's own ask regardless (the brief called it out as a separate,
+unconfirmed item). A "MY TOP 5 TRACKS" label inside the crate: no such element has ever
+existed in `my-taste.jsx` — the crate has only ever been a fanned row of thumbnails above
+a plain numbered list (Task 3.6 onward). The crate's entrance animates that real content
+instead (3 thumbnails, then 5 rows), with no separate label beat to pop.
+
+## 12. Open items for later tasks
+
+- **Still open, not Task 4's job:** a future GSAP hover/tilt effect on `.my-taste-card`
+  should double check it doesn't fight `.my-taste-card-link:hover`'s underline (Task 3.8)
+  — Task 4's own entrance animation doesn't add any hover interaction, it only animates
+  entry once per page view, so this concern carries forward unresolved. Any pointer-events
+  trickery should still account for the whole card being one focusable, navigable link.
 - **Task 5**'s `Flip` re-rank needs to account for the deterministic-by-id transform:
   if the featured pair changes after a time-range switch, each new artist's rotation/
   jitter/tear/tape values will differ from whoever they replaced (different id →
@@ -602,12 +734,16 @@ same scoped light-theme capture prior tasks in this section already use.
   to handle an artist moving BETWEEN tiers (e.g. today's #2 featured artist becomes
   tomorrow's #3, now secondary) — Task 3.7 didn't need to consider this since tier
   membership was static within a single page load, but a re-rank makes it a real case.
-- **Task 4**'s entrance animation should account for the now-real `<img>` elements — a
-  `SplitText`/fade-in timed against `naturalWidth`/`complete` on a lazy-loaded image that
-  hasn't finished fetching yet could animate an empty box. Worth a load-state check that
-  didn't need to exist while every slot was a synchronous flat `<div>`. (Task 3.6's revert
-  means this is back to animating one setlist card, not 5 singles — simpler than Task 3.5
-  left it.)
+- **Addressed passively by Task 4, not with an explicit load-state check.** Task 4's
+  entrance animates each `.my-taste-card`'s opacity/position, not the `<img>` inside it
+  directly, and `PhotoSlot`'s own `--card-tint` fallback (Task 2/3) sits underneath the
+  image at all times — so a lazy-loaded image that hasn't finished fetching when its
+  card's entrance plays shows the tinted fallback, not an empty box, and the real photo
+  pops in silently whenever it finishes loading. In practice `loading="lazy"` has already
+  fired well before a visitor finishes scrolling down to this section, so this is a rare
+  path, not the common one — worth revisiting only if a future task adds a per-image
+  reveal (a mask wipe, a blur-up) that would make an in-flight fetch visually obvious in
+  a way a static tint doesn't.
 - **Secondary-card name wrapping** ("Red Hot Chili Peppers," "Stone Temple Pilots" → 3
   lines, still true post-Task 3.7 for the same 2 of the 3 secondary cards) is a
   *confirmed* driver of card height, not a guess — found while investigating Task 3.6's
@@ -615,12 +751,12 @@ same scoped light-theme capture prior tasks in this section already use.
   task (out of scope for both), but worth a deliberate look whenever secondary-card
   styling is next touched: three-line names read more cramped than a one/two-line name
   would, independent of the fit-ratio question.
-- **Task 4**'s entrance animation needs to account for Task 3.7's new wall shape — 2
-  "featured" cards (`.my-taste-card--featured`) + 3 "secondary" cards
-  (`.my-taste-card--secondary`), not 1 "headliner" + 4 uniform "support" cards. Any
-  sequencing that staggers by role (e.g. headliner-in-first, support-cards-follow) needs
-  to be re-thought as featured-pair-together vs. secondary-trio, not reuse the old
-  1-then-4 beat.
+- **Resolved by Task 4.** Its own cascade sequences by DOM/document order (`featured-1` →
+  `featured-2` → `secondary-1/2/3`), not by tier — `featured-1` gets its own arc/land/snap
+  beat first (the brief's own "headliner card lands" language, still meaningful as "the
+  first, visually-left card" even though Task 3.7 made it and `featured-2` equally
+  prominent), then the remaining 4 cascade together, tier boundary un-observed. No
+  old "1-then-4" beat survived to reuse or fight.
 - **Stage 5**'s mobile pass should look at the crate specifically — Task 3.5 found a stack
   of six additional elements (label + 5 singles) drove mobile's fit ratio up (2.65×→3.01×);
   Task 3.6's revert to one list card brought it back down to 2.73×, and Task 3.7's wall
