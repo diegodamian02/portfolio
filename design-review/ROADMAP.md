@@ -48,12 +48,14 @@ hierarchy regrouped into 2 "featured" cards (deliberately sized identically
 to each other) beside 3 clearly-smaller "secondary" cards — hierarchy from
 tier membership, not one card's raw size. **Task 3.7 landed after 3.8**
 despite the lower number (its brief referenced only 3.6, not 3.8 — noted in
-`stage4-my-taste-concept.md` §2 rather than silently reordered). Desktop
-now measures **0.94×** one screen, laptop **1.09×** — up from 0.72×/0.82×,
-deliberately using the headroom Task 3.6 left rather than a regression;
-laptop's modest overshoot sits inside the same 1.13–1.25× band Experience's
-own Task 9 already established as this project's working definition of
-"fits."
+`stage4-my-taste-concept.md` §2 rather than silently reordered). A same-day
+follow-up (2026-08-17) fixed a real bug the initial 3.7 pass introduced and
+missed: a copied, unverified grid-row minimum left 139px of dead space
+under every featured card's name. Desktop now measures **0.77×** one
+screen, laptop **0.89×** — corrected from an as-shipped 0.94×/1.09× that
+was partly inflated by that same bug, still up from Task 3.6's 0.72×/0.82×
+baseline on the genuine part (the featured pair really is wider than the
+old support cards, using real headroom, not padding).
 
 **Not started yet, in the order the roadmap currently has them:**
 
@@ -861,6 +863,12 @@ built and sitting next to everything else. Sequence:
    edge/tape kept) so it reads straight beside the still-tilted wall.
    **DONE 2026-08-15** — `STATUS.md`, mechanism writeup in
    `stage4-my-taste-concept.md`.
+3.7. **Three-zone restructure** — regroups the wall's 1 headliner + 4 uniform
+   support cards into 2 "featured" (deliberately identical to each other) +
+   3 "secondary" (clearly smaller) — hierarchy from tier membership, not one
+   card's raw size. Lands *after* 3.8 despite the lower number (its own
+   brief referenced only 3.6). **DONE 2026-08-15, follow-up 2026-08-17** —
+   `STATUS.md`, mechanism writeup in `stage4-my-taste-concept.md`.
 4. **Motion** — entrance animation, parallax, reduced-motion fallback.
 5. **Time-range switching** — the UI to flip between Spotify's `time_range`
    values (the server endpoints already accept it), with a `Flip`-powered
@@ -981,6 +989,40 @@ built and sitting next to everything else. Sequence:
 > product bugs found this task. Fit ratio unchanged from Task 3.6 (0.72×/
 > 0.82×/2.73×) — nothing this task did resizes any element. Full detail in
 > `STATUS.md`.
+>
+> **Update, Task 3.7 (2026-08-15, follow-up 2026-08-17):** regrouped the
+> wall's 1 headliner + 4 uniform support cards into 2 "featured" (deliberately
+> identical size/treatment to each other) + 3 "secondary" (clearly smaller) —
+> hierarchy from tier membership instead of one card's raw size. Lands
+> *after* Task 3.8 despite the lower number — this brief referenced only
+> Task 3.6, never 3.8, so building it on top of 3.8's already-shipped links/
+> straightened crate is a superset of the ask, not a conflict; noted rather
+> than silently reordered. Grid moved from 4 columns (headliner 2×2 + four
+> 1×1 support cells) to 6 columns (featured pair at 3×2 each, secondary trio
+> at 2×1 each) — 6 divides evenly by both 2 and 3. Removed 5 now-dead
+> `grid-area` CSS rules found in the process (`TasteCard` already sets
+> `gridArea` as an inline style, which always wins the cascade). Measured
+> the actual size gap, not just relabeled it: old headliner:support ratio
+> 4.77:1 by real rendered area.
+>
+> **Follow-up, same task, two days later:** a live report re-sent this same
+> brief describing "a large unused vertical gap between the headliner and
+> the first support card" — stale terminology (the task had already
+> shipped) but a real, still-present bug once translated: 139px of dead
+> space under every featured card's own name, caused by an unverified
+> `grid-template-rows` minimum copied straight from the old headliner block
+> without checking it against the new card's actual content height. Fixed
+> by dropping that minimum from 180px to 90px per row — dead space fell to
+> 8px (the card's own intentional padding). This corrected the fit-ratio
+> numbers this task originally reported: desktop 0.94× → **0.77×**, laptop
+> 1.09× → **0.89×**, both now comfortably under one screen (laptop no
+> longer overshoots at all) — the genuine "use the headroom" result (the
+> featured pair still as wide as the old single headliner, now ×2) survives
+> fully intact; the higher numbers were just partly inflated by the bug.
+> Real featured:secondary area ratio, corrected: ~1.8:1, still a noticeably
+> smaller gap than the old 4.77:1. Zero overlap, zero overflow, zero
+> console errors, all of Task 3.8's own links/focus/rotation re-verified
+> unchanged, both before and after the fix. Full detail in `STATUS.md`.
 
 ### Stage 5 — Mobile
 

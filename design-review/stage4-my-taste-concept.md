@@ -85,7 +85,7 @@ everything else. Splitting keeps each task's risk isolated.
 | 3.5 | **Two columns** — restructure into wall (left) + crate (right) so total height is `max(wall, crate)`, not their sum. Setlist rebuilt as small torn "singles," not a list row | **DONE** 2026-08-15 |
 | 3.6 | **Refinement pass** — headliner less dominant, crate back to one plain list (Task 3.5's "singles" read too busy), duotone bug fixed (2 of `colorwayFor`'s 5 tokens read as plain gray on a photo) | **DONE** 2026-08-15 |
 | 3.8 | **Spotify link, clickable cards, straighten the setlist** — kicker links out to the real profile, every artist/track card is a real `<a>` to its own Spotify page, crate's rotation/jitter removed (torn edge/tape kept) | **DONE** 2026-08-15 |
-| 3.7 | **Three-zone restructure** — the wall's 1 headliner + 4 support cards regrouped into 2 "featured" (comparably sized to each other) + 3 "secondary" (clearly smaller) — hierarchy from tiers, not one card's raw size. Landed *after* 3.8, see note below | **DONE** 2026-08-15 |
+| 3.7 | **Three-zone restructure** — the wall's 1 headliner + 4 support cards regrouped into 2 "featured" (comparably sized to each other) + 3 "secondary" (clearly smaller) — hierarchy from tiers, not one card's raw size. Landed *after* 3.8, see note below. Follow-up 2026-08-17 fixed 139px of dead space under each featured card's name (a copied, unverified grid-row minimum) — see §10 | **DONE** 2026-08-15, follow-up 2026-08-17 |
 | 4 | **Motion** — entrance animation, parallax, reduced-motion fallback | Not started |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
 
@@ -537,30 +537,26 @@ deleting them changes the rendered result of.
 
 **Measured the actual gap, not just relabeled it.** Real rendered card areas at 1440px:
 old headliner ≈121,437px² vs. old support ≈25,480px² — a **4.77:1** ratio. New featured
-≈105,387–111,078px² vs. new secondary ≈35,518–37,273px² — **~2.9:1**. A genuine,
-measured reduction, not just new class names on the old proportions. Checked the specific
-failure case the brief called out by name: the two featured cards' own areas differ by
-under 5% from each other (ordinary variance from different name lengths and per-id
-rotation/jitter — both share the identical grid footprint, aspect-ratio, and font-size),
-confirmed by screenshot to read as clearly comparable to each other, not "headliner,
-slightly smaller" beside a same-size second card.
+≈66,738px² vs. secondary ≈35,518–37,273px² — **~1.8:1**, corrected below after a
+follow-up fix; the numbers as first shipped read ≈105,387–111,078px² and ~2.9:1, inflated
+by a bug (see the follow-up note at the end of this section). Either way it's a genuine,
+measured reduction from the old 4.77:1 headliner:support ratio, not just new class names
+on the old proportions. Checked the specific failure case the brief called out by name:
+the two featured cards' own areas differ by under 5% from each other (ordinary variance
+from different name lengths and per-id rotation/jitter — both share the identical grid
+footprint, aspect-ratio, and font-size), confirmed by screenshot to read as clearly
+comparable to each other, not "headliner, slightly smaller" beside a same-size second
+card.
 
-**Used the fit-ratio headroom deliberately, then checked what it cost.** Ratio table:
+**Used the fit-ratio headroom deliberately, then checked what it cost.** Ratio table
+(corrected — see the follow-up note below for the as-first-shipped numbers, which were
+inflated by a bug):
 
-| Breakpoint | Task 3.6 | Task 3.7 |
-|---|---|---|
-| Desktop (1440×900) | 0.72× | **0.94×** |
-| Laptop (1280×800) | 0.82× | **1.09×** |
-| Mobile (390×844) | 2.73× | **2.68×** |
-
-Desktop's dead space is essentially gone (wall 596px against 756px available, not the
-gap Task 3.6 left). Laptop's 1.09× is a real, modest overshoot past one literal screen —
-weighed against this project's own precedent rather than chasing an unexamined ≤1.0×:
-Experience's own Task 9 landed at 1.13–1.25× and Task 2.5 (the task that introduced this
-exact fit-ratio method for `#my-taste`) explicitly measured success against that same
-band. 1.09× sits comfortably inside it. Mobile improved slightly (un-rotated regardless
-of this task, and the taller featured cards collapse into the same single column the old
-headliner did).
+| Breakpoint | Task 3.6 | Task 3.7 (as shipped) | Task 3.7 follow-up (corrected) |
+|---|---|---|---|
+| Desktop (1440×900) | 0.72× | 0.94× | **0.77×** |
+| Laptop (1280×800) | 0.82× | 1.09× | **0.89×** |
+| Mobile (390×844) | 2.73× | 2.68× | **2.68×** |
 
 **Verification:** zero overlap among all 5 wall cards at 1440/1280/1024/768px; zero
 horizontal overflow at the usual 320–1440px sweep; zero console errors across a full
@@ -570,6 +566,26 @@ reaches every card with a visible outline, the wall's cards still carry their or
 rotation (-2.2° to 3.84°), the crate's card is still exactly `transform: none`.
 Screenshots re-captured both themes via `capture-screenshots.mjs`, supplemented with the
 same scoped light-theme capture prior tasks in this section already use.
+
+> **Follow-up (2026-08-17):** live report re-sent this same brief, adding "a large unused
+> vertical gap between the headliner and the first support card." That terminology
+> describes the pre-restructure state (this task had already shipped), so the specific
+> relationship named didn't map onto the actual tree — but the underlying observation was
+> real. Measured it directly: each featured card's own box was 358px tall while its real
+> content (photo + name + padding) needed only ~220px — **139px of dead space** under
+> every artist name. Root cause: the wall's `grid-template-rows` had kept the OLD
+> headliner's own per-row minimum (180px × 2 = 360px) with the stated reasoning "same
+> card width proportion as before, no reason to re-tune" — a real observation about WIDTH
+> used, incorrectly, to justify not re-checking HEIGHT. The old headliner's content had
+> already grown past that floor on its own; the new featured card's content never got
+> close. Fixed by dropping the row minimum to 90px, letting `auto` size off real content
+> — dead space fell to 8px (the card's own intentional padding, not leftover waste). This
+> is what dropped the ratio table above from the "as shipped" column to "corrected" — the
+> genuine part of this task's own "use the headroom" instruction survives fully intact
+> (the featured pair is still exactly as wide as the old single headliner, just applied
+> to two cards now), the numbers were just partly inflated by a bug that's now gone.
+> Laptop no longer overshoots one screen at all, a strictly better result. Full
+> measurements in `STATUS.md`.
 
 ## 11. Open items for later tasks
 

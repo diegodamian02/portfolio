@@ -2669,12 +2669,25 @@ html {
 .my-taste-wall {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  // Zone A's two rows keep the old headliner block's own per-row minimum
-  // (180px) — same card width proportion as before (50% of the wall), so
-  // no reason to re-tune that number. Zone B's row uses a visibly smaller
-  // minimum (120px) — part of what reads as "clearly secondary," not just
-  // narrower columns with the same row height as Zone A.
-  grid-template-rows: minmax(180px, auto) minmax(180px, auto) minmax(120px, auto);
+  // Zone A's two rows were FIRST shipped keeping the old headliner block's
+  // own per-row minimum (180px), reasoning "same card width proportion as
+  // before, no reason to re-tune." That reasoning didn't hold up under
+  // measurement — the old headliner's real photo+name content had already
+  // grown past that 360px (2×180) floor on its own, so the min was never
+  // actually binding there. The new featured card's real content (a
+  // narrower-columned photo + the same name text) only needs ~220px total,
+  // well under that floor — so the unchanged 180px min was forcing each
+  // featured card ~139px taller than its own content, pure dead space
+  // below the artist name. Found by live measurement (a real per-card
+  // content-vs-box breakdown), not by eye — this is the exact "large
+  // unused vertical gap" a later live report flagged, and re-verifies it
+  // as still present after the Task 3.7 regroup that was supposed to
+  // absorb it structurally but, on its own, didn't touch this row-min at
+  // all. 90px lets `auto` do the actual sizing off real content instead of
+  // a copied number. Zone B's row min (120px) was independently re-checked
+  // against ITS OWN real content (~197px) at the same time — already well
+  // clear of that floor, not the source of any dead space, left unchanged.
+  grid-template-rows: minmax(90px, auto) minmax(90px, auto) minmax(120px, auto);
   grid-template-areas:
     "featured-1 featured-1 featured-1 featured-2 featured-2 featured-2"
     "featured-1 featured-1 featured-1 featured-2 featured-2 featured-2"

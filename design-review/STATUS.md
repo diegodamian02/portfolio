@@ -2723,8 +2723,63 @@ despite the new grid (5 dead rules removed roughly offset the new ones added). L
 unchanged: 7 errors, 2 expected warnings.
 
 `design-review/stage4-my-taste-concept.md` updated: §1's layout description, status
-table (3.7 row, noted as landing after 3.8), and a new §11 documenting this task's
+table (3.7 row, noted as landing after 3.8), and a new §10 documenting this task's
 mechanism in full.
+
+### Stage 4 Task 3.7 follow-up — dead space inside each featured card, fixed *(2026-08-17)*
+
+Live report re-sent Task 3.7's own brief verbatim, with one addition: "a large unused
+vertical gap between the headliner and the first support card (Oasis → Mac Miller)."
+Checked against the tree first (CLAUDE.md) — Task 3.7 had already shipped (commit
+`8612655`); the report's own terminology ("headliner," "first support card") describes
+the pre-restructure state, not what's actually in the tree, so it's very likely the
+separate design-research chat that writes these briefs doesn't have visibility into what
+already landed (it has no repo access, per this project's own memory of that workflow).
+Didn't dismiss it on that basis, though — the underlying observation turned out to be
+real, just mis-described.
+
+Measured a real per-card content-vs-box breakdown instead of guessing: each "featured"
+card's own box was 358px tall, but its actual content — photo (159px) + name (54px) +
+padding — only needed about 220px. **139px of dead space**, every time, below the artist
+name. Root cause, found by reading Task 3.7's own CSS comment against itself: the wall's
+`grid-template-rows` kept the OLD headliner block's per-row minimum (`180px`, ×2 rows =
+360px floor) with the stated reasoning "same card width proportion as before, no reason
+to re-tune that number" — a real card-WIDTH observation used to justify not re-checking
+a completely different quantity, real card HEIGHT. The old headliner's own content had
+already grown past that 360px floor on its own merit; the new featured card's content
+never got close to it, so the unchanged 360px floor was pure padding no one asked for.
+
+Fixed by dropping the per-row minimum to `90px` (letting `auto` size off real content
+instead of a copied number) — dead space below the name dropped from 139px to 8px (the
+card's own intentional `padding-bottom`, not leftover waste). Zone B's row minimum
+(120px) was independently re-checked against ITS OWN real content at the same time
+(~197px, already well clear of that floor) — confirmed not a source of any dead space,
+left unchanged.
+
+**This does drop the fit-ratio numbers Task 3.7 originally reported** (0.94×/1.09×/2.68×
+→ **0.77×/0.89×/2.68×** desktop/laptop/mobile) — worth stating plainly rather than
+treating quietly as a wash: those higher numbers were partly inflated by the same bug
+this follow-up removes. The genuine, intentional part of Task 3.7's own "use the
+headroom" instruction survives fully intact — the featured pair is still exactly as wide
+as the old single headliner (both at 50% of the wall), just now applied to two cards
+instead of one; real area ratio featured:secondary is still **~1.8:1**, still a
+noticeably smaller gap than the pre-3.7 headliner:support ratio of 4.77:1. Laptop no
+longer overshoots one screen at all now, which is a strictly better result, not a
+regression to defend.
+
+Re-verified everything Task 3.7 and 3.8 already established, unchanged: zero overlap
+among all 5 wall cards at 1440/1280/1024/768px, zero horizontal overflow 320–1440px, zero
+console errors, all 10 hrefs still correct, wall rotation and the crate's straightened
+transform untouched. Confirmed visually too, not just numerically — screenshot shows the
+featured pair still clearly reads as the larger, more prominent tier over the secondary
+three, now without the awkward empty space under each name. Screenshots re-captured both
+themes.
+
+Build: JS 488.29 kB / 175.02 kB gz (unchanged — CSS-only value change), CSS 46.00 kB /
+9.68 kB gz (unchanged). Lint unchanged: 7 errors, 2 expected warnings.
+
+`design-review/stage4-my-taste-concept.md` §10 and the ratio table within it updated
+with the corrected numbers and this fix's own reasoning.
 
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
