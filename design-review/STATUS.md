@@ -3013,6 +3013,51 @@ errors, 2 expected warnings.
 §13 (this task's), plus a short forward-pointer added to §11; `ROADMAP.md` §3's Stage 4
 task list gets "3.9" and "4.1" rows and update blockquotes.
 
+### `#my-taste` live-feedback pass — pin bug, grain texture, setlist wrap *(2026-08-17)*
+
+Three items from live feedback on the just-shipped Task 3.9/4.1 build, not a numbered
+roadmap task — reported directly rather than through a design-research brief.
+
+**The pin bug — B30 (`FINDINGS.md`).** "when we reload the page and we scroll down the
+section is not pinned." Reproduced with Playwright, root-caused with a live
+`ResizeObserver`/height-poll pass, and traced to `#my-taste`'s own `ScrollTrigger` being
+created before this section's scoped webfonts finish their swap-in — a stale pin
+measurement, not a missing one. Fixed page-wide in `smooth-scroll.jsx`
+(`document.fonts.ready` + a debounced `ResizeObserver` on `document.body`, both calling
+`ScrollTrigger.refresh()`) rather than patched locally in `my-taste.jsx` — full
+root-cause writeup and verification in `FINDINGS.md` B30.
+
+**Grain texture removed.** `.my-taste-section::after`'s feTurbulence noise overlay (Task
+3's "photocopied flyer" texture) read as grainy/granite-like static on top of the real
+photos rather than the intended paper texture — cut, not re-tuned; the photo duotones
+(`PhotoSlot`/`AvatarSlot`'s own grayscale+contrast+tint layers) already carry this
+section's tactile treatment on their own. `position: relative` came off `.my-taste-section`
+with it — confirmed nothing else in the section needed it as a containing block (cards/
+photos/tape all position against their own nearer ancestor).
+
+**Setlist row wrap — B31 (`FINDINGS.md`).** Live screenshot flagged the mobile setlist
+rows as cramped; measuring the actual boxes found something worse than tight spacing —
+long track titles could split the index number onto its own orphaned line, separate from
+its own track name. Fixed by grouping index+track into one nested flex unit
+(`.my-taste-setlist-main`) so they can no longer split from each other; bumped the row's
+row-gap (`--space-2` → `--space-3`) so a wrapped artist line reads as still-part-of-this-
+row rather than blurring into the divider below. Full writeup in `FINDINGS.md` B31.
+
+Also investigated and ruled out during this pass: a screenshot appeared to show the
+navbar "floating" mid-section on mobile. Confirmed live (`getBoundingClientRect()` during
+a real scroll: `top: 0`, `position: fixed`, exactly where it belongs) that this is a
+capture artifact of this project's own element-clipped screenshot tool rendering a
+`position: fixed` element once into a shot far taller than any real viewport — not a
+live bug. No code change.
+
+Verified: fresh-reload pin repro now shows a genuine hold-then-release plateau; 5-second
+`scrollHeight` poll confirms the new `ResizeObserver` doesn't loop against its own
+refresh calls; full-page console/pageerror sweep across a complete scroll clean; setlist
+box measurements re-run live at 390px (no orphaned index at any of the 5 real tracks
+tested); `npm run lint` (7 errors/2 warnings, baseline unchanged) and `npm run build`
+(CSS 46.88 kB → 46.54 kB gz-equivalent shrink from the removed grain rule) both clean.
+Screenshots re-captured both themes (`my-taste-desktop.png`, `my-taste-mobile.png`).
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`

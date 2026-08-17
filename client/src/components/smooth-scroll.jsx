@@ -80,6 +80,49 @@ export default function SmoothScroll({ children }) {
             // trigger fires at the wrong position once Stage 3/6/7 add any.
             lenis.on("scroll", ScrollTrigger.update);
 
+            // Found live (reload #my-taste, scroll down — the pin never
+            // engaged): several sections build their OWN ScrollTrigger
+            // (my-taste.jsx, experience.jsx) inside effects gated on async
+            // data, each firing at whatever moment its own fetch happens to
+            // resolve — not a fixed, coordinated mount order. A `pin: true`
+            // trigger's start/end and pin-spacer height are all measured
+            // ONCE, at creation. If ANY later layout shift moves that
+            // section — a sibling section's own pin-spacer inserting after
+            // it, or (confirmed live, via a body-height poll immediately
+            // after page load) this site's own self-hosted, section-scoped
+            // webfonts (Anton/Oswald/Space Mono, first used starting at
+            // #my-taste) finishing their swap-in a beat after first paint
+            // and reflowing that text — the cached measurement goes stale
+            // silently; nothing re-measures it. Measured: #my-taste's own
+            // body-height poll was still growing 80ms+ AFTER its pin-spacer
+            // had already been created, leaving its start ~144px short of
+            // the section's real, settled position — enough that the whole
+            // "+=200" engagement window was consumed before the visitor's
+            // continued scroll actually reached the section, which reads
+            // exactly as "the pin never engages."
+            //
+            // ScrollTrigger.refresh() re-measures EVERY currently-registered
+            // trigger against current layout, not just one — a single,
+            // page-wide fix rather than a per-section patch, and the right
+            // place for it since this component already owns ScrollTrigger's
+            // lifecycle for the whole app. document.fonts.ready targets the
+            // confirmed mechanism directly; the debounced ResizeObserver on
+            // <body> is the general safety net for anything else (a future
+            // section, a slow image without a reserved aspect-ratio, another
+            // sibling's pin-spacer) that shifts total page height after any
+            // trigger has already been created. 200ms debounce: comfortably
+            // past the ~80ms of post-creation growth measured live, without
+            // refreshing on every intermediate resize tick while things are
+            // still actively mounting.
+            let refreshTimeout;
+            const scheduleRefresh = () => {
+                clearTimeout(refreshTimeout);
+                refreshTimeout = setTimeout(() => ScrollTrigger.refresh(), 200);
+            };
+            document.fonts.ready.then(scheduleRefresh);
+            const bodyResizeObserver = new ResizeObserver(scheduleRefresh);
+            bodyResizeObserver.observe(document.body);
+
             // One clock for both. gsap.ticker's callback receives elapsed time
             // in SECONDS; Lenis.raf expects MILLISECONDS, hence * 1000.
             // lagSmoothing(0) turns off GSAP's own tab-backgrounding
@@ -94,6 +137,8 @@ export default function SmoothScroll({ children }) {
                 gsap.ticker.remove(raf);
                 lenis.destroy();
                 setActiveLenis(null);
+                clearTimeout(refreshTimeout);
+                bodyResizeObserver.disconnect();
             };
         });
 

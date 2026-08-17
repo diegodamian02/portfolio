@@ -271,6 +271,9 @@ tuned to be almost imperceptible (opacity 0.03); this one is allowed to read as 
 purpose (the concept doc's own "photocopied flyer, not photo with a filter" framing), so
 it's tuned higher, opacity 0.05, `mix-blend-mode: overlay`. One overlay for the whole
 section (`.my-taste-section::after`), not per-card.
+> **Update (2026-08-17, §14):** removed. Live feedback — it read as grainy/granite-like
+> static on top of the real photos, not the intended paper texture. Cut, not re-tuned;
+> the duotone layers just above already carry this section's tactile treatment.
 
 **Two fallback paths land on the identical treatment** — Task 2's flat `--card-tint` fill,
 with the same border (see below): an empty `images[]` (API returned none) and, new this
@@ -849,7 +852,47 @@ rather than rediscovered); zero overflow at the usual sweep; zero console errors
 a full scroll-through; fit ratio re-run (§12, above — landed in the same pass as Task
 3.9 so the numbers move together). Screenshots re-captured both themes.
 
-## 14. Open items for later tasks
+## 14. Live-feedback fixes — pin bug, grain removed, setlist wrap
+
+Not a numbered task — direct live feedback on the Task 3.9/4.1 build, same day. Full
+root-cause writeups live in `FINDINGS.md` (B30, B31); this section is the short version
+for this doc's own continuity.
+
+**B30 — the pin never engaged on a fresh reload.** Root cause: `#my-taste`'s own
+`ScrollTrigger.create({ pin: true })` runs inside an effect gated on its Spotify fetch
+resolving — a variable-timing async event. `pin: true` measures start/end and builds its
+pin-spacer ONCE, at that moment. This section's self-hosted, section-scoped webfonts
+(Anton/Oswald/Space Mono — first used starting here) finish their swap-in a beat after
+first paint and reflow the text taller than the fallback-font layout; a live poll showed
+the page still growing ~80ms *after* the pin-spacer had already been created, leaving the
+cached measurement ~144px short of the section's real position — enough that the whole
+`end: "+=200"` window was consumed before a visitor's continued scroll actually reached
+the section. Fixed page-wide in `smooth-scroll.jsx`, not patched locally: `document.fonts.
+ready` plus a debounced `ResizeObserver` on `document.body`, both calling
+`ScrollTrigger.refresh()`, so any section's stale pin self-heals, not just this one.
+
+**Grain texture cut.** §5's own "real photos, duotone, grain" section documents the
+`.my-taste-section::after` feTurbulence overlay this removes — live feedback: it read as
+grainy/granite-like static on real photos rather than the intended paper texture. Cut
+outright, not re-tuned; `PhotoSlot`/`AvatarSlot`'s own duotone layers already carry this
+section's tactile treatment. `position: relative` came off the section rule with it (it
+existed only as that `::after`'s containing block).
+
+**B31 — setlist rows could orphan the index number.** A live screenshot flagged the
+mobile setlist as "cramped"; measuring the actual boxes found something worse — for a
+long track title, index and track name landed on independent flex-wrap lines, so the
+index number ("4") rendered alone, orphaned above its own track. Fixed by grouping
+index+track into one nested flex unit (`.my-taste-setlist-main`) so they're one atomic
+item on the row's own flex-wrap; bumped the row-gap term (`--space-2` → `--space-3`) so a
+wrapped artist line reads as still-this-row rather than blurring toward the divider below.
+
+Also investigated and ruled out: a screenshot appeared to show the fixed navbar
+"floating" mid-section. Confirmed live (`getBoundingClientRect()` during a real scroll:
+`top: 0`, `position: fixed`) that this is an artifact of this project's own element-
+clipped screenshot tool rendering a fixed element once into a shot taller than any real
+viewport — not a live bug, no code change.
+
+## 15. Open items for later tasks
 
 - **Still open, not Task 4's job:** a future GSAP hover/tilt effect on `.my-taste-card`
   should double check it doesn't fight `.my-taste-card-link:hover`'s underline (Task 3.8)

@@ -2511,28 +2511,18 @@ html {
   padding: var(--space-6) var(--space-5);
   color: var(--text-color);
   text-align: center;
-  // Containing block for the grain ::after below — this section had nothing
-  // absolutely positioned inside it before Task 3.
-  position: relative;
 
-  // Grain (Task 3) — the "photocopied flyer" texture the concept doc's own
-  // visual language calls for, what separates this from "photo with a color
-  // filter." Same feTurbulence-in-a-data-URI recipe .record-crate-panel
-  // already uses (main.scss, above) — reused rather than a second grain
-  // mechanism. That one is tuned to be almost imperceptible (opacity 0.03,
-  // "if it reads as texture, it's too strong" — wood grain shouldn't announce
-  // itself); this one is allowed to read as texture on purpose, so it's
-  // tuned higher. One overlay for the whole section, not per-card — a poster
-  // wall was photocopied as one sheet, not card by card.
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    opacity: 0.05;
-    mix-blend-mode: overlay;
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
+  // Grain (Task 3) removed here: a feTurbulence noise overlay across the
+  // whole section, meant to read as a "photocopied flyer" texture. Live
+  // feedback: it read as a grainy/granite-like static on top of the real
+  // photos rather than the intended paper texture — cut rather than
+  // re-tuned, since the actual photo duotones (PhotoSlot/AvatarSlot's own
+  // grayscale+contrast+tint layers) already carry this section's tactile
+  // treatment on their own. `position: relative` came off with it — it
+  // existed only as this rule's own containing block for the ::after,
+  // nothing else in this section is absolutely positioned against IT
+  // directly (cards/photos/tape all position against their own nearer
+  // ancestor instead).
 }
 
 // Small and quiet on purpose — the headliner's own name is the section's
@@ -3221,11 +3211,34 @@ html {
 // dead space around it. display: block reset (an <a> is inline by default)
 // plus color/text-decoration resets, same pattern .my-taste-card-link uses
 // for the wall's own card links.
+//
+// Two flex children now, not three (found live at 390px — a real bug, not
+// just tight spacing): .my-taste-setlist-main (index+track, grouped below)
+// and .my-taste-setlist-artist. Before this fix, index/track/artist were
+// three INDEPENDENT flex items on this row's own flex-wrap — for a long
+// track name ("I Ran (So Far Away) - Single Edit"), the browser measures
+// each item's own max-content width to decide what fits per line, found
+// the index+track pair didn't fit together, and wrapped them onto SEPARATE
+// lines: the index number ended up alone on its own line, orphaned above
+// its own track name, not just "the artist wrapped down." Grouping
+// index+track into one nested flex unit (.my-taste-setlist-main, below)
+// makes them one atomic item on THIS row's flex-wrap — they can no longer
+// split from each other; only the artist (still independent) drops to its
+// own second line when the row doesn't fit, same intent the row-gap bump
+// below was already reaching for.
 .my-taste-setlist-link {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-2) var(--space-4);
+  // Row-gap space-2 -> space-3 (column-gap unchanged): space-2 gave a
+  // wrapped second line (the artist, previously also the index on the
+  // three-way-split bug above) the SAME 8px gap from the line above it as
+  // from the row's own bottom padding to the divider below — nothing
+  // visually distinguished "this line belongs to the row above it" from
+  // "this is the next track," so wrapped rows read as one cramped stack.
+  // space-3 (12px) still reads as one row's own internal gap, not a second
+  // row, while giving it real breathing room — confirmed live, not assumed.
+  gap: var(--space-3) var(--space-4);
   // space-1 -> space-2, Task 3.6 — Task 2.5 cut this to space-1 to fight a
   // wall+crate stacked layout that was running long; now the crate is its
   // OWN column next to a wall whose height is set by the support cards'
@@ -3248,6 +3261,20 @@ html {
     outline-offset: 2px;
     border-radius: 2px;
   }
+}
+
+// The index+track pairing — its own nested flex row so the two stay
+// together as one item on .my-taste-setlist-link's own flex-wrap (see that
+// rule's comment above). flex: 1 1 auto/min-width: 0 here (not just on
+// .my-taste-setlist-track below) is what lets THIS group shrink to make
+// room for .my-taste-setlist-artist on the same line whenever it fits, same
+// as before this fix — only the fallback when it doesn't fit changed.
+.my-taste-setlist-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .my-taste-setlist-index {

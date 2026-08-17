@@ -1376,6 +1376,80 @@ pre-existing ~13px rail/date-badge vertical offset confirmed unchanged (present
 identically before this fix — not something this touched). Screenshots:
 `b29-experience-title-overlap-fixed-macbook13-{dark,light}.png`.
 
+### B30 — `#my-taste`'s pin never engaged on a fresh page load — **FOUND AND FIXED**
+
+Live report: "when we reload the page and we scroll down the section is not pinned."
+Reproduced with Playwright (fresh navigation, then realistic wheel-driven scroll down to
+the section, sampling `getBoundingClientRect().top` continuously — the same
+implementation-agnostic method Task 4's own B-history already established, since this
+site's transform-based pinning never flips `getComputedStyle().position` to `"fixed"`):
+confirmed live — no plateau at all, `top` just kept decreasing in lockstep with
+`scrollY` the entire way through, exactly as reported.
+
+Root cause, isolated with a live `ResizeObserver`/poll instrumentation pass (not
+guessed): `#my-taste`'s own `ScrollTrigger.create({ pin: true, ... })` runs inside an
+effect gated on its Spotify fetch resolving — a variable-timing async event, not a fixed
+point in the mount sequence. `pin: true` measures the trigger's start/end position and
+builds a pin-spacer sized to the section's height ONCE, at that exact moment. A body-
+height poll showed the page's total height was still growing for roughly 80ms *after*
+`#my-taste`'s own pin-spacer had already been created — traced to this section's
+self-hosted, section-scoped webfonts (Anton/Oswald/Space Mono, first used starting here)
+finishing their swap-in a beat after first paint and reflowing the card/track text taller
+than the pre-swap fallback-font layout. The cached pin measurement (`self.start`) ended
+up ~144px short of the section's real, settled position — enough that the whole
+`end: "+=200"` engagement window was consumed by the time the visitor's continued scroll
+actually reached the section, which reads exactly as "the pin never engages." (A second,
+related risk confirmed in the same pass but not the actual trigger here this time:
+`experience.jsx`'s own pin-spacer, built unconditionally on mount, can also insert and
+shift later content after a downstream section's trigger was created — the fix below
+covers that class of bug too, not just this one instance of it.)
+
+Fixed in `smooth-scroll.jsx` (the one place that already owns `ScrollTrigger`'s lifecycle
+for the whole app), not `my-taste.jsx` alone — a page-wide `ScrollTrigger.refresh()`
+re-measures *every* currently-registered trigger, so this self-heals any section's stale
+pin, not just this one. Two triggers, debounced together (200ms — comfortably past the
+~80ms of post-creation growth measured live): `document.fonts.ready`, targeting the
+confirmed mechanism directly, and a `ResizeObserver` on `document.body` as the general
+safety net for anything else (a future section, a slow image without a reserved
+`aspect-ratio`, another sibling's pin-spacer) that shifts total page height after a
+trigger already exists.
+
+Re-verified: fresh-navigation + realistic wheel-scroll repro now shows a genuine
+plateau — `top` frozen while `scrollY` also stays frozen (the entrance's own
+`lenis.stop()` hold), then both resume together once the cascade completes and the pin
+releases. Re-ran a 5-second `document.documentElement.scrollHeight` poll to confirm the
+new `ResizeObserver` doesn't loop against its own `ScrollTrigger.refresh()` calls —
+settles once and stays flat. Full-page console/pageerror sweep across a complete
+top-to-bottom scroll: clean. `npm run lint`/`npm run build` unaffected (baseline 7
+errors/2 warnings held).
+
+### B31 — `#my-taste`'s setlist rows could orphan the track index onto its own line — **FOUND AND FIXED**
+
+Found investigating a live screenshot report (mobile, 390px) of the setlist rows'
+wrapping looking cramped. Measuring the actual rendered boxes (not re-trusting the
+"expected, deliberate" read `FINDINGS.md` B25's own wrap fix already established) showed
+something worse than tight spacing for a long track title ("I Ran (So Far Away) - Single
+Edit"): the row's three children (index, track, artist) were three *independent* flex
+items on `.my-taste-setlist-link`'s own `flex-wrap`. The browser measures each item's
+max-content width to decide what fits per line; the index+track pair didn't fit
+together, so they landed on separate lines — the index number ("4") rendered alone,
+orphaned above its own track name, not merely "the artist wrapped down."
+
+Fixed by grouping index+track into one nested flex unit
+(`.my-taste-setlist-main`, `my-taste.jsx`/`main.scss`) so they're a single atomic item on
+the outer row's flex-wrap — they can no longer split from each other; only the artist
+(still independent) drops to its own line when the row doesn't fit, and the track's own
+text still wraps internally via its existing `min-width: 0`. Also bumped the row's
+`gap`'s row-gap term (`--space-2` → `--space-3`) — before this, a wrapped line sat the
+same 8px from the line above it as from the row's own bottom padding to the divider
+below, so a two-line row didn't visually read as "this is still one row." Only the
+row-gap changed; column-gap (single-line spacing, the common case) is untouched.
+
+Re-verified live at 390px with real box measurements: every row's index+track now share
+one line (or index+track's first line, if the track itself wraps internally) — no
+orphaned index at any of the five real tracks tested. `npm run lint`/`npm run build`
+unaffected.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

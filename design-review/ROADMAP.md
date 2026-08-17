@@ -81,6 +81,17 @@ mid-word wrap at 390px, fixed with `flex-wrap: wrap` + `white-space:
 nowrap` on the kicker link. `stage4-my-taste-concept.md` §12/§13 have the
 full writeups.
 
+Live feedback on that build (same day) surfaced two more real bugs and one
+cut: **B30** — the pin never engaged on a fresh reload, root-caused to a
+stale `ScrollTrigger` measurement (created before this section's own
+webfonts finished swapping in) and fixed page-wide in `smooth-scroll.jsx`,
+not patched locally; **B31** — the setlist's own row-wrap could orphan a
+track's index number onto its own line for long titles, fixed by grouping
+index+track into one flex unit. The grain texture (`.my-taste-section::after`,
+Task 3) was cut outright — it read as static on real photos, not the
+intended paper texture. Full writeups: `FINDINGS.md` B30/B31,
+`STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |

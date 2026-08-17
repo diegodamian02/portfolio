@@ -928,8 +928,25 @@ export default function MyTaste() {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
-                                            <span className="my-taste-setlist-index">{index + 1}</span>
-                                            <span className="my-taste-setlist-track">{track.name}</span>
+                                            {/* index+track grouped as one flex
+                                                unit (found live, mobile fix):
+                                                without this, the OUTER row's own
+                                                flex-wrap treated all three spans
+                                                as independently wrappable, and a
+                                                long track name could push the
+                                                index number onto its own
+                                                orphaned line above it — a real
+                                                one-line-per-word collapse, not
+                                                just tight spacing. Grouping
+                                                keeps the index glued to its
+                                                track; only the artist (still its
+                                                own flex item on the outer row)
+                                                drops to a second line when the
+                                                row doesn't fit. */}
+                                            <span className="my-taste-setlist-main">
+                                                <span className="my-taste-setlist-index">{index + 1}</span>
+                                                <span className="my-taste-setlist-track">{track.name}</span>
+                                            </span>
                                             <span className="my-taste-setlist-artist">
                                                 {track.artists.map((a) => a.name).join(", ")}
                                             </span>
