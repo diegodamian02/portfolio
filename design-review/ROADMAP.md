@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-15)*
+## 0. Current state — quick summary *(updated 2026-08-17)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -23,25 +23,39 @@ and — within Stage 3 — the design system itself plus a full rebuild of
 `#about` (intro card + Experience). Experience alone went through three
 builds (Tasks 7, 8, 9) chasing "big photos" and "fits on screen" at once;
 Task 9's pinned horizontal filmstrip is what actually landed both. Also a
-site-wide scroll-feel tuning (Lenis `lerp`) outside any one section, and —
-most recently, a live-feedback fix landed outside the Stage 4 sequence
-below since it touches an already-"done" section — Experience's title
-overlapping its cards on real (not exotic) short windowed-browser heights;
-`STATUS.md`/`FINDINGS.md` B29 has the measurements and the structural fix
-(a flex-centered spacer replacing a section-blind absolute-center calc).
+site-wide scroll-feel tuning (Lenis `lerp`) outside any one section. Two more
+live-feedback passes landed on Experience since, outside the Stage 4 sequence
+below since they touch an already-"done" section: **B29** — the title
+overlapping its cards on real (not exotic) short windowed-browser heights,
+fixed with a flex-centered spacer replacing a section-blind absolute-center
+calc (`STATUS.md`/`FINDINGS.md` B29); then, **most recently (2026-08-17)** —
+"move it a bit higher, title and slideshow," a trimmed top padding plus an
+asymmetric flex-grow split replacing 50/50 centering, reusing `about.jsx`'s
+own `TOP_BIAS` reasoning (`STATUS.md`'s own dated entry; §3's Stage 3 Task 9
+blockquote below has the full writeup for both).
+
+Also removed entirely, same day, direct request over privacy — **the resume**:
+the nav link, the `#connect` link, and the PDF itself
+(`client/public/Diego-Damian-Resume.pdf`, tracked in git since Stage 0).
+`.gitignore` now blocks a future resume from being re-tracked, but the file
+is still recoverable from git history until that's separately rewritten —
+flagged against Stage 8's own already-planned `.git` history rewrite, not
+done automatically. Full writeup: `STATUS.md`'s own dated entry; the
+reversed Stage 0 item itself is struck through with an Update note, §3 below.
 
 **Reordered, deliberately:** Stage 4 (`#my-taste`) jumped ahead of finishing
 Stage 3's remainder (`#projects`/`#connect`) — this file's own prior "next
 step" recommendation. A direct call, not something the repo forced; noted
 here per the working agreement on sequencing deviations. `#my-taste`'s
 concept also changed: no longer "records as vinyl / tracks as a crate," now
-a **festival-lineup poster** (headliner/support/setlist, duotone, torn edges,
-grain) — see Stage 4 below for the full 5-task sequence, and
+a **festival-lineup poster** (headliner/support/setlist, torn edges, tape —
+also duotoned photos and a grain overlay at first, both later cut on direct
+feedback, see below) — see Stage 4 below for the full 5-task sequence, and
 `stage4-my-taste-concept.md` for the concept/mechanism writeup. Tasks 1, 2, a
 retrofitted 2.5, 3, a second retrofit at 3.5, a refinement pass at 3.6, a
 polish pass at 3.8, and a wall restructure at 3.7 are all done — foundations,
-wall layout, fit-within-one-screen, real photography/duotone/grain, a
-two-column restructure (wall beside a crate for the setlist), a smaller
+wall layout, fit-within-one-screen, real photography (duotoned at first, see
+below), a two-column restructure (wall beside a crate for the setlist), a smaller
 headliner + simplified crate + a gray-duotone fix, the whole poster linking
 out to real Spotify pages, and now: the wall's old 1-headliner-plus-4-support
 hierarchy regrouped into 2 "featured" cards (deliberately sized identically
@@ -131,8 +145,9 @@ so this is the last piece of Stage 4's original 5-task sequence. Task 5's
 own brief should account for the wall's current two-tier grid (2 featured
 + 3 secondary, grid-area names `featured-1/2`/`secondary-1/2/3`) when a
 re-rank moves an artist BETWEEN tiers, not just within one — noted in
-`stage4-my-taste-concept.md` §14's open items, unresolved from Task 3.7 and
-still open after Tasks 4/4.1.
+`stage4-my-taste-concept.md` §16's open items (renumbered twice since —
+was §14 — as later live-feedback sections were inserted above it), unresolved
+from Task 3.7 and still open after Tasks 4/4.1.
 `#projects`/`#connect` haven't gone anywhere and are still the natural
 close-out for Stage 3 whenever that's picked back up. Your call either way —
 see §3 below for the full stage list.
@@ -277,6 +292,15 @@ The site is live and is being used for a job search. These are visible failures.
   Adding a sixth nav item pushed the inline row past its fit, so the hamburger
   breakpoint moved 768 → 900px. Deliberately **not** added to `sitemap.xml` — the PDF
   carries a phone number and the nav link already makes it discoverable
+  > **Update (2026-08-17):** reversed. Direct request, privacy — "i don't want people
+  > seeing my data." The nav link, the `#connect` link, and the PDF itself all came out
+  > (`STATUS.md`'s own dated entry has the full writeup). The 900px hamburger
+  > breakpoint stayed put rather than being moved back to 768px — re-measured live with
+  > six items instead of seven, it still fits with real slack, and a lower re-tune wasn't
+  > asked for. `.gitignore` now blocks a future resume file from being re-tracked, but the
+  > PDF is still recoverable from git history (one commit, `8030639`) until that history
+  > is separately rewritten — flagged against Stage 8's own already-planned rewrite, §3
+  > below, not done automatically.
 
 **Stage 0 is complete.** See `STATUS.md` for the close-out.
 
@@ -857,6 +881,23 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > dispatched touch events, not a scroll proxy. B1/B2/B3 and the Capgemini badge
 > re-verified — B18/B19 (Task 7's connector/badge bugs) no longer apply, that
 > layout is gone. Full numbers and screenshots in `STATUS.md`.
+>
+> **Live feedback since, both outside the Task 9 ship date:** **B29
+> (2026-08-15, `STATUS.md`'s own dated entry)** — `.experience-title` overlapped
+> the cards on real (not exotic) short windowed-browser heights, up to 55px at
+> some sizes; root cause was the viewport being absolutely centered against the
+> section's TOTAL height, blind to the title sitting above it. Fixed
+> structurally: `.experience-section` became a flex column (title, then a
+> `.experience-viewport-shell` spacer absorbing whatever's actually left), so a
+> section-center offset can never land above the title's own real flow height
+> again. **Then (2026-08-17):** "move it a bit higher, title and slideshow" —
+> the section's own top padding trimmed a token-step, and the shell's centering
+> replaced with an asymmetric 0.35/0.65 flex-grow split (reusing About's own
+> `TOP_BIAS` reasoning: true mathematical centering under a fixed navbar reads
+> as lower than intended). flex-grow, not a fixed offset, so it can't
+> reintroduce B29's overlap on a short window — re-verified across
+> 900/800/700/660/600px. Both fixes' full writeups: `STATUS.md`'s own dated
+> entries (`FINDINGS.md` B29 for the first).
 
 ### Stage 4 — `#my-taste` redesign
 
@@ -864,8 +905,11 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 tracks as a crate, reusing the hero's sleeve component." That's replaced —
 `#my-taste` is being rebuilt as a **festival-lineup poster** instead: a headliner
 (top artist), four support acts, and a five-track setlist, styled like a gig
-poster — duotoned photos, torn-edge cards, tape, grain, one display/support/mono
-type trio. Held until now for the same reason as before: it depends on both the
+poster — torn-edge cards, tape, one display/support/mono type trio. (Originally
+also duotoned photos and a grain overlay; both were cut later on direct live
+feedback — real photo colors read better than the tint, and the grain read as
+static rather than paper texture. See this stage's own task list below for
+when.) Held until now for the same reason as before: it depends on both the
 design system (Stage 3) and the finished hero components (Stage 1). Note Stage 0's
 **B8** only made the old layout *not broken* — this stage replaces it outright.
 
@@ -1175,7 +1219,12 @@ the top makes the entire scroll reactive to *their* taste meeting Diego's.
 
 Accessibility (`FINDINGS.md` §6): theme-toggle `aria-label`, hamburger as a real
 `<button>`, single `<h1>`, skip-link. Clear the 16 ESLint errors. Animated theme
-toggle. Consider a `.git` history rewrite (91MB → ~5MB).
+toggle. Consider a `.git` history rewrite — grown to **177MB** as of 2026-08-17
+(re-measured, `STATUS.md` §3 — was 91MB when the ~5MB reclaim estimate below was
+made; this session alone added many commits with binary screenshot diffs, each a
+new object in history regardless of a PNG's own current file size). The ~5MB
+post-rewrite estimate itself hasn't been re-verified against the new baseline —
+treat it as a rough floor, not a re-confirmed number.
 
 A second, stronger reason for that same history rewrite showed up 2026-08-17
 (`STATUS.md`'s own dated entry): the resume PDF was removed from the working tree and

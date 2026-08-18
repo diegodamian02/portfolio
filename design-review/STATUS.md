@@ -56,8 +56,9 @@ Railway uploaded and served all of it on every deploy.
   original rendered as a 400px-tall thumbnail: 7.9MB → 181KB. `usa.png` was 1600px
   wide for a flag displayed at 20×15px.
 
-Note this shrank the *deploy*, not the 91MB `.git` — the `.mov` blobs remain in
-history. Reclaiming that needs a history rewrite, deliberately deferred.
+Note this shrank the *deploy*, not the `.git` history — the `.mov` blobs remain in
+it. Reclaiming that needs a history rewrite, deliberately deferred. (91MB at the
+time of this commit; §3's own current-measurements table has the up-to-date size.)
 
 ### `9e51650` — favicon, link-preview card, SEO metadata
 `index.html` was 12 lines with no description, no social tags, and no favicon.
@@ -3192,16 +3193,16 @@ crate too, not just `#my-taste`.
 
 ---
 
-## 3. Current measurements
+## 3. Current measurements *(refreshed 2026-08-17)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **495.33 kB / 177.16 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **46.00 kB / 9.68 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **496.50 kB / 177.43 kB gz** |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **45.90 kB / 9.67 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
-| `.git` size | 91 MB | 91 MB *(unchanged — history rewrite deferred)* |
+| `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 
 ---
 

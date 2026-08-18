@@ -11,7 +11,18 @@ has no access to this repository. Screenshots are separate image files in
 > work**, see [`ROADMAP.md`](./ROADMAP.md).
 >
 > **§8 (open questions) is now answered and §9 (sequencing) is superseded** —
-> `ROADMAP.md` is authoritative for both. Sections 1–7 remain current.
+> `ROADMAP.md` is authoritative for both.
+>
+> **§1 is also dated, not current** (caught 2026-08-17, not fixed here — a full
+> rewrite of the site snapshot is a bigger task than this pass): it still describes
+> the turntable as inert with nothing playing, true when this file was captured
+> (2026-08-08) but not since Stage 1. Multiple sections it describes have also been
+> substantially rebuilt since (`#my-taste` is no longer "records as vinyl," Experience
+> is a pinned filmstrip, not the original timeline). For the CURRENT site state, use
+> `ROADMAP.md` §0 — kept live, not a point-in-time capture. §2–7's individual bug/
+> problem entries are still each individually dated and marked FIXED/superseded where
+> applicable, so those stay reliable read one at a time; it's §1's own single "here's
+> what the site is today" framing that no longer holds as a whole.
 
 ---
 
