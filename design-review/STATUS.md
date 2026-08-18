@@ -2033,6 +2033,27 @@ in both directions (`full-scrub.mjs` re-run, all six entries); frame timing
 re-checked post-change, unchanged (still 0 dropped frames). Lint unchanged,
 build clean (JS 485.06 kB / 174.11 kB gz, CSS unchanged).
 
+### Stage 4 (`#my-taste`) — task numbering, consolidated
+
+The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
+3.9 → 4 → 4.1, then two rounds of unnumbered live-feedback fixes — real build order, not
+a typo (3.8 landed before 3.7 because 3.7's own brief arrived later — noted in its own
+entry below). Full task-by-task index with dates and one-line summaries lives in
+`stage4-my-taste-concept.md` §2 — kept there, not duplicated here, since that file is
+this rebuild's durable record and this one is the work log.
+
+**Net of the churn, what's live today:** a festival-poster-styled section — a wall of
+rotated, taped artist cards (2 featured + 3 secondary) on the left, a straight setlist
+crate on the right, both driven by real Spotify data with real outbound links — entering
+via a timed pin-and-cascade, with no color filter or grain on the photos. Both of those
+last two shipped with Task 3 and were reversed two days later on direct live feedback —
+the right call each time, not a wrong one being corrected.
+
+Most of the decimal branching (3.5, 3.6, 3.7) is two real structural rebuilds, not scope
+creep: 3.5 split one stacked wall into two side-by-side columns, and 3.7 replaced one
+dominant headliner with a featured *pair*. Each redid the task before it rather than
+extending it, which is why the count went sideways instead of forward.
+
 ### Stage 4 Task 1 — `#my-taste` foundations: data, typography, semantic skeleton *(2026-08-15)*
 
 First of five tasks rebuilding `#my-taste` as a festival-lineup poster

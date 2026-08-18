@@ -46,9 +46,12 @@ what's *inside* the wall column (two tiers instead of one dominant card) without
 this wall/crate macro-layout at all — the brief's own suggestion to try that first,
 because it reuses every already-tuned wall/crate proportion rather than re-deriving them.
 
-Visual language: duotoned photos, torn/deckle card edges, tape/pin accents holding each
-card in place, a "pinned to a corkboard" tilt on every card, film grain. All built as of
-Task 3 (§5), unaffected by Task 3.7's regrouping — same mechanisms, reused, not rebuilt.
+Visual language: torn/deckle card edges, tape/pin accents holding each card in place, a
+"pinned to a corkboard" tilt on every card. All built as of Task 3 (§5), unaffected by
+Task 3.7's regrouping — same mechanisms, reused, not rebuilt. Task 3 also shipped a
+duotone photo filter and a film-grain overlay as part of this same visual language; both
+were removed on later live feedback (§14, §15) and are gone as of 2026-08-17 — the
+torn-edge/tape/tilt treatment above is what's still current.
 Three self-hosted typefaces, one per role — a display face for the featured pair, a
 compressed sans for secondary acts, a monospace for the setlist — never Avenir Next,
 which is the system font everywhere else on the site. Photo duotones (Task 3.6) use a
@@ -89,7 +92,24 @@ everything else. Splitting keeps each task's risk isolated.
 | 4 | **Motion** — `ScrollTrigger` pin + timed cascade (kicker → wall cards → crate), `CustomBounce`/`CustomWiggle` landings, reduced-motion and mobile (<601px) both skip straight to the settled end-state | **DONE** 2026-08-17 |
 | 3.9 | **Profile avatar** — a small circular, duotoned photo of Diego's own Spotify profile, left of "MY TASTE." New `GET /api/spotify/profile` server route (`GET /me`, same auth/cache mechanism as the two top-items routes) | **DONE** 2026-08-17 |
 | 4.1 | **Sell "pinning," not "bouncing" + zone titles** — pulled back `CustomBounce`'s own strength on the wall cards, added a deliberate pause before each tape/pin snap, pivoted each card's settle around the tape's own anchor instead of its center, added "MY TOP ARTISTS"/"MY TOP 5 TRACKS" zone titles with their own pop-in beats | **DONE** 2026-08-17 |
+| *(live feedback, unnumbered — §14)* | Pin-after-reload bug (B30), grain texture removed, setlist row-wrap fixed (B31) | **DONE** 2026-08-17 |
+| *(live feedback, unnumbered — §15)* | Duotone filter removed, pin-hold safety net fixed for real (non-maximized) desktop window heights (B32) | **DONE** 2026-08-17 |
 | 5 | **Time-range switching** — UI for Spotify's `time_range` param (server already accepts it), `Flip`-powered re-rank when the underlying data changes | Not started |
+
+**Net of all of the above, what's actually live today:** a festival-poster-styled section —
+a wall of rotated, taped artist cards (2 featured + 3 secondary) on the left, a straight
+setlist crate on the right, both driven by real Spotify data with real outbound links —
+entering via a timed pin-and-cascade. No color filter and no grain on the photos; they
+render exactly as Spotify serves them. That's a genuine reversal, not a typo: Task 3
+shipped duotone + grain as the section's deliberate "photocopied show flyer" texture, and
+both came off two days later on direct live feedback (§14, §15) — the right call each
+time, not a wrong one being corrected.
+
+Most of the decimal branching (3.5, 3.6, 3.7) is two real structural rebuilds, not scope
+creep: 3.5 split one tall stacked wall into two side-by-side columns once 2.5's
+one-screen constraint made the stack untenable, and 3.7 replaced 3.6's one-dominant-
+headliner hierarchy with a featured *pair*. Each redid the task before it rather than
+extending it, which is why the count went sideways (3.6 → 3.7) instead of forward (4, 5).
 
 > Task 3.8's own brief referred to it as a follow-up to "Task 3.7's three-zone
 > structure." No such task had landed in this repo at the time — the task list's build
@@ -101,9 +121,9 @@ everything else. Splitting keeps each task's risk isolated.
 > "Zone A/B/C" terminology exists in the code itself; this file uses "featured"/
 > "secondary" instead — see §10.
 
-Full detail on Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7, 4, 3.9 and 4.1 (numbers, bugs
-found, verification) is in `STATUS.md`'s own dated entries, in that same real build
-order — this file is the durable *concept* record, `STATUS.md` is the *work log*.
+Full detail on every row above (numbers, bugs found, verification) — including the two
+unnumbered live-feedback rounds — is in `STATUS.md`'s own dated entries, in that same real
+build order — this file is the durable *concept* record, `STATUS.md` is the *work log*.
 
 ## 3. Task 2's mechanism — grid placement, not freehand position
 
