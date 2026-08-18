@@ -1,15 +1,8 @@
-// The resume is a static file in client/public/, copied to dist/ verbatim by
-// Vite and served straight off the filesystem by Caddy.
-//
-// Deliberately NOT part of SECTIONS. That array drives scrollToSection(),
-// aria-current and the hashchange sync — everything in it is treated as an
-// in-page anchor. A document link that ended up in there would try to scroll to
-// a section that doesn't exist and could take an aria-current highlight.
-export const RESUME_URL = "/Diego-Damian-Resume.pdf";
-
-// Screen readers get the format and the new-tab behaviour, which the visible
-// label leaves implicit.
-export const RESUME_ARIA_LABEL = "Resume (PDF, opens in a new tab)";
+// The resume tab/link (navbar.jsx, connect.jsx) and the PDF it pointed at
+// (client/public/Diego-Damian-Resume.pdf) were removed here (2026-08-17) —
+// direct request, personal data the owner didn't want publicly linked from
+// the live site. RESUME_URL/RESUME_ARIA_LABEL used to live here; both
+// deleted along with their only two call sites rather than left unused.
 
 // Order matches the on-page scroll order (Stage 3 Task 4) — Home, then the
 // person (About), then the work/education history (Experience), then the

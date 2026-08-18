@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import '../styles/main.scss';
 import axios from 'axios';
-import { RESUME_URL, RESUME_ARIA_LABEL } from '../lib/sections.js';
 
 // Same trailing-slash guard as my-taste.jsx: a trailing slash on the env var
 // would produce "//api/contact", which Express treats as an unregistered path.
@@ -55,19 +54,6 @@ export default function Connect() {
                 <p className="contact-description">
                     Let&apos;s connect and build something amazing together — reach me directly at{' '}
                     <a href="mailto:diegodamiango02@gmail.com">diegodamiango02@gmail.com</a> or send a message below.
-                </p>
-
-                {/* Sits with the email rather than in the form: this is where
-                    someone who has already decided to act looks first. */}
-                <p className="contact-resume">
-                    <a
-                        href={RESUME_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={RESUME_ARIA_LABEL}
-                    >
-                        Resume (PDF)
-                    </a>
                 </p>
 
                 {status === 'sent' ? (

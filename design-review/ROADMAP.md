@@ -1177,6 +1177,14 @@ Accessibility (`FINDINGS.md` §6): theme-toggle `aria-label`, hamburger as a rea
 `<button>`, single `<h1>`, skip-link. Clear the 16 ESLint errors. Animated theme
 toggle. Consider a `.git` history rewrite (91MB → ~5MB).
 
+A second, stronger reason for that same history rewrite showed up 2026-08-17
+(`STATUS.md`'s own dated entry): the resume PDF was removed from the working tree and
+`.gitignore`'d, but it's still fully recoverable from git history (one commit, `8030639`)
+until the history is actually rewritten — `.gitignore` alone doesn't retroactively hide
+it. Not done automatically (force-push, rewrites every commit SHA after that point,
+breaks any existing clone/fork) — flagged for whenever this stage is picked up, sooner
+if the privacy concern outweighs waiting for the size cleanup to be worth doing together.
+
 ---
 
 ## 4. Standing manual tasks

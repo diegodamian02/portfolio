@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Personal documents — never track these. Removed 2026-08-17 (was
+# client/public/Diego-Damian-Resume.pdf, linked from the navbar and
+# #connect); this pattern stops it (or anything like it) from being
+# re-added by accident. Note: .gitignore only stops FUTURE commits — the
+# original file is still recoverable from git history unless that history
+# is separately rewritten.
+*[Rr]esume*.pdf
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

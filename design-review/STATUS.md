@@ -3089,6 +3089,42 @@ Verified: full-page console/pageerror sweep clean; `npm run lint` (7/2, unchange
 `npm run build` clean (CSS 46.54 kB → 46.19 kB, the duotone rules' own removal).
 Screenshots re-captured both themes.
 
+### Resume removed — navbar link, `#connect` link, and the PDF itself *(2026-08-17)*
+
+Direct request, privacy: "get rid of the resume tab and my resume... i don't want
+people seeing my data." Removed from three places, not just the visible one — the
+navbar's own "Resume ↗" link (`navbar.jsx`), the "Resume (PDF)" link in `#connect`
+(`connect.jsx`, would otherwise have pointed at a now-deleted file), and the underlying
+file itself, `client/public/Diego-Damian-Resume.pdf` (`git rm`'d, not just deleted from
+disk, since it was tracked). `RESUME_URL`/`RESUME_ARIA_LABEL` (`lib/sections.js`) and the
+`.navbar-resume`/`.contact-resume` CSS rules came out too, rather than left as dead code
+with nothing pointing at them. Added `*[Rr]esume*.pdf` to `client/.gitignore` so a future
+resume file can't be accidentally re-tracked.
+
+**Important caveat, told to the user directly, not left implicit:** `.gitignore` only
+stops FUTURE commits. The file is still fully recoverable from git history — it was
+added in exactly one commit (`8030639`, "feat: add the resume link, closing Stage 0") and
+untouched since, so it's a single, identifiable commit, not scattered across history. It
+remains on GitHub (this is a public repo) and in every existing local clone until that
+history is separately rewritten (force-push, rewrites every commit SHA after it) — a
+much more invasive step this task did not take without asking first.
+
+**A secondary consequence, checked rather than assumed harmless:** the navbar's own
+900px hamburger breakpoint was tuned (Task 5, `main.scss`) around SIX items (five
+sections + the resume link — the `SECTIONS` list itself has grown to six since, so it
+was six even before this). Removing the resume brings it back to six section links only.
+Re-measured live rather than assumed still-correct: fits at 900px with real slack now
+(32px, not the old zero-slack fit) — left the breakpoint unchanged since there's no
+defect to fix and a lower re-tune wasn't asked for; also found (not fixed, out of scope)
+that individual nav labels have no `white-space: nowrap`, so a naive lower breakpoint
+risks a single label wrapping onto two lines rather than the whole row wrapping cleanly.
+
+Verified: full build output (`client/dist/`) contains no resume file; the PDF's own URL
+now falls through to the SPA shell (no file, no data) instead of ever serving the PDF;
+navbar (desktop + mobile menu) and `#connect` screenshots re-captured, no resume link,
+no dangling gap where it used to sit; `npm run lint` (7/2, unchanged) and `npm run build`
+clean; full-page console/pageerror sweep clean.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`

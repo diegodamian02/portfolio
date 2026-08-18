@@ -1444,50 +1444,10 @@ html {
   color: var(--accent);
 }
 
-// The resume is a peer of the nav destinations but leaves the page, so it gets
-// a quiet outward arrow to say so before it's clicked. Deliberately restrained:
-// a button treatment here would outrank the actual navigation.
-.navbar-resume {
-  &::after {
-    content: "↗";
-    display: inline-block;
-    margin-left: 0.35em;
-    font-size: 0.85em;
-    // Sits slightly high next to cap-height text without it.
-    transform: translateY(-0.05em);
-  }
-}
-
-// #connect — same link, given room to read as a call to action next to the
-// email address.
-.contact-resume {
-  margin: 0 0 8px;
-
-  a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    color: var(--accent);
-    font-weight: 600;
-    text-decoration: none;
-
-    &::after {
-      content: "↗";
-      margin-left: 0.35em;
-      font-size: 0.85em;
-    }
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
-
-  a:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 4px;
-    border-radius: 4px;
-  }
-}
+// .navbar-resume/.contact-resume (the "Resume" nav link and the "Resume
+// (PDF)" link in #connect) removed here (2026-08-17), along with the PDF
+// they pointed at — direct request, personal data no longer linked from the
+// live site.
 
 // Parallax section
 //
@@ -3625,6 +3585,17 @@ html {
 // links; adding the resume made six, and six no longer fit — measured, the row
 // wraps below ~840px and fits 840–860px with *zero* slack. Comfortable fit
 // starts around 880px, so this moved to 900px.
+//
+// The resume link came out later (2026-08-17, sections.js/navbar.jsx) — back
+// to six items (the SECTIONS list itself grew by one, "My Taste", since Task
+// 5's own count), not five. Re-measured rather than assumed still-correct:
+// fits comfortably at 900px with real slack now (32px, not the old zero-slack
+// fit) — moving the breakpoint lower wasn't asked for and would need the same
+// careful threshold-hunting Task 5's own number came from (individual link
+// labels have no white-space: nowrap, so a naive lower breakpoint risks a
+// single label wrapping onto two lines rather than the whole row wrapping
+// cleanly — found live while checking this, not fixed here, out of scope for
+// a resume removal). Left at 900px: correct, just roomier than it needs to be.
 //
 // It stays a dedicated block rather than folding into the general 768px block
 // further down: that one is shared with #my-taste, the bio section and others,

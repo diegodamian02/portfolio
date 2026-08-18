@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import "../styles/main.scss";
 import sunIcon from "../assets/sun.png";
 import moonIcon from "../assets/moon.png";
-import { SECTIONS, RESUME_URL, RESUME_ARIA_LABEL } from "../lib/sections.js";
+import { SECTIONS } from "../lib/sections.js";
 import { scrollToSection } from "../lib/scroll.js";
 
 const MENU_ID = "navbar-mobile-menu";
@@ -168,25 +168,6 @@ export default function Navbar() {
         requestAnimationFrame(() => scrollToSection(id));
     };
 
-    // Rendered alongside the section links but deliberately outside SECTIONS.
-    // There is no onClick preventDefault here, so the browser handles it as an
-    // ordinary link: nothing calls scrollToSection, nothing writes the URL, and
-    // location.hash never changes — so neither the hashchange sync above nor
-    // use-hash-scroll.js can fire. It also never receives aria-current, because
-    // only the SECTIONS map sets that.
-    const resumeLink = (extraClass = "") => (
-        <a
-            className={`navbar-resume ${extraClass}`}
-            href={RESUME_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={RESUME_ARIA_LABEL}
-            onClick={() => closeMenu({ restoreFocus: false })}
-        >
-            Resume
-        </a>
-    );
-
     const links = (extraClass = "") =>
         SECTIONS.map((section) => (
             <a
@@ -207,7 +188,6 @@ export default function Navbar() {
             <div className="navbar-right">
                 <div className="navbar-links">
                     {links()}
-                    {resumeLink()}
                 </div>
                 {themeToggle(toggleTheme)}
             </div>
@@ -240,7 +220,6 @@ export default function Navbar() {
             >
                 <div className="navbar-links">
                     {links("navbar-mobile-link")}
-                    {resumeLink("navbar-mobile-link")}
                 </div>
                 <div className="navbar-mobile-footer">
                     {themeToggle(toggleTheme)}
