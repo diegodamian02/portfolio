@@ -1901,10 +1901,21 @@ html {
   box-sizing: border-box;
   min-height: calc(100vh - var(--navbar-height));
   min-height: calc(100dvh - var(--navbar-height));
-  padding: var(--space-6) 0;
+  // Top/bottom padding asymmetric now (was var(--space-6) both sides) — live
+  // feedback: "move it a bit higher, title and slideshow." The shell's own
+  // ::before/::after bias (below) only moves the VIEWPORT relative to the
+  // title; it can't move the title itself, since the title sits outside the
+  // shell entirely (flex-shrink: 0, its own row). Trimming top padding
+  // (space-6 -> space-5, an existing token, not an invented value) shifts
+  // the whole [title, shell] column up as a unit inside the section — the
+  // freed 8px doesn't vanish, it's simply no longer reserved above the
+  // title, same min-height/pin footprint either way. Bottom padding stays
+  // space-6, unchanged, so the section's own total height (and the pin's
+  // own occupied viewport space) doesn't shift.
+  padding: var(--space-5) 0 var(--space-6);
 
   @media (max-width: 768px) {
-    padding: var(--space-5) 0;
+    padding: var(--space-4) 0 var(--space-5);
   }
 }
 
@@ -1943,6 +1954,34 @@ html {
 // child's automatic minimum is its CONTENT size, which for this shell
 // would be .experience-viewport's own --experience-vp-height — i.e.
 // exactly the height this element exists to be allowed to shrink below.
+//
+// justify-content: center replaced with two flex-grow spacers (below) —
+// live feedback: "move it a bit higher." Pure 50/50 centering put an equal
+// gap above and below the viewport WITHIN this shell's own leftover space,
+// which — stacked on top of the title's own row above the shell entirely —
+// read as the whole title+viewport block sitting in the lower half of the
+// section, not just off-center by a little. about.jsx's own TOP_BIAS
+// comment already diagnosed the same underlying cause for a different
+// section: true mathematical centering under a fixed navbar reliably reads
+// as lower than intended, because the navbar itself anchors the eye toward
+// the top. About biases its PIN's scroll-engage position instead (a JS
+// calc — that section has no flex shell to bias); this section has no such
+// position, so the equivalent idea is applied where the centering actually
+// happens: two flex-grow "spacer" pseudo-elements (::before above the
+// viewport, ::after below it), split via UNEQUAL flex-grow rather than
+// justify-content's implicit 1:1 split. flex-grow, not a fixed
+// padding/margin, is what makes this safe at short window heights: when
+// the shell has ZERO leftover space (a tight window — --experience-vp-
+// height already fills the whole shell, the exact case this rule's own
+// comment above describes), both spacers compute to 0px regardless of
+// their grow ratio — there's nothing to over-claim, so this can't
+// reintroduce a B29-style overlap/cutoff on a short window the way a fixed
+// pixel offset could have. 0.35/0.65 (top/bottom), not 0.5/0.5: reused, not
+// invented — the same 65/35 magnitude About's own TOP_BIAS already
+// established as "a felt shift, not a broken one" for this kind of
+// fixed-under-navbar layout, just assigned to the opposite side (About
+// needed MORE slack above to read as centered; this needs MORE slack below
+// to read as higher than centered).
 .experience-viewport-shell {
   position: relative;
   flex: 1 1 auto;
@@ -1950,7 +1989,21 @@ html {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+
+  &::before,
+  &::after {
+    content: "";
+    flex-shrink: 1;
+    width: 100%;
+  }
+
+  &::before {
+    flex-grow: 0.35;
+  }
+
+  &::after {
+    flex-grow: 0.65;
+  }
 }
 
 // The pinned box — experience.jsx's ScrollTrigger pins THIS section

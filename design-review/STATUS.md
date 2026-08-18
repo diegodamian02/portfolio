@@ -3125,6 +3125,52 @@ navbar (desktop + mobile menu) and `#connect` screenshots re-captured, no resume
 no dangling gap where it used to sit; `npm run lint` (7/2, unchanged) and `npm run build`
 clean; full-page console/pageerror sweep clean.
 
+### `#experience` repositioned higher — title and slideshow *(2026-08-17)*
+
+Live feedback: "move it a bit higher, title and slideshow." `.experience-section`'s pin
+fills the whole navbar-cleared viewport (`min-height: 100vh - navbar`, unchanged, still
+load-bearing for the pin itself), and pure 50/50 centering of the viewport within the
+leftover space below the title — combined with the title's own gap from the navbar —
+put the whole title+slideshow block visibly in the lower half of that space, not just
+off-center by a little.
+
+Two changes, both requested ("title and slideshow" — moving only one wouldn't cover it):
+
+1. **The title.** `.experience-section`'s own top/bottom padding was symmetric
+   (`var(--space-6)` both sides); trimmed to asymmetric (`var(--space-5)` top,
+   `var(--space-6)` bottom unchanged) — an existing token, not an invented value. Shifts
+   the whole `[title, shell]` column up as a unit; the section's own total height (and
+   the pin's occupied viewport space) is unaffected since only the bottom-padding side
+   still anchors it.
+2. **The slideshow.** `.experience-viewport-shell`'s `justify-content: center` replaced
+   with two flex-grow spacer pseudo-elements (`::before`/`::after`) split 0.35/0.65
+   (top/bottom) instead of 1:1 — same underlying diagnosis `about.jsx`'s own `TOP_BIAS`
+   comment already made for a different section (mathematical centering under a fixed
+   navbar reads as lower than intended, because the navbar itself anchors the eye
+   toward the top), same 65/35 magnitude reused from that precedent, just applied to the
+   opposite side (About needed more slack ABOVE to read as centered; this needed more
+   slack BELOW to read as higher). flex-grow, not a fixed padding/margin, is what keeps
+   this safe at short window heights: when the shell has zero leftover space (a tight
+   window — `--experience-vp-height` already fills the whole shell), both spacers
+   compute to 0px regardless of ratio, so this can't reintroduce a B29-style
+   overlap/cutoff the way a fixed pixel offset could have — confirmed live, not assumed,
+   across 900/800/700/660/600px window heights (measured before AND after: the
+   short-window bottom-cutoff this section already had — `--experience-vp-height` is a
+   fixed value, not viewport-height-responsive — is pre-existing, unrelated to this
+   change, and actually shrank slightly, 775px→767px viewport-bottom at 700px tall, from
+   the title's own trimmed padding).
+
+Net measured shift at 1440×900: title 8px higher, slideshow viewport 19px higher (title
+offset unaffected by window height; the shell's own bias contributes proportionally more
+at taller windows, nothing at zero-slack ones — by design).
+
+Verified: `npm run lint` (7/2, unchanged) and `npm run build` clean; full-page
+console/pageerror sweep clean; height sweep (900/800/700/660/600px) confirms no
+title/viewport overlap at any height, and no new bottom-cutoff regression vs the
+pre-change baseline (checked via `git stash`, not assumed); mobile (390px) re-checked,
+no horizontal overflow, layout intact. Screenshots:
+`experience-repositioned-1440-{dark,light}.png`.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`
