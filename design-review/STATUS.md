@@ -3058,6 +3058,37 @@ tested); `npm run lint` (7 errors/2 warnings, baseline unchanged) and `npm run b
 (CSS 46.88 kB → 46.54 kB gz-equivalent shrink from the removed grain rule) both clean.
 Screenshots re-captured both themes (`my-taste-desktop.png`, `my-taste-mobile.png`).
 
+### `#my-taste` follow-up — duotone filter removed, pin-hold fixed for real desktop windows *(2026-08-17)*
+
+Two more items of direct live feedback on the same build, checked and fixed the same day.
+
+**Duotone filter removed.** "the images still look a different color from what spotify
+displays... dont do that." Removed the grayscale+contrast filter and the `--card-tint`
+mix-blend-mode overlay from every real photo in the section (`PhotoSlot`, `AvatarSlot`) —
+photos now render exactly as Spotify serves them, verified via computed styles
+(`filter: none`, `mix-blend-mode: normal` on every rendered `<img>`, zero tint-overlay
+elements left in the DOM — not just eyeballed from a screenshot). `--card-tint` itself
+stays on `PhotoSlot`: it's still the fallback fill for a missing/broken image, unaffected.
+`AvatarSlot` had no fallback use for it, so its own `--card-tint`/`photoColorwayFor`
+call came out entirely, not just the filter.
+
+**B32 — the pin-hold silently skipped itself on ordinary desktop window heights.** Full
+root-cause writeup in `FINDINGS.md` B32. Short version: ruled out a B30 recurrence first
+(automated check against local dev AND live production both showed a clean pin-and-hold
+at 1440×900, even under an aggressive fast-flick scroll) — the actual cause was the
+`onEnter` safety net's own strict `sectionHeight > available` check silently skipping the
+hold on completely normal, non-maximized window heights (516-556px available at
+660-700px tall, section needs ~631px), not just genuinely squeezed ones. Widened to
+`SAFETY_NET_OVERFLOW_ALLOWANCE = 1.6` (tolerate up to 60% overflow before giving up on
+the hold) rather than removed outright — still bails out on genuinely pathological short
+windows. Re-verified live across 600/660/700/900px window heights at 1440px wide: every
+one now holds cleanly (`getBoundingClientRect().top` frozen at the navbar-height offset
+for dozens of consecutive samples) and releases on schedule.
+
+Verified: full-page console/pageerror sweep clean; `npm run lint` (7/2, unchanged) and
+`npm run build` clean (CSS 46.54 kB → 46.19 kB, the duotone rules' own removal).
+Screenshots re-captured both themes.
+
 ### iTunes search proxy — **iPhone visitors had a dead record crate**
 Every search on iPhone returned "couldn't reach the crate". Apple's Search API
 inspects the User-Agent and, for `iPhone`, answers with a `301` to a `musics://`

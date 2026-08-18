@@ -258,6 +258,9 @@ touches the slot's own `aspect-ratio` — confirmed structurally, not just visua
 img/tint's own `getBoundingClientRect()` is pixel-identical to the slot's, regardless of
 the photo's native size, because taking them out of flow means they never contribute to
 the parent's own sizing.
+> **Update (2026-08-17, §15):** removed. Direct live feedback that it shifted photos
+> away from their real Spotify colors — the right call at the time, reversed later on
+> new information, not a discovery it was wrong when made.
 
 **`object-fit: cover`, verified against non-square sources.** Every real image Spotify
 actually returned during this task was square (checked live, all 5 artists + all 3 album
@@ -757,6 +760,9 @@ hashes a fixed string constant instead — still deterministic across reloads, j
 from a literal rather than an API id. Tried duotone first per the brief's own
 instruction ("consistency has been the right call everywhere else in this stage") and
 kept it — a real face reads fine through the tint in both themes, not muddy.
+> **Update (2026-08-17, §15):** removed. Direct live feedback that it shifted photos
+> away from their real Spotify colors — the right call at the time, reversed later on
+> new information, not a discovery it was wrong when made.
 
 **No fallback content, unlike every other image in this section.** PhotoSlot's own flat
 `--card-tint` fill is a real, intentional fallback for "no photo yet." `AvatarSlot` has
@@ -874,9 +880,10 @@ ready` plus a debounced `ResizeObserver` on `document.body`, both calling
 **Grain texture cut.** §5's own "real photos, duotone, grain" section documents the
 `.my-taste-section::after` feTurbulence overlay this removes — live feedback: it read as
 grainy/granite-like static on real photos rather than the intended paper texture. Cut
-outright, not re-tuned; `PhotoSlot`/`AvatarSlot`'s own duotone layers already carry this
-section's tactile treatment. `position: relative` came off the section rule with it (it
-existed only as that `::after`'s containing block).
+outright, not re-tuned; at the time, `PhotoSlot`/`AvatarSlot`'s own duotone layers still
+carried this section's tactile treatment on their own — those layers were themselves
+removed two days later, §15 below. `position: relative` came off the section rule with it
+(it existed only as that `::after`'s containing block).
 
 **B31 — setlist rows could orphan the index number.** A live screenshot flagged the
 mobile setlist as "cramped"; measuring the actual boxes found something worse — for a
@@ -892,7 +899,50 @@ Also investigated and ruled out: a screenshot appeared to show the fixed navbar
 clipped screenshot tool rendering a fixed element once into a shot taller than any real
 viewport — not a live bug, no code change.
 
-## 15. Open items for later tasks
+## 15. Duotone removed, and the pin-hold's real desktop-height bug
+
+Two more items of direct live feedback, same build, two days after §14. Full writeups:
+`FINDINGS.md` B32; STATUS.md's own dated entry.
+
+**Duotone filter removed.** §5/§12's own duotone mechanism (grayscale+contrast on the
+`<img>`, a `--card-tint` `mix-blend-mode: color` layer above it) came off `PhotoSlot` and
+`AvatarSlot` both — direct feedback: "the images still look a different color from what
+spotify displays... dont do that." Photos now render exactly as Spotify serves them,
+confirmed via computed styles (`filter: none`, `mix-blend-mode: normal`, zero tint-overlay
+elements in the DOM), not just eyeballed from a screenshot. `--card-tint` itself survives
+on `PhotoSlot` only, as the fallback fill for a missing/broken image — unaffected.
+`AvatarSlot` had no fallback use for it, so its own `photoColorwayFor("diego-avatar")`
+call came out entirely, not just the filter. This changes §5's "duotone" framing and
+§12's "tried duotone first, kept" reasoning — both were correct calls at the time, this is
+a later reversal on direct feedback, not a discovery that either was wrong when made.
+
+**B32 — the pin-hold silently skipped itself on ordinary desktop window heights.** Live
+report: "I asked you to pin the section... so I can see the animation" — desktop, wide
+window, i.e. NOT the mobile/reduced-motion cases §11's own `mm.add` already excludes on
+purpose. Ruled out a §14/B30 recurrence first (automated checks against local dev AND
+live production both showed a clean pin-and-hold at 1440×900, even under an aggressive
+fast-flick scroll) before looking elsewhere. Found live, sweeping a range of ordinary
+(non-maximized) window heights: `onEnter`'s own "don't trap the visitor" safety net —
+`sectionHeight > available`, unchanged since §11 — compares this section's fixed ~631px
+content height against `window.innerHeight - navbarHeight`. That passes at 900px tall
+(756px available) but fails at 700/660/600px tall (556/516/456px available) — all three
+genuinely ordinary browser-window heights, the same reference range `FINDINGS.md` B29
+already used for Experience, not edge cases. On any of them the safety net silently took
+the "don't hold" branch: cascade still plays, scroll never actually captured — reads
+exactly as "the pin isn't working" on a completely normal laptop window.
+
+Fixed by widening the tolerance, not removing the check: the original concern (a section
+dramatically taller than the viewport trapping a visitor) is still real at the true
+extreme, just not at the 22-38% overflow these ordinary heights actually produce.
+`SAFETY_NET_OVERFLOW_ALLOWANCE = 1.6` (`my-taste.jsx`) — holds up to 60% overflow,
+comfortably covering 600-900px while still bailing out on a genuinely pathological window
+(~480px tall, ~88% over, still skips). Re-verified live at all four heights: each now
+shows a real hold (`getBoundingClientRect().top` frozen at the navbar offset for dozens
+of consecutive samples) and a clean release on schedule. Note: `about.jsx`'s own hold
+carries the identical strict-threshold pattern this bug came from — not touched here (out
+of scope for a report specifically about `#my-taste`), flagged for whoever picks it up.
+
+## 16. Open items for later tasks
 
 - **Still open, not Task 4's job:** a future GSAP hover/tilt effect on `.my-taste-card`
   should double check it doesn't fight `.my-taste-card-link:hover`'s underline (Task 3.8)

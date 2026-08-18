@@ -126,6 +126,20 @@ import spotifyBlack from "../assets/spotify_black.png";
 // shipped — so "already written" probably meant "I already drafted this
 // brief," not "this exists in the codebase." Built it for real here rather
 // than searching for a file that was never going to exist.
+//
+// 2026-08-17, live-feedback pass (not a numbered task): removed the duotone
+// wash Task 3 put on every real photo in this section (PhotoSlot's own
+// grayscale+contrast filter plus its --card-tint mix-blend-mode overlay,
+// AvatarSlot's matching pair) — direct feedback that it shifted photos away
+// from their real Spotify colors. Photos now render as-is, no filter.
+// --card-tint itself stays on PhotoSlot: it's still the FALLBACK fill for a
+// missing/broken image, unchanged. AvatarSlot had no fallback use for it, so
+// its own --card-tint/photoColorwayFor("diego-avatar") call came out
+// entirely, not just the filter. Also fixed in the same pass, unrelated:
+// the pin failing to engage on a fresh reload (a stale ScrollTrigger
+// measurement, fixed in smooth-scroll.jsx — FINDINGS.md B30) and a setlist
+// row-wrap bug that could orphan a track's index number onto its own line
+// (FINDINGS.md B31).
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
 
 // Same account footer.jsx's own Spotify link already points at — reused
@@ -205,6 +219,16 @@ const ROTATE_MAX_DEG = 4;
 const JITTER_RANGE_PX = 8; // total range; actual offset is ±(this / 2)
 const TAPE_ROTATE_MAX_DEG = 10;
 const TEAR_PRESET_COUNT = 4;
+
+// The pin-hold's own "don't trap the visitor" safety net (below, the
+// ScrollTrigger's onEnter) tolerates the section being up to this much
+// TALLER than the space actually available before it gives up on holding
+// scroll at all. 1.6, not 1.0 — found live (B32, FINDINGS.md): the section's
+// content height is fixed (doesn't shrink with the window), and a strict
+// "any overflow at all" check skipped the hold on completely ordinary
+// desktop window heights, not just unusually short ones. See the onEnter
+// callback's own comment for the measured numbers behind this value.
+const SAFETY_NET_OVERFLOW_ALLOWANCE = 1.6;
 
 // One deterministic transform per card id — same id always produces the same
 // rotation/jitter/tear-preset/tape-angle, across reloads and re-renders, the
@@ -312,28 +336,24 @@ function TasteCard({ id, area, className, href, children }) {
     );
 }
 
-// Task 2's flat --card-tint fill is now the FALLBACK, not the default — it
-// still renders on its own (this component's base markup never changed,
-// exactly the forward-compat Task 2 built isolation: isolate for) whenever
-// there's no image to show: `imageUrl` missing (empty images[] from the
-// API) or a real URL that failed to load (`onError`, below — network flake,
-// expired CDN link, a failure mode that didn't exist until this task
-// actually loads live network images for the first time). Both paths land
-// on the exact same treatment, not two different-looking failures.
+// Task 2's flat --card-tint fill is the FALLBACK — it still renders on its
+// own (this component's base markup never changed, exactly the forward-compat
+// Task 2 built isolation: isolate for) whenever there's no image to show:
+// `imageUrl` missing (empty images[] from the API) or a real URL that failed
+// to load (`onError`, below — network flake, expired CDN link). Both paths
+// land on the exact same treatment, not two different-looking failures.
 //
-// When there IS an image: grayscale(1) contrast(1.1) flattens it to tone
-// only, then a separate --card-tint layer blended with mix-blend-mode:
-// color recolors it — hue/saturation from the tint, luminosity from the
-// photo underneath, the standard single-hue duotone technique. Both layers
-// are position:absolute + inset:0 inside the slot (position:relative,
-// main.scss), so neither touches the slot's own aspect-ratio/rotation/
-// jitter box — additive to Task 2's structure, per the brief.
+// The duotone wash Task 3 put on real photos (grayscale + a --card-tint
+// mix-blend-mode layer) was removed here (live feedback, 2026-08-17 — see
+// this file's top-of-file history and FINDINGS.md): a real photo now just
+// renders as-is, the same colors Spotify itself shows. --card-tint stays —
+// the fallback fill above still needs it.
 //
 // photoColorwayFor, not colorwayFor (Task 3.6) — same deterministic hash,
-// restricted to the 3 tokens that read as genuinely colored once blended
-// onto a photo (vinyl-record.jsx's own comment has the full reasoning);
-// colorwayFor's other 2 tokens are correct for real vinyl but read as a
-// plain gray photo here.
+// restricted to the 3 tokens that read as genuinely colored once used as a
+// flat fill (vinyl-record.jsx's own comment has the full reasoning);
+// colorwayFor's other 2 tokens are correct for real vinyl but read as plain
+// gray here.
 function PhotoSlot({ id, className, imageUrl, imageAlt }) {
     const [failed, setFailed] = useState(false);
     const showImage = Boolean(imageUrl) && !failed;
@@ -343,35 +363,25 @@ function PhotoSlot({ id, className, imageUrl, imageAlt }) {
             style={{ "--card-tint": `var(--vinyl-${photoColorwayFor(id)})` }}
         >
             {showImage && (
-                <>
-                    <img
-                        className="my-taste-photo-slot-img"
-                        src={imageUrl}
-                        alt={imageAlt}
-                        loading="lazy"
-                        onError={() => setFailed(true)}
-                    />
-                    <div className="my-taste-photo-slot-tint" />
-                </>
+                <img
+                    className="my-taste-photo-slot-img"
+                    src={imageUrl}
+                    alt={imageAlt}
+                    loading="lazy"
+                    onError={() => setFailed(true)}
+                />
             )}
         </div>
     );
 }
 
-// Stage 4 Task 3.9 — the kicker's own circular avatar. Deliberately a small,
-// bespoke duotone (not PhotoSlot reused as-is): PhotoSlot's own scaffolding
-// — aspect-ratio slot, torn-edge parent, tape — is built for a wall/crate
-// CARD, none of which applies to a tiny circular badge sitting inline in a
-// text row. Same two-layer technique underneath, though (grayscale+contrast
-// photo, a mix-blend-mode: color tint layer above it, one shared --card-tint
-// custom property) — tried duotone first per the brief's own instruction
-// ("consistency has been the right call everywhere else in this stage"),
-// and a real face read fine through it, not muddy — kept, not reverted.
-// photoColorwayFor needs an id to hash against; this is the one image in the
-// section with no natural Spotify id of its own (it's the owner's account,
-// not an artist/track), so it hashes a fixed literal instead — deterministic
-// across reloads same as every other id-driven value in this file, just
-// salted from a string constant rather than an API id.
+// Stage 4 Task 3.9 — the kicker's own circular avatar. Renders the real
+// Spotify profile photo as-is (the duotone wash this used to share with
+// PhotoSlot came off both, 2026-08-17 — see this file's top-of-file history)
+// — small and bespoke (not PhotoSlot reused as-is) because PhotoSlot's own
+// scaffolding (aspect-ratio slot, torn-edge parent, tape) is built for a
+// wall/crate CARD, none of which applies to a tiny circular badge sitting
+// inline in a text row.
 //
 // Renders nothing at all — not a broken-image icon, not a placeholder ring —
 // when there's no image to show (fetch failed, or the account has no photo
@@ -383,14 +393,13 @@ function AvatarSlot({ imageUrl, imageAlt }) {
     const [failed, setFailed] = useState(false);
     if (!imageUrl || failed) return null;
     return (
-        <span className="my-taste-avatar" style={{ "--card-tint": `var(--vinyl-${photoColorwayFor("diego-avatar")})` }}>
+        <span className="my-taste-avatar">
             <img
                 className="my-taste-avatar-img"
                 src={imageUrl}
                 alt={imageAlt}
                 onError={() => setFailed(true)}
             />
-            <span className="my-taste-avatar-tint" aria-hidden="true" />
         </span>
     );
 }
@@ -701,17 +710,37 @@ export default function MyTaste() {
                         return;
                     }
 
-                    // Same safety net About's own hold carries: if the
-                    // section is genuinely taller than the space available
-                    // (an unusually short/squeezed desktop window — the
-                    // 600px mobile case is already excluded above, before
-                    // the pin is even constructed), holding scroll captive
-                    // against a view that's already cut off just traps the
-                    // visitor. Still plays the cascade on its own clock,
-                    // just doesn't block scroll input for it.
+                    // Same safety net About's own hold carries in shape, but
+                    // NOT in threshold (found live, B32 — FINDINGS.md): a
+                    // bare `sectionHeight > available` skipped the hold
+                    // entirely on completely ordinary desktop windows, not
+                    // just unusually squeezed ones. This section's own
+                    // content height is fixed (~630px, doesn't shrink with
+                    // the window) — measured live across a real range of
+                    // window heights at 1440px wide: available (viewport
+                    // minus navbar) comes out to 756px at 900px tall (fits,
+                    // holds), but only 516px at 660px and 456px at 600px —
+                    // both completely normal, non-maximized browser-window
+                    // heights (the same reference range `FINDINGS.md` B29
+                    // already used for Experience), and both failed the old
+                    // strict check despite the actual overflow being modest
+                    // (115px/175px, ~22%/38% over, not a section genuinely
+                    // several screens tall). The reported symptom — "the pin
+                    // isn't working" on an ordinary desktop window — was this,
+                    // not a re-occurrence of B30's stale-measurement bug.
+                    //
+                    // Widened to tolerate moderate overflow (the ORIGINAL
+                    // concern — a section genuinely too tall trapping a
+                    // visitor against content mostly cut off — still applies
+                    // at the extreme end, just not at 20-40% over) rather
+                    // than removed outright: SAFETY_NET_OVERFLOW_ALLOWANCE
+                    // (1.6, i.e. up to 60% taller than available) comfortably
+                    // covers the whole 600-900px real-window range measured
+                    // above while still bailing out on a genuinely pathological
+                    // short window (e.g. ~480px tall, ~88% over, still skips).
                     const available = window.innerHeight - navbarHeight();
                     const sectionHeight = rootRef.current.getBoundingClientRect().height;
-                    if (sectionHeight > available) {
+                    if (sectionHeight > available * SAFETY_NET_OVERFLOW_ALLOWANCE) {
                         tl.play();
                         return;
                     }

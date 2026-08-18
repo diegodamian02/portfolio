@@ -1450,6 +1450,42 @@ one line (or index+track's first line, if the track itself wraps internally) —
 orphaned index at any of the five real tracks tested. `npm run lint`/`npm run build`
 unaffected.
 
+### B32 — `#my-taste`'s pin-hold silently skipped itself on ordinary desktop window heights — **FOUND AND FIXED**
+
+Live report, after B30 had already shipped: "I asked you to pin the section when I
+scroll down so I can see the animation" — on a normal desktop window, not mobile. Ruled
+out a B30 recurrence first (an automated check against both local dev AND the live
+production site showed a clean pin-and-hold at 1440×900, including under an aggressive
+fast-flick scroll), which meant something else was going on. Found live, testing across a
+range of ordinary (not maximized-fullscreen) window heights at 1440px wide: `onEnter`'s
+own "don't trap the visitor" safety net (`sectionHeight > available`) compares this
+section's height — fixed at ~631px, it doesn't shrink with the window — against
+`window.innerHeight - navbarHeight`. That comparison passes fine at 900px tall (available
+756px), but FAILS at 700px (available 556px), 660px (available 516px), and 600px
+(available 456px) — all three genuinely ordinary browser-window heights (the same
+reference range `FINDINGS.md` B29 already used for Experience's own overlap bug), not
+edge cases. On any of them, the safety net's strict check silently took the "don't hold"
+branch: the entrance cascade still played, but scroll was never actually captured, which
+reads exactly as "the pin isn't working" to a visitor on a completely normal laptop
+window.
+
+Fixed by widening the safety net's own tolerance rather than removing it — the underlying
+concern (a section dramatically taller than the viewport trapping a visitor against
+content mostly cut off) is still real at the extreme end, just not at the 22-38% overflow
+these three ordinary heights actually produce. `SAFETY_NET_OVERFLOW_ALLOWANCE = 1.6`
+(`my-taste.jsx`): the hold now engages as long as the section is under 60% taller than
+the available space, comfortably covering the whole 600-900px range measured live while
+still bailing out on a genuinely pathological short window (e.g. ~480px tall, ~88% over,
+still skips the hold).
+
+Re-verified live at all four heights (900/700/660/600px, 1440px wide): every one now
+shows a genuine hold (`getBoundingClientRect().top` frozen at 144px — navbar height — for
+dozens of consecutive samples) followed by a clean release once the cascade completes.
+`npm run lint`/`npm run build` unaffected. Note: `about.jsx`'s own hold carries the
+identical strict-threshold pattern this bug came from — not touched here (out of scope,
+this report was specifically about `#my-taste`), but worth the same live height sweep
+before assuming it's fine.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

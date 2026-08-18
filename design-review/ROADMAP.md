@@ -92,6 +92,19 @@ Task 3) was cut outright — it read as static on real photos, not the
 intended paper texture. Full writeups: `FINDINGS.md` B30/B31,
 `STATUS.md`'s own dated entry.
 
+Two days later, more live feedback on the same section: the Task 3/3.9
+duotone filter (grayscale + `--card-tint` tint layer, `PhotoSlot`/
+`AvatarSlot`) came off entirely — real photos now render exactly as
+Spotify serves them, direct feedback that the tint shifted them away from
+their real colors. And **B32** — the pin-hold's own "don't trap the
+visitor" safety net was silently skipping the hold on completely ordinary
+desktop window heights (700/660/600px tall, not just squeezed ones),
+because the check compared this section's fixed content height against
+raw available space with zero tolerance. Widened to allow up to 60%
+overflow before bailing (`SAFETY_NET_OVERFLOW_ALLOWANCE`), re-verified
+holding cleanly across that whole height range. Full writeups: `FINDINGS.md`
+B32, `STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |

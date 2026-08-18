@@ -2592,11 +2592,9 @@ html {
 
 // Spotify's own mark, used as-is (brand guidelines: approved shape/color,
 // not tinted) — this is the theme-swapped white/black cut footer.jsx's own
-// Spotify link already uses, NOT run through this section's duotone
-// treatment (PhotoSlot's grayscale + mix-blend-mode wash is for the
-// festival-poster photos; this is a UI icon, a different kind of image).
-// Sized off the surrounding text's own line-height (1em) rather than a
-// fixed px value, so it scales if --text-xs ever does.
+// Spotify link already uses. Sized off the surrounding text's own
+// line-height (1em) rather than a fixed px value, so it scales if --text-xs
+// ever does.
 .my-taste-heading-icon {
   height: 1em;
   width: auto;
@@ -2622,13 +2620,14 @@ html {
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-color) 38%, transparent);
 }
 
-// Same two-layer duotone PhotoSlot uses (grayscale+contrast photo, a
-// mix-blend-mode: color tint layer above it) — tried first per the brief's
-// own instruction, kept because a real face read fine through it rather
-// than muddy. No flat-tint FALLBACK layer here unlike PhotoSlot: there's
-// nothing sensible to show in place of "a photo of a specific person" when
-// there isn't one, so AvatarSlot (my-taste.jsx) renders nothing at all
-// instead — this rule only ever has to describe the has-an-image case.
+// Renders as-is — the duotone wash (grayscale+contrast + a mix-blend-mode
+// tint layer) this used to share with PhotoSlot came off both (live
+// feedback, 2026-08-17: it shifted real photos away from their actual
+// Spotify colors) — real colors, no filter. No flat-tint FALLBACK layer
+// here unlike PhotoSlot: there's nothing sensible to show in place of "a
+// photo of a specific person" when there isn't one, so AvatarSlot
+// (my-taste.jsx) renders nothing at all instead — this rule only ever has
+// to describe the has-an-image case.
 .my-taste-avatar-img {
   position: absolute;
   inset: 0;
@@ -2636,15 +2635,6 @@ html {
   height: 100%;
   object-fit: cover;
   display: block;
-  filter: grayscale(1) contrast(1.1);
-}
-
-.my-taste-avatar-tint {
-  position: absolute;
-  inset: 0;
-  background: var(--card-tint);
-  mix-blend-mode: color;
-  pointer-events: none;
 }
 
 .my-taste-status {
@@ -3012,14 +3002,15 @@ html {
   }
 }
 
-// --card-tint fill is the FALLBACK now (Task 3), not the default — see
-// my-taste.jsx's PhotoSlot for when it's the only thing that renders (no
-// image, or a real image that failed to load). isolation: isolate keeps the
-// duotone mix-blend-mode overlay below compositing only within this
-// element's own stacking context, not against the whole page. position:
-// relative is what lets the img/tint children below sit exactly on top of
-// this box via position: absolute; inset: 0 — added this task, wasn't
-// needed while this was a plain flat div.
+// --card-tint fill is the FALLBACK (Task 3) — see my-taste.jsx's PhotoSlot
+// for when it's the only thing that renders (no image, or a real image that
+// failed to load). position: relative is what lets the img child below sit
+// exactly on top of this box via position: absolute; inset: 0 — added Task
+// 3, wasn't needed while this was a plain flat div. isolation: isolate is a
+// holdover from the duotone mix-blend-mode layer this section used to carry
+// (removed, 2026-08-17 — see this file's Task 3 comment above); harmless
+// left in place, kept in case a future overlay on this slot wants the same
+// contained stacking context.
 //
 // Found live in Task 2, still true in Task 3: colorway 1 ("classic black" —
 // main.scss's own --vinyl-1 comment) is deliberately near-invisible against
@@ -3043,14 +3034,15 @@ html {
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-color) 38%, transparent);
 }
 
-// The real photo (Task 3). grayscale(1) strips it to tone only; contrast(1.1)
-// keeps it from reading flat/washed-out once the tint layer below recolors
-// it. object-fit: cover against the slot's own fixed aspect-ratio — Spotify's
-// artist/album images are square in practice (verified live: every image
-// array returned by both endpoints was NxN), so cover rarely has to crop
-// much on the real data path, but the property is what makes this safe for
-// ANY source ratio, verified with synthetic wide/tall sources since real
-// data never exercises that case.
+// The real photo (Task 3). Rendered as-is — the grayscale(1) contrast(1.1)
+// + mix-blend-mode duotone wash this used to carry came off (live feedback,
+// 2026-08-17: it shifted real photos away from their actual Spotify colors)
+// — real colors, no filter. object-fit: cover against the slot's own fixed
+// aspect-ratio — Spotify's artist/album images are square in practice
+// (verified live: every image array returned by both endpoints was NxN), so
+// cover rarely has to crop much on the real data path, but the property is
+// what makes this safe for ANY source ratio, verified with synthetic
+// wide/tall sources since real data never exercises that case.
 .my-taste-photo-slot-img {
   position: absolute;
   inset: 0;
@@ -3058,21 +3050,6 @@ html {
   height: 100%;
   object-fit: cover;
   display: block;
-  filter: grayscale(1) contrast(1.1);
-}
-
-// The duotone layer. Same --card-tint custom property Task 2's flat
-// placeholder used — no second tinting mechanism, per the brief. Full
-// opacity is correct here, not a bug: mix-blend-mode: color takes this
-// layer's hue/saturation and the photo's own luminosity, so an opaque tint
-// still lets the photo's tones show through — reducing opacity would just
-// mix in flat, untinted grey.
-.my-taste-photo-slot-tint {
-  position: absolute;
-  inset: 0;
-  background: var(--card-tint);
-  mix-blend-mode: color;
-  pointer-events: none;
 }
 
 // Renamed from .my-taste-photo-slot--headliner (Task 3.7) — same 16:9 ratio,
