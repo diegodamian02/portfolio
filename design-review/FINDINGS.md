@@ -1533,6 +1533,52 @@ left-edge accent bar (`::before`, `scaleY` 0→1) is a complete hover treatment 
 Re-verified: hover no longer clips either row, both project titles and role labels
 render in full.
 
+### B35 — `#projects`' Flip swap animated toward a target that was already stale by the time it started — **FOUND AND FIXED, Stage 3 Task 10.1**
+
+Follow-up brief reported the Flip swap "doesn't feel smooth," naming two suspected
+causes (missing/default duration+ease, `Flip.getState()` scoped to only the clicked
+row). Neither matched the tree: duration/ease were already explicit (just the wrong
+values — `0.5`/`SIGNATURE_EASE` vs. the intended `0.4`/`power2.inOut`), and
+`getState()` was already scoped to the whole list, not just the toggled row. Live,
+per-frame tracing (`getBoundingClientRect()` + inline-style snapshots on an uninvolved
+sibling row, sampled every frame across the swap) found two real, different causes
+instead:
+
+1. **Not a bug — a Playwright test artifact.** The first trace showed a sibling row
+   jump 677px instantly, before any tweening began. Cause: the clicked row's header sat
+   below the 900px test viewport, and Playwright's own `.click()` auto-scrolls
+   off-screen targets into view before dispatching — a real page scroll, unrelated to
+   Flip. Confirmed by dispatching the click directly in-page (bypassing Playwright's
+   actionability scroll): `scrollY` never moved. Never visible to a real visitor.
+2. **The real bug.** `Flip.from()` re-measures its "after" target synchronously, inside
+   the same click handler as the `flushSync()` commit — before the browser has settled
+   the newly-mounted `<video>` element's real rendered size on that first layout pass.
+   `.portfolio-video` was `width: 100%; height: auto` with no reserved size, so the box
+   Flip measures at that exact synchronous instant is smaller than the row's true
+   eventual height. Flip tweens correctly toward that (wrong, too-small) target, then the
+   row's real natural height applies the instant the tween's own inline overrides
+   release — landing as an abrupt, un-eased ~210px snap independent of any duration/ease
+   tuning. Confirmed via frame trace: the video's own `readyState` was already `4`
+   (fully loaded) by the first sampled frame, ruling out "the video loads mid-tween" as
+   the mechanism — the race is in Flip's own synchronous measurement timing, not in how
+   long the video takes to load.
+
+Fixed: `duration: 0.4`/`ease: "power2.inOut"` (matching the brief's own cited mockup
+values) and `absolute: true` (GSAP's documented fix for list/accordion Flips —
+decouples animating rows from native document flow so siblings move off Flip's own
+computed delta instead of fighting native reflow) on the `Flip.from()` call; verified
+`absolute: true` alone fixed the tween's own shape (confirmed monotonic power2.inOut via
+frame-to-frame deltas) but did NOT fix the terminal snap, which is what proved it was a
+second, independent cause. The snap itself closed by giving each project's real,
+`ffprobe`-measured video dimensions (`videoWidth`/`videoHeight`, ranging 1.78:1–2.06:1
+across the four videos — not a guessed uniform 16:9) as HTML `width`/`height`
+attributes on the `<video>` element (`projectsData.js`, `portfolio.jsx`) — these
+establish intrinsic aspect-ratio synchronously at layout time regardless of load state,
+so Flip's synchronous read is already correct on its first measurement. Re-verified:
+same per-frame trace with the scroll artifact isolated out shows one continuous,
+monotonic curve open and close, ending exactly on the true final value, no residual
+jump, in both directions.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

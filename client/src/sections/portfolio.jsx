@@ -52,8 +52,31 @@ export default function Portfolio() {
             // .portfolio-details, which didn't exist a moment ago); present
             // only in "before" is onLeave (the row that just closed).
             targets: container.querySelectorAll(".portfolio-item, .portfolio-details"),
-            duration: 0.5,
-            ease: SIGNATURE_EASE,
+            // Task 10.1 fix. duration/ease here match the mockup's own
+            // measured feel exactly (power2.inOut, 0.4s) — these were
+            // already being passed explicitly before (not left at Flip's
+            // defaults, contrary to that being the first suspected cause),
+            // just with the wrong values (0.5s + SIGNATURE_EASE). The
+            // bigger contributor, confirmed live with a per-frame bounding-
+            // box trace on an uninvolved sibling row: WITHOUT `absolute:
+            // true`, the closing/opening rows tween their real height while
+            // still sitting in normal document flow, so every row below
+            // them gets pushed around twice at once — once by the browser's
+            // own native reflow as that live height changes, and again by
+            // Flip's own transform correction for the same delta. The trace
+            // showed exactly that: a hard jump, ~480ms of real easing, then
+            // a second hard ~210px snap the instant the tween ended (the
+            // leftover, un-eased delta the two mechanisms hadn't agreed on).
+            // `absolute: true` is GSAP's own documented fix for this exact
+            // list/accordion case — it takes every animating target out of
+            // flow for the tween's duration so siblings move purely off
+            // Flip's computed delta, not fighting native reflow too.
+            // getState()'s own scope was NOT the bug — it was already the
+            // whole list (all four rows), not just the clicked one, despite
+            // that being the second suspected cause.
+            duration: 0.4,
+            ease: "power2.inOut",
+            absolute: true,
             onEnter: (els) => gsap.fromTo(els, { opacity: 0 }, { opacity: 1, duration: 0.3, delay: 0.15 }),
             onLeave: (els) => gsap.to(els, { opacity: 0, duration: 0.2 }),
         });
@@ -128,7 +151,30 @@ export default function Portfolio() {
                                 <div className="portfolio-details" id={detailsId}>
                                     <p>{project.description}</p>
                                     {project.video && (
-                                        <video controls preload="metadata" className="portfolio-video">
+                                        // width/height as real HTML attributes (not just CSS) —
+                                        // Task 10.1 fix. These establish the video's intrinsic
+                                        // aspect-ratio synchronously, at layout time, independent
+                                        // of whether the resource itself has loaded yet. Needed
+                                        // because Flip.from()'s own "after" measurement (toggleProject
+                                        // above) runs synchronously in the same tick as the DOM
+                                        // commit — long before the video's async metadata load can
+                                        // resolve, confirmed live via frame-by-frame trace (the
+                                        // element still reported height:auto's collapsed/placeholder
+                                        // size at the exact instant Flip read it, even though the
+                                        // video finished loading a few frames later). Without a
+                                        // reserved box, Flip locks in a too-small target height, the
+                                        // row's true content height was 210px taller once the video's
+                                        // real size applied, and the difference landed as an abrupt,
+                                        // un-animated snap the instant the tween's own inline
+                                        // overrides cleared — independent of duration/ease/absolute,
+                                        // and not fixable by tuning any of those.
+                                        <video
+                                            controls
+                                            preload="metadata"
+                                            className="portfolio-video"
+                                            width={project.videoWidth}
+                                            height={project.videoHeight}
+                                        >
                                             <source src={project.video} type="video/webm" />
                                             Your browser does not support the video tag.
                                         </video>

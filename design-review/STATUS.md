@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-18 · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-19 · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2201,6 +2201,90 @@ the standard tool's own light-theme pass is scoped to `home`/`about` only, a pre
 decision this task didn't expand), `projects-desktop-expanded.png` (one row open, showing
 the fixed hover state and the video/links still rendering correctly).
 
+### Stage 3 Task 10.1 — `#projects`: fix the Flip swap feel *(2026-08-19)*
+
+Follow-up to Task 10 above: the brief reported the Flip swap "doesn't feel smooth and
+doesn't match the demo mockup," and named two suspected causes. The mockup file itself
+(`projects-redesign-mockups.html`) isn't on this machine or in the repo/git history —
+confirmed via a repo-wide + full-filesystem search, matching the brief's own caveat
+("get it from Diego directly if it's not already accessible"). Matched the motion via
+the exact parameters the brief gave in text (`duration: 0.4`, `ease: "power2.inOut"`)
+rather than a visual side-by-side against the file.
+
+**Both of the brief's own suspected causes checked against the tree — neither matched,
+per the same working agreement as Task 10's own two mismatches:**
+
+- "Missing/default duration and ease" — not accurate. `duration`/`ease` were already
+  passed explicitly (`0.5`, `SIGNATURE_EASE`), just the wrong values relative to the
+  mockup's `0.4`/`power2.inOut`. A value correction, not a missing-parameter bug.
+- "`Flip.getState()` might only be scoped to the clicked row, not the whole list" — also
+  not accurate. It was already reading `container.querySelectorAll(".portfolio-item,
+  .portfolio-details")` — all four rows, every time, confirmed by reading the code before
+  touching it.
+
+**What the live trace actually found — two distinct causes, neither of the brief's
+guesses, isolated with a per-frame `getBoundingClientRect()`/inline-style trace on an
+uninvolved sibling row during the swap:**
+
+- **A Playwright test artifact, not a production bug.** The first version of the trace
+  showed row 3 (below the swapped rows) jump 677px instantly, before any tweening even
+  started. Root cause: `headers[2]` sat below the 900px viewport (`top: 1097px`) before
+  the click, and Playwright's own `.click()` auto-scrolls off-screen targets into view
+  before dispatching — a real page scroll, unrelated to Flip. Confirmed by dispatching
+  the click directly (`element.click()` in-page, bypassing Playwright's actionability
+  scroll): `scrollY` never moved. Re-traced with the target already in view — this jump
+  is gone entirely, and it was never visible to a real visitor to begin with.
+- **A real bug: `Flip.from()`'s "after" measurement races the newly-mounted `<video>`'s
+  unresolved intrinsic size.** With the scroll artifact isolated out, one genuine snap
+  remained — the opening row's own height (and everything below it) landed short of its
+  true final size, then jumped an un-eased ~210px the instant the tween's own inline
+  overrides cleared. Traced frame-by-frame: `Flip.from()` re-measures the "after" DOM
+  state synchronously, inside the same click handler as `flushSync()`'s commit — before
+  the browser has committed to the `<video>` element's real dimensions on that first
+  layout pass (`.portfolio-video` was `width:100%; height:auto` with no reserved size, so
+  the box the newly-mounted element occupies at that exact synchronous instant is smaller
+  than its true rendered size once the video's own layout resolves a few frames later).
+  Flip locks in that too-small target and tweens toward it correctly — the snap is what
+  happens when the tween's own overrides release and the row's true, larger natural
+  height finally applies, unanimated.
+
+**Fixes applied:**
+
+- `duration: 0.4`, `ease: "power2.inOut"` on the `Flip.from()` call, matching the
+  mockup's own stated values (`portfolio.jsx`).
+- `absolute: true` added to the same call — GSAP's own documented fix for list/accordion
+  Flips, decoupling animating rows from native document flow for the tween's duration so
+  siblings move purely off Flip's own computed delta. Verified via trace: this alone
+  turned the middle segment from a slightly uneven curve into a clean, monotonic
+  power2.inOut (confirmed by inspecting the frame-to-frame deltas: small → large → small,
+  the textbook ease-in-out shape) — real, but not sufficient on its own; the video-race
+  snap survived this change untouched, which is what proved it was a second, independent
+  cause rather than the same one.
+- Each project's real encoded video dimensions (`ffprobe`-measured, not a guessed 16:9 —
+  they range from 1.78:1 to 2.06:1 across the four) added to `projectsData.js` as
+  `videoWidth`/`videoHeight`, rendered as real HTML `width`/`height` attributes on the
+  `<video>` element (`portfolio.jsx`), not just CSS. This is what actually closes the
+  race: HTML width/height attributes establish an element's intrinsic aspect ratio
+  synchronously at layout time, independent of whether the resource has loaded — so
+  Flip's synchronous "after" read is correct on the very first measurement, no async
+  dependency left to lose the race against.
+
+**Re-verified clean after the fix** — same per-frame trace, target already in view (no
+Playwright scroll confound): row height and sibling position both move in one continuous,
+monotonic curve from open to close and back, ending exactly on the true final value with
+no residual jump. Confirmed both directions (opening row 2 while row 0 is open, and
+closing row 2 again). Re-ran Task 10's own regression suite (single-open behavior,
+`aria-expanded` tracking, hover state, console/pageerror sweep) — unchanged, all clean.
+`npm run lint` holds at **7 errors, 2 warnings** (unchanged baseline). `npm run build`:
+JS 517.52 → **517.71 kB** (184.96 → **185.03 kB** gz, +0.07 kB gz — negligible, the
+`videoWidth`/`videoHeight` data fields), CSS unchanged at 45.85 kB / 9.61 kB gz. Resting
+(all-collapsed) screenshots are pixel-equivalent to Task 10's own — this task changed
+interaction-time behavior and video markup only, nothing visible in the default state, so
+the fit-ratio table above still holds unchanged. New evidence screenshots:
+`projects-desktop-expanded.png`, `projects-light.png`, `projects-light-expanded.png`
+(confirms the video renders undistorted at its real aspect ratio in both themes, and the
+B34 hover fix still holds).
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -3382,14 +3466,14 @@ crate too, not just `#my-taste`.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-18)*
+## 3. Current measurements *(refreshed 2026-08-19)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **517.52 kB / 184.96 kB gz** *(+21 kB / +7.5 kB gz, Stage 3 Task 10 — GSAP `Flip`, first use)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **45.83 kB / 9.61 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **517.71 kB / 185.03 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Task 10.1's own video-dimension fix added a negligible +0.07 kB gz on top)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **45.85 kB / 9.61 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

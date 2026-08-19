@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-18)*
+## 0. Current state — quick summary *(updated 2026-08-19)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -146,6 +146,21 @@ instead, flagged rather than silently either way. Fit ratio at true default
 rest (all rows collapsed): desktop **0.68×**, laptop **0.77×**, mobile
 **0.90×** (informational — Stage 5's own territory). Full writeup:
 `STATUS.md`'s own dated entry.
+
+**Immediately after (2026-08-19) — a follow-up fixing the Flip swap's own feel:**
+the brief reported the swap "doesn't feel smooth" and named two suspected causes;
+neither matched the tree on inspection (duration/ease were already explicit, just the
+wrong values; `getState()` was already scoped to the whole list). Live per-frame
+tracing found the real causes instead — one a Playwright test artifact (the test
+target sat off-screen, so Playwright's own `.click()` auto-scrolled before dispatching;
+never visible to a real visitor), one genuine: `Flip.from()`'s "after" measurement runs
+synchronously before the newly-mounted `<video>` element's real size has settled, so
+the row animated toward a target that was already too small, landing an un-eased ~210px
+snap the instant the tween released. Fixed with the mockup's own stated `duration: 0.4`/
+`ease: "power2.inOut"`, `absolute: true` (GSAP's documented list/accordion fix), and —
+the change that actually closed the race — each video's real encoded dimensions given
+as HTML `width`/`height` attributes so the browser reserves correct space before the
+resource loads. Full writeup: `FINDINGS.md` B35, `STATUS.md`'s own dated entry.
 
 **Not started yet, in the order the roadmap currently has them:**
 
@@ -943,6 +958,22 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > rather than the site (`capture-screenshots.mjs` could permanently trap a
 > capture inside About's scroll-hold) — full writeups `FINDINGS.md`
 > B33/B34/D14, `STATUS.md`'s own dated entry.
+
+> **Stage 3 Task 10.1 is DONE — 2026-08-19.** Follow-up fixing the Flip
+> swap's own feel. Live per-frame tracing found the real causes weren't
+> either of the brief's own two guesses (duration/ease were already
+> explicit, just the wrong values; `getState()` was already whole-list
+> scoped) — instead, one was a Playwright test artifact (auto-scroll before
+> click, never visible to a real visitor) and one a genuine race:
+> `Flip.from()`'s "after" measurement runs synchronously before a
+> newly-mounted `<video>`'s real size has settled, so the row animated
+> toward a stale, too-small target and snapped the instant the tween
+> released. Fixed with the mockup's own `duration: 0.4`/`ease:
+> "power2.inOut"`, `absolute: true`, and each video's real encoded
+> dimensions as HTML `width`/`height` attributes — the change that actually
+> closed the race, since it reserves correct space before the resource
+> loads rather than after. Full writeup: `FINDINGS.md` B35, `STATUS.md`'s
+> own dated entry.
 
 ### Stage 4 — `#my-taste` redesign
 

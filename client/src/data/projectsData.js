@@ -4,6 +4,11 @@ const projects = [
         title: "Engage in Democracy: Rutgers Website",
         description: "Develop a website using Drupal Rutgers layout and implementing tabbed grid functionality using JavaScript. The mission of this project was to motivate students to find resources where they can explore new ideas and share their political opinion.",
         video: "/videos/rutgers-democracy.webm",
+        // Real encoded dimensions (ffprobe), not a guessed 16:9 — see
+        // portfolio.jsx's own comment on why these are needed as HTML
+        // attributes, not just CSS.
+        videoWidth: 1920,
+        videoHeight: 934,
         liveDemo: "https://democracylab.rutgers.edu/node/48#tab=panel-1",
         role: "Website Developer",
     },
@@ -12,6 +17,8 @@ const projects = [
         title: "Harmoni - Music Dating App",
         description: "Harmoni – Music Dating App is a project my friends and I developed for Hackathon 2025 at Rutgers. We aimed to create something innovative that connects people based on their musical interests. For this project, we built the frontend using React, the backend with Node.js, and the database with MongoDB. My role was to lead the frontend development and establish API integrations. The project is still in its demo phase, and we're actively working on it. Here's a preview for you to check out!",
         video: "/videos/harmoni.webm",
+        videoWidth: 3420,
+        videoHeight: 1738,
         github: "https://github.com/diegodamian02/harmoni",
         liveDemo: "https://harmoni-hackru2025.netlify.app/",
         role: "FrontEnd Developer",
@@ -22,6 +29,8 @@ const projects = [
         description:
             "Diego's Pomodoro was a tool to enhance productivity for students, professors or any individual who wants to distribute their time efficiently. I developed this projects using React and SCSS for the web development. I decided to publish this project during finals of Fall 2024 for students to use. ",
         video: "/videos/diegospomodoro.webm",
+        videoWidth: 3420,
+        videoHeight: 1924,
         github: "https://github.com/diegodamian02/Diego-s_Pomodoro",
         liveDemo: "https://diegospomodoro.com/",
         role: "FullStack Developer",
@@ -32,6 +41,8 @@ const projects = [
         description:
             "A fully functional chess game with a GUI, built in Java using JavaFX. Implements chess rules, and basic game functionality.",
         video: "/videos/check-this-chess.webm",
+        videoWidth: 3420,
+        videoHeight: 1924,
         github: "https://github.com/diegodamian02/check-this-chess",
         role: "Backend Developer",
     },
