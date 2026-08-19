@@ -1497,6 +1497,68 @@ identical strict-threshold pattern this bug came from — not touched here (out 
 this report was specifically about `#my-taste`), but worth the same live height sweep
 before assuming it's fine.
 
+### B33 — `#projects` overflowed the mobile viewport by exactly 2×`--space-6` — **FOUND AND FIXED, Stage 3 Task 10**
+
+Introduced and caught within the same task, not a pre-existing bug. Reconciling
+`.portfolio-section`'s content column to the shared `--content-width` token (per the
+brief) meant adopting `@mixin content-column`, which sets `width: 100%` — the OLD rule
+had no explicit `width` at all, so its own `max-width: 800px; margin: 0 auto;` relied on
+`width: auto`'s built-in behaviour of subtracting padding automatically. Combined with
+this same rule's own `padding: var(--space-6)` (32px) under the default `content-box`,
+`width: 100%` plus that padding adds up to MORE than 100% of the available width — the
+exact `box-sizing` gotcha `FINDINGS.md`/`STATUS.md` already document for `.navbar`
+(Stage 0 Task 5): no global reset exists in this file, so it's opt-in per rule that
+combines `width: 100%` with its own padding. Measured live: 454px `scrollWidth` against a
+390px `clientWidth` — 64px of horizontal overflow, exactly 2×`--space-6`'s 32px. Fixed
+with an explicit `box-sizing: border-box` on `.portfolio-section`. Re-verified: 390 = 390,
+zero overflow, both the section's collapsed default state and with a row open.
+
+### B34 — `.portfolio-header`'s hover `scale` had always been slightly broken, and a Flip requirement made it visible — **FOUND AND FIXED, Stage 3 Task 10**
+
+`.portfolio-header:hover` has carried `scale: (1.1)` since before this task — confirmed
+live it actually parses and applies (computed `scale: 1.1`, the parens are stripped, not
+a syntax error) — scaling the whole `justify-content: space-between` header row 10%
+larger on hover. Harmless before this task because nothing constrained the row's
+overflow, so the extra 10% simply spilled silently past the row's own box. This task's
+own Flip-based accordion swap needed `.portfolio-item` (the row) to be `overflow: hidden`
+so the height tween reads as a clean reveal instead of content spilling past the row
+mid-animation — and that same `overflow: hidden` now also clips the *header's* own
+pre-existing hover scale, visibly cutting off the start and end of the title/role text
+(confirmed live: "Harmoni - Music Dating App" rendered as "armoni - Music Dating App",
+missing its first character, "FrontEnd Developer" missing its last three). Fixed by
+removing the scale from the hover rule rather than working around the clipping — a whole
+text row growing 10% on hover was an odd effect in its own right, independent of this
+interaction, and the rule's remaining `opacity`/`color` change plus this same task's new
+left-edge accent bar (`::before`, `scaleY` 0→1) is a complete hover treatment without it.
+Re-verified: hover no longer clips either row, both project titles and role labels
+render in full.
+
+### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
+
+Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor
+bug — but a real gap in how `about.jsx`'s (and `my-taste.jsx`'s) scroll-hold decides
+whether to hold at all. Both check `isProgrammaticScrollActive()` (`lib/scroll.js`) and
+skip holding if true, specifically so a nav click carrying a visitor straight through a
+hold-gated section toward another one doesn't trap them for its full ~2.9s entrance. That
+flag is only ever set by this app's OWN `scrollToSection()` — a scroll reaching the same
+position through any OTHER means (a raw `element.scrollIntoView()` call, a browser
+extension, assistive tech jumping to a landmark) looks identical to an organic visitor
+scroll to this check, so the hold engages for real. If that hold-triggering scroll can't
+be followed by real, sustained wheel/touch/keydown input (the hold's own release
+mechanism, alongside its own timeline finishing) — which a one-shot programmatic jump
+generally can't — the section stays captured with no way out. Reproduced concretely: this
+project's own `design-review/capture-screenshots.mjs` used `el.scrollIntoViewIfNeeded()`
+to reach `#projects`, whose real DOM position sits below `#about`; that jump crossed
+About's hold trigger, engaged it (Lenis stopped, scroll pinned at `scrollY: 910`), and the
+page never moved again — confirmed live, stuck at the identical position even 3.6s later,
+well past the hold's own ~2.9s bound. Worked around in the capture script itself by
+navigating through the real nav link instead (`element.click()` on `a[href="#id"]`, which
+IS tracked as programmatic) rather than a raw scroll — full writeup in `STATUS.md`'s own
+dated entry. Not fixed at the application level: no real visitor scrolls 5000+px in a
+single instantaneous native jump the way only test automation does, so this isn't scored
+as a live bug. Worth revisiting if this site ever grows a skip-link, in-page search, or
+any other jump-to-section feature that doesn't route through `scrollToSection()`.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while

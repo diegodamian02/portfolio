@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-17)*
+## 0. Current state — quick summary *(updated 2026-08-18)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -119,12 +119,40 @@ overflow before bailing (`SAFETY_NET_OVERFLOW_ALLOWANCE`), re-verified
 holding cleanly across that whole height range. Full writeups: `FINDINGS.md`
 B32, `STATUS.md`'s own dated entry.
 
+**Most recently (2026-08-18) — Stage 3's own remainder, `#projects`:**
+refined list, single-open accordion, GSAP entrance — `#connect` is now the
+only section left in Stage 3's original `#about` → `#projects` → `#connect`
+sequence. Deleted B11 (a dead slideshow-era rule sizing the list's title at
+40px) plus three fully-orphaned rules found alongside it, reconciled the
+content column to `--content-width`, and applied `@mixin section-title`
+(fluid `--text-xl`, centered — both deliberate, named as such). The
+open/close swap is now coordinated by real GSAP `Flip` — this codebase's
+first use of the plugin — rather than two unrelated instant state changes;
+entrance is a plain `ScrollTrigger` reveal (`start: "top 80%", once: true`,
+no pin/scrub, gated through `gsap.matchMedia()`); hover gained a left accent
+edge. Two regressions this task's own changes introduced were caught and
+fixed in the same pass, not shipped: a `box-sizing` gap overflowing the
+mobile viewport by 64px, and a pre-existing (previously invisible)
+`scale: (1.1)` on the header's hover state that started visibly clipping
+title text once Flip needed `overflow: hidden` on the row — full writeups
+`FINDINGS.md` B33/B34. Also found, and fixed in shared test infrastructure
+rather than the site itself: `design-review/capture-screenshots.mjs`'s own
+section-traversal order could permanently trap a capture inside About's
+scroll-hold (`FINDINGS.md` D14) — fixed by navigating through the real
+navbar link instead of a raw `scrollIntoViewIfNeeded()`. The brief's own
+header called this "Stage 5 Task 1," which doesn't match this file's own
+numbering (Stage 5 is reserved for the mobile pass) — logged under Stage 3
+instead, flagged rather than silently either way. Fit ratio at true default
+rest (all rows collapsed): desktop **0.68×**, laptop **0.77×**, mobile
+**0.90×** (informational — Stage 5's own territory). Full writeup:
+`STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
 |---|---|---|
 | **4 (remainder)** | `#my-taste` Task 5: time-range switching + `Flip` re-rank | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7, 4, 3.9, 4.1 — done |
-| **3 (remainder)** | Apply the design system to `#projects` and `#connect` — the same tokens/mixins already used on `#about`, just not applied there yet. This is the rest of Stage 3's own original scope | Nothing — ready now |
+| **3 (remainder)** | Apply the design system to `#connect` — the same tokens/mixins already used on `#about`/`#projects`, just not applied there yet. This is the last piece of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
 | **6** | Turntable delight — pitch fader, scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
@@ -148,9 +176,11 @@ re-rank moves an artist BETWEEN tiers, not just within one — noted in
 `stage4-my-taste-concept.md` §16's open items (renumbered twice since —
 was §14 — as later live-feedback sections were inserted above it), unresolved
 from Task 3.7 and still open after Tasks 4/4.1.
-`#projects`/`#connect` haven't gone anywhere and are still the natural
-close-out for Stage 3 whenever that's picked back up. Your call either way —
-see §3 below for the full stage list.
+`#connect` is now the only section left in Stage 3's own original sequence
+(`#projects` closed out 2026-08-18, above) — a smaller task than `#projects`
+was, since it needs no interaction rebuild, just the same type-scale/
+spacing/content-width tokens already applied twice elsewhere. Your call
+either way — see §3 below for the full stage list.
 
 ---
 
@@ -898,6 +928,21 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > reintroduce B29's overlap on a short window — re-verified across
 > 900/800/700/660/600px. Both fixes' full writeups: `STATUS.md`'s own dated
 > entries (`FINDINGS.md` B29 for the first).
+
+> **Stage 3 Task 10 is DONE — 2026-08-18.** `#projects` refined: B11 (a dead
+> slideshow-era rule sizing the list's title at 40px) and three orphaned
+> rules deleted, content column reconciled to `--content-width`, title
+> moved onto `@mixin section-title`. The open/close swap is now coordinated
+> by real GSAP `Flip` (this codebase's first use of the plugin) instead of
+> two unrelated instant state changes; entrance is a plain `ScrollTrigger`
+> reveal, no pin/scrub; hover gained a left accent edge. `#connect` is now
+> the only section left in this stage's original sequence. Two regressions
+> introduced and caught in the same pass (a `box-sizing` mobile overflow, a
+> previously-invisible hover `scale` that started clipping text once Flip
+> needed `overflow: hidden`) plus one fixed in shared test infrastructure
+> rather than the site (`capture-screenshots.mjs` could permanently trap a
+> capture inside About's scroll-hold) — full writeups `FINDINGS.md`
+> B33/B34/D14, `STATUS.md`'s own dated entry.
 
 ### Stage 4 — `#my-taste` redesign
 

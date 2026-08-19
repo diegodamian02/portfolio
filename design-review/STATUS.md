@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-13 · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-18 · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2033,6 +2033,174 @@ in both directions (`full-scrub.mjs` re-run, all six entries); frame timing
 re-checked post-change, unchanged (still 0 dropped frames). Lint unchanged,
 build clean (JS 485.06 kB / 174.11 kB gz, CSS unchanged).
 
+### Stage 3 Task 10 — `#projects`: refined list, single-open accordion, GSAP entrance *(2026-08-18)*
+
+Closes out most of Stage 3's own remaining scope (`#about` → `#projects` → `#connect`,
+`#connect` still open). Direction from Q1 still applies: shared design system, not
+bespoke material — this task is layout/interaction, no new visual language.
+
+**Two mismatches between the brief and the tree, checked and flagged rather than
+implemented against, per the working agreement:**
+
+- The brief's own header called this "Stage 5 Task 1." `ROADMAP.md` §0/§3 — the
+  authoritative sequencing source — has `#projects` filed under **Stage 3's own
+  remainder** (`#about` → `#projects` → `#connect`) and reserves "Stage 5" specifically
+  for the mobile pass, deferred until Stage 3/4 land. Logged here under the roadmap's
+  own numbering (Stage 3 Task 10, the next free slot after Task 9's follow-up) rather
+  than either silently complying with the brief's label or silently overwriting it
+  without a note — same handling this project already gave the Task 3.7/3.8 build-order
+  mismatch.
+- The brief said the entrance should reuse "the same lightweight pattern already used
+  for About and Experience's simple reveals." Checked against the tree: neither section
+  has one — About's own entrance is a ~2.9s scroll-hold (`lenis.stop()`/`start()`),
+  Experience's is a `pin: true` scrub. No plain "scroll into view, fade in, no pin/hold"
+  precedent exists anywhere in this codebase; `#connect` has no GSAP at all yet. Built
+  the lightweight reveal the brief clearly wanted regardless (there's no ambiguity about
+  intent, just about its claimed precedent) — `start: "top 80%"` has no existing value to
+  match, so it's a conventional default, not copied from anywhere. The brief's own
+  explicit question — "check whether `toggleActions` should mirror the surrounding
+  sections' convention" — does have a real answer, though: every entrance anywhere in
+  this tree (About, My Taste) uses `once: true`, never `toggleActions`/reverse. That
+  settles it cleanly rather than inventing a third pattern.
+
+**1. Known bugs, fixed as listed:**
+
+- **B11** (`FINDINGS.md`) — the dead slideshow-era `.project-title` rule (`font-size:
+  2.5rem; font-weight: 800`) that cascaded onto the collapsed list's title span at 40px —
+  deleted outright, not folded into the type scale (the real, still-used rule is the
+  scoped `.portfolio-header .project-title`, untouched).
+- `.portfolio-title`'s dead `margin-top: 10rem` (160px) — gone, along with the rest of
+  the rule, replaced by `@include section-title` (below).
+- `.portfolio-section`'s content column — `max-width: 800px; margin: 0 auto` replaced
+  with `@include content-column` (720px, the shared `--content-width` token).
+- `@mixin section-title` applied to `.portfolio-title` — `--text-xl` (a fluid
+  `clamp(2rem, 5vw, 2.5rem)`, down from a fixed 4rem) and centered (was left-aligned).
+  Both visible, both deliberate, named as such rather than incidental mixin fallout —
+  the now-redundant fixed-2.5rem mobile override came out too, since the mixin's own
+  clamp already covers mobile (matching `.experience-title`/`.contact-title`'s own
+  precedent: neither needs a breakpoint step once it's on the shared scale).
+- Three fully-orphaned rules found while auditing this file, removed alongside B11 per
+  the brief's own instruction: `.projects` / `.projects .projects-container` (a
+  pre-slideshow parallax container with no matching element anywhere in `portfolio.jsx`)
+  and `.project-description` (same fate as B11's `.project-title`, no scoped override
+  saving it). A fourth latent issue, `.portfolio-subtitle`'s own left-alignment under
+  the now-centered title, was checked against `#connect`'s own precedent
+  (`.contact-description` isn't centered under the centered `.contact-title` either) and
+  left alone — consistent with an existing pattern on this site, not a new inconsistency.
+
+**2. Single-open accordion, coordinated via real GSAP `Flip`** — first real use of the
+plugin in this codebase (registered in `lib/gsap.js`, alongside the other nine). The old
+implementation was already structurally single-open (one `expandedProject` id, not an
+array), but the swap between rows was two unrelated instant state changes, not one
+coordinated motion. `Flip.getState()` reads every row's real `offsetHeight`/position
+immediately before the click's `setState`; `flushSync` (`react-dom`) forces that update
+to commit synchronously instead of on React's own batched schedule, so `Flip.from()` on
+the very next line measures the real "after" layout rather than racing a pending render
+— the standard GSAP-Flip-with-React pattern. `onEnter`/`onLeave` fade the
+`.portfolio-details` div that mounts/unmounts (Flip can't "flip" something that didn't
+exist a moment ago); the row itself (`.portfolio-item`) just grows or shrinks — a real
+`height` tween by Flip's own default, not a `scale` transform, so the description/video
+inside reflows naturally instead of visibly squishing. `.portfolio-item` gained
+`overflow: hidden` so that growth/shrink reads as a clean reveal instead of content
+spilling past the row mid-tween.
+
+**3. Entrance** — `ScrollTrigger` embedded directly on the tween (`start: "top 80%",
+once: true`), no pin, no scrub, no separate `ScrollTrigger.create()`/`onEnter` pair —
+this section has no extra hold logic to coordinate the way About/My Taste's own
+entrances do, so the simpler form is the honest one. `~0.09s` stagger, `0.45s` duration
+per row (total ≈0.72s for all four), `SIGNATURE_EASE`. Gated through `gsap.matchMedia()`
+(Stage 2's own established pattern): reduced-motion visitors get the settled end-state
+set directly, no animation.
+
+**4. Hover** — plain CSS, no GSAP: a 3px accent-colored left edge, `scaleY` 0→1 from a
+centered `transform-origin`. `.portfolio-header` gained a small left padding to reserve
+room for it (so the edge's appearance doesn't shift the row's text sideways) and its own
+explicit `:focus-visible` outline — the one interactive element on the site that didn't
+already have one (navbar links, the theme toggle, My Taste's cards, and every form field
+all do).
+
+**Two more bugs found and fixed in the same pass, both introduced by this task's own
+changes and caught before landing — full writeups `FINDINGS.md` B33/B34:**
+
+- **B33** — adopting `@include content-column` (`width: 100%`) on a rule that also
+  carries its own padding, under the default `content-box`, overflowed the mobile
+  viewport by exactly 2×`--space-6` (64px measured at 390px wide) — the identical
+  `box-sizing` gotcha `.navbar` hit at Stage 0 Task 5. Fixed with an explicit
+  `box-sizing: border-box` on `.portfolio-section`.
+- **B34** — `.portfolio-header:hover`'s pre-existing `scale: (1.1)` (confirmed live: it
+  actually parses and applies, computed `scale: 1.1`) had always been slightly broken,
+  just invisibly — nothing constrained its overflow before. This task's own
+  `overflow: hidden` (needed for Flip's clean height tween) started clipping it for
+  real, visibly cutting the title/role text on hover. Removed the scale rather than
+  worked around the clipping, since scaling a whole `space-between` text row 10% on
+  hover was an odd effect in its own right.
+
+**A third bug, found in shared test infrastructure, not the site — `FINDINGS.md` D14:**
+re-capturing screenshots surfaced a real gap in `design-review/capture-screenshots.mjs`.
+Its own `SECTIONS` traversal order visits `'projects'` right after `'home'`, but
+`#projects`' real DOM position sits below `#about`, so reaching it via
+`scrollIntoViewIfNeeded()` scrolls straight through About's own ~2.9s scroll-hold. That
+hold's own escape hatch (`isProgrammaticScrollActive()`) only recognizes scrolls started
+through this app's own `scrollToSection()` — a raw `scrollIntoViewIfNeeded()` looks like
+an organic visitor scroll to it, so the hold engaged for real and never released:
+confirmed live, `scrollY` frozen at 910 even 3.6s later, well past the hold's own ~2.9s
+bound. The capture landed permanently trapped inside About, not just early — only the
+first project row visible, the rest still at their pre-entrance `opacity: 0`. Fixed in
+the capture script itself: navigate via `element.click()` on the real `a[href="#id"]`
+nav link (works for both the desktop and hidden-mobile-menu copy, since a plain JS
+`.click()` skips Playwright's own visibility check) instead of a raw scroll — the exact
+escape hatch About's/My Taste's holds already carry for this precise case, the tool just
+wasn't using it. Re-verified against every section, both viewports, both themes — no
+regressions; `about`/`connect`/`my-taste`'s own screenshots are pixel-equivalent to
+before.
+
+**A fourth, self-inflicted near-miss in the same file, caught before committing.** The
+script's own printed follow-up command downscales desktop/light shots with a glob —
+`${OUT}/*-desktop.png ${OUT}/*-light.png` — which matches every OTHER dated,
+ad-hoc screenshot already sitting in `design-review/screenshots/` from past bug
+investigations too (`t3-*-light.png`, `b8-*-light.png`, a dozen more), several
+deliberately captured at 480/768/1024px, not 1440. Running that exact printed command,
+copied verbatim, silently upscaled and overwrote ~30 of them — confirmed live, a 480px/
+132KB reference shot became a 1440px/915KB one. Caught via `git status` before
+committing (nothing evidential was actually lost — `git checkout` restored all ~30
+from the last commit), but the tool itself would do this again on the next run by
+anyone who trusted its own printed suggestion. Fixed at the source: the script now
+tracks exactly which files it wrote this run (`writtenForDownscale`) and prints an
+explicit file list instead of a glob — re-verified the new printed command lists only
+this run's own 8 files, and running it leaves every other screenshot in the directory
+untouched.
+
+**Fit ratio, measured at true default rest (all four rows collapsed) — same three
+breakpoints as Experience/My Taste, one-row-open included since that's the tallest state
+a real visitor now encounters (only one row can ever be open at once):**
+
+| Width×height | Collapsed | One row open |
+|---|---|---|
+| 1440×900 | 614px → **0.68×** | 1133px → 1.26× |
+| 1280×800 | 614px → **0.77×** | 1133px → 1.42× |
+| 390×844 (mobile spot-check) | 757px → **0.90×** | 1144px → 1.36× |
+
+Comfortably fits one screen collapsed at every desktop/laptop width, confirming the
+brief's own prediction rather than assuming it — the mobile figure is informational only
+(Stage 5's own territory, per the brief's explicit scope).
+
+Verified: single-open swap clicked through all four rows including opening one while
+another is already open (stays at exactly one open, every time); reduced-motion visitor
+gets instant open/close (height jumps directly, no ramp — 2 distinct samples across 5,
+versus 8 distinct ramping samples with motion enabled) and starts with every row already
+visible (no stuck `opacity: 0`); entrance stagger confirmed via intermediate opacity
+samples during a real scroll, not just before/after; keyboard — Tab lands
+`:focus-visible`, Enter opens, Space closes, `aria-expanded`/`aria-controls` track state
+correctly; full-page console/pageerror sweep clean across every test. `npm run lint`
+holds at **7 errors, 2 warnings** (unchanged baseline). `npm run build` clean: JS
+496.50 kB → **517.52 kB** (177.43 → **184.96 kB** gz, +7.5 kB gz — the Flip plugin, this
+codebase's first use of it), CSS 45.90 kB → **45.83 kB** (net negligible — the deleted
+orphaned rules roughly offset the new hover/focus/Flip CSS). Screenshots re-captured:
+`projects-desktop.png`, `projects-mobile.png`, `projects-light.png` (manual capture —
+the standard tool's own light-theme pass is scoped to `home`/`about` only, a pre-existing
+decision this task didn't expand), `projects-desktop-expanded.png` (one row open, showing
+the fixed hover state and the video/links still rendering correctly).
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -3214,14 +3382,14 @@ crate too, not just `#my-taste`.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-17)*
+## 3. Current measurements *(refreshed 2026-08-18)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **496.50 kB / 177.43 kB gz** |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **45.90 kB / 9.67 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **517.52 kB / 184.96 kB gz** *(+21 kB / +7.5 kB gz, Stage 3 Task 10 — GSAP `Flip`, first use)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **45.83 kB / 9.61 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

@@ -9,6 +9,7 @@ import { MotionPathPlugin } from "gsap/MotionPathPlugin";
 import { ScrambleTextPlugin } from "gsap/ScrambleTextPlugin";
 import { CustomBounce } from "gsap/CustomBounce";
 import { CustomWiggle } from "gsap/CustomWiggle";
+import { Flip } from "gsap/Flip";
 
 // DrawSVGPlugin/CustomEase/MotionPathPlugin/ScrambleTextPlugin — added for
 // Stage 3 Task 7 (Experience). All four used to be Club GreenSock-only
@@ -26,9 +27,15 @@ import { CustomWiggle } from "gsap/CustomWiggle";
 // own source warns "Please gsap.registerPlugin(CustomEase, CustomBounce)" /
 // "...CustomWiggle" if CustomEase isn't registered first — so CustomEase
 // stays listed before them below, not just alphabetically/incidentally.
+// Flip — added for Stage 3 Task 10 (#projects' single-open accordion swap).
+// Same free-tier status as the four above, re-confirmed the same way
+// (gsap/Flip.js genuinely exists under node_modules/gsap/). First real use
+// of Flip in this codebase — My Taste's still-open Task 5 (time-range
+// re-rank) was flagged as a future Flip consumer but never built one; this
+// is the plugin's actual debut.
 gsap.registerPlugin(
     ScrollTrigger, SplitText, Draggable, InertiaPlugin,
-    DrawSVGPlugin, CustomEase, CustomBounce, CustomWiggle, MotionPathPlugin, ScrambleTextPlugin,
+    DrawSVGPlugin, CustomEase, CustomBounce, CustomWiggle, MotionPathPlugin, ScrambleTextPlugin, Flip,
 );
 
 // One shared motion signature (Task 7's own ask, then retrofitted onto
@@ -112,4 +119,4 @@ export const CARD_LAND_SQUASH_EASE = "cardLand-squash";
 CustomWiggle.create("pinSnap", { wiggles: 3, type: "easeOut" });
 export const PIN_SNAP_EASE = "pinSnap";
 
-export { gsap, ScrollTrigger, SplitText, Draggable, InertiaPlugin, DrawSVGPlugin, MotionPathPlugin, ScrambleTextPlugin, CustomBounce, CustomWiggle };
+export { gsap, ScrollTrigger, SplitText, Draggable, InertiaPlugin, DrawSVGPlugin, MotionPathPlugin, ScrambleTextPlugin, CustomBounce, CustomWiggle, Flip };

@@ -1539,41 +1539,13 @@ html {
   transform: scale(1) rotate(0deg);
 }
 
-// Parallax containers - sections & project
-
-.projects {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  background-color: var(--bg-color);
-  opacity: 0;
-  transform: translateY(50px);
-}
-
-
-// Ensure active project is visible
-.projects .projects-container {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-//Text for title and description
-
-.project-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: var(--text-color);
-  margin-bottom: 10px;
-}
-
-.project-description {
-  font-size: 1.2rem;
-  color: var(--secondary-text);
-  margin-bottom: 20px;
-}
-
+// Stage 3 Task 10 (#projects) removed four fully-orphaned rules that lived
+// here: .projects / .projects .projects-container (a pre-slideshow parallax
+// container — no matching element anywhere in portfolio.jsx, a leftover
+// distinct from the bug below) and the bare .project-title / .project-description
+// pair (B11, FINDINGS.md — .project-title specifically still collided with a
+// real element, .portfolio-header .project-title below, cascading it to 40px).
+// Full list in STATUS.md's own dated entry.
 
 // About Page
 .about-section {
@@ -3478,18 +3450,23 @@ html {
 
 //portfolio
 .portfolio-section {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
+  @include content-column;
+  // 2rem === --space-6 exactly — swapped for the token, not a value change.
+  padding: var(--space-6);
   color: var(--text-color);
+  // content-column sets width:100% (needed so max-width actually caps a
+  // narrower viewport instead of overflowing it) — under the default
+  // content-box, that 100% plus this rule's own horizontal padding adds up
+  // to MORE than 100%, overflowing the viewport by exactly 2×--space-6
+  // (confirmed live: 64px at 390px wide, matching --space-6's 32px on each
+  // side). Same root cause Stage 0 Task 5 already found on .navbar — no
+  // global box-sizing reset exists in this file, so it's opt-in per rule
+  // that combines width:100% with its own padding.
+  box-sizing: border-box;
 }
 
 .portfolio-title {
-  font-size: 4rem;
-  font-weight: 600;
-  margin-bottom: 2rem;
-  margin-top: 10rem;
-
+  @include section-title;
 }
 
 .portfolio-subtitle {
@@ -3498,13 +3475,35 @@ html {
   margin-bottom: 2rem;
 }
 
-/* 🟢 Expandable Sections */
+/* Expandable Sections */
 .portfolio-item {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  // Was a fixed rgba(255,255,255,0.2) — a light-on-dark divider that read
+  // as near-invisible in light theme (white at 20% alpha over a light bg).
+  // color-mix against --text-color is theme-aware by construction, same
+  // idiom the turntable's own --deck-bevel already uses for a subtle line.
+  border-bottom: 1px solid color-mix(in srgb, var(--text-color) 15%, transparent);
   padding: 1rem 0;
+  // Stage 3 Task 10 — GSAP Flip (portfolio.jsx) tweens this row's real
+  // height/position when it opens or closes, not a scale transform (Flip's
+  // default for a size change is a direct height tween, which is what lets
+  // the description/video inside reflow naturally instead of visibly
+  // squishing). Hidden overflow is what keeps that grow/shrink reading as
+  // a clean reveal instead of content spilling past the row mid-tween —
+  // harmless once settled, since the row is always sized to its own
+  // content at rest.
+  //
+  // This is also what surfaced a real, previously-invisible bug: the
+  // header's own hover state carried `scale: (1.1)` (below), scaling the
+  // whole space-between row 10% larger — harmless with no ancestor
+  // constraining overflow, but clipped and visibly cut off the title/role
+  // text the instant this rule was added. Removed there, not worked around
+  // here, since a whole text row growing 10% on hover was already an odd
+  // effect on its own merits, independent of this clipping.
+  overflow: hidden;
 }
 
 .portfolio-header {
+  position: relative;
   display: flex;
   justify-content: space-between;
   width: 100%;
@@ -3516,30 +3515,66 @@ html {
   color: var(--text-color);
   text-align: left;
   cursor: pointer;
-  padding: 1rem 0;
+  // Left inset reserves room for the hover/focus accent edge below so its
+  // scaleY reveal doesn't shift the row's own text sideways when it appears.
+  padding: 1rem 0 1rem var(--space-4);
   // Was `all 0.3s`. Narrowed to the properties that actually change here
   // (colour on theme, colour + opacity on :hover) — `all` also caught layout
   // properties and made this the second-slowest surface in a theme change.
   transition: color var(--theme-transition), opacity var(--theme-transition);
+
+  // Thin accent-colored left edge — plain CSS, not GSAP (a single-property
+  // hover doesn't earn a tweening engine, per the brief). scaleY 0->1 from
+  // a centered transform-origin so it reads as growing in place rather than
+  // sliding down from the top.
+  &::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: var(--space-2);
+    bottom: var(--space-2);
+    width: 3px;
+    background: var(--accent);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 0.2s ease;
+  }
+
+  &:hover::before,
+  &:focus-visible::before {
+    transform: scaleY(1);
+  }
+
+  // No explicit :focus-visible rule existed here before this task — every
+  // other interactive element on the site has its own (navbar links, the
+  // theme toggle, My Taste's cards, form fields); this was the one gap.
+  // Same outline/offset values most of those already use.
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 }
 
 .portfolio-header:hover {
   opacity: 0.7;
   color: var(--accent);
-  scale: (1.1);
 }
 .portfolio-header .project-title {
   font-weight: 400;
 }
 
-/* 🟢 Expandable Content */
+/* Expandable Content */
 .portfolio-details {
   margin-top: 1rem;
   padding-left: 1rem;
   color: var(--secondary-text);
-  justify-content: center;
   font-size: 1.2rem;
-  animation: fadeIn 0.3s ease-in-out;
+  // The old `animation: fadeIn` (a CSS @keyframes, removed) came out —
+  // GSAP Flip's own onEnter/onLeave callbacks (portfolio.jsx) own this fade
+  // now, the "one mechanism per effect" discipline this codebase already
+  // follows elsewhere. A CSS animation running underneath would have fired
+  // regardless of reduced-motion, fighting this task's own JS-level
+  // instant-state-change reduced-motion path.
 }
 
 .portfolio-video {
@@ -3561,17 +3596,6 @@ html {
   color: var(--text-color);
   text-decoration: none;
   font-weight: bold;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 
@@ -3851,10 +3875,10 @@ html {
   // to override here.
 
   /* Portfolio Section */
-  .portfolio-title {
-    font-size: 2.5rem;
-  }
-
+  // .portfolio-title's own fixed-2.5rem override removed (Stage 3 Task 10)
+  // — @mixin section-title now gives it --text-xl, a fluid clamp(2rem, 5vw,
+  // 2.5rem) that already covers mobile on its own, same as .experience-title
+  // and .contact-title's own fixed sizes needing no breakpoint step either.
   .portfolio-header {
     font-size: 1.2rem;
     align-items: center;
