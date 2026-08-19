@@ -3352,6 +3352,13 @@ html {
   transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
 }
 
+// Client-side validation border cue — a plain color swap, not an animation
+// (Task 2's own scope). `aria-invalid` already has to be set for a11y, so
+// styling off it costs nothing extra.
+.form-group textarea[aria-invalid="true"] {
+  border-color: #ff6b6b;
+}
+
 .submit-button {
   background-color: var(--bg-color);
   color: var(--accent);
@@ -3394,6 +3401,15 @@ html {
   font-size: 0.9rem;
   margin: 0;
   text-align: center;
+}
+
+// Field-level validation error (currently just the message field) — under
+// the field it belongs to, left-aligned, distinct from .contact-error's
+// centered banner (a failed *send*, not a failed *validation*).
+.field-error {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  margin: 0;
 }
 
 .contact-success {

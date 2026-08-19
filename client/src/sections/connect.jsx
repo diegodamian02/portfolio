@@ -15,16 +15,35 @@ export default function Connect() {
     // so a failure was invisible to the visitor and the message was lost.
     const [status, setStatus] = useState('idle');
     const [errorMessage, setErrorMessage] = useState('');
+    // Separate from the send-level errorMessage above: this is a client-side
+    // validation error (never sent, not the server's opinion), shown under
+    // the one field the brief calls out — message. Cleared on any edit to
+    // that field, mirroring how `status === 'error'` already resets on any
+    // edit below.
+    const [messageError, setMessageError] = useState('');
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (status === 'error') setStatus('idle');
+        if (name === 'message' && messageError) setMessageError('');
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (status === 'sending') return;
+
+        // Client-side validation, scoped to the message field per the brief
+        // — name/email's required-ness is still enforced by the existing
+        // server round-trip (`validateContact` in server.js), surfaced
+        // through the same generic contact-error banner as any other send
+        // failure. `noValidate` on the <form> means the browser won't catch
+        // this on its own; nothing did before this check existed.
+        if (!formData.message.trim()) {
+            setMessageError('Please write a message before sending.');
+            return;
+        }
+        setMessageError('');
 
         setStatus('sending');
         setErrorMessage('');
@@ -49,7 +68,12 @@ export default function Connect() {
 
     return (
         <section className="contact-section">
-            <div className="contact-container">
+            {/* data-state mirrors turntable.jsx's own data-deck-state precedent
+                — the full idle/sending/sent/error machine, not just a single
+                hardcoded "sent" flag, so Task 2's animation work has every
+                state to hook into, not only the success one. No animation
+                reads this yet; this task is the hook, not the motion. */}
+            <div className="contact-container" data-state={status}>
                 <h2 className="contact-title">Let&apos;s have a coffee talk</h2>
                 <p className="contact-description">
                     Let&apos;s connect and build something amazing together — reach me directly at{' '}
@@ -103,7 +127,12 @@ export default function Connect() {
                                 onChange={handleChange}
                                 disabled={isSending}
                                 required
+                                aria-invalid={Boolean(messageError)}
+                                aria-describedby={messageError ? 'message-error' : undefined}
                             />
+                            {messageError && (
+                                <p className="field-error" id="message-error" role="alert">{messageError}</p>
+                            )}
                         </div>
 
                         {/* Honeypot — hidden from humans, irresistible to bots.

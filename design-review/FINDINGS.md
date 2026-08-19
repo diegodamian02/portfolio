@@ -1579,6 +1579,41 @@ same per-frame trace with the scroll artifact isolated out shows one continuous,
 monotonic curve open and close, ending exactly on the true final value, no residual
 jump, in both directions.
 
+### D15 — `RESEND_API_KEY` has been live on Railway, contradicting this project's own outstanding-tasks checklist — **DOCS CORRECTED, Stage 3 Task 11**
+
+Found while rebuilding `#connect`'s form logic (Stage 3 Task 11), whose own brief
+warned the contact form "has been returning 503s" and asked for the fail-closed path
+to be implemented if the key turned out to be unset. Read `server.js`'s `/api/contact`
+route directly rather than trusting that framing: it already fails closed correctly —
+`if (!RESEND_API_KEY) return res.status(503)...` runs before anything else in the
+handler, with a specific, honest visitor-facing message, no fake success path. Whether
+that branch is *currently* live is a runtime fact, not something readable from the
+source, so it was checked empirically: an empty JSON payload POSTed directly to
+`https://api.diegodamian.com/api/contact` is safe to test with either way (the key
+check runs before validation, so this never reaches Resend regardless), and it
+returned **`400`** — *"Name, email, and message are all required"* — not `503`. That
+response is only reachable once the key check has already passed. Confirmed further
+by a real end-to-end test submission through the local dev server, which returned
+`{ ok: true }` and landed in the real configured inbox.
+
+This directly contradicts **two** things at once, both of which pointed the same
+(wrong) direction: this file's own `STATUS.md` §4 "Outstanding manual tasks" table,
+which listed `RESEND_API_KEY` as unset with "Contact form returns 503 until this
+lands," and the task brief itself, which was written assuming the same. Neither was
+lying — someone set the key on Railway (a dashboard action, outside this repo, with no
+commit to catch it) and nothing in this project's own docs got updated to reflect it,
+so the next brief was written against stale state. Corrected in `STATUS.md`'s own
+outstanding-tasks table (checked off, with this entry's own explanation) rather than
+silently deleted — the mismatch itself is the useful part of the record, the same
+reasoning already applied to every brief/tree mismatch logged elsewhere in this file.
+
+The fail-closed path itself was still verified independently, not left as "presumably
+correct since the code reads right": a second, isolated `server.js` instance was
+started on a separate port with `RESEND_API_KEY` explicitly cleared, and it returned
+exactly the documented `503` and message. So both states — key live (today's reality)
+and key absent (whatever briefs and stale docs assumed) — are now confirmed correct,
+not just one of them.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

@@ -162,6 +162,15 @@ the change that actually closed the race — each video's real encoded dimension
 as HTML `width`/`height` attributes so the browser reserves correct space before the
 resource loads. Full writeup: `FINDINGS.md` B35, `STATUS.md`'s own dated entry.
 
+**Also 2026-08-19 — `#connect`'s own form logic (Task 1 of 2):** client-side message
+validation (inline, no native alert) and a `data-state` hook for a future animation
+pass landed — `STATUS.md`'s own Stage 3 Task 11 entry has the full writeup, including a
+real discrepancy found and corrected: `RESEND_API_KEY` turns out to already be live on
+Railway, contradicting both this file's own outstanding-tasks list and the task brief
+that assumed otherwise (`FINDINGS.md` D15). `#connect`'s animation (Task 2) and its
+still-separate design-system token pass (the "3 (remainder)" row just below) remain
+unstarted.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -974,6 +983,15 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > closed the race, since it reserves correct space before the resource
 > loads rather than after. Full writeup: `FINDINGS.md` B35, `STATUS.md`'s
 > own dated entry.
+
+> **Stage 3 Task 11 is DONE (1 of 2) — 2026-08-19.** `#connect`'s contact
+> form got client-side message validation (inline error, no native alert)
+> and a `data-state` container hook for a future animation pass — Task 2,
+> still open. Found along the way: `RESEND_API_KEY` is already live on
+> Railway, contradicting both this file's own outstanding-tasks list and
+> the task brief itself, which both assumed the form still 503s — corrected
+> in `STATUS.md`, logged as `FINDINGS.md` D15. The separate design-system
+> token pass for `#connect` (below) is still unstarted.
 
 ### Stage 4 — `#my-taste` redesign
 

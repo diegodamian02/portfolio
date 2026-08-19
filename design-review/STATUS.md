@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-19 · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-19 (Stage 3 Task 11) · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2285,6 +2285,96 @@ the fit-ratio table above still holds unchanged. New evidence screenshots:
 (confirms the video renders undistorted at its real aspect ratio in both themes, and the
 B34 hover fix still holds).
 
+### Stage 3 Task 11 — `#connect`: contact form send/error states (Task 1 of 2) *(2026-08-19)*
+
+Brief framed this as a **rebuild** ("send/error states... no animation polish yet —
+that's Task 2") and warned the real implementation might not match what's documented,
+since the form "has been returning 503s." Re-read `connect.jsx` and `server.js`'s
+`/api/contact` route directly before writing anything, per the working agreement — and
+neither claim held up:
+
+- **Not a rebuild.** `connect.jsx` already had a real `idle | sending | sent | error`
+  state machine (not the alert()-before-sending version the code's own comment
+  describes as "previous"), a honeypot, rate limiting, distinct success/error UI, a
+  disabled+relabelled submit button while sending, and error text that surfaces the
+  server's own visitor-safe message rather than an axios dump. `server.js`'s route
+  already had honeypot handling, per-IP rate limiting, header-injection stripping,
+  length caps, a explicit `{ data, error }` check on the Resend SDK response (it
+  resolves rather than throws on a rejected send), and — the exact requirement this
+  brief asked for — a fail-closed `503` with a specific, honest message when
+  `RESEND_API_KEY` is unset, checked before anything else in the handler. None of this
+  needed building; it already existed and reads as already well-considered.
+- **Not currently 503ing.** Probed `https://api.diegodamian.com/api/contact` directly
+  with an empty JSON payload — safe, since the `RESEND_API_KEY` check runs *before*
+  validation either way, so this never reaches Resend regardless of the key's state.
+  Got back **`400` — "Name, email, and message are all required"**, not `503`. That
+  response is only reachable if the key check passed, meaning **`RESEND_API_KEY` is
+  live on Railway right now** — confirmed further by a real end-to-end test submission
+  through the local dev server (same code path, same `CONTACT_TO_EMAIL`), which
+  returned `{ ok: true }` and landed in the real inbox.
+
+**This directly contradicts this file's own "Outstanding manual tasks" table** (§4
+below), which still lists `RESEND_API_KEY` as unset with "Contact form returns 503
+until this lands" — stale, corrected below. It's also what the brief itself assumed
+going in. Since the checklist and the brief agree and reality disagrees with both, this
+is logged as a real, load-bearing discrepancy rather than a quiet fix — whoever set the
+key on Railway didn't update the doc that told the next reader to expect a 503.
+
+**What was actually missing, and built:**
+
+- **Client-side validation on the message field**, scoped exactly to what the brief
+  asked (not name/email — those stay enforced by the existing server round-trip,
+  surfaced through the same generic `.contact-error` banner as any other send failure,
+  deliberately not duplicated client-side). The form carries `noValidate`, so nothing
+  caught an empty message before this — submit went straight to the network. Now:
+  trimmed-empty blocks submit, sets a `field-error` paragraph under the textarea
+  (`aria-describedby` + `aria-invalid` wired to it, a plain red border, no animation),
+  never calls the API. Clears on the next edit to that field, mirroring how the
+  existing top-level `error` status already resets on any edit.
+- **`data-state={status}`** on `.contact-container` — the full `idle/sending/sent/error`
+  machine, not just a hardcoded `"sent"` flag, matching `turntable.jsx`'s own
+  `data-deck-state` precedent (the only other place in this codebase doing exactly this)
+  rather than inventing a narrower pattern. No animation reads it yet — this is the
+  hook Task 2 attaches to, not the motion itself, per the brief's own scope line.
+
+**Verified live, not just read** — three states, real network calls, no mocking:
+
+- **Client-side block:** submitted with name+email filled, message empty. Inline
+  error rendered ("Please write a message before sending."), `aria-invalid="true"`,
+  confirmed via a request listener that **no** `/api/contact` request fired at all.
+- **Server failure path:** submitted with a malformed email (`not-an-email`) and a
+  real message. Got the server's own `400` — *"That email address doesn't look
+  right."* — rendered in `.contact-error`; the message field's contents were **not**
+  cleared, the form stayed fully editable, matching the brief's explicit requirement.
+- **Real success path:** submitted a genuine test message end-to-end through the local
+  dev server's live `RESEND_API_KEY`. Button read "Sending…" and was disabled while
+  pending; on completion `.contact-container[data-state="sent"]`, the success view
+  rendered, and clicking "Send another" reset both the form fields and `data-state`
+  back to `idle`. **This sent one real test email to Diego's own inbox** — the
+  configured `CONTACT_TO_EMAIL` — as the honest way to verify the path per the brief's
+  own instruction, not a synthetic/mocked assertion.
+- **Fail-closed path, confirmed independently:** since the live key meant the 503 path
+  couldn't be exercised through the running dev server, spun up a second, isolated
+  `server.js` instance on a separate port with `RESEND_API_KEY` explicitly cleared.
+  Got exactly the documented `503` — *"The form isn't available right now — please
+  email me directly."* — confirming the existing fail-closed logic is correct (not
+  just assumed correct from reading it), for whenever the key situation changes again.
+
+Full-page console/pageerror sweep clean (the one console line logged is the browser's
+own note about the deliberately-triggered `400` response, not an unhandled error).
+`npm run lint` holds at **7 errors, 2 warnings** (unchanged baseline). `npm run build`:
+JS 517.71 → **518.00 kB** (185.03 → **185.13 kB** gz, negligible), CSS 45.85 → **45.96
+kB** (9.61 → **9.64 kB** gz, negligible — two small rules, `.field-error` and the
+`aria-invalid` border cue). New evidence screenshots: `connect-field-error-desktop.png`,
+`connect-field-error-light.png`.
+
+**Explicitly not done here, per the brief's own scope:** no GSAP/`CustomBounce`/
+`ScrambleTextPlugin`, no animation on the `data-state` transitions, no visual/token
+pass (the separate, still-open "apply `--content-width`/`@mixin section-title` to
+`#connect`" item `ROADMAP.md` already tracks under Stage 3's remainder — a different
+piece of work from this one, not touched). `#connect`'s own Task 2 (animation) is now
+unblocked; the design-system token pass remains a separate, still-unstarted item.
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -3472,8 +3562,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **517.71 kB / 185.03 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Task 10.1's own video-dimension fix added a negligible +0.07 kB gz on top)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **45.85 kB / 9.61 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **518.00 kB / 185.13 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Task 10.1/Task 11 added a negligible +0.29 kB / +0.10 kB gz combined on top)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **45.96 kB / 9.64 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 
@@ -3485,7 +3575,7 @@ Not code — these need a human with dashboard access.
 
 | | Task | Why it matters |
 |---|---|---|
-| ⬜ | **Set `RESEND_API_KEY`** on the Railway *server* service | Contact form returns 503 until this lands. The only required var — `CONTACT_FROM_EMAIL` and `CONTACT_TO_EMAIL` have working defaults |
+| ✅ | ~~Set `RESEND_API_KEY` on the Railway *server* service~~ | **Stale as of 2026-08-19 — the key is live.** Confirmed by probing `https://api.diegodamian.com/api/contact` directly (an empty payload returns `400` from validation, not `503` from the missing-key check, which runs first) and by a real successful test send through the same code path. This line sat unchecked for at least one full task cycle after someone had already set the key, with nothing else in this file catching the mismatch — see Stage 3 Task 11's own dated entry above for the full writeup |
 | ⬜ | **Revoke the Gmail app password**, delete `SMTP_USER`/`SMTP_PASS` from `server/.env` and Railway | Unused credential granting send-as access to a personal Gmail |
 | ⬜ | Add `send.diegodamian.com` DNS records in Cloudflare (grey cloud) | Optional. Lifts the sandbox restriction so mail can be sent to any address and from `contact@send.diegodamian.com` |
 | ⬜ | Delete the Resend "Confirm email change" mail | Clicking it would move the account off `diegodamiango02@gmail.com` and **break delivery** |
