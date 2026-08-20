@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-19)*
+## 0. Current state — quick summary *(updated 2026-08-20)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -171,6 +171,23 @@ that assumed otherwise (`FINDINGS.md` D15). `#connect`'s animation (Task 2) and 
 still-separate design-system token pass (the "3 (remainder)" row just below) remain
 unstarted.
 
+**Most recently (2026-08-20) — `#projects` again: expanded content now scrolls into
+view.** A row's video/description/links could push past the fold with nothing bringing
+it back into view; fixed with a helper that skips entirely if the row already fits,
+otherwise moves the minimum distance to reveal whichever edge is cut off. The real work
+was diagnostic, not the scrolling logic itself: a browser-native mechanism, cause not
+identified despite ruling out every JS scroll call, `overflow-anchor`, focus-follow, and
+this app's own `useHashScroll`, moves `window.scrollY` on its own whenever a row's
+height changes — a delta computed upfront and fired alongside `Flip.from()` couldn't
+reliably predict where things would land once that mechanism also had a say. Redesigned
+to measure the real, final position after everything settles and correct only if still
+needed, rather than racing it — full writeup `FINDINGS.md` D16 (worth checking against
+before `#my-taste`'s own Task 5 below, the next place a Flip-driven layout change is
+likely to reorder content near the viewport edge). Also found and fixed along the way:
+`.portfolio-list` had no explicit height, so Task 10.1's `absolute: true` collapsed it
+to 0px for the whole tween, shifting `#connect` and the footer with it — `FINDINGS.md`
+B36. `STATUS.md`'s own Stage 3 Task 10.2 entry has the full writeup.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -184,7 +201,11 @@ unstarted.
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
 
 **Standing manual tasks (not code — need dashboard access), highest priority first:**
-1. Set `RESEND_API_KEY` on Railway's server service — the contact form 503s until this lands.
+1. ~~Set `RESEND_API_KEY` on Railway's server service~~ — **stale, corrected 2026-08-19.**
+   The key is already live (Stage 3 Task 11 found this by probing production directly;
+   `FINDINGS.md` D15). This line sat here claiming otherwise after someone had already
+   set it, with nothing catching the mismatch — left struck through rather than deleted
+   so the next reader sees the correction, not just a silently vanished line.
 2. Revoke the old Gmail app password; delete `SMTP_USER`/`SMTP_PASS` from `server/.env` and Railway.
 3. *(Optional)* Add `send.diegodamian.com` DNS records in Cloudflare to lift the Resend sandbox's own-address-only restriction.
 4. Do **not** click the Resend "Confirm email change" email sitting in the inbox — it would move the account off the working address.
@@ -992,6 +1013,22 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > the task brief itself, which both assumed the form still 503s — corrected
 > in `STATUS.md`, logged as `FINDINGS.md` D15. The separate design-system
 > token pass for `#connect` (below) is still unstarted.
+
+> **Stage 3 Task 10.2 is DONE — 2026-08-20.** `#projects`' expanded rows now
+> scroll into view when they don't already fit, skipping entirely when they
+> do. The scrolling logic itself was the easy part — the real work was
+> diagnosing a browser-native `window.scrollY` adjustment this app doesn't
+> cause and couldn't intercept (every JS scroll call, `overflow-anchor`,
+> focus-follow, and `useHashScroll` ruled out live, cause still unidentified
+> — `FINDINGS.md` D16), which made a delta computed upfront and fired
+> alongside `Flip.from()` unreliable. Redesigned to measure the real final
+> position after everything settles and correct only if still needed. Also
+> found and fixed: `.portfolio-list` had no explicit height, so `absolute:
+> true` (Task 10.1) collapsed it to 0px for the whole tween, shifting
+> `#connect` and the footer with it (`FINDINGS.md` B36). Worth checking D16
+> against before `#my-taste`'s own Task 5 below, the next place a
+> Flip-driven layout change is likely to reorder content near the viewport
+> edge.
 
 ### Stage 4 — `#my-taste` redesign
 

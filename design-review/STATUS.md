@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-19 (Stage 3 Task 11) · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-20 (Stage 3 Task 10.2) · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2375,6 +2375,94 @@ pass (the separate, still-open "apply `--content-width`/`@mixin section-title` t
 piece of work from this one, not touched). `#connect`'s own Task 2 (animation) is now
 unblocked; the design-system token pass remains a separate, still-unstarted item.
 
+### Stage 3 Task 10.2 — `#projects`: scroll expanded content into view *(2026-08-20)*
+
+Real gap: even though the collapsed section fits one screen (0.68×/0.77×, Task 10),
+an *expanded* row could push its own video/description/links below the fold, and
+nothing brought that content into view — the visitor had to scroll manually. Built a
+`scrollExpandedRowIntoView()` helper: skips entirely if the row already fits, lands
+the bottom flush at the viewport edge if only that's cut off, lands the top just below
+the nav if only that's cut off, and falls back to a top landing if the row is taller
+than the space available between the two (can't show all of it at once — the header
+and the start of the content win over chasing an unreachable bottom). Swap case (row A
+closes, row B opens) scrolls toward B, the row the visitor is actually trying to see;
+closing a row with nothing new opening never triggers a scroll.
+
+**The nav-offset constant needed two real fixes to actually reuse, both found live, not
+assumed from the code reading right:**
+
+- Read as `getComputedStyle(root).getPropertyValue("--scroll-offset")` first, per the
+  brief's own instruction to reuse the constant rather than a second number. Silently
+  returned `0` every time. `--scroll-offset` is a `calc(var(--navbar-height) + 24px)`
+  expression — a plain custom-property read returns that unresolved calc() **string**,
+  not a used-value number, so `parseFloat("calc(144px + 24px)")` is `NaN`, swallowed
+  silently by a `|| 0` fallback. Fixed by reading `scrollMarginTop` instead — a real
+  used-value CSS property that resolves to an actual px number even from a calc()'d
+  custom property, the same read Lenis's own `scrollTo(element)` does internally
+  (confirmed in `node_modules/lenis/dist/lenis.mjs`) for this exact reason.
+- Reading it off `rowEl.closest("section")` also silently returned `0`: `App.jsx` wraps
+  `Portfolio`'s own returned `<section className="portfolio-section">` inside a
+  **second, outer** `<section id="projects">` — the one `.content > section` actually
+  matches — so `closest()` from a row finds the *inner* one instead. Fixed by reading
+  it off `document.getElementById("projects")` directly, the same lookup
+  `scrollToSection()` itself already uses.
+
+**A real, page-wide bug found and fixed along the way, unrelated to scrolling itself —
+full writeup `FINDINGS.md` B36:** `.portfolio-list` has no explicit `position` and no
+height of its own; Task 10.1's `absolute: true` takes every row out of flow at once for
+the tween, so with nothing pinning it, the container collapsed to 0px height for the
+whole ~400ms — confirmed live, total document height dropped ~895px the instant the
+tween started, with `#connect` and the footer shifting upward to fill the gap the
+entire time. Fixed with GSAP's own documented pattern for this exact case: lock the
+container to a fixed pixel height (whichever of the before/after states is taller) for
+the tween's duration, release it in `onComplete`.
+
+**The harder problem, and the actual reason this took real diagnostic work: a
+browser-native scroll adjustment this app doesn't cause and can't intercept.** First
+version computed the target once, synchronously, and fired the scroll alongside
+`Flip.from()` — the direct reading of "coordinate timing... read as one motion." Live
+testing found that unreliable for reasons entirely outside this component: opening *or*
+closing a row — even with Flip fully disabled (reduced motion) and every scroll call
+and `scrollTop` write this app makes traced and ruled out (a `window.scrollTo`/
+`Element.prototype.scrollTop` monkeypatch caught zero calls) — measurably and
+consistently moves `window.scrollY` on its own, the instant the row's real content
+height changes. Ruled out, each confirmed live rather than assumed: scroll anchoring
+(disabled `overflow-anchor` via a real first-paint stylesheet rule *and* inline styles
+on every element — no change either way), a focus-follow effect (drift persisted with
+focus established well before the toggle, and with the button blurred before the
+layout change), this app's own `useHashScroll` correction (persisted well past its own
+2s settle window), and a Playwright/headless artifact (reproduced headed, with real
+mouse-dispatched clicks). Whatever the underlying mechanism actually is, a delta
+computed against a "before" snapshot can't reliably predict where things land once it's
+also had a say. Redesigned around measuring **after** everything settles instead of
+racing it: the scroll check now fires from `Flip.from()`'s own `onComplete` (one extra
+frame deferred — the other mechanism doesn't necessarily finish reacting in the exact
+frame `onComplete` fires; measured live, skipping that frame consistently undershot by
+single-digit-to-teens pixels, a late measurement rather than a wrong one), and for
+reduced motion, one `requestAnimationFrame` after the state commit. In practice this is
+usually a small top-up, not a large jump, since the other mechanism is already doing
+part of the work — and empirically it still reads as one continuous interaction, not a
+visible two-step jump.
+
+**Verified, not just read:** all four rows opened individually, all 12 ordered swap
+pairs, at 1440×900 / 1280×800 / 390×844 — **0 failures**, every row's full content
+(through the links row) lands within the true visible area (below the nav, above the
+viewport bottom) with no manual scrolling. Confirmed a row that's already fully visible
+after expanding does **not** trigger a scroll (opening the same row twice in a row
+lands at the identical `scrollY` both times). Confirmed reduced motion still
+repositions — exactly 2 distinct `scrollY` values across a 400ms sampled window around
+the click (one discrete jump, no ramp) — both for an individual open and a swap.
+Re-ran Task 10.1's own frame-trace check: the row's height across the Flip tween is
+still one smooth, monotonic power2.inOut curve, 94px→704px, no snap — this task's
+changes didn't disturb it. Re-ran Task 10's own regression suite (single-open behavior,
+`aria-expanded`, hover, keyboard open via Tab+Enter, console/pageerror sweep) — all
+clean. `npm run lint` holds at **7 errors, 2 warnings** (unchanged baseline). `npm run
+build`: JS 518.00 → **518.77 kB** (185.13 → **185.37 kB** gz, +0.24 kB gz — the scroll
+helper), CSS unchanged at **45.96 kB / 9.64 kB** gz (no visual/CSS changes this task).
+New evidence screenshots: `projects-scroll-into-view-desktop.png`,
+`projects-scroll-into-view-light.png` (full viewport, not element-clipped — shows the
+opened row's links landing inside the frame with no manual scroll).
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -3556,13 +3644,13 @@ crate too, not just `#my-taste`.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-19)*
+## 3. Current measurements *(refreshed 2026-08-20)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **518.00 kB / 185.13 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Task 10.1/Task 11 added a negligible +0.29 kB / +0.10 kB gz combined on top)* |
+| JS bundle | 407 KB / 147 KB gz | **518.77 kB / 185.37 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2 added a negligible +1.06 kB / +0.34 kB gz combined on top)* |
 | CSS bundle | 26.96 kB / 5.99 kB gz | **45.96 kB / 9.64 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |

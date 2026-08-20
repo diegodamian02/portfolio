@@ -1614,6 +1614,69 @@ exactly the documented `503` and message. So both states — key live (today's r
 and key absent (whatever briefs and stale docs assumed) — are now confirmed correct,
 not just one of them.
 
+### B36 — `.portfolio-list` collapsed to 0px height for the whole Flip tween, shifting `#connect` and the footer with it — **FOUND AND FIXED, Stage 3 Task 10.2**
+
+Found while building the scroll-into-view feature (Task 10.2), which needed
+document-level geometry to stay stable during the ~400ms Flip tween — it wasn't.
+`.portfolio-list` has no explicit `position` (defaults to `static`) and no height of
+its own; it's sized purely by its children's normal-flow contribution. Task 10.1's
+`absolute: true` takes every `.portfolio-item` out of flow **simultaneously** for the
+tween, so with nothing pinning the container, it lost all of that contribution at
+once. Confirmed live with a frame-by-frame poll: total document height dropped by
+~895px the instant the tween started and didn't recover until it finished, with
+`#connect` and the footer shifting upward the entire time to fill the gap — a real,
+page-wide reflow running underneath the whole interaction, independent of anything
+scroll-related. It had no way to surface before this task, since nothing previously
+depended on document-level geometry staying stable mid-tween — Task 10.1's own
+verification measured a single row's position relative to its immediate siblings, not
+the page as a whole. Fixed with GSAP's own documented pattern for this exact Flip +
+`absolute` + accordion combination: lock the container to a fixed pixel height for the
+tween's duration (whichever of the before/after states is taller, so a taller
+incoming row isn't briefly clipped right as Flip's own cleanup returns children to
+flow), release it in `onComplete`. Re-verified: total document height stays constant
+throughout the tween, confirmed via the same frame-by-frame poll.
+
+### D16 — opening or closing an accordion row moves `window.scrollY` on its own, by a mechanism this session could not identify — worked around, not fixed, Stage 3 Task 10.2
+
+Found while building the scroll-into-view feature. First version computed a scroll
+target once, synchronously, right after the DOM commit, and fired it alongside
+`Flip.from()`. Live testing found the result unreliable — not by a little, sometimes
+by several hundred pixels — and root-causing it turned into its own investigation,
+because the actual cause sits outside anything this codebase controls.
+
+**What's confirmed:** opening *or* closing a `.portfolio-item` row measurably and
+consistently moves `window.scrollY`, on its own, the instant the row's real content
+height changes — reproduced with Flip entirely disabled (`prefers-reduced-motion:
+reduce`, a plain `flushSync` state change, zero GSAP involvement), so this isn't a Flip
+artifact. **What's ruled out, each checked live, not assumed:**
+
+- **Not any JS call this app makes.** Monkeypatched both `window.scrollTo` and the
+  `scrollTop` property setter on `Element.prototype` — zero calls logged during the
+  drift, for `window.scrollTo`, Lenis's own internal writes, and everything else.
+- **Not CSS scroll anchoring.** Disabled `overflow-anchor` two ways — a real `html {
+  overflow-anchor: none; }` rule present from first paint (not injected after the
+  fact), and inline `style.overflowAnchor = "none"` forced onto every element in the
+  document via `querySelectorAll("*")`. Identical drift either way, pixel for pixel.
+- **Not a focus-follow effect.** Reproduced with focus established on the clicked
+  button via `.focus()` well before the toggle (no *new* focus event at the moment of
+  the layout change), and reproduced again with the button explicitly blurred before
+  the layout change fires. Neither changed the outcome.
+- **Not this app's own `useHashScroll`** (`hooks/use-hash-scroll.js`) — its own
+  `ResizeObserver`-driven correction disarms itself 2 seconds after a hash change; the
+  drift persisted even with 5–8 second waits inserted well past that window.
+- **Not a Playwright/headless artifact.** Reproduced in headed Chromium with real
+  Playwright-dispatched mouse clicks, not just headless with raw `element.click()`.
+
+**Not solved — worked around.** Task 10.2's own scroll-into-view logic no longer
+computes a target upfront and races this; it measures the row's real position *after*
+Flip's tween (or the reduced-motion state commit) has fully settled, and corrects only
+if still needed — full mechanism in `STATUS.md`'s own Task 10.2 entry. That sidesteps
+the problem for this feature specifically but doesn't explain what's actually causing
+`window.scrollY` to move. Worth knowing for `#my-taste`'s own still-open Task 5 (time-
+range switching + `Flip` re-rank, `ROADMAP.md`) — the next place in this codebase a
+Flip-driven layout change is likely to reorder/resize content near the viewport edge,
+where the same drift would plausibly reproduce.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

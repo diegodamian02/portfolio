@@ -3,8 +3,99 @@ import { flushSync } from "react-dom";
 import { useGSAP } from "@gsap/react";
 import { gsap, Flip, SIGNATURE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
+import { getActiveLenis } from "../lib/scroll.js";
 import projects from "../data/projectsData";
 import "../styles/main.scss";
+
+// Task 10.2 — scroll a just-opened row's full expanded content into view when
+// it doesn't already fit. Reuses --scroll-offset (main.scss), the same
+// nav-clearance constant scroll.js's own scrollToSection() reads via CSS
+// scroll-margin-top rather than a duplicated JS number.
+//
+// NOT read as getComputedStyle(root).getPropertyValue("--scroll-offset") —
+// tried that first and it silently returned 0 every time (caught live, not
+// assumed correct from the code reading right): --scroll-offset is a
+// calc(var(--navbar-height) + 24px) expression, and a plain custom-property
+// read returns that unresolved calc() STRING, not a used-value number —
+// parseFloat("calc(144px + 24px)") is NaN, and `|| 0` swallowed it silently.
+// scrollMarginTop is a real used-value CSS property, not an arbitrary custom
+// property string, so the browser resolves it to an actual px number even
+// though its source is a calc()'d custom property — the exact same read
+// Lenis's own scrollTo(element) does internally (confirmed in
+// node_modules/lenis/dist/lenis.mjs) for this same reason. `.portfolio-item`
+// doesn't carry scroll-margin-top itself (only `.content > section` does).
+//
+// Reads it off `#projects` specifically, found via getElementById rather
+// than rowEl.closest("section") — tried closest() first and it silently
+// returned 0 too (caught live): App.jsx wraps this component's own returned
+// `<section className="portfolio-section">` inside a SECOND, outer
+// `<section id="projects">`, so closest() from a row finds the inner one,
+// which was never the element `.content > section` matched. getElementById
+// is also what scrollToSection() itself uses to locate a section, so this
+// stays consistent with the one other place in the codebase doing the same
+// kind of lookup rather than inventing a second way to find it.
+//
+// Called AFTER everything else has settled (Flip's own onComplete, or a
+// couple of frames after the reduced-motion state commit), not concurrently
+// with the toggle — tried computing this once, upfront, and firing it
+// alongside Flip.from() first, since that's what "read as one motion" most
+// directly suggests. Live testing found that unreliable for reasons outside
+// this component entirely: opening OR closing a row — even with Flip fully
+// disabled (reduced motion) and every scroll call/scrollTop write this app
+// makes traced and ruled out — measurably moves window.scrollY on its own,
+// consistently and instantly, the moment the row's real content height
+// changes. Confirmed it isn't scroll-anchoring (disabled overflow-anchor
+// both via a real first-paint stylesheet rule and via inline styles on every
+// element — no change), isn't a focus-follow effect (drift persisted with
+// focus established well before the toggle, and with the button blurred
+// before the layout change), isn't this app's own useHashScroll correction
+// (persisted well past its own 2s settle window), and isn't a Playwright/
+// headless artifact (reproduced headed, with real mouse-dispatched clicks).
+// Whatever the underlying browser mechanism actually is, a delta computed
+// against a "before" snapshot can't reliably predict where things land once
+// it's also had a say — so instead of racing it, this measures the REAL,
+// final position once both it and Flip are done, and corrects only if the
+// row still isn't fully visible. Usually a small top-up, not a large jump,
+// since that other mechanism is already doing part of the work.
+function scrollExpandedRowIntoView(rowEl, { instant }) {
+    if (!rowEl) return;
+
+    const sectionEl = document.getElementById("projects") || rowEl;
+    const navOffset = parseFloat(getComputedStyle(sectionEl).scrollMarginTop) || 0;
+    const rect = rowEl.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const visibleTop = navOffset;
+    const visibleBottom = viewportHeight;
+
+    let delta = 0;
+    if (rect.bottom > visibleBottom) {
+        // Taller than the space actually available between the nav and the
+        // viewport's own bottom edge — the whole row can never fit at once.
+        // Land the top just below the nav (the same spot every anchor link
+        // on this site already lands on) rather than chasing a bottom that
+        // will always be a screen-height away.
+        delta = rect.height > visibleBottom - visibleTop
+            ? rect.top - visibleTop
+            : rect.bottom - visibleBottom;
+    } else if (rect.top < visibleTop) {
+        // Bottom already fits, but something moved this row's own top
+        // behind the fixed navbar — pull it down just clear of it.
+        delta = rect.top - visibleTop;
+    }
+
+    if (delta === 0) return;
+
+    const lenis = getActiveLenis();
+    if (lenis) {
+        lenis.scrollTo(lenis.scroll + delta, { immediate: instant, force: true });
+    } else {
+        // No Lenis instance: reduced motion (smooth-scroll.jsx never
+        // constructs one in that mode) or a call landing before it's
+        // mounted — native scroll is correct either way, same fallback
+        // scrollToSection() itself uses.
+        window.scrollBy({ top: delta, behavior: instant ? "instant" : "smooth" });
+    }
+}
 
 // Stage 3 Task 10 (#projects) — refined list, single-open accordion, GSAP
 // entrance. Direction from ROADMAP.md's Q1 still applies: shared design
@@ -34,14 +125,77 @@ export default function Portfolio() {
         const nextId = expandedProject === id ? null : id;
         const container = listRef.current;
 
-        if (!container || prefersReducedMotion) {
+        if (!container) {
+            // Ref not attached yet — shouldn't happen once mounted. Degrades
+            // to the plain state change, same as before this task; no row
+            // element to measure for a scroll target anyway.
             setExpandedProject(nextId);
+            return;
+        }
+
+        if (prefersReducedMotion) {
+            // flushSync here for the same reason the Flip branch below
+            // needs it: measuring the row's real settled position requires
+            // the DOM commit to have already happened, not be pending on
+            // React's own batched schedule. Instant jump, not an eased
+            // scroll — functional correction, not decoration, so reduced
+            // motion gets the repositioning without the animation, same
+            // distinction already made elsewhere on this site (Task 10's
+            // own entrance, About's hold).
+            //
+            // Deferred one frame, not called synchronously right here — see
+            // scrollExpandedRowIntoView's own comment. The browser's own
+            // reaction to this same DOM commit (confirmed live, present with
+            // zero animation involved and no scroll call of this app's own
+            // in sight) still needs a frame to happen; measuring before that
+            // computes a target that's already stale by the next paint.
+            flushSync(() => setExpandedProject(nextId));
+            if (nextId !== null) {
+                requestAnimationFrame(() => {
+                    scrollExpandedRowIntoView(container.querySelector(`[data-project-id="${nextId}"]`), { instant: true });
+                });
+            }
             return;
         }
 
         const state = Flip.getState(container.querySelectorAll(".portfolio-item, .portfolio-details"));
 
+        // Pin the container's own height for the tween's duration. Found
+        // live while building the scroll target below: .portfolio-list has
+        // no explicit `position` (defaults to static) and no height of its
+        // own — it's sized purely by its children's normal-flow
+        // contribution. `absolute: true` (Task 10.1) takes every row out of
+        // flow AT ONCE for the tween, so with nothing pinning it,
+        // .portfolio-list collapsed to 0px height for the whole ~400ms —
+        // confirmed via a frame-by-frame poll: total document height
+        // dropped by ~895px the instant the tween started and didn't
+        // recover until it finished, with #connect and the footer shifting
+        // upward to fill the gap the entire time. That's a real, page-wide
+        // reflow happening WHILE Flip's own tween runs, independent of
+        // anything scroll-related — it just had no way to surface before
+        // this task, since nothing previously depended on document-level
+        // geometry staying stable mid-tween. It's exactly what was
+        // corrupting the scroll target below (computed once, synchronously,
+        // against the correct pre-collapse layout, then landing wrong once
+        // the page reflowed underneath it during the 400ms that followed).
+        // GSAP's own documented fix for this exact Flip + absolute +
+        // accordion combination: lock the container to a fixed pixel height
+        // so it can't collapse, release it once the tween completes. Locked
+        // to whichever of the before/after states is taller, not just
+        // "before" — pinning to only the pre-toggle height would leave the
+        // container briefly shorter than a taller incoming row needs, right
+        // as Flip's own cleanup returns children to normal flow a beat
+        // before this component's onComplete below clears the lock.
+        const beforeHeight = container.offsetHeight;
+
         flushSync(() => setExpandedProject(nextId));
+
+        // Still normal static flow at this exact point — Flip.from() below
+        // is what switches everything to `position: absolute`, and it
+        // hasn't run yet — so this is a real, natural measurement of the
+        // new committed state's own height, not a guess.
+        const afterHeight = container.offsetHeight;
+        container.style.height = `${Math.max(beforeHeight, afterHeight)}px`;
 
         Flip.from(state, {
             // Re-queried AFTER the DOM update — Flip diffs this "after" set
@@ -79,6 +233,31 @@ export default function Portfolio() {
             absolute: true,
             onEnter: (els) => gsap.fromTo(els, { opacity: 0 }, { opacity: 1, duration: 0.3, delay: 0.15 }),
             onLeave: (els) => gsap.to(els, { opacity: 0, duration: 0.2 }),
+            onComplete: () => {
+                // Releases the height lock above back to auto —
+                // .portfolio-list resumes sizing itself off its real
+                // children.
+                container.style.height = "";
+                // The scroll-into-view check runs HERE, after Flip's own
+                // tween has finished, not before — see
+                // scrollExpandedRowIntoView's own comment for why. One
+                // extra frame first: the whatever-it-is browser mechanism
+                // that comment describes doesn't necessarily finish
+                // reacting in the exact same frame Flip's onComplete fires
+                // (measured live: without this, the correction consistently
+                // undershot by single-digit-to-teens pixels, not the large
+                // miss an actually-wrong calculation would produce — a
+                // one-frame-late measurement, not a wrong one). Swap case
+                // (row A closes, row B opens) scrolls toward B, the row the
+                // visitor is actually trying to see — closing a row with
+                // nothing new opening never reaches this at all (nextId is
+                // only non-null when something is opening).
+                if (nextId !== null) {
+                    requestAnimationFrame(() => {
+                        scrollExpandedRowIntoView(container.querySelector(`[data-project-id="${nextId}"]`), { instant: false });
+                    });
+                }
+            },
         });
     };
 
@@ -134,7 +313,7 @@ export default function Portfolio() {
                     const detailsId = `project-details-${project.id}`;
 
                     return (
-                        <div key={project.id} className="portfolio-item">
+                        <div key={project.id} className="portfolio-item" data-project-id={project.id}>
                             {/* Expandable Header */}
                             <button
                                 className="portfolio-header"
