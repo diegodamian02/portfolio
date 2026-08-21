@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-20)*
+## 0. Current state — quick summary *(updated 2026-08-21)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -167,9 +167,8 @@ validation (inline, no native alert) and a `data-state` hook for a future animat
 pass landed — `STATUS.md`'s own Stage 3 Task 11 entry has the full writeup, including a
 real discrepancy found and corrected: `RESEND_API_KEY` turns out to already be live on
 Railway, contradicting both this file's own outstanding-tasks list and the task brief
-that assumed otherwise (`FINDINGS.md` D15). `#connect`'s animation (Task 2) and its
-still-separate design-system token pass (the "3 (remainder)" row just below) remain
-unstarted.
+that assumed otherwise (`FINDINGS.md` D15). `#connect`'s own still-separate
+design-system token pass (the "3 (remainder)" row just below) remains unstarted.
 
 **Most recently (2026-08-20) — `#projects` again: expanded content now scrolls into
 view.** A row's video/description/links could push past the fold with nothing bringing
@@ -187,6 +186,26 @@ likely to reorder content near the viewport edge). Also found and fixed along th
 `.portfolio-list` had no explicit height, so Task 10.1's `absolute: true` collapsed it
 to 0px for the whole tween, shifting `#connect` and the footer with it — `FINDINGS.md`
 B36. `STATUS.md`'s own Stage 3 Task 10.2 entry has the full writeup.
+
+**Most recently (2026-08-21) — `#connect`'s own animation, Task 2 of 2 (numbered
+Task 11.2, a follow-up to Task 11 rather than a new top-level item, same convention as
+10.1/10.2):** a scroll-triggered entry pin, closing out the pair Task 11 opened. Brief
+named `#experience` alongside `#my-taste` as sharing "the same scroll-hold pin
+pattern" — re-read both live and they don't: `#experience`'s pin stays engaged for its
+whole scroll-through distance, continuously scrub-driven, with no "reveal completes,
+then release" moment at all; `#my-taste`'s pin (itself tracing back to About's Task 5)
+is the one that actually holds briefly, plays a timeline once, and releases from its own
+`onComplete` — built against that pattern instead, flagged rather than silently
+following the brief's framing. Two real bugs found along the way, both would have
+shipped broken if copied on faith: `.contact-section`'s plain `min-height: 100vh`
+(unlike `#about`'s own navbar-aware `calc()`) would have silently defeated the pin's own
+safety-net height check on every viewport (`FINDINGS.md` B37); and About/My Taste's own
+overshoot-correction, copied verbatim, turned out to actively unpin this specific
+trigger and produce a real ~200px visible jump right as the hold engaged — dropped
+entirely once live tracing showed nothing here reads `self.progress` for it to protect
+(`FINDINGS.md` B38). `STATUS.md`'s own Stage 3 Task 11.2 entry has the full writeup.
+Task 3 (free scroll both directions once unpinned) is this task's own stated
+assumption for what comes next, not built here.
 
 **Not started yet, in the order the roadmap currently has them:**
 
@@ -1008,11 +1027,12 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > **Stage 3 Task 11 is DONE (1 of 2) — 2026-08-19.** `#connect`'s contact
 > form got client-side message validation (inline error, no native alert)
 > and a `data-state` container hook for a future animation pass — Task 2,
-> still open. Found along the way: `RESEND_API_KEY` is already live on
-> Railway, contradicting both this file's own outstanding-tasks list and
-> the task brief itself, which both assumed the form still 503s — corrected
-> in `STATUS.md`, logged as `FINDINGS.md` D15. The separate design-system
-> token pass for `#connect` (below) is still unstarted.
+> landed 2026-08-21 as Task 11.2, below. Found along the way:
+> `RESEND_API_KEY` is already live on Railway, contradicting both this
+> file's own outstanding-tasks list and the task brief itself, which both
+> assumed the form still 503s — corrected in `STATUS.md`, logged as
+> `FINDINGS.md` D15. The separate design-system token pass for `#connect`
+> (below) is still unstarted.
 
 > **Stage 3 Task 10.2 is DONE — 2026-08-20.** `#projects`' expanded rows now
 > scroll into view when they don't already fit, skipping entirely when they
@@ -1029,6 +1049,29 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > against before `#my-taste`'s own Task 5 below, the next place a
 > Flip-driven layout change is likely to reorder content near the viewport
 > edge.
+
+> **Stage 3 Task 11.2 is DONE — 2026-08-21.** `#connect`'s own scroll-hold
+> entry pin, closing out the pair Task 11 opened (Task 2 of 2, numbered as a
+> decimal follow-up rather than a new top-level item, same convention as
+> 10.1/10.2). Brief grouped `#experience` with `#my-taste` as sharing one
+> pin pattern; re-read both live and they don't — `#experience`'s pin stays
+> engaged for its whole scrub-driven scroll-through with no release-on-
+> complete moment, `#my-taste`'s (tracing back to About's own Task 5) is the
+> one that actually holds briefly and releases from its timeline's
+> `onComplete` — built against that pattern instead. SplitText cascade
+> (title → description → compose box), gated behind
+> `prefers-reduced-motion: no-preference` only — nothing needed a separate
+> reduced-motion branch, since nothing here is hidden by CSS by default.
+> Two real bugs found live: `.contact-section`'s plain `min-height: 100vh`
+> would have silently defeated the pin's own safety-net height check on
+> every viewport, unlike `#about`'s navbar-aware `calc()` (`FINDINGS.md`
+> B37); and About/My Taste's overshoot-correction, copied verbatim, turned
+> out to unpin this specific trigger and produce a real ~200px visible jump
+> right as the hold engaged — dropped once tracing showed nothing here
+> reads `self.progress` for it to protect (`FINDINGS.md` B38). Verified
+> live: fresh nav into `#connect`, fresh-reload-then-immediate-scroll (B30
+> regression check), scroll back up past it, and a second pass through it
+> (should not re-hold) — all clean, zero console errors.
 
 ### Stage 4 — `#my-taste` redesign
 

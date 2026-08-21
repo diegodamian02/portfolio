@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-20 (Stage 3 Task 10.2) · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-21 (Stage 3 Task 11.2) · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2463,6 +2463,87 @@ New evidence screenshots: `projects-scroll-into-view-desktop.png`,
 `projects-scroll-into-view-light.png` (full viewport, not element-clipped — shows the
 opened row's links landing inside the frame with no manual scroll).
 
+### Stage 3 Task 11.2 — `#connect`: scroll-triggered entry pin + reveal *(2026-08-21)*
+
+Brief asked to reuse "the same scroll-hold pin pattern already established elsewhere
+(`#my-taste`, `#experience`)." Re-read both live rather than assumed, per the brief's
+own instruction — they aren't the same pattern. `#experience`'s pin
+(`gsap.timeline({ scrollTrigger: { pin: true, scrub: 0.3 } })`) stays pinned for its
+*entire* scroll-through distance, continuously driven by live scroll position — there's
+no "reveal completes, then release" moment there at all. `#my-taste`'s pin
+(`ScrollTrigger.create({ pin: true, once: true, onEnter })`, holding real scroll via
+`lenis.stop()`/`lenis.start()` while a paused timeline plays once and releases from its
+own `onComplete`) is the one that actually matches "pin briefly, reveal, release" — and
+its own comments trace that primitive back one step further, to About's Task 5 entrance
+hold, the original source. Built `#connect`'s entry pin against About/My Taste's real
+pattern, flagged the mismatch rather than building against the brief's framing.
+
+Reveal is SplitText only, no DrawSVGPlugin — the brief said "and/or," and this section
+has no SVG in it to draw (checked before assuming one should exist). Cascade: title
+words → description words (its inline `mailto:` link survives untouched — SplitText's
+`type: "words"` only touches text nodes, same reasoning My Taste's own kicker comment
+already established for a mixed text+element node) → the compose box as one staggered
+group (`.form-group` × 3 + submit button; the honeypot is skipped, it's already
+invisible). Asset-load gating ("fonts, images... per the existing pin-not-engaging-
+after-reload fix from `#my-taste`") wasn't re-implemented per-section — re-read
+`smooth-scroll.jsx` before assuming it needed a copy: B30's fix (`document.fonts.ready`
++ a debounced `ResizeObserver` on `document.body`, both calling one page-wide
+`ScrollTrigger.refresh()`) already covers every registered trigger, this one included.
+
+**Two real bugs found live, both would have shipped broken if copied on faith:**
+
+- `.contact-section` used a plain `min-height: 100vh`, not the navbar-aware
+  `calc(100vh - var(--navbar-height))` `#about`/`.about-me-section` both use — and
+  About's own comment says that's load-bearing for its onEnter safety check. Left as
+  100vh, the check (`sectionHeight > available`) would read this section as taller than
+  available on *every* normal viewport (100vh is always ~navbarHeight more than
+  innerHeight-minus-navbar) and skip the hold every single time — the pin would simply
+  never engage. Fixed the CSS to match precedent, and measured the check against
+  `.contact-container`'s real content height rather than the outer shell either way
+  (the shell is deliberately taller than its content via flex-centering, a second,
+  independent reason to not measure it directly).
+- Copied About/My Taste's overshoot correction verbatim at first
+  (`lenis.scrollTo(self.start, {immediate:true, force:true})` before `lenis.stop()`) —
+  live instrumentation showed it actively breaking things here: by the time `onEnter`
+  fires, GSAP had *already* snapped the section to its pinned position (top ===
+  navbarHeight, confirmed via a temporary onEnter probe) — there's no scrub reading
+  `self.progress` for an overshoot to corrupt. Forcing scroll back to exactly
+  `self.start` landed precisely on the pin's own boundary, and — traced frame by
+  frame — that snap made ScrollTrigger unpin the section on the spot, dropping it back
+  into unpinned document flow ~200px away from the pinned spot for the *entire* reveal:
+  a real, visible jump right as the hold engaged, present on every single run until
+  removed. Dropping the correction (just `lenis.stop()`, nothing else) leaves the pin
+  exactly where GSAP had already put it — confirmed no jump across repeated runs.
+
+**Verified live, not read as correct:** fresh nav, scroll from `#projects` through
+`#connect` — pin engages at exactly `top === navbarHeight`, cascade plays start to
+finish (title → description → form, each stage's opacity traced 0→1 in sequence) while
+`scrollY` sits completely frozen (continuous wheel input during the freeze produces zero
+movement), pin releases and scroll resumes freely. Reload mid-scroll (B30 regression
+check, same repro method as the original finding — fresh navigation, then immediate
+realistic wheel scroll, no settle wait): pin engages correctly and identically, both
+times run. Scroll back up past `#connect` into `#projects`: `position` reads `static`
+throughout, no stuck fixed state. A second pass back down through `#connect`: does not
+re-hold (`once: true` honored — longest frozen run on the second pass is just normal
+Lenis momentum settling at the page's own scroll ceiling, not a real hold). Reduced
+motion: content renders at full opacity immediately, `position` never reads `fixed`
+across a full scroll-through — no code needed for this beyond gating the whole
+mechanism behind `(prefers-reduced-motion: no-preference)`, since nothing is hidden by
+CSS by default here (unlike About's mask, nothing needed correcting in the reduced
+branch). Short-viewport safety net (1440×480, content 697px vs. 336px available):
+content-height check correctly reads `bypass: true`; GSAP's own unconditional `pin:
+true` still engages *momentarily* regardless of the bypass branch (expected — the
+branch only skips this component's own `lenis.stop()` hold, it can't stop GSAP's native
+pin from engaging at all) but self-releases as normal, unblocked scrolling carries past
+it — confirmed the reveal still completes (`formOpacity: 1`) and `position` settles back
+to `static`, never stuck. Mobile width (390×844): clean engage/reveal/release, no stuck
+state scrolling back up. Zero console/page errors across every run. `npm run lint`
+holds at **7 errors, 2 warnings** (unchanged baseline). `npm run build`: JS
+518.77 → **520.34 kB** (185.37 → **185.66 kB** gz), CSS 45.96 → **46.04 kB**
+(9.64 kB gz, unchanged). New screenshots: `connect-entry-pin-mid-reveal-dark.png`,
+`connect-entry-pin-mid-reveal-light.png` (full viewport, mid-cascade — title settled,
+description fading in, form not yet visible, pin actively engaged).
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -3644,14 +3725,14 @@ crate too, not just `#my-taste`.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-20)*
+## 3. Current measurements *(refreshed 2026-08-21)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **518.77 kB / 185.37 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2 added a negligible +1.06 kB / +0.34 kB gz combined on top)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **45.96 kB / 9.64 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **520.34 kB / 185.66 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/12 added +1.57 kB / +0.53 kB gz combined on top)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **46.04 kB / 9.64 kB gz** |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

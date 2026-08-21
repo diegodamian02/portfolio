@@ -3289,7 +3289,20 @@ html {
   display: flex;
   justify-content: center;
   transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
-  min-height: 100vh;
+  // Was plain `min-height: 100vh` — the same trap #about's own comment
+  // (above, .about-me-section) already documents: 100vh ignores the fixed
+  // navbar sitting on top of the viewport, so this section's rendered
+  // height always came out ~navbarHeight taller than the space actually
+  // available below the navbar. Harmless while nothing measured against it
+  // — became load-bearing with Stage 3 Task 12's entry pin, whose onEnter
+  // safety check (connect.jsx) compares this section's real height against
+  // that same navbar-adjusted "available" figure; left at plain 100vh, the
+  // check would read this section as taller than available on every normal
+  // viewport and silently skip the hold every time. calc()'d against
+  // --navbar-height, same dual vh/dvh declaration as .about-me-section
+  // (later dvh wins where supported, vh remains the fallback).
+  min-height: calc(100vh - var(--navbar-height));
+  min-height: calc(100dvh - var(--navbar-height));
   overflow: hidden;
 }
 

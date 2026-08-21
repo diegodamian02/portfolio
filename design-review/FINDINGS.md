@@ -1677,6 +1677,54 @@ range switching + `Flip` re-rank, `ROADMAP.md`) — the next place in this codeb
 Flip-driven layout change is likely to reorder/resize content near the viewport edge,
 where the same drift would plausibly reproduce.
 
+### B37 — `.contact-section` used a plain `min-height: 100vh`, silently defeating any navbar-aware height check built against it — **FOUND AND FIXED, Stage 3 Task 11.2**
+
+Found building `#connect`'s entry-pin safety net (About's own pattern: skip the hold,
+just play the reveal on its own clock, if real content is taller than the space actually
+available below the fixed navbar). `#about`/`.about-me-section` both use
+`min-height: calc(100vh - var(--navbar-height))` specifically because About's own
+onEnter math needs the section's rendered height to reflect the *true* content
+floor — its own comment says as much. `.contact-section` had never needed that: nothing
+measured its height against anything before this task. Left at plain `100vh`, the
+section's rendered height comes out ~`navbarHeight` taller than
+`window.innerHeight - navbarHeight` on *every* normal viewport (100vh doesn't know the
+navbar exists) — so a safety check comparing the two would read this section as
+overflowing on every viewport, always taking the bypass branch, and the hold would never
+engage at all, on any screen. Fixed by matching the existing `#about` convention
+(`calc(100vh - var(--navbar-height))`, dual vh/dvh declaration, `main.scss`) rather than
+inventing a parallel workaround — the check itself was also pointed at
+`.contact-container`'s real content height rather than the outer shell either way, since
+the shell is deliberately taller than its content via flex-centering regardless of this
+bug. Verified live: the safety net correctly reads `bypass: true` on a genuinely short
+viewport (1440×480, content 697px vs. 336px available) and correctly reads `false` (hold
+engages) at every standard breakpoint tested.
+
+### B38 — copying About/My Taste's overshoot-correction verbatim broke `#connect`'s pin instead of protecting it — **FOUND AND FIXED, Stage 3 Task 11.2**
+
+Both existing timed-hold pins (`about.jsx`, `my-taste.jsx`) call
+`lenis.scrollTo(self.start, { immediate: true, force: true })` immediately before
+`lenis.stop()`, to correct scroll overshoot before freezing. Copied verbatim for
+`#connect` on the reasonable assumption that a shared pattern's own safety mechanism
+transfers with it. Live instrumentation (a temporary `onEnter` probe logging
+`self.start`, real `scrollY`, and the section's measured `top` at fire time) showed
+this doesn't hold here: by the time `onEnter` fires, GSAP's own pin had *already*
+snapped the section to its correct pinned position (`top === navbarHeight`) —
+confirmed directly, not inferred — because nothing on this trigger scrubs or reads
+`self.progress`, so there's no overshoot-dependent visual state for the correction to
+protect. Forcing scroll backward to exactly `self.start` landed precisely on the pin's
+own start boundary, and per-frame tracing showed that boundary snap made ScrollTrigger
+unpin the section on the spot — dropping it into unpinned document flow roughly 200px
+away from the correct pinned position for the *entire* reveal, a real, visible jump the
+instant the hold engaged, reproduced on every run until the correction was removed.
+
+Fixed by dropping the correction entirely for this pin — `lenis.stop()` alone leaves
+the section exactly where GSAP had already, correctly, put it. Re-verified across
+repeated runs (fresh nav, and fresh-reload-then-immediate-scroll): pin engages cleanly
+at `top === navbarHeight`, zero jump, in every run. Worth remembering for any future
+timed-hold pin built by copying this family of code: the overshoot correction is only
+meaningful for a trigger whose visual/engage state depends on `self.progress` — not
+a blanket requirement of the pattern itself.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor
