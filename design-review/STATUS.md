@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-21 (Stage 3 Task 11.2) · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-21 (Stage 3 Task 12) · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2544,6 +2544,140 @@ holds at **7 errors, 2 warnings** (unchanged baseline). `npm run build`: JS
 `connect-entry-pin-mid-reveal-light.png` (full viewport, mid-cascade — title settled,
 description fading in, form not yet visible, pin actively engaged).
 
+### Stage 3 Task 12 — `#connect`: the send-success walkman *(2026-08-21)*
+
+A new, separate brief (no task number given in it — numbered here as the next
+fresh top-level item, not a further decimal off Task 11: this is new,
+distinct functionality layered on an already-complete Task 11.2, not a fix or
+extension of that same feature the way each of 10.1/10.2/11.2 was to its own
+parent task). Re-read `connect.jsx` fresh per the brief's own explicit
+instruction before touching anything — confirmed Task 11.2's entry pin was
+exactly as documented, built on top of it rather than around it.
+
+**What it is:** on a successful send, the compose box's own cassette-shaped
+message field (below) visually shrinks and flies into a cassette
+walkman's bay, the walkman pops up, scales up and centers over a dimmed
+section-scoped scrim while its lid snaps shut, a small EQ + a cord wiggle
+start looping, and "MESSAGE SENT" resolves onto an LCD screen through a
+ghost/lit segment pair — then the scrim fades, the walkman settles back into
+normal in-flow content, and a "send another message" affordance appears. A
+second send in the same session reuses the same walkman (no pop-in replay) —
+the cassette flies in again, lid, scrim, scramble and all, onto an
+already-visible device. Reduced motion skips straight to the settled end
+state with no scrim, no scale, no scramble, no loop. A failed send never
+shows any of this — hidden on a first-ever failure, untouched (still settled,
+still idle-looping) on a failure after an earlier successful send.
+
+**Cassette-shaped compose box** (`main.scss`): the message textarea sits
+inside a paper "tape label" card with two decorative reel windows
+(`pointer-events: none`, never between the pointer and the real control).
+Task 11's own invalid-state cue used to live on the textarea's own border;
+moved up to the label itself via `:has(textarea[aria-invalid="true"])` once
+the textarea's border was removed in favour of the label's.
+
+**The walkman** (`walkman.jsx`, new): flat HTML+SVG layers, not one
+monolithic SVG with embedded `<foreignObject>` text — the LCD screen and EQ
+bars are real DOM text/divs positioned over a plain SVG body, so the
+self-hosted font and ScrambleTextPlugin (both DOM-text mechanisms) apply
+normally without foreignObject's own cross-browser text-rendering quirks. EQ
+bar colours come from `colorwayFor()` (the same deterministic id -> `--vinyl-N`
+mapping the turntable/My Taste already use), salted per bar index, per the
+brief's own instruction not to hardcode them.
+
+**Self-hosted 7-segment font:** DSEG7 Classic (Bold), same self-hosting
+pattern `#my-taste`'s own Anton/Oswald/Space Mono use (Stage 4 Task 1) — a
+real font file checked into the repo, not a CDN link. No `@fontsource`
+package exists for it (checked npm before assuming one did): the `dseg` npm
+package ships FontForge *source* (`.sfd`) files only, no compiled woff/woff2.
+The two files actually in use (`client/src/assets/fonts/dseg7-classic/`) were
+built from keshikan/DSEG's own GitHub release archive (`v0.46`, SIL OFL 1.1 —
+`DSEG-LICENSE.txt` sits alongside them) instead, and checked in directly. The
+LCD readout itself reads "MESSAGE SENT," not the fuller two-sentence copy
+`.contact-success` already shows as plain, fully accessible text — a real
+LCD this size can't hold two sentences legibly, and a short, plain word reads
+far more cleanly in a 7-segment font than mixed-case prose with punctuation
+would. The ghost ("unlit segment") layer is computed from that same string
+(`text.replace(/\S/g, "8")`) so it lines up character-for-character with the
+lit layer above it.
+
+**GSAP mechanics, and what each one is actually for:**
+- **Flip** (`Flip.getState`/`Flip.from`) — the cassette's own flight. State is
+  captured on the *real* textarea-cassette while it's still mounted, in
+  `handleSubmit`, before the DOM change that unmounts the form entirely (the
+  brief's own 1a). The element that actually flies (`.cassette-flight`) is a
+  *different*, purely decorative node — matched to the captured state purely
+  by a shared `data-flip-id`, confirmed against `node_modules/gsap/Flip.js`
+  directly before relying on it (Flip matches state entries by that id, not
+  literal node identity — the documented technique for "this element became
+  that one," not "this element moved"). Built this way on purpose, not raw
+  `document.createElement`/`appendChild`: a node React doesn't know about,
+  inserted directly into a parent React *does* reconcile, risks a real
+  conflict the next time React touches that parent's children. The flight
+  element is React-rendered (a `flightSlot` state value) instead, so GSAP only
+  ever touches style/transform on nodes React already placed.
+- **CustomBounce** (`WALKMAN_POP_EASE`, `lib/gsap.js`) — the walkman's own
+  pop-in and the lid snapping shut. One shared bounce shape for both (strength
+  0.3, same "one clear beat, not a rally" tuning My Taste's own `CARD_LAND_EASE`
+  settled on, Task 4.1) rather than a separate ease per beat.
+- **ScrambleTextPlugin** — the LCD readout resolving through the ghost layer.
+- **Plain `sine.inOut` + `repeat:-1`/`yoyo:true`, not CustomWiggle** — the idle
+  EQ/cord loop. CustomWiggle's own shape is built to decay back to exactly 0
+  once (My Taste's tape-snap); reusing it as a manual repeat/yoyo pair would
+  fight that decay every cycle instead of reading as one continuous sway.
+
+**Two real bugs found live, both fixed (full writeup `FINDINGS.md` B39):**
+`.walkman`'s own CSS carried a permanent `transform: scale(0.5)` (meant only
+as a pre-JS "hidden" default, matching the pop-in's own start state) — once
+the settle animation's `clearProps: "transform"` ran, it fell back to that
+CSS rule instead of no transform at all, sticking the settled walkman at half
+size. Fixed by dropping the CSS-level transform entirely (`opacity: 0` alone
+already fully hides it pre-JS). Caught by checking the actual settled
+`transform` value live, not by eyeballing a screenshot.
+
+**A pre-existing, unrelated bug found while regression-testing, NOT fixed
+here — full writeup `FINDINGS.md` D17:** an aggressive bot-paced full-page
+scroll sweep intermittently (~1 run in 3-4) threw an uncaught React crash
+inside `#my-taste`'s `AvatarSlot` (`insertBefore` on a node that's no longer
+a child) — no error boundary anywhere in the tree, so it blanks the whole
+page. Confirmed genuinely pre-existing before writing it down: `git stash`'d
+every uncommitted change from this task and reran the identical sweep against
+the prior commit — same intermittent failure, same component, similar rate.
+`my-taste.jsx` was never touched by this task. Flagged, not chased further —
+out of this task's own scope.
+
+**Verified, not just read as correct:** real submit success — full pop-in ->
+flight -> lid-snap -> scrim -> scale-up -> EQ/cord-loop-start -> scramble ->
+scrim-out -> settle, traced live via computed style sampling (opacity/scrim
+opacity/scramble text/flight-element existence), not eyeballed. A second send
+in the same session — walkman opacity confirmed to never drop to 0 (no pop-in
+replay), flight/lid/scrim/scramble all still fire correctly onto the
+already-visible device, EQ bar transform confirmed changed (idle loop still
+genuinely looping, not stuck) both before and after. Reduced motion — settled
+instantly (opacity 1, transform none, lit text set directly with no scramble,
+EQ bar transform unchanged 1s later confirming no loop ever started). A
+failed send — walkman never renders at all, form stays visible, real error
+text shown. Scroll away from the settled walkman then back — still exists,
+`.contact-section` stays `position: relative` (never fixed), EQ bar transform
+confirmed still changing (loop survived the round trip, not duplicated or
+killed). The takeover's own scale cap — measured live at 1440px and at 390px
+(the narrowest currently-supported width): zero overflow past
+`.contact-section`'s own bounds at either, confirmed via real
+`getBoundingClientRect()` comparison, not assumed from the clamp math alone.
+Cassette invalid-state border (`:has()`) — confirmed live (`aria-invalid`
+true, cassette border red, error text shown). A realistic-paced full top-to-
+bottom scroll sweep and a Portfolio Flip-accordion sanity check — both clean,
+confirming this task didn't disturb Task 10's own Flip mechanics despite
+touching the shared `lib/gsap.js`. `npm run lint` holds at **7 errors, 2
+warnings** (unchanged baseline — one new `react/prop-types` suppression for
+`walkman.jsx`'s `rootRef`, same precedent as `turntable.jsx`'s `track`).
+`npm run build`: JS 520.34 -> **525.44 kB** (185.66 -> **187.21 kB** gz), CSS
+46.04 -> **50.09 kB** (9.64 -> **10.54 kB** gz — the cassette/walkman rules +
+the two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff). New
+screenshots: `connect-cassette-form-{dark,light}.png`,
+`connect-walkman-takeover-{dark,light}.png` (the light one caught the flying
+cassette mid-transit and the ghost segment layer fully visible — genuinely
+more illustrative than a posed shot), `connect-walkman-settled-{dark,light}.png`.
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -3731,8 +3865,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **520.34 kB / 185.66 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/12 added +1.57 kB / +0.53 kB gz combined on top)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **46.04 kB / 9.64 kB gz** |
+| JS bundle | 407 KB / 147 KB gz | **525.44 kB / 187.21 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12 added +6.67 kB / +2.08 kB gz combined on top, mostly Task 12's own walkman sequence)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **50.09 kB / 10.54 kB gz** *(Task 12 alone added +4.05 kB / +0.90 kB gz — the cassette/walkman rules; the two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

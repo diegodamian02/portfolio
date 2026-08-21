@@ -116,6 +116,30 @@
   --vinyl-4: #131f42; // midnight blue
   --vinyl-5: #454a52; // marbled smoke
 
+  // Walkman (Stage 3 Task 11.2's own follow-up — the send-success takeover,
+  // connect.jsx/walkman.jsx). Same "physical object gets its own token
+  // family, tuned per theme rather than reusing page tokens" convention as
+  // --vinyl-N/--crate-* above — the case is a plastic device sitting on the
+  // page, not a page surface itself, so it's tuned for contrast against
+  // --bg-color per theme rather than sharing --bg-color directly.
+  --walkman-body: #23262e;
+  --walkman-body-dark: #1a1c22;
+  --walkman-detail: rgba(255, 255, 255, 0.16);
+
+  // LCD screen + cassette label — FIXED, not redeclared under
+  // [data-theme="light"], same reasoning as --panel-text/--panel-accent
+  // above: a backlit LCD readout and a printed paper label don't get
+  // lighter or darker because the SITE switched theme, any more than
+  // Experience's photo-panel captions do. --lcd-lit doubles as the ghost
+  // layer's own source colour (color-mix'd down in main.scss below) so the
+  // two segment layers can never drift out of hue with each other.
+  --lcd-bg: #0b1410;
+  --lcd-lit: #6dffb0;
+  --cassette-label: #efe9db;
+  --cassette-label-line: #cbc1a6;
+  --cassette-label-text: #2c2718;
+  --cassette-reel-window: #17181c;
+
   // Deck materials.
   //
   // Every surface on the turntable is mixed against --deck-ground instead of
@@ -267,6 +291,15 @@
   --vinyl-3: #571422;
   --vinyl-4: #16244d;
   --vinyl-5: #3d424a;
+
+  // Walkman case, lightened for a light page the same way --deck-ground
+  // shifts below — a dark-navy-tuned case would read as a hole in a light
+  // page rather than a plastic object sitting on it. --lcd-*/--cassette-*
+  // stay fixed (declared once, in :root only) — a screen and a paper label
+  // don't get lighter because the page did.
+  --walkman-body: #d7d9e0;
+  --walkman-body-dark: #c3c5cf;
+  --walkman-detail: rgba(10, 14, 26, 0.18);
 
   // The deck sat at ~#d5d7dc against a #f6f7fb page — measured 11 L* points
   // apart, which is under the ~15 needed to read as an edge, so the plinth
@@ -3304,6 +3337,13 @@ html {
   min-height: calc(100vh - var(--navbar-height));
   min-height: calc(100dvh - var(--navbar-height));
   overflow: hidden;
+  // Positioning context for .connect-scrim and the walkman takeover's own
+  // centering transform (walkman.jsx/connect.jsx) — both are section-scoped
+  // per the brief ("not viewport-wide fixed"), not viewport-fixed, so they
+  // resolve against THIS box, not html/body. overflow: hidden above (Task 1,
+  // unrelated) doubles as the takeover's own clip boundary for free — the
+  // scale cap (connect.jsx) keeps it from ever needing to actually clip.
+  position: relative;
 }
 
 .contact-container {
@@ -3440,6 +3480,309 @@ html {
   .submit-button {
     margin-top: 1rem;
   }
+}
+
+// ---- Walkman send-success takeover (Stage 3 Task 11.2's own follow-up) ----
+//
+// Self-hosted DSEG7 Classic (Bold only — one weight covers both the ghost
+// and lit screen layers, nothing here needs a second weight), same
+// self-hosting pattern @fontsource/anton etc. use for #my-taste (Stage 4
+// Task 1) — a real font FILE checked into the repo, not a CDN link. Unlike
+// those, DSEG7 has no @fontsource package (checked npm before assuming one
+// existed): the `dseg` npm package ships FontForge SOURCE (.sfd) files
+// only, no compiled woff/woff2, so the two files here were built from
+// keshikan/DSEG's own GitHub release archive instead and checked in
+// directly — DSEG-LICENSE.txt (SIL OFL 1.1, free to embed) sits alongside
+// them, same folder.
+@font-face {
+  font-family: "DSEG7 Classic";
+  src:
+    url("../assets/fonts/dseg7-classic/DSEG7Classic-Bold.woff2") format("woff2"),
+    url("../assets/fonts/dseg7-classic/DSEG7Classic-Bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+// Cassette-shaped compose box — the message textarea restyled as a tape
+// label (paper card + two reel windows), not the whole .contact-form. Label
+// colours are FIXED (--cassette-*, declared once in :root) — the same
+// "physical object, not a page surface" reasoning as --lcd-*/--vinyl-N.
+.message-cassette {
+  position: relative;
+  border-radius: 10px;
+  border: 2px solid var(--cassette-label-line);
+  background: var(--cassette-label);
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  // Task 2's own validation cue used to live on the textarea's own border
+  // (main.scss, [aria-invalid="true"]); that border is gone now that the
+  // cassette label supplies the visible edge instead, so the cue moves up
+  // to the label itself via :has() rather than being silently dropped.
+  transition: border-color var(--theme-transition);
+
+  &:has(textarea[aria-invalid="true"]) {
+    border-color: #ff6b6b;
+  }
+}
+
+.message-cassette-reels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  margin-bottom: var(--space-1);
+  // Decorative only — must never sit between the visitor's pointer and the
+  // textarea underneath (the brief's own "tape-label textarea," not a
+  // separate clickable part).
+  pointer-events: none;
+}
+
+.message-cassette-reel {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  margin-top: var(--space-2);
+  border-radius: 50%;
+  background: var(--cassette-reel-window);
+  border: 3px solid var(--cassette-label-line);
+
+  // The hub — a real cassette reel's own center hole, showing the label
+  // colour "through" the window. A pseudo-element, not a second DOM node:
+  // purely decorative, same as the reel circle itself.
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cassette-label);
+  }
+}
+
+.message-cassette textarea {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: var(--cassette-label-text);
+  border: none;
+  border-radius: 6px;
+  padding: var(--space-2);
+  font-family: inherit; // body font — DSEG7 stays reserved for the walkman's own screen, not the label
+  font-size: 1rem;
+  resize: vertical;
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--cassette-label-text) 55%, transparent);
+  }
+
+  &:focus {
+    outline: 2px solid var(--cassette-label-text);
+    outline-offset: 2px;
+  }
+}
+
+// A decorative clone of .message-cassette, Flip-animated from the real
+// textarea's own measured rect into the walkman's bay (connect.jsx) —
+// exists only for the flight's own duration, then removed. Absolutely
+// positioned against .contact-section (position: relative, above), not the
+// viewport.
+.cassette-flight {
+  position: absolute;
+  border-radius: 10px;
+  border: 2px solid var(--cassette-label-line);
+  background: var(--cassette-label);
+  pointer-events: none;
+  z-index: 7;
+}
+
+// Section-scoped dim scrim (Phase 1 step 4) — absolute against
+// .contact-section, NOT position: fixed, so it can never cover anything
+// outside #connect or follow scroll past it, per the brief's own explicit
+// constraint. Flat colour, no gradient, matching the rest of this site's
+// visual language.
+.connect-scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, black 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+// The walkman itself. Rest size/position is plain static in-flow content
+// (brief's own 9a — "no fixed positioning") the ENTIRE time; the takeover's
+// "scale up and center" (Phase 1 step 5) is a pure transform (scale + x/y,
+// connect.jsx, computed from real measured rects) on this same static box,
+// never a position change — which is what makes "animate back to normal
+// in-flow content" (Phase 2 step 9) as simple as animating the transform
+// back to none, rather than needing to swap position modes mid-sequence.
+.walkman {
+  position: relative;
+  z-index: 6;
+  width: min(260px, 78%);
+  aspect-ratio: 220 / 140;
+  margin: var(--space-5) auto 0;
+  // opacity: 0 only — no transform: scale(...) here. Found live: with a
+  // permanent scale(0.5) in this rule, connect.jsx's own settle step
+  // (`clearProps: "transform"`, mirroring My Taste's cascade) fell back to
+  // THIS rule instead of "no transform," landing the settled walkman stuck
+  // at half size instead of its real rest size. opacity: 0 alone already
+  // fully hides it before JS's own gsap.set() establishes the real pop-in
+  // start state, so no CSS-level scale is needed at all.
+  opacity: 0;
+}
+
+.walkman-body {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.walkman-body-case {
+  fill: var(--walkman-body);
+  stroke: var(--walkman-detail);
+  stroke-width: 1.5;
+}
+
+.walkman-body-well {
+  fill: var(--walkman-body-dark);
+}
+
+.walkman-body-bezel {
+  fill: var(--lcd-bg);
+}
+
+.walkman-buttons rect:not(.walkman-button-glyph) {
+  fill: var(--walkman-body-dark);
+  stroke: var(--walkman-detail);
+  stroke-width: 1;
+}
+
+.walkman-button-glyph {
+  fill: var(--walkman-detail);
+}
+
+// The bay (Flip's own landing target — connect.jsx measures its real rect)
+// and the lid that snaps shut over it (CustomBounce, Phase 1 step 3). Both
+// sit exactly over .walkman-body-well above, percentages derived from that
+// rect's own 220x140 viewBox coordinates (18,18,100,66) — walkman.jsx's own
+// comment has the full box.
+.walkman-bay,
+.walkman-lid {
+  position: absolute;
+  left: 8.18%;
+  top: 12.86%;
+  width: 45.45%;
+  height: 47.14%;
+  pointer-events: none;
+}
+
+.walkman-lid {
+  border-radius: 6px;
+  background: var(--walkman-body);
+  border: 1.5px solid var(--walkman-detail);
+  transform-origin: 50% 0%;
+  transform: scaleY(0.08);
+}
+
+// LCD screen — ghost (always-on "8" pattern) and lit (real message,
+// ScrambleTextPlugin target) layers grid-stacked in the exact same box, over
+// .walkman-body-bezel above (126,16,84,38 in the same 220x140 viewBox).
+.walkman-screen {
+  position: absolute;
+  left: 57.27%;
+  top: 11.43%;
+  width: 38.18%;
+  height: 27.14%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 0 2px;
+}
+
+.walkman-screen-ghost,
+.walkman-screen-lit {
+  grid-area: 1 / 1;
+  font-family: "DSEG7 Classic", "Space Mono", monospace;
+  // Measured live, not guessed: "MESSAGE SENT" (WALKMAN_LCD_TEXT,
+  // walkman.jsx) rendered ~108px wide at the old 0.72rem cap against a
+  // ~99px-available screen box (padding included) — clipped by
+  // .walkman-screen's own overflow: hidden, the last character cut off.
+  // 0.58rem measured comfortably under that box at the same width.
+  font-size: clamp(0.44rem, 1.3vw, 0.58rem);
+  white-space: nowrap;
+  text-align: center;
+  line-height: 1;
+}
+
+.walkman-screen-ghost {
+  // 32%, not the first-tried 10% — a real calculator's unlit segments read
+  // as a visible dim OUTLINE, not a barely-there background tint; 10%
+  // measured (Playwright, computed color) as functionally indistinguishable
+  // from the screen background itself once actually screenshotted, not just
+  // low-contrast on purpose. 32% is still unmistakably dimmer than the lit
+  // layer's full --lcd-lit (below) while actually reading as "8" shapes.
+  color: color-mix(in srgb, var(--lcd-lit) 32%, var(--lcd-bg));
+}
+
+.walkman-screen-lit {
+  color: var(--lcd-lit);
+  text-shadow: 0 0 4px color-mix(in srgb, var(--lcd-lit) 55%, transparent);
+}
+
+// EQ bars — sit just under the screen (126,58,84,16 in the shared viewBox),
+// looping height oscillation once the takeover settles (connect.jsx).
+// Colours come from colorwayFor() (walkman.jsx), never hardcoded here.
+.walkman-eq {
+  position: absolute;
+  left: 57.27%;
+  top: 41.43%;
+  width: 38.18%;
+  height: 10%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 3px;
+  padding: 0 3px;
+}
+
+.walkman-eq-bar {
+  flex: 1;
+  height: 35%;
+  min-height: 2px;
+  background: var(--eq-bar-color);
+  border-radius: 1px;
+  transform-origin: 50% 100%;
+}
+
+// Cord — a simple curve from the case's own top-right edge out to a plug,
+// wiggled via a small looping rotation around its own anchor point
+// (connect.jsx's own idle loop), not MorphSVGPlugin (not part of this
+// project's registered plugin set, lib/gsap.js).
+.walkman-cord {
+  position: absolute;
+  top: -22%;
+  right: 4%;
+  width: 17%;
+  height: auto;
+  aspect-ratio: 60 / 70;
+  overflow: visible;
+  transform-origin: 90% 8%;
+}
+
+.walkman-cord-path {
+  fill: none;
+  stroke: var(--walkman-detail);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.walkman-cord-plug {
+  fill: var(--walkman-body-dark);
+  stroke: var(--walkman-detail);
+  stroke-width: 1.5;
 }
 
 

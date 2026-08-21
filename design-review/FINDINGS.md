@@ -1725,6 +1725,57 @@ timed-hold pin built by copying this family of code: the overshoot correction is
 meaningful for a trigger whose visual/engage state depends on `self.progress` — not
 a blanket requirement of the pattern itself.
 
+### B39 — `.walkman`'s own CSS default fought its settle animation's `clearProps` — **FOUND AND FIXED, Stage 3 Task 11.2's follow-up (the send-success walkman)**
+
+Found live, first real test of the settle phase: after the takeover finished and
+`clearProps: "transform"` ran (main.scss's own comment on `.walkman` documents the
+full reasoning — same discipline My Taste's own cascade uses so a future transform
+on these elements doesn't inherit a stale inline value), the walkman visibly stuck
+at HALF size instead of returning to normal. Root cause: `.walkman`'s own default
+CSS rule carried a permanent `transform: scale(0.5)` — set there to match the
+pop-in's own start state, so nothing would flash at full size for a frame before
+JS ran. `clearProps` doesn't remove a rule's OWN styling, only GSAP's inline
+override — with no inline transform left, the element fell back to exactly that
+stylesheet rule, i.e. `scale(0.5)` forever, not `scale(1)`.
+
+Fixed by dropping the CSS-level `transform` entirely, keeping only
+`opacity: 0` as the pre-JS default — `opacity: 0` alone already fully hides the
+walkman before `gsap.set()` establishes the real pop-in start values (scale
+included), so no CSS-level scale was ever actually needed. Re-verified: settled
+`walkmanTransform` reads `"none"` (not a stuck `matrix(0.5, ...)`) across repeated
+runs, both a first-ever send and a second send in the same session.
+
+### D17 — a pre-existing, timing-sensitive React crash in `#my-taste`'s `AvatarSlot`, found while regression-testing a different section, not fixed here
+
+Found running an aggressive, bot-paced full-page scroll sweep (every ~30ms, far
+faster than a real visitor) while verifying Stage 3 Task 11.2's walkman didn't
+disturb anything else on the page. Intermittently — roughly 1 run in 3-4, not
+every time — the page throws `Failed to execute 'insertBefore' on 'Node': The
+node before which the new node is to be inserted is not a child of this node`,
+inside `AvatarSlot` (`my-taste.jsx`), uncaught (no error boundary anywhere in the
+tree — `App.jsx` — so React unmounts the whole app on it, per the console's own
+"Consider adding an error boundary" note).
+
+Confirmed this is genuinely PRE-EXISTING and unrelated to Task 11.2's own work,
+not a regression it introduced, before writing it down as a finding rather than
+just fixing it inline: `git stash`'d every uncommitted change from this task and
+re-ran the identical sweep against the prior commit (`e5d2f9e`, Task 11.2 alone,
+no walkman) — same intermittent failure, same component, same error, at a similar
+rate (1 failure in 4 runs). `my-taste.jsx`/`vinyl-record.jsx` were never touched by
+this task (only imported `colorwayFor` — a read, not an edit). Likely mechanism,
+not yet root-caused: `AvatarSlot` holds `useState(false)` for a failed-image
+fallback and a plain `<img onError={...}>` — a classic shape for a lost-race
+between an async image event and an unrelated re-render, but this session didn't
+chase it further; that's a separate investigation, not this task's own scope.
+
+Not fixed — flagged for whoever next touches `#my-taste`, since a real (if
+statistically rare) visitor scrolling normally could plausibly still trigger it,
+just far less often than the aggressive test pace that found it. A prerequisite
+first step, unrelated to `AvatarSlot` itself: this app has no error boundary
+anywhere (`App.jsx`), so ANY uncaught render error currently blanks the whole
+page rather than degrading just the one broken section — worth fixing on its own
+merits before chasing this specific race further.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

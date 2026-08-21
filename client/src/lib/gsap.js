@@ -119,4 +119,17 @@ export const CARD_LAND_SQUASH_EASE = "cardLand-squash";
 CustomWiggle.create("pinSnap", { wiggles: 3, type: "easeOut" });
 export const PIN_SNAP_EASE = "pinSnap";
 
+// #connect's walkman (Stage 3 Task 11.2's own follow-up — the send-success
+// takeover). Two distinct beats share ONE bounce shape rather than each
+// getting its own: the walkman's own pop-in (brief: "a light CustomBounce or
+// similar overshoot suits it" — explicitly optional there) and the cassette
+// lid snapping shut (brief: CustomBounce named explicitly, not optional,
+// for this one). Same "one clear beat, not a rally" strength My Taste's own
+// CARD_LAND_EASE settled on (0.3, Task 4.1) rather than the bouncier 0.6 it
+// started at — a lid snapping shut and a device popping into view both read
+// as one decisive contact, not a rebound.
+CustomBounce.create("walkmanPop", { strength: 0.3, squash: 1 });
+export const WALKMAN_POP_EASE = "walkmanPop";
+export const WALKMAN_POP_SQUASH_EASE = "walkmanPop-squash";
+
 export { gsap, ScrollTrigger, SplitText, Draggable, InertiaPlugin, DrawSVGPlugin, MotionPathPlugin, ScrambleTextPlugin, CustomBounce, CustomWiggle, Flip };

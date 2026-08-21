@@ -205,7 +205,28 @@ trigger and produce a real ~200px visible jump right as the hold engaged — dro
 entirely once live tracing showed nothing here reads `self.progress` for it to protect
 (`FINDINGS.md` B38). `STATUS.md`'s own Stage 3 Task 11.2 entry has the full writeup.
 Task 3 (free scroll both directions once unpinned) is this task's own stated
-assumption for what comes next, not built here.
+assumption for what comes next, not built here — and turned out to already be
+true by construction (Task 11.2's own settled state was already plain,
+untransformed static content), so nothing further was needed to satisfy it.
+
+**Also 2026-08-21 (Stage 3 Task 12) — `#connect`'s send-success walkman:** a
+separate, later brief (no task number of its own; numbered here as a fresh
+top-level item rather than a further decimal off Task 11, since this is new
+functionality layered on an already-complete Task 11.2, not a fix/extension
+of that same feature). On a successful send, the cassette-shaped message
+field (also new this task — a tape-label textarea, reel windows and all)
+Flip-flies into a cassette walkman's bay, the walkman pops up and takes over
+the section (scale + centered scrim, lid-snap, looping EQ/cord, a
+ScrambleTextPlugin LCD readout through a self-hosted DSEG7 font's own
+ghost/lit segment layers), then settles back into normal in-flow content — a
+second send in the same session reuses the same walkman rather than popping
+in again. Two real bugs found and fixed live (`FINDINGS.md` B39): a stray CSS
+default fought the settle animation's own `clearProps`, sticking the walkman
+at half size. One pre-existing, unrelated bug found while regression-testing
+and flagged rather than fixed (`FINDINGS.md` D17): an intermittent, bot-pace-
+only React crash in `#my-taste`'s own `AvatarSlot`, confirmed present before
+this task too via `git stash`. `STATUS.md`'s own Stage 3 Task 12 entry has
+the full writeup.
 
 **Not started yet, in the order the roadmap currently has them:**
 
@@ -1072,6 +1093,30 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > live: fresh nav into `#connect`, fresh-reload-then-immediate-scroll (B30
 > regression check), scroll back up past it, and a second pass through it
 > (should not re-hold) — all clean, zero console errors.
+
+> **Stage 3 Task 12 is DONE — 2026-08-21.** `#connect`'s send-success
+> walkman — a separate later brief, numbered as a fresh top-level item since
+> it's new functionality on top of an already-complete Task 11.2, not a
+> fix/extension of it. Cassette-shaped message field (new this task) flies
+> via GSAP Flip into a walkman's bay on send success, the walkman takes over
+> the section (scaled + centered over a section-scoped scrim, lid-snap via
+> CustomBounce, looping EQ/cord, a ScrambleTextPlugin LCD readout through a
+> self-hosted DSEG7 font's ghost/lit segment layers), then settles back into
+> normal in-flow content; a second send in the same session reuses the same
+> walkman rather than popping in again. Two real bugs found and fixed live
+> (`FINDINGS.md` B39) — a stray CSS default (`.walkman`'s own permanent
+> `transform: scale(0.5)`) fought the settle animation's `clearProps`,
+> sticking the settled walkman at half size. One pre-existing, unrelated bug
+> found while regression-testing and flagged, not fixed (`FINDINGS.md` D17):
+> an intermittent React crash in `#my-taste`'s `AvatarSlot`, confirmed
+> present before this task too via `git stash`. Verified live: full pop-in
+> -> flight -> lid-snap -> scrim -> scale-up -> scramble -> settle sequence
+> traced via computed styles; a second send confirmed to skip the pop-in and
+> reuse the loop; reduced motion confirmed instant/static; a failed send
+> confirmed the walkman never renders; scroll-away-and-back confirmed the
+> settled walkman keeps looping without duplicating; the takeover's own
+> scale cap confirmed zero overflow at both 1440px and 390px (the narrowest
+> currently-supported width).
 
 ### Stage 4 — `#my-taste` redesign
 
