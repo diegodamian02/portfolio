@@ -31,20 +31,22 @@ const EQ_BARS = Array.from({ length: EQ_BAR_COUNT }, (_, i) => ({
     colorway: colorwayFor(`walkman-eq-${i}`),
 }));
 
-// "MESSAGE SENT", not the fuller "Thanks for reaching out — your message is
-// on its way. I'll get back to you soon." copy .contact-success used to
-// show as plain text. Two independent reasons, not one: (1) a real LCD
-// readout this size cannot hold two sentences legibly — every reference
-// photo of an actual cassette-walkman display is a handful of characters,
-// not a paragraph; (2) DSEG7 Classic's glyph set favours digits and a
-// curated set of segment-friendly letters (the classic 7-segment hex set,
-// 0-9AbCdEF, plus a wider but stylised Latin set) — a short, deliberately
-// plain word reads cleanly, where the original two-sentence copy's mixed
-// case and punctuation would not. The FULL original copy still renders as
-// normal, fully accessible text in .contact-success itself (connect.jsx) —
-// this is an added decorative confirmation on the device, not a
-// replacement for the readable one.
-export const WALKMAN_LCD_TEXT = "MESSAGE SENT";
+// "CHEERS!" — not the requested "thank you for reaching out!" verbatim.
+// Two independent constraints, both checked live with real screenshots
+// before picking this, not assumed: (1) size — the LCD box/font-size
+// (main.scss) were tuned against "MESSAGE SENT" (12 characters); the
+// requested sentence is 27, clips badly at the same scale, and shrinking
+// the font enough to fit it renders it unreadable, not just small; (2)
+// DSEG7 Classic's glyph shapes — T, N and K in particular render as
+// distorted, hard-to-read forms at this size (confirmed by rendering
+// "THANK YOU!" and "THANKS" and screenshotting both: neither reads as
+// English at a glance). "CHEERS!" still says thank you, and its letters
+// (C H E E R S) avoid all three of those glyphs entirely — screenshotted
+// and confirmed legible before committing. The FULL original copy still
+// renders as normal, fully accessible text in .contact-success itself
+// (connect.jsx) — this is an added decorative confirmation on the device,
+// not a replacement for the readable one.
+export const WALKMAN_LCD_TEXT = "CHEERS!";
 
 // No propTypes convention/dependency in this codebase (same precedent as
 // turntable.jsx's `track` prop) — one line-disable for `rootRef`, a plain

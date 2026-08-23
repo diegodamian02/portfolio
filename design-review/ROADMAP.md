@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-21)*
+## 0. Current state — quick summary *(updated 2026-08-23)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -227,6 +227,27 @@ and flagged rather than fixed (`FINDINGS.md` D17): an intermittent, bot-pace-
 only React crash in `#my-taste`'s own `AvatarSlot`, confirmed present before
 this task too via `git stash`. `STATUS.md`'s own Stage 3 Task 12 entry has
 the full writeup.
+
+**Also 2026-08-23 (Stage 3 Task 12.1) — `#connect`: field layout, cassette
+rebalance, walkman bug pass:** a decimal follow-up on Task 12's own feature
+(a fix/refinement pass, like 10.1/10.2/11.2 each were to their own parent
+task — not new functionality). Name/email moved from two stacked full-width
+fields into one 2-column row with more compact inputs (measured: input
+height 44px → 36px); the cassette message field's reel-window chrome shrank
+and dimmed so it reads as quiet resting-state decoration instead of
+competing with the text, while the textarea itself gained more padding and
+`.about-me-bio`'s own `line-height: 1.6` (measured: cassette height
+198px → 160.78px, ~19% shorter, despite the extra text breathing room). Of
+the brief's three reported walkman bugs, one was real: the LCD readout's
+box/font-size were sized for a 12-character word, and DSEG7 Classic's own
+T/N/K glyphs render illegibly at this size regardless of length — fixed by
+choosing `"CHEERS!"` after screenshotting several candidates
+(`FINDINGS.md` B40). The other two — stale compose text left in the DOM,
+and a ~2-second auto-revert — did not reproduce under direct testing
+(unique-marker DOM dumps, 30+-second holds, a full second-cycle run); no
+code changed for either, and no mechanism in the code could produce them
+(`FINDINGS.md` D18). `STATUS.md`'s own Stage 3 Task 12.1 entry has the full
+writeup.
 
 **Not started yet, in the order the roadmap currently has them:**
 
@@ -1117,6 +1138,27 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > settled walkman keeps looping without duplicating; the takeover's own
 > scale cap confirmed zero overflow at both 1440px and 390px (the narrowest
 > currently-supported width).
+
+> **Stage 3 Task 12.1 is DONE — 2026-08-23.** A decimal follow-up fixing/
+> refining Task 12's own walkman feature, not new functionality. Name/email
+> combined into one compact 2-column row (input height 44px -> 36px,
+> measured via `git stash` before/after); the cassette's reel-window chrome
+> shrunk and dimmed (30px -> 18px, `opacity: 0.55`) so it reads as quiet
+> shell decoration rather than competing with the text, while the textarea
+> gained more padding and `.about-me-bio`'s own `line-height: 1.6` (net:
+> cassette height 198px -> 160.78px despite the extra room to read). Of
+> three reported walkman bugs, one was real and fixed: the LCD's box/font
+> were sized for a 12-character word, and DSEG7 Classic's T/N/K glyphs
+> render illegibly at this size regardless — `"THANK YOU!"` and `"THANKS"`
+> were screenshotted and rejected before landing on `"CHEERS!"`
+> (`FINDINGS.md` B40). The other two — stale compose text in the DOM after
+> a send, and a ~2-second auto-revert — were investigated directly (unique-
+> marker DOM dumps across a full two-cycle run; 30+-second holds sampling
+> the EQ loop's own transform) and did not reproduce; no code changed for
+> either (`FINDINGS.md` D18). Re-hit D17's own pre-existing scroll crash
+> once under an aggressive test pace, unrelated to this work, same finding
+> as Task 12 — avoided for the rest of verification at a human-like scroll
+> pace. `npm run lint` holds at 7 errors/2 warnings, unchanged.
 
 ### Stage 4 — `#my-taste` redesign
 

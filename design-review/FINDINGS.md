@@ -1725,7 +1725,7 @@ timed-hold pin built by copying this family of code: the overshoot correction is
 meaningful for a trigger whose visual/engage state depends on `self.progress` — not
 a blanket requirement of the pattern itself.
 
-### B39 — `.walkman`'s own CSS default fought its settle animation's `clearProps` — **FOUND AND FIXED, Stage 3 Task 11.2's follow-up (the send-success walkman)**
+### B39 — `.walkman`'s own CSS default fought its settle animation's `clearProps` — **FOUND AND FIXED, Stage 3 Task 12 (the send-success walkman)**
 
 Found live, first real test of the settle phase: after the takeover finished and
 `clearProps: "transform"` ran (main.scss's own comment on `.walkman` documents the
@@ -1775,6 +1775,86 @@ first step, unrelated to `AvatarSlot` itself: this app has no error boundary
 anywhere (`App.jsx`), so ANY uncaught render error currently blanks the whole
 page rather than degrading just the one broken section — worth fixing on its own
 merits before chasing this specific race further.
+
+### B40 — walkman LCD copy sized/chosen for one 12-character word broke on a longer sentence and on DSEG7's own hard letters — **FOUND AND FIXED, Stage 3 Task 12.1**
+
+A follow-up brief asked for the LCD readout to read "thank you for reaching
+out!" (or a final chosen equivalent) instead of Task 12's `"MESSAGE SENT"`.
+Two independent, both-real constraints made the literal sentence
+unworkable, neither assumed — both confirmed with real screenshots before
+picking a replacement:
+
+1. **Length.** The LCD's box and font-size (`.walkman-screen-*`,
+   `main.scss`) were tuned in Task 12 specifically against `"MESSAGE
+   SENT"`'s 12 characters. The requested sentence is 27 — more than
+   double — and clips hard against `.walkman-screen`'s own `overflow:
+   hidden` at the same scale; shrinking the font small enough to fit it
+   would make it illegible, not just small.
+2. **Glyph shapes.** DSEG7 Classic renders T, N and K as distorted,
+   non-obvious forms at this size — confirmed by rendering `"THANK YOU!"`
+   and bare `"THANKS"` and screenshotting both: neither reads as English at
+   a glance, they read as a jumble of unrelated segments. This wasn't
+   visible from the source or the font's own name; it only showed up once
+   actually rendered at the walkman's real on-page size.
+
+Tried and screenshotted several shorter alternatives before settling on one
+— `SUCCESS!`, `ALL DONE`, `RECEIVED`, `CHEERS!` — comparing how cleanly each
+rendered. `"CHEERS!"` (`WALKMAN_LCD_TEXT`, `walkman.jsx`) won: it still
+functions as a genuine thank-you, and none of its letters (C H E E R S)
+touch the three problem glyphs. Re-verified live: `litScrollWidth` 53px
+against a 103px-wide screen box (comfortable margin, not a near-miss), and
+the ghost layer (derived automatically from the same string) lines up
+character-for-character as designed.
+
+### D18 — two of three brief-reported walkman bugs did not reproduce; investigated rather than assumed, Stage 3 Task 12.1
+
+The same follow-up brief that led to B40 also reported two other bugs in
+`#connect`'s walkman: stale compose-box text left in the DOM after a send,
+and the settled walkman auto-reverting to hidden/idle after roughly two
+seconds. Both were investigated empirically before writing any fix — per
+this project's own working agreement, a brief's description of "the
+current code" is a claim to verify against the tree, not a given — and
+neither reproduced:
+
+- **"Stale text left behind."** The brief describes the compose box as
+  hidden via opacity/display while old field values persist underneath.
+  The actual code (`connect.jsx`) already renders `status === 'sent' ? <
+  success> : <form>` — a real conditional, not a CSS hide — so the form,
+  and the textarea inside it, are genuinely removed from the DOM the
+  instant a send succeeds, not just visually covered. Verified directly:
+  submitted a message containing a unique marker string, then dumped
+  `.contact-container`'s full rendered text and queried `#message`
+  immediately after Phase 1 and again after full settle — the marker
+  never appeared anywhere on the page, and the textarea query returned
+  `null`. Repeated across a full two-cycle run (first send, click "send
+  another message," second send with a *different* marker) specifically
+  to rule out a second-cycle-only variant — neither marker ever leaked
+  into the DOM at any point.
+- **"Auto-reset after ~2 seconds."** Grepped this project's entire
+  `client/src/` for `setTimeout`/`setInterval` — five real call sites
+  exist elsewhere (navbar theme-switch flag, hash-scroll settle, smooth-
+  scroll's `ScrollTrigger.refresh` debounce, record-crate's search
+  debounce, turntable-audio) and none of them touch `connect.jsx`,
+  `walkman.jsx`, or `lib/gsap.js`. Held the settled walkman under live
+  observation for 30+ seconds after a first send, and again after a "send
+  another" + second send — both times `.walkman`'s computed `opacity`
+  stayed `1`, `.contact-form` never re-appeared unprompted, and the EQ
+  bars' own transform kept changing between samples (the idle loop
+  provably still running, not stalled and misread as "settled").
+
+No code was changed for either — there is nothing in the current
+implementation that produces either symptom. The likeliest explanation on
+hand, not confirmed as the actual cause: this project's own documented trap
+of testing against `npm run preview` (port 4173) instead of the dev server
+(5173) — CLAUDE.md already flags that port for producing failures in
+`#my-taste` and the record crate that "read exactly like a real bug and
+isn't one." `#connect` wasn't previously known to be sensitive to that same
+distinction, but nothing ruled it out either, and it fits: a build served
+from the wrong origin could plausibly manifest as a send that never really
+completes (read as "reverts") or as stale UI from a failed fetch. Left as
+an open note for whoever next touches this section, rather than chased
+further, since it isn't reproducible against the environment this project
+treats as ground truth (5173/5050, per CLAUDE.md).
 
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 

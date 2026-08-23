@@ -3375,6 +3375,20 @@ html {
   gap: 1.5rem;
 }
 
+// Name + email, side by side instead of stacked full-width — the two
+// fields that used to be the tallest part of the form for the least
+// content. Equal columns, same row gap .contact-form already uses between
+// its other rows, so this reads as one consistent rhythm rather than a
+// one-off. No narrower-viewport override yet — this is pre-mobile-pass
+// (Stage 3), and two short text inputs fit this row down to the 390px
+// width already used as this project's narrowest currently-supported
+// target (verified live).
+.contact-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -3392,7 +3406,13 @@ html {
   background-color: var(--bg-color);
   color: var(--text-color);
   border: 1px solid grey;
-  padding: 0.75rem;
+  // Was 0.75rem all around (~44px tall). font-size stays 1rem — dropping
+  // below 16px on an input triggers iOS Safari's zoom-on-focus, a worse
+  // regression than the height this saves — so the compaction comes from
+  // padding alone. In practice this only visibly resizes the name/email
+  // inputs: .message-cassette textarea (below) is more specific and
+  // declared later, so it always wins on padding regardless of this value.
+  padding: var(--space-2) var(--space-3);
   font-size: 1rem;
   border-radius: 8px;
   transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
@@ -3513,7 +3533,7 @@ html {
   border-radius: 10px;
   border: 2px solid var(--cassette-label-line);
   background: var(--cassette-label);
-  padding: var(--space-2) var(--space-2) var(--space-3);
+  padding: var(--space-2);
   // Task 2's own validation cue used to live on the textarea's own border
   // (main.scss, [aria-invalid="true"]); that border is gone now that the
   // cassette label supplies the visible edge instead, so the cue moves up
@@ -3525,11 +3545,21 @@ html {
   }
 }
 
+// The reel row reads as the cassette's own resting-state shell chrome —
+// it should never compete with the text underneath while someone is
+// actually typing. Shrunk from 30px/3px-border and dimmed via opacity
+// (rather than touching --cassette-reel-window/--cassette-label-line
+// themselves, which are shared, deliberately-fixed "physical object"
+// tokens used elsewhere) — this rule is the one place that gets to decide
+// how loud its OWN decoration is. margin-bottom grew from --space-1 to
+// --space-3 so the row reads as a distinct strip above the writing area,
+// not something crowding straight into it.
 .message-cassette-reels {
   display: flex;
   justify-content: space-between;
   padding: 0 var(--space-6);
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-3);
+  opacity: 0.55;
   // Decorative only — must never sit between the visitor's pointer and the
   // textarea underneath (the brief's own "tape-label textarea," not a
   // separate clickable part).
@@ -3538,12 +3568,12 @@ html {
 
 .message-cassette-reel {
   position: relative;
-  width: 30px;
-  height: 30px;
-  margin-top: var(--space-2);
+  width: 18px;
+  height: 18px;
+  margin-top: 6px;
   border-radius: 50%;
   background: var(--cassette-reel-window);
-  border: 3px solid var(--cassette-label-line);
+  border: 2px solid var(--cassette-label-line);
 
   // The hub — a real cassette reel's own center hole, showing the label
   // colour "through" the window. A pseudo-element, not a second DOM node:
@@ -3553,8 +3583,8 @@ html {
     position: absolute;
     inset: 0;
     margin: auto;
-    width: 8px;
-    height: 8px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: var(--cassette-label);
   }
@@ -3567,9 +3597,17 @@ html {
   color: var(--cassette-label-text);
   border: none;
   border-radius: 6px;
-  padding: var(--space-2);
-  font-family: inherit; // body font — DSEG7 stays reserved for the walkman's own screen, not the label
+  // Grew from var(--space-2) (8px) — more room for typed text to breathe,
+  // paired with the line-height below. font-family stays "inherit": this
+  // was already the body font (Avenir Next), never font-mono — DSEG7/Space
+  // Mono are scoped to the walkman's own LCD screen only (.walkman-screen-*
+  // below), not this label.
+  padding: var(--space-3);
+  font-family: inherit;
   font-size: 1rem;
+  // 1.6, not a new value invented for this field — the same line-height
+  // .about-me-bio already uses for its own readable body copy.
+  line-height: 1.6;
   resize: vertical;
 
   &::placeholder {

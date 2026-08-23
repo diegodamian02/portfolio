@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-21 (Stage 3 Task 12) · **HEAD:** `f88a5ea`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-23 (Stage 3 Task 12.1) · **HEAD:** `2f6d11f`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2678,6 +2678,115 @@ screenshots: `connect-cassette-form-{dark,light}.png`,
 cassette mid-transit and the ghost segment layer fully visible — genuinely
 more illustrative than a posed shot), `connect-walkman-settled-{dark,light}.png`.
 
+### Stage 3 Task 12.1 — `#connect`: field layout, cassette rebalance, walkman bug pass *(2026-08-23)*
+
+A follow-up brief on Task 12's own feature (numbered as a decimal, like
+10.1/10.2/11.2 — a fix/refinement pass on the SAME walkman/cassette work,
+not new separate functionality). Re-read `connect.jsx`/`walkman.jsx` fresh
+per the brief's own instruction rather than assuming its description of
+"current" behaviour was accurate — two of its three named bugs did not
+match what the code actually does; see **Discrepancies** below.
+
+**Name/email — one row, not two:** `.contact-form-row` (new, `main.scss`)
+wraps the two `form-group`s in a 2-column grid instead of the previous
+full-width stack. Each input's own padding also shrank
+(`.form-group input, .form-group textarea`, `0.75rem` → `var(--space-2)
+var(--space-3)`) — `font-size` stays `1rem`; dropping below 16px on an
+input triggers iOS Safari's zoom-on-focus, a worse regression than the
+height this saves. Measured live, before vs. after (`git stash` to get a
+real "before" number rather than estimating): input height **44px → 36px**,
+and the two fields moved from stacked (88px + row gap) to one 63px-tall
+row — real, compounding vertical space back. Confirmed side-by-side with no
+horizontal overflow at both 1440px and 390px (this project's narrowest
+currently-supported width); no breakpoint override added — two short text
+inputs fit that row at 390px as-is (pre-mobile-pass, Stage 3).
+
+**Cassette rebalance:** the reel row is now genuinely quiet resting-state
+chrome instead of competing with the text — shrunk 30px → 18px diameter,
+border 3px → 2px, hub 8px → 5px, and dimmed via `opacity: 0.55` on
+`.message-cassette-reels` (not touched: `--cassette-reel-window`/
+`--cassette-label-line`, the shared "physical object" tokens other rules
+also use — this rule alone gets to decide how loud its own decoration is).
+Its `margin-bottom` grew `var(--space-1)` → `var(--space-3)` so it reads as
+a strip above the writing area, not crowded into it. The textarea itself
+got more breathing room the other way: `rows` `5` → `3`, padding
+`var(--space-2)` → `var(--space-3)`, and a new `line-height: 1.6` — not
+invented for this field, the same value `.about-me-bio` already uses for
+its own readable body copy. Net effect, measured: cassette height **198px →
+160.78px** (~19% shorter) while the text itself sits in a roomier, more
+legible box — the reduction reads mostly as "less decorative chrome," not
+"less room to type."
+
+**Walkman bugs — one real, two did not reproduce:**
+- **Wrong LCD copy — real, fixed.** Was `"MESSAGE SENT"`; brief asked for
+  `"thank you for reaching out!"` or a final chosen equivalent. Neither
+  that exact sentence nor the literal `"THANK YOU!"` shortening survived
+  contact with the real screen: the LCD's box/font-size (Task 12) were
+  tuned against a 12-character string, the requested sentence is 27 and
+  clips badly at the same scale; and DSEG7 Classic's own glyph shapes for
+  T, N and K render distorted enough at this size that `"THANK YOU!"` and
+  even bare `"THANKS"` do not read as English at a glance (screenshotted
+  both before rejecting them). Tried and screenshotted several
+  alternatives (`SUCCESS!`, `ALL DONE`, `RECEIVED`, `CHEERS!`) before
+  settling on **`"CHEERS!"`** — still a genuine thank-you, and its letters
+  (C H E E R S) avoid all three problem glyphs entirely. `WALKMAN_LCD_TEXT`
+  (`walkman.jsx`) is the one place this lives; the ghost layer derives from
+  it automatically.
+- **"Stale text left behind" — investigated, did not reproduce.** The
+  brief described the compose box as hidden via opacity/display while old
+  field values persist in the DOM. The actual code already fully unmounts
+  the form (`status === 'sent' ? <success> : <form>`, a real conditional,
+  not a CSS hide) the instant a send succeeds. Verified directly: submitted
+  a message containing a unique marker string, dumped
+  `.contact-container`'s full text and the mounted textarea's `.value`
+  immediately after Phase 1 and again after full settle — the marker never
+  appeared anywhere, and `document.querySelector('#message')` returned
+  `null` (genuinely gone, not hidden). Repeated across a full two-cycle run
+  (first send → "send another message" → second send with a *different*
+  marker) to rule out a second-cycle-only version of the bug — neither
+  marker ever leaked. No code changed for this one; see **Discrepancies**.
+- **"Auto-reset after ~2 seconds" — investigated, did not reproduce.**
+  Grepped this project's entire `client/src/` for `setTimeout`/
+  `setInterval` — five exist, none in `connect.jsx`, `walkman.jsx`, or
+  `lib/gsap.js`. Held the settled walkman under live observation for 30+
+  seconds after a first send, and again after a "send another" + second
+  send, both times confirming `opacity: 1`, no `.contact-form` re-appearing
+  unprompted, and the EQ-bar transform still changing between samples (the
+  loop still running, not stalled). No code changed for this one either.
+
+**Discrepancies flagged (brief vs. actual code, confirmed by re-reading and
+by live testing before changing anything):** the LCD text was `"MESSAGE
+SENT"`, not `"Message sent"` as described — same underlying ask either way,
+addressed above. The textarea's `font-family` was already `inherit` (the
+site's body font, Avenir Next) — Task 12 reserved DSEG7/Space Mono for the
+walkman's own LCD screen only; there was no font-mono bug on the compose
+field to begin with. No timeout or auto-revert exists anywhere in this
+feature's code. A plausible source for both "bugs that didn't reproduce":
+this project's own documented trap of testing on `npm run preview`'s
+port 4173 instead of the dev server's 5173 (CLAUDE.md) — that port fails in
+ways that read exactly like real bugs and aren't; not confirmed as the
+actual cause here, just the likeliest local-environment explanation on
+hand, since the code itself has no mechanism that would produce either
+symptom.
+
+**Verification:** live on `localhost:5173`/5050 (the dev pair). Hit the
+contact endpoint's own rate limit partway through re-testing (several rapid
+sends in one session) — real limiter, not a bug — worked around for the
+remaining LCD-copy trials by mocking `POST /api/contact` at the network
+layer (Playwright `page.route`) so repeated client-side-only runs didn't
+need a real send. Re-hit D17's known pre-existing scroll-triggered crash
+(`#my-taste`'s `AvatarSlot`) once under an aggressive scroll-sweep pace
+during this pass; unrelated to this work (same finding as Task 12's own
+write-up) — avoided by scrolling at the already-established human-like
+pace (150ms/250px steps) for every other run. `npm run lint`: **7 errors, 2
+warnings**, unchanged from Task 12's own baseline (this pass touched no
+file lint was already flagging). Note: CLAUDE.md's own "16 errors" baseline
+note is stale — actual has been 7 errors/2 warnings since at least Task 12;
+flagged here rather than silently trusted. `npm run build`: JS 525.44 ->
+**525.49 kB** (187.21 -> **187.22 kB** gz), CSS 50.09 -> **50.17 kB** (10.54
+-> **10.56 kB** gz) — negligible, as expected for a layout/copy pass with no
+new dependencies.
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -3859,14 +3968,14 @@ crate too, not just `#my-taste`.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-21)*
+## 3. Current measurements *(refreshed 2026-08-23)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **525.44 kB / 187.21 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12 added +6.67 kB / +2.08 kB gz combined on top, mostly Task 12's own walkman sequence)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **50.09 kB / 10.54 kB gz** *(Task 12 alone added +4.05 kB / +0.90 kB gz — the cassette/walkman rules; the two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| JS bundle | 407 KB / 147 KB gz | **525.49 kB / 187.22 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1 added +6.72 kB / +2.09 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.1 itself added ~0.05 kB, a layout/copy pass with no new dependency)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **50.17 kB / 10.56 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1's own field/textarea rebalance added +0.08 kB / +0.02 kB gz on top. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

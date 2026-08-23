@@ -596,31 +596,40 @@ export default function Connect() {
                     </div>
                 ) : (
                     <form className="contact-form" onSubmit={handleSubmit} noValidate>
-                        <div className="form-group">
-                            <label htmlFor="name">Name</label>
-                            <input
-                                type="text"
-                                name="name"
-                                id="name"
-                                maxLength={100}
-                                value={formData.name}
-                                onChange={handleChange}
-                                disabled={isSending}
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="email">Email</label>
-                            <input
-                                type="email"
-                                name="email"
-                                id="email"
-                                maxLength={254}
-                                value={formData.email}
-                                onChange={handleChange}
-                                disabled={isSending}
-                                required
-                            />
+                        {/* Name + email side by side — was two full-width stacked
+                            fields, the largest single chunk of vertical space in
+                            the form for two short values. A 2-col grid (below,
+                            .contact-form-row) halves that footprint; each input's
+                            OWN padding also shrank (.form-group input, below) —
+                            font-size stays 1rem so this doesn't trip iOS Safari's
+                            zoom-on-focus-under-16px behavior. */}
+                        <div className="contact-form-row">
+                            <div className="form-group">
+                                <label htmlFor="name">Name</label>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    id="name"
+                                    maxLength={100}
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    disabled={isSending}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="email">Email</label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    id="email"
+                                    maxLength={254}
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    disabled={isSending}
+                                    required
+                                />
+                            </div>
                         </div>
                         <div className="form-group">
                             <label htmlFor="message">Message</label>
@@ -629,7 +638,16 @@ export default function Connect() {
                                 real textarea, not a second control. The reels
                                 are decorative (pointer-events: none) so they
                                 never sit between the visitor's pointer and the
-                                textarea itself. */}
+                                textarea itself. Sized down and dimmed in
+                                main.scss so they read as quiet shell chrome,
+                                not something competing with the text below
+                                them while the visitor is actively typing.
+                                rows="3", not the old "5" — paired with the
+                                textarea's own bigger padding/line-height
+                                (main.scss), this reads as a compact modern
+                                message field rather than a large blank block;
+                                resize: vertical (unchanged) still lets a
+                                visitor drag it taller for a long message. */}
                             <div className="message-cassette" ref={cassetteRef}>
                                 <div className="message-cassette-reels" aria-hidden="true">
                                     <span className="message-cassette-reel" />
@@ -638,7 +656,7 @@ export default function Connect() {
                                 <textarea
                                     name="message"
                                     id="message"
-                                    rows="5"
+                                    rows="3"
                                     maxLength={5000}
                                     value={formData.message}
                                     onChange={handleChange}
