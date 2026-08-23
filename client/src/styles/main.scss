@@ -3354,19 +3354,18 @@ html {
 
 .contact-title {
   font-size: 2.5rem;
-  font-weight: 60;
-  margin-bottom: 1rem;
+  // Was `60` — a typo for `600` already flagged in ROADMAP.md/STATUS.md
+  // (Stage 3 Q1/Q4 notes) but never actually corrected until now. Fixing
+  // it here since this heading carries more visual weight on its own now
+  // that .contact-description is gone (below).
+  font-weight: 600;
+  // Was 1rem, tuned for a heading sitting right above a description
+  // paragraph. With that paragraph removed, the form now sits directly
+  // under the heading — 1rem read as cramped, so this grew to
+  // `--space-6`, the same margin-bottom `@mixin section-title` (used by
+  // `.portfolio-title`) already gives a standalone section heading.
+  margin-bottom: var(--space-6);
   text-align: center;
-}
-
-.contact-description {
-  font-size: 1rem;
-  margin-bottom: 3rem;
-  color: var(--secondary-text);
-}
-
-.contact-description a {
-  color: var(--accent);
 }
 
 .contact-form {
@@ -3593,6 +3592,15 @@ html {
 .message-cassette textarea {
   display: block;
   width: 100%;
+  // No global box-sizing reset exists in this file (opt-in per rule — see
+  // .portfolio-section's own comment on the same pattern). Without this,
+  // `width: 100%` resolves against the cassette's own content-box width,
+  // and this element's OWN padding (below) is added ON TOP of that —
+  // measured live: the textarea rendered 24px wider than `.message-
+  // cassette` itself (exactly 2x its own horizontal padding), visibly
+  // overflowing the cassette's right edge, worse still once the focus
+  // outline added its own few px on top of that.
+  box-sizing: border-box;
   background: transparent;
   color: var(--cassette-label-text);
   border: none;

@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-23 (Stage 3 Task 12.1) · **HEAD:** `2f6d11f`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-23 (Stage 3 Task 12.2) · **HEAD:** `913169a`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2787,6 +2787,66 @@ flagged here rather than silently trusted. `npm run build`: JS 525.44 ->
 -> **10.56 kB** gz) — negligible, as expected for a layout/copy pass with no
 new dependencies.
 
+### Stage 3 Task 12.2 — `#connect`: heading copy, dead-scroll fix, textarea overflow fix *(2026-08-23)*
+
+A second decimal follow-up on Task 12's own feature (sibling to 12.1, same
+convention as 10.1/10.2 both being decimals off Task 10 rather than 12.1
+growing a sub-decimal of its own). Re-read `connect.jsx`/`main.scss` fresh
+rather than assuming Task 12.1 was the last word on this section.
+
+**Copy:** `.contact-title` — "Let's have a coffee talk" -> "Let's Connect."
+`.contact-description` (the paragraph under it, including the inline
+`mailto:` link) removed entirely, per direct instruction — no replacement
+copy added. Its own `SplitText` step in the entry-pin's reveal timeline
+(`descriptionSplit`) is gone too, not just hidden — `titleSplit` now hands
+off straight to the form. `.contact-title`'s own `margin-bottom` grew
+`1rem` -> `--space-6` (32px) since the heading now sits directly above the
+form with nothing bridging the gap — `1rem` read as cramped alone. While
+in that rule: fixed `font-weight: 60` -> `600`, a typo already flagged in
+ROADMAP.md/STATUS.md (Q1/Q4 notes) as "almost certainly a dropped digit"
+but never actually corrected until this pass touched the same line.
+
+**B41 — the real "space between projects and Connect" (`FINDINGS.md` B41):**
+this section's entry-pin `ScrollTrigger.create` never set an explicit
+`end`; with none given, GSAP defaults the pin span to the trigger's own
+full height (~916px), so the section stayed visually pinned for that whole
+span even after the reveal timeline finished and `lenis.start()` already
+resumed real scroll input. Measured directly (scrollY vs. the section's
+own `getBoundingClientRect().top` on every scroll tick): **938px of dead
+scroll** before the page would budge at all. My Taste's own pin — the
+pattern this section's comments already credit — sets `end: "+=200"` for
+an unrelated reason (protecting `onEnter` from a fast-scroll momentum jump
+skipping past a too-thin span, not controlling hold duration); this
+section copied `pin: true` from that pattern but not the `end` that comes
+with it. Fixed by adding the same `end: '+=200'`. Re-measured: dead scroll
+dropped to ~340px (the real, expected distance to scroll the now-revealed
+section out of view — not a leftover bug).
+
+**B42 — the message box's own border rendering bigger than the box
+(`FINDINGS.md` B42):** `.message-cassette textarea` sets `width: 100%`
+without opting into `box-sizing: border-box` (no global reset exists in
+this file — `.portfolio-section`'s own comment documents the identical
+gotcha independently). Under the default `content-box` model the
+textarea's own padding is added ON TOP of that 100%, not carved from it —
+measured 704px rendered against a 700px-wide cassette, a 14px overflow
+before the focus outline even drew its own few px on top. This was already
+a smaller version of the same bug since Task 12 shipped (16px overflow at
+the original 8px padding) — Task 12.1's own padding increase (8px -> 12px)
+made it worse, not new. Fixed with one line (`box-sizing: border-box`);
+re-measured textarea width now matches the cassette's own 680px
+content-box exactly, confirmed via a 2x-scale screenshot that the focus
+outline sits fully inside the cassette on every side.
+
+**Verification:** same dev pair (5173/5050), same human-paced scroll (D17
+re-confirmed still pre-existing, hit once more under this task's own
+testing, unrelated). Full send sequence re-run end to end (walkman still
+pops, "CHEERS!" still resolves), reduced-motion path re-run (still
+resolves instantly, no scramble). `npm run lint`: **7 errors, 2 warnings**,
+unchanged. `npm run build`: JS 525.49 -> **525.08 kB** (187.22 ->
+**187.07 kB** gz), CSS 50.17 -> **50.08 kB** (10.56 -> **10.54 kB** gz) — a
+net decrease, expected: this pass removed more markup/CSS (the description
+paragraph and its two rules, the SplitText step) than the fixes added.
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -3974,8 +4034,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **525.49 kB / 187.22 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1 added +6.72 kB / +2.09 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.1 itself added ~0.05 kB, a layout/copy pass with no new dependency)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **50.17 kB / 10.56 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1's own field/textarea rebalance added +0.08 kB / +0.02 kB gz on top. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| JS bundle | 407 KB / 147 KB gz | **525.08 kB / 187.07 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2 added +6.31 kB / +1.94 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.2 itself is a net DECREASE, ~0.41 kB, since it removed more than it added: the description paragraph, its two CSS rules and its `SplitText` step)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **50.08 kB / 10.54 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

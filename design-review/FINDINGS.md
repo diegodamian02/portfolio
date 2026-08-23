@@ -1806,6 +1806,65 @@ against a 103px-wide screen box (comfortable margin, not a near-miss), and
 the ghost layer (derived automatically from the same string) lines up
 character-for-character as designed.
 
+### B41 — `#connect`'s entry pin had no explicit `end`, leaving ~940px of dead scroll after the reveal released — **FOUND AND FIXED, Stage 3 Task 12.2**
+
+Reported as "all the space in between projects and Let's Connect." Measured
+directly rather than guessed: scrolled to `#connect`, let the entry-pin
+reveal finish, then sampled `.contact-section`'s own `getBoundingClientRect().top`
+against `window.scrollY` on every following scroll tick. `top` stayed
+pinned at a constant value (`navbarHeight`, ~144px) while `scrollY` climbed
+from 6534 to 7472 — **938px of scroll where the section visually never
+moved at all**, well after the reveal timeline itself had already
+completed and `lenis.start()` had already resumed real scroll input.
+
+Root cause: this pin's `ScrollTrigger.create({ ... pin: true, once: true,
+... })` (`connect.jsx`) never set an explicit `end`. With none given, GSAP
+defaults the pin's own scroll-span to the trigger element's full height —
+here, `.contact-section`'s own ~916px — so ScrollTrigger kept the section
+visually pinned for that entire span regardless of the fact that nothing
+in this pin scrubs against it; the hold's real duration is governed
+entirely by `lenis.stop()`/`lenis.start()`, independent of `end`. My
+Taste's own pin (`my-taste.jsx`), which this section's comments already
+credit as the pattern being followed, sets `end: "+=200"` for exactly this
+reason (its own comment: wide enough that a fast scroll can't jump the
+`start`-to-`end` span in one tick and skip `onEnter` entirely — not a
+hold-duration control). This section copied `pin: true` from that pattern
+but never copied the `end` that comes with it.
+
+Fixed by adding the same `end: '+=200'`. Re-measured with the identical
+method: the dead zone dropped from ~938px to ~340px (the remaining
+distance is real, expected scroll — clearing the now-revealed section
+before the next one comes into view — not a leftover bug). Re-verified the
+pin still engages correctly under normal scroll and still resolves
+instantly under a programmatic nav-click (`isProgrammaticScrollActive()`),
+neither of which reads `end` for anything.
+
+### B42 — `.message-cassette textarea` overflowed its own cassette by exactly its own padding — **FOUND AND FIXED, Stage 3 Task 12.2**
+
+Reported as "the border of the text box is bigger than the box itself"
+when focused. Measured directly: `.message-cassette` (the visible tape
+label) rendered 700px wide; `#message` (the textarea inside it) rendered
+**704px** wide — 14px past the cassette's own right edge before any
+outline was even drawn, then a further few px once the focus outline
+(`outline: 2px solid ...; outline-offset: 2px;`) drew outside that.
+
+Root cause: this file has no global `box-sizing: border-box` reset — it's
+opt-in per rule (`.portfolio-section`'s own comment documents the same
+gotcha independently). `.message-cassette textarea` sets `width: 100%`
+without opting in, so under the default `content-box` model, the
+textarea's own horizontal padding is added ON TOP of that 100% instead of
+being carved out of it — the overflow (24px, after Task 12.1's own padding
+increase from 8px to 12px a side) is exactly 2× the textarea's own
+horizontal padding. This was already a smaller version of the same bug
+since Task 12 shipped (2×8px = 16px overflow at the original padding);
+Task 12.1's padding increase made it worse, it didn't introduce it.
+
+Fixed with one line, `box-sizing: border-box;` on `.message-cassette
+textarea`. Re-measured: textarea width now matches the cassette's own
+680px content-box exactly, `overflowsRight`/`overflowsLeft` both `false`,
+and the focus outline now sits fully inside the cassette's own border on
+all sides (screenshotted at 2x device scale to confirm).
+
 ### D18 — two of three brief-reported walkman bugs did not reproduce; investigated rather than assumed, Stage 3 Task 12.1
 
 The same follow-up brief that led to B40 also reported two other bugs in

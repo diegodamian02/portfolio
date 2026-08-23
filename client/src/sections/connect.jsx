@@ -114,7 +114,6 @@ export default function Connect() {
     const rootRef = useRef(null);
     const containerRef = useRef(null);
     const titleRef = useRef(null);
-    const descriptionRef = useRef(null);
     const cassetteRef = useRef(null);
     const flightRef = useRef(null);
     const walkmanRootRef = useRef(null);
@@ -182,13 +181,6 @@ export default function Connect() {
 
         mm.add('(prefers-reduced-motion: no-preference)', () => {
             const titleSplit = new SplitText(titleRef.current, { type: 'words' });
-            // type: "words" — same reasoning My Taste's own kicker comment
-            // gives: this description's text nodes wrap an inline
-            // `<a href="mailto:...">`; word-splitting only touches TEXT,
-            // leaving the link's own element untouched (still one real,
-            // clickable `<a>` after SplitText reverts), rather than risking
-            // "lines" or "chars" tearing into or duplicating it.
-            const descriptionSplit = new SplitText(descriptionRef.current, { type: 'words' });
             // The compose box, batched as one stagger group rather than
             // individually SplitText'd — these are form CONTROLS, not text
             // to fragment. `.contact-hp` (the honeypot) is deliberately
@@ -222,8 +214,7 @@ export default function Connect() {
             // SIGNATURE_EASE curve every calm, one-time entrance on this
             // site already shares.
             tl.from(titleSplit.words, { opacity: 0, y: 16, duration: 0.5, ease: SIGNATURE_EASE, stagger: 0.06 }, 0);
-            tl.from(descriptionSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.02 }, '>+=0.2');
-            tl.from(formTargets, { opacity: 0, y: 14, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.08 }, '>+=0.25');
+            tl.from(formTargets, { opacity: 0, y: 14, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.08 }, '>+=0.2');
 
             const navbarHeight = () =>
                 parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 0;
@@ -235,6 +226,22 @@ export default function Connect() {
                 // Taste/Experience) — keeps a nav click landing on #connect
                 // and this pin's own engage point in sync.
                 start: () => 'top top+=' + navbarHeight(),
+                // Missing here originally — found live (measured: after the
+                // hold released, .contact-section stayed visually pinned for
+                // ~940px of further scroll before it would budge at all, the
+                // real cause of "all the space" between #projects and a
+                // usable #connect). Root cause: `pin: true` with no explicit
+                // `end` defaults to the trigger's own full height as the pin
+                // span, but nothing here scrubs against that span — the hold
+                // is timed via lenis.stop()/start() below, same as My
+                // Taste's own pin (my-taste.jsx). My Taste's own version
+                // already sets `end: "+=200"` for exactly this reason (its
+                // own comment: wide enough that a fast scroll can't jump the
+                // start-to-end span in one tick and skip onEnter entirely,
+                // not a hold-duration control) — this pin copied `pin: true`
+                // from that pattern but dropped the `end` that comes with
+                // it. Same fix, same value.
+                end: '+=200',
                 pin: true,
                 // Plays once per page view, same as About/My Taste's own
                 // hold — replaying a scroll-hold every time a visitor
@@ -256,7 +263,7 @@ export default function Connect() {
 
                     // Same safety net About's own hold carries: measured
                     // against the CONTAINER's real content height
-                    // (title + description + form), not the outer
+                    // (title + form, no description anymore), not the outer
                     // .contact-section shell — that shell is deliberately
                     // taller than its content on most viewports (flex-
                     // centered inside a navbar-aware min-height floor, see
@@ -319,7 +326,6 @@ export default function Connect() {
                 st.kill();
                 tl.kill();
                 titleSplit.revert();
-                descriptionSplit.revert();
             };
         });
 
@@ -583,11 +589,7 @@ export default function Connect() {
                 read it — that's a one-time scroll-entry transition, unrelated
                 to send state. */}
             <div className="contact-container" data-state={status} ref={containerRef}>
-                <h2 className="contact-title" ref={titleRef}>Let&apos;s have a coffee talk</h2>
-                <p className="contact-description" ref={descriptionRef}>
-                    Let&apos;s connect and build something amazing together — reach me directly at{' '}
-                    <a href="mailto:diegodamiango02@gmail.com">diegodamiango02@gmail.com</a> or send a message below.
-                </p>
+                <h2 className="contact-title" ref={titleRef}>Let&apos;s Connect</h2>
 
                 {status === 'sent' ? (
                     <div className="contact-success" role="status">

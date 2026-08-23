@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-23)*
+## 0. Current state — quick summary *(updated 2026-08-23, Stage 3 Task 12.2)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -248,6 +248,28 @@ and a ~2-second auto-revert — did not reproduce under direct testing
 code changed for either, and no mechanism in the code could produce them
 (`FINDINGS.md` D18). `STATUS.md`'s own Stage 3 Task 12.1 entry has the full
 writeup.
+
+**Also 2026-08-23 (Stage 3 Task 12.2) — `#connect`: heading copy, dead-
+scroll fix, textarea overflow fix:** a second decimal follow-up on Task
+12's own feature (sibling to 12.1, not a sub-decimal of it — same
+convention as 10.1/10.2 both being decimals off Task 10). Heading changed
+to "Let's Connect," the description paragraph under it (and its inline
+`mailto:` link) removed entirely per direct instruction, no replacement
+copy added. Two real, measured bugs found and fixed: the entry-pin's
+`ScrollTrigger` had no explicit `end`, defaulting to the trigger's own full
+height and leaving the section visually pinned for ~938px of dead scroll
+after the reveal had already finished and real scroll input had already
+resumed (`FINDINGS.md` B41) — My Taste's own pin, the pattern this section
+already claimed to follow, sets `end: "+=200"` for exactly this reason and
+this section never copied it; fixed by adding the same value, dead scroll
+now ~340px (the genuinely expected remainder). Separately, the message
+textarea rendered 24px wider than its own cassette container (`FINDINGS.md`
+B42) — no global `box-sizing: border-box` reset exists in
+this file, so `width: 100%` plus the textarea's own padding overflowed the
+box by exactly that padding; a smaller version of the same bug has existed
+since Task 12 shipped, Task 12.1's own padding increase just made it more
+visible. Fixed with one line. `STATUS.md`'s own Stage 3 Task 12.2 entry has
+the full writeup.
 
 **Not started yet, in the order the roadmap currently has them:**
 
@@ -1159,6 +1181,25 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > once under an aggressive test pace, unrelated to this work, same finding
 > as Task 12 — avoided for the rest of verification at a human-like scroll
 > pace. `npm run lint` holds at 7 errors/2 warnings, unchanged.
+
+> **Stage 3 Task 12.2 is DONE — 2026-08-23.** A second decimal follow-up on
+> Task 12's own feature. Heading "Let's have a coffee talk" -> "Let's
+> Connect," the description paragraph and its `mailto:` link removed
+> entirely, no replacement copy. Two real bugs found and fixed: the entry
+> pin's `ScrollTrigger` had no explicit `end`, defaulting to the trigger's
+> own full height and leaving the section pinned for ~938px of dead scroll
+> after the reveal had already finished (`FINDINGS.md` B41) — fixed with
+> `end: '+=200'`, the same value My Taste's own pin (the pattern this
+> section claimed to follow) already uses, dead scroll now ~340px. The
+> message textarea rendered 24px wider than its own cassette container
+> (`FINDINGS.md` B42) — no global `box-sizing: border-box` reset exists in
+> this file, so `width: 100%` plus the textarea's own padding overflowed
+> the box; fixed with one line, re-measured to confirm the focus outline
+> now sits fully inside the cassette. Both measured directly (scrollY vs.
+> the section's own bounding rect; textarea rect vs. cassette rect), not
+> assumed from the brief's own description. `npm run lint` holds at 7
+> errors/2 warnings; `npm run build` is a net decrease (JS -0.41 kB, CSS
+> -0.09 kB) since this pass removed more than it added.
 
 ### Stage 4 — `#my-taste` redesign
 
