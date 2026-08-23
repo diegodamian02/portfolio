@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-23 (Stage 3 Task 12.2) · **HEAD:** `913169a`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-23 (Stage 3 Task 12.3) · **HEAD:** `458d032`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2847,6 +2847,120 @@ unchanged. `npm run build`: JS 525.49 -> **525.08 kB** (187.22 ->
 net decrease, expected: this pass removed more markup/CSS (the description
 paragraph and its two rules, the SplitText step) than the fixes added.
 
+### Stage 3 Task 12.3 — `#connect`: heading takeover, LCD root cause, walkman prominence, real reset button *(2026-08-23)*
+
+A third decimal follow-up on Task 12's own feature (sibling to 12.1/12.2,
+same convention as 10.1/10.2 both being decimals off Task 10). The brief
+described the pre-send heading as "Let's have a coffee talk" and implied
+`.contact-description` still exists, hidden only post-send — neither is
+true: Task 12.2 already renamed the heading to "Let's Connect" and removed
+the description paragraph ENTIRELY (not conditionally), both flagged here
+rather than assumed away. The rest of the brief's own description of the
+current code held up.
+
+**Headline swap, not stacking:** the heading (`.contact-title`) is now the
+confirmation message itself. On send, `ScrambleTextPlugin` transforms it
+from "Let's Connect" into "Thank you for reaching out!" in place — the
+same element, not a second block added below it. `.contact-success` (the
+old separate "Thanks for reaching out.../I'll get back to you soon."
+two-paragraph block) is removed entirely, JSX and CSS both. One real
+plumbing fix this required: the entry-pin's own `SplitText` instance
+(`titleSplit`) was never reverted except on component unmount — it left
+per-word wrapper spans in the heading's DOM indefinitely after the one-time
+entry reveal finished, which would have fought `ScrambleTextPlugin` reading
+plain text later. Now reverts unconditionally the moment the entry
+timeline completes (including the instant-resolve nav-click path, where
+the existing `releaseHold()` itself no-ops), so any later send always finds
+plain text to scramble.
+
+**LCD text — root cause, not another guess (`FINDINGS.md` B43):** the
+brief reported the screen rendering "ehEEr98" and asked whether it was a
+charset or premature-assignment bug. Neither: `.walkman-screen-lit`'s raw
+`textContent`/`innerHTML` was sampled every 100ms through a full send and
+resolved to exactly `"CHEERS!"` at t=1400ms and never changed again — the
+underlying data was correct and stable the whole time. The garbling is a
+genuine DSEG7 Classic font characteristic: a 7-segment display can't form
+a full-height capital B, C, D, H, N, R (and others) without colliding with
+a digit shape, so the font substitutes smaller "lowercase-style" glyphs
+for those letters specifically — confirmed by rendering the entire
+alphabet at this exact size and screenshotting it in chunks. Only a
+handful of letters (A, E, F, G, L, O among them) get true full-height
+capital forms. "CHEERS!" opened with two of the worst offenders back to
+back (C, H); the LCD now reads **"ALL DONE"**, which mostly uses the clean
+set and stayed legible in a real screenshot before being picked.
+
+**Walkman prominence:** `.walkman`'s own rest width grew from `min(260px,
+78%)` to `min(460px, 92%)` — connect.jsx's settle step already animates
+back to `scale: 1`, which now means "this bigger natural size" rather than
+the old small one, so no JS constant needed to change for this alone.
+Measured: settled walkman renders at 460×292.7px on desktop (aspect ratio
+held), horizontally centered exactly on `.contact-container`'s own center
+(both measured to the same pixel), and at 329×209px on a 390px viewport
+with zero overflow past `.contact-section`'s own bounds.
+
+**Left window visualizer (`FINDINGS.md` — see the walkman.jsx/main.scss
+comments, no separate finding needed, this was a straightforward addition
+not a bug):** the cassette bay/lid area is functionally necessary during
+Phase 1 (the cassette has to visibly land there and the lid has to close
+over it) — a permanent visualizer in that same space would fight that
+animation. Solved by layering a new `.walkman-visualizer` (6 bars,
+`colorwayFor()`-salted, its own set independent of the EQ bars) in the
+SAME box, DOM-ordered after `.walkman-lid` so it paints on top, hidden
+(`opacity: 0`) until connect.jsx fades it in right after the lid snaps
+shut. Joins `startIdleLoop()`'s existing `repeat:-1`/`yoyo:true` shape with
+its own independent random range/stagger so the two windows don't visibly
+mirror each other — confirmed animating continuously via repeated
+`getComputedStyle` transform sampling (5 of 6 bars changed value between
+every consecutive 1s sample).
+
+**Real "send another message" button:** this site has no filled/bordered
+CTA anywhere to copy verbatim — checked every clickable control
+(`.submit-button`'s own ghost/text style, the portfolio accordion toggle,
+the turntable's transport buttons, the theme toggle) and none are
+bordered. Reused `.experience-date`'s own recipe instead (2px solid
+`var(--accent)`, pill radius, background matching the page) as a genuine
+button rather than a static badge, adding a hover fill (`background:
+var(--accent)`, text flips to `var(--bg-color)` — the one token confirmed
+to hold real contrast against the accent in both themes) for the visible
+affordance `.experience-date` itself never needed. Lives in a new
+`.walkman-stage` wrapper alongside `<Walkman/>` so the two read as one
+unit, not an orphaned link below unrelated content.
+
+**Reset — a deliberate reversal, flagged not silently made:** Task 12's
+own original design kept the walkman mounted permanently once shown, so a
+second send would replay only Phase 1 onto an already-settled device. This
+brief explicitly asks for the opposite — "walkman returns to hidden state"
+— so `handleSendAnother` now kills both tweens (`idleLoopRef`,
+`sequenceTlRef`), resets `hasPoppedInRef` to `false`, and sets
+`walkmanVisible` back to `false`, unmounting `<Walkman/>` entirely. The
+next send pops it in fresh, identical to the very first one. The heading
+scrambles back to "Let's Connect" the same way it scrambled forward.
+
+**A real bug found during verification, not asked for but fixed
+(`FINDINGS.md` B44):** with the compose form scrolled to a completely
+ordinary position (the submit button centered in the viewport — not a
+contrived edge case), sending landed the confirmation heading **entirely
+behind the fixed navbar** (measured: heading box 73–128px from viewport
+top, navbar's own bottom edge at 144px). Since the heading is now the only
+confirmation message on screen, invisible defeats the point of it existing
+in the realistic case, not just an edge one. Fixed with a new
+`ensureHeadlineVisible()`, called at the top of `runSendSequence`: checks
+the heading's real position against `--navbar-height` and only nudges
+scroll (via the active Lenis instance, or `window.scrollTo` under reduced
+motion / no Lenis) when it's actually needed — a visitor already scrolled
+with room to spare is left alone. Re-verified with the same realistic
+scroll position: heading top moved from 73px (fully hidden) to 160px
+(clear by the intended 16px margin).
+
+**Verification:** dev pair (5173/5050). Full sequence traced end to end at
+1440px and 390px, both themes; reduced motion confirmed instant heading
+swap + static visualizer + no scroll-fix regression; "send another
+message" clicked and confirmed a FULL reset (heading, form, walkman all
+back to idle) followed by a clean second send (fresh pop-in replay,
+correct LCD, correct heading). `npm run lint`: **7 errors, 2 warnings**,
+unchanged. `npm run build`: JS 525.08 -> **526.32 kB** (187.07 ->
+**187.40 kB** gz), CSS 50.08 -> **50.72 kB** (10.54 -> **10.60 kB** gz).
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -4034,8 +4148,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **525.08 kB / 187.07 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2 added +6.31 kB / +1.94 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.2 itself is a net DECREASE, ~0.41 kB, since it removed more than it added: the description paragraph, its two CSS rules and its `SplitText` step)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **50.08 kB / 10.54 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| JS bundle | 407 KB / 147 KB gz | **526.32 kB / 187.40 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3 added +7.55 kB / +2.27 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.3 alone added +1.24 kB / +0.33 kB gz for the headline scramble, the visualizer bars' own idle-loop step, and `ensureHeadlineVisible()`)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **50.72 kB / 10.60 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

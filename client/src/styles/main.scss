@@ -3484,22 +3484,12 @@ html {
   margin: 0;
 }
 
-.contact-success {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  text-align: center;
-  color: var(--text-color);
-
-  p {
-    margin: 0;
-  }
-
-  .submit-button {
-    margin-top: 1rem;
-  }
-}
+// .contact-success (the two-paragraph "Thanks for reaching out.../I'll get
+// back to you soon." block) removed here — its own JSX is gone too
+// (connect.jsx). The brief's own explicit requirement: exactly one message
+// on screen after a send, the heading itself scrambled into the
+// confirmation text (ScrambleTextPlugin, connect.jsx) rather than a
+// second block stacked below it.
 
 // ---- Walkman send-success takeover (Stage 3 Task 11.2's own follow-up) ----
 //
@@ -3666,7 +3656,16 @@ html {
 .walkman {
   position: relative;
   z-index: 6;
-  width: min(260px, 78%);
+  // Was min(260px, 78%) — read as "a small object sitting under a wall of
+  // text," per direct feedback, once the takeover settles back down to
+  // this, its own REST size (connect.jsx's own settle step scales to 1,
+  // which means "this rule's own natural size," not a hardcoded pixel
+  // value). Grown to read as the confirmation state's actual centerpiece:
+  // roughly 2/3 of .contact-container's own 700px reading column on
+  // desktop, still capped by a percentage (not just a raw px number) so
+  // it can't overflow a narrow .contact-section — verified live at 390px,
+  // this project's own narrowest currently-supported width.
+  width: min(460px, 92%);
   aspect-ratio: 220 / 140;
   margin: var(--space-5) auto 0;
   // opacity: 0 only — no transform: scale(...) here. Found live: with a
@@ -3731,6 +3730,37 @@ html {
   border: 1.5px solid var(--walkman-detail);
   transform-origin: 50% 0%;
   transform: scaleY(0.08);
+}
+
+// The left window's bar visualizer (walkman.jsx) — same box as
+// .walkman-bay/.walkman-lid above (DOM order alone puts this on top, over
+// the now-closed, same-colour-as-the-case lid — no z-index needed).
+// Hidden by default: connect.jsx fades it in right after the lid snaps
+// shut, once Phase 1's own use of this space (the cassette landing, the
+// lid closing over it) is done. Rows of bars, not one shape, so each can
+// pulse independently the same way .walkman-eq-bar already does.
+.walkman-visualizer {
+  position: absolute;
+  left: 8.18%;
+  top: 12.86%;
+  width: 45.45%;
+  height: 47.14%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 3px;
+  padding: 8px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.walkman-visualizer-bar {
+  flex: 1;
+  height: 30%;
+  min-height: 2px;
+  background: var(--viz-bar-color);
+  border-radius: 1px;
+  transform-origin: 50% 100%;
 }
 
 // LCD screen — ghost (always-on "8" pattern) and lit (real message,
@@ -3829,6 +3859,51 @@ html {
   fill: var(--walkman-body-dark);
   stroke: var(--walkman-detail);
   stroke-width: 1.5;
+}
+
+// Groups the walkman with its own reset button so the two read as one
+// unit — "the next action," not an orphaned link floating separately
+// below unrelated content.
+.walkman-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+// "Send another message" — was .submit-button (the same ghost/ text-only
+// treatment as the real Send button, which reads fine as a link WITHIN a
+// form but not as a standalone action following a confirmation). This
+// site has no filled/bordered CTA anywhere to copy verbatim — checked
+// every other clickable control (.submit-button, the portfolio-list's own
+// accordion toggle, the turntable's transport buttons, the theme toggle)
+// and none of them are bordered. The closest real precedent is
+// .experience-date's own recipe (2px solid var(--accent), pill radius,
+// background matching the page) — reused here for a genuine button rather
+// than a static badge, with an added hover fill for the visible affordance
+// the brief asks for, which .experience-date itself never needed.
+.walkman-reset-button {
+  padding: 0.75rem 2rem;
+  border-radius: 999px;
+  border: 2px solid var(--accent);
+  background: var(--bg-color);
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition), transform 0.2s;
+
+  &:hover {
+    background: var(--accent);
+    // var(--bg-color), not var(--text-color) — this fills with the accent
+    // colour on hover, and --bg-color is the one token guaranteed to have
+    // real contrast against it in BOTH themes (confirmed live): dark
+    // theme's accent is light enough that its own near-black --bg-color
+    // reads clearly on top; light theme's accent is dark enough that its
+    // own near-white --bg-color does too.
+    color: var(--bg-color);
+    transform: scale(1.05);
+  }
 }
 
 

@@ -79,6 +79,7 @@ const CASSETTE_FLIP_ID = 'connect-cassette-flight';
 // of reading as one continuous idle sway.
 function startIdleLoop(walkmanEl) {
     const eqBars = walkmanEl.querySelectorAll('.walkman-eq-bar');
+    const vizBars = walkmanEl.querySelectorAll('.walkman-visualizer-bar');
     const cordEl = walkmanEl.querySelector('.walkman-cord');
     const loop = gsap.timeline();
 
@@ -90,6 +91,21 @@ function startIdleLoop(walkmanEl) {
             repeat: -1,
             yoyo: true,
             stagger: { each: 0.11, from: 'random' },
+        }, 0);
+    }
+    // Left-window visualizer — its own bar set (walkman.jsx), same
+    // repeat:-1/yoyo:true idle shape as the EQ bars above but timed
+    // independently (a different random range/duration, staggered from a
+    // different starting point) so the two windows don't visibly mirror
+    // each other.
+    if (vizBars.length) {
+        loop.to(vizBars, {
+            scaleY: () => gsap.utils.random(0.4, 1.8),
+            duration: () => gsap.utils.random(0.4, 0.85),
+            ease: 'sine.inOut',
+            repeat: -1,
+            yoyo: true,
+            stagger: { each: 0.09, from: 'edges' },
         }, 0);
     }
     if (cordEl) {
@@ -109,6 +125,15 @@ function startIdleLoop(walkmanEl) {
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050').replace(/\/+$/, '');
 
 const EMPTY = { name: '', email: '', message: '', website: '' };
+
+// The heading itself IS the confirmation message on a successful send — a
+// genuine text transformation of the existing element (ScrambleTextPlugin,
+// runSendSequence below), not a second block of copy stacked underneath
+// it. Per the brief's own explicit requirement: exactly one message on
+// screen after a send, not the original heading left sitting above a
+// separate success paragraph (the previous shape, now removed).
+const HEADLINE_IDLE = "Let's Connect";
+const HEADLINE_SENT = 'Thank you for reaching out!';
 
 export default function Connect() {
     const rootRef = useRef(null);
@@ -206,7 +231,25 @@ export default function Connect() {
                 e.preventDefault();
             }
 
-            const tl = gsap.timeline({ paused: true, onComplete: releaseHold });
+            // titleSplit.revert() runs HERE unconditionally, not only in this
+            // effect's own cleanup (below) — a send can happen long after
+            // this reveal finished, and by then `.contact-title` needs to be
+            // plain text again so ScrambleTextPlugin (runSendSequence) has a
+            // real string to read/scramble rather than SplitText's own
+            // leftover per-word wrapper spans. Wrapping `releaseHold` rather
+            // than calling `.revert()` directly on `tl`'s `onComplete` keeps
+            // `releaseHold`'s own `holding` guard intact for its OTHER job
+            // (undoing the scroll-lock) — this call must fire every time the
+            // timeline completes, including the isProgrammaticScrollActive
+            // skip below (`tl.progress(1)`), where `releaseHold` itself
+            // no-ops because `holding` was never set true.
+            const tl = gsap.timeline({
+                paused: true,
+                onComplete: () => {
+                    titleSplit.revert();
+                    releaseHold();
+                },
+            });
 
             // Same cascade shape as About's own entrance (title -> body ->
             // detail group, each waiting an explicit beat for the group
@@ -345,6 +388,33 @@ export default function Connect() {
         };
     }, []);
 
+    // Found empirically, not assumed: with the compose form comfortably
+    // centered in view (scrollIntoView({block:'center'}) on the submit
+    // button — a completely ordinary amount of scroll, not a contrived
+    // edge case), .contact-title lands ENTIRELY behind the fixed navbar
+    // once send succeeds (measured live: heading top 73px, bottom 128px,
+    // navbar's own bottom edge at 144px — the whole heading box sits
+    // inside the navbar's span). That heading is now the ONLY confirmation
+    // message on screen (the brief's own requirement) — invisible in the
+    // realistic case defeats the point of it existing. Nudges scroll up
+    // just enough to clear the navbar, and only when actually needed (a
+    // visitor already scrolled such that the heading has room is left
+    // alone — this must never fight or override normal scrolling).
+    function ensureHeadlineVisible() {
+        const navbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 0;
+        const MARGIN = 16;
+        const rect = titleRef.current.getBoundingClientRect();
+        if (rect.top >= navbarHeight + MARGIN) return;
+
+        const targetY = window.scrollY + rect.top - (navbarHeight + MARGIN);
+        const lenis = getActiveLenis();
+        if (lenis && !prefersReducedMotion) {
+            lenis.scrollTo(targetY, { duration: 0.6 });
+        } else {
+            window.scrollTo({ top: targetY, behavior: prefersReducedMotion ? 'instant' : 'smooth' });
+        }
+    }
+
     // The walkman send-success takeover itself. `cassetteFlipState` is
     // `Flip.getState(...)` captured on the REAL textarea-cassette a moment
     // ago in handleSubmit, while it was still mounted — real DOM rects, not
@@ -353,6 +423,8 @@ export default function Connect() {
         const walkmanEl = walkmanRootRef.current;
         const sectionEl = rootRef.current;
         if (!walkmanEl || !sectionEl) return;
+
+        ensureHeadlineVisible();
 
         // Kill any previous idle loop FIRST, unconditionally — explicit
         // requirement: a second send in the same session must replace the
@@ -364,14 +436,20 @@ export default function Connect() {
         const lidEl = walkmanEl.querySelector('.walkman-lid');
         const litEl = walkmanEl.querySelector('.walkman-screen-lit');
 
+        const vizEl = walkmanEl.querySelector('.walkman-visualizer');
+
         if (prefersReducedMotion) {
             // Skip straight to the settled end state — no scrim, no
             // scale-up, no scramble, no infinite loop (the brief's own
             // wording). The flying-cassette clone, if one was mounted for
-            // this send, is dropped without ever animating it.
+            // this send, is dropped without ever animating it. The headline
+            // swap still happens (it's the confirmation message itself,
+            // not a motion flourish) but as a plain text swap, no scramble.
             gsap.set(walkmanEl, { clearProps: 'transform', opacity: 1, scale: 1 });
             if (lidEl) gsap.set(lidEl, { scaleY: 1 });
+            if (vizEl) gsap.set(vizEl, { opacity: 1 });
             if (litEl) litEl.textContent = WALKMAN_LCD_TEXT;
+            titleRef.current.textContent = HEADLINE_SENT;
             setFlightSlot(null);
             setSettled(true);
             return;
@@ -401,6 +479,25 @@ export default function Connect() {
 
         const tl = gsap.timeline({ onComplete: () => setSettled(true) });
         sequenceTlRef.current = tl;
+
+        // The heading itself becomes the confirmation message — a genuine
+        // transformation of the SAME element (ScrambleTextPlugin), not a
+        // second block of text added below it (the brief's own explicit
+        // requirement; .contact-success, the old separate two-paragraph
+        // block, is gone). Runs from the very start of the sequence,
+        // alongside the walkman's own pop-in/arrival, so the page reads as
+        // one coordinated confirmation rather than the heading catching up
+        // later. `upperAndLowerCase` (ScrambleTextPlugin's own built-in
+        // preset) — this is a real sentence, mixed case and punctuation,
+        // not the site's other scrambleText usages (experience.jsx's
+        // digit-only year scramble, the walkman LCD's own curated
+        // segment-friendly charset), so there's no established charset to
+        // reuse here; the plugin's own default preset for prose is the
+        // right fit.
+        tl.to(titleRef.current, {
+            scrambleText: { text: HEADLINE_SENT, chars: 'upperAndLowerCase', speed: 0.3 },
+            duration: 0.6,
+        }, 0);
 
         // Phase 0 — reveal. Skipped on any send after the first: the
         // walkman is already visible/settled from a prior send in this
@@ -448,6 +545,15 @@ export default function Connect() {
         // 3. Lid snaps shut over the landed cassette.
         if (lidEl) {
             tl.to(lidEl, { scaleY: 1, duration: 0.35, ease: WALKMAN_POP_EASE }, hasPoppedIn ? '>-=0.1' : '>-=0.15');
+        }
+
+        // 3b. Left window's bar visualizer fades in now that the lid has
+        //     sealed over the landed cassette — before this, that same
+        //     physical space was showing the cassette arrive (walkman.jsx's
+        //     own comment on .walkman-visualizer has the full reasoning for
+        //     why it can't just be visible the whole time).
+        if (vizEl) {
+            tl.to(vizEl, { opacity: 1, duration: 0.3 }, '<');
         }
 
         // 4. Scrim appears — scoped to the section (main.scss: position
@@ -564,12 +670,36 @@ export default function Connect() {
         }
     };
 
-    // "Send another message" (Phase 2 step 9b) — re-shows the compose box.
-    // The walkman itself is untouched: it stays visible, settled, idle-
-    // looping, ready for runSendSequence to smoothly re-run Phase 1 onto it
-    // on the next successful send rather than popping in again.
+    // "Send another message" — a FULL reset, not just re-showing the
+    // compose box. This deliberately REVERSES Task 12's own original
+    // design (which kept the walkman visible/settled across this click on
+    // purpose, so a second send would replay only Phase 1 onto an
+    // already-landed device rather than popping in from scratch again) —
+    // flagged here as a real discrepancy, not silently overwritten: this
+    // brief explicitly asks for the walkman to return to hidden and for
+    // hasPoppedInRef to reset, so the NEXT send pops it in fresh, same as
+    // the very first one. Every loop/tween this feature owns is killed
+    // here rather than left to the next `runSendSequence` call, since the
+    // walkman is about to unmount entirely (`setWalkmanVisible(false)`) —
+    // nothing should still be ticking against an element that's gone.
     const handleSendAnother = () => {
+        idleLoopRef.current?.kill();
+        idleLoopRef.current = null;
+        sequenceTlRef.current?.kill();
+        sequenceTlRef.current = null;
+        hasPoppedInRef.current = false;
+
+        if (prefersReducedMotion) {
+            titleRef.current.textContent = HEADLINE_IDLE;
+        } else {
+            gsap.to(titleRef.current, {
+                scrambleText: { text: HEADLINE_IDLE, chars: 'upperAndLowerCase', speed: 0.3 },
+                duration: 0.5,
+            });
+        }
+
         setSettled(false);
+        setWalkmanVisible(false);
         setStatus('idle');
     };
 
@@ -589,14 +719,21 @@ export default function Connect() {
                 read it — that's a one-time scroll-entry transition, unrelated
                 to send state. */}
             <div className="contact-container" data-state={status} ref={containerRef}>
-                <h2 className="contact-title" ref={titleRef}>Let&apos;s Connect</h2>
+                {/* role="status" only once this IS the confirmation message
+                    — .contact-success (the old separate two-paragraph
+                    block) is gone, so this heading is now the only
+                    accessible confirmation text there is. Not set at rest,
+                    where it's a plain heading with no live-region reason. */}
+                <h2 className="contact-title" ref={titleRef} role={status === 'sent' ? 'status' : undefined}>
+                    {HEADLINE_IDLE}
+                </h2>
 
-                {status === 'sent' ? (
-                    <div className="contact-success" role="status">
-                        <p>Thanks for reaching out — your message is on its way.</p>
-                        <p>I&apos;ll get back to you soon.</p>
-                    </div>
-                ) : (
+                {/* No separate success block here anymore (.contact-success,
+                    "Thanks for reaching out.../I'll get back to you soon.")
+                    — the heading above IS the confirmation message now
+                    (ScrambleTextPlugin, runSendSequence). Exactly one
+                    message on screen after a send, per the brief. */}
+                {status !== 'sent' && (
                     <form className="contact-form" onSubmit={handleSubmit} noValidate>
                         {/* Name + email side by side — was two full-width stacked
                             fields, the largest single chunk of vertical space in
@@ -714,18 +851,27 @@ export default function Connect() {
                     />
                 )}
 
-                {/* The walkman — persists once shown (walkmanVisible), across
-                    both the form and success views, so a second send in the
-                    same session animates onto an already-settled device
-                    instead of popping one in from scratch again. Rest state
-                    is normal in-flow content (main.scss's own comment on
-                    .walkman) — free to scroll away from and back to. */}
-                {walkmanVisible && <Walkman rootRef={walkmanRootRef} />}
-
-                {status === 'sent' && settled && (
-                    <button type="button" className="submit-button" onClick={handleSendAnother}>
-                        Send another message
-                    </button>
+                {/* The walkman — mounted only while walkmanVisible, unlike
+                    Task 12's own original design (which kept it mounted
+                    permanently once shown). This brief explicitly asks for
+                    "send another message" to return the walkman to hidden,
+                    a real reversal handled in handleSendAnother — flagged
+                    there, not silently changed. Rest state is normal
+                    in-flow content (main.scss's own comment on .walkman) —
+                    free to scroll away from and back to while it's up.
+                    The reset button lives in the SAME wrapper as the
+                    walkman (not floating separately below it) so the two
+                    read as one unit — "the next action," not an orphaned
+                    link underneath unrelated content. */}
+                {walkmanVisible && (
+                    <div className="walkman-stage">
+                        <Walkman rootRef={walkmanRootRef} />
+                        {status === 'sent' && settled && (
+                            <button type="button" className="walkman-reset-button" onClick={handleSendAnother}>
+                                Send another message
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
         </section>

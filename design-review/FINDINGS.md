@@ -1915,6 +1915,85 @@ an open note for whoever next touches this section, rather than chased
 further, since it isn't reproducible against the environment this project
 treats as ground truth (5173/5050, per CLAUDE.md).
 
+### B43 — walkman LCD "garbled text" root-caused: DSEG7 Classic's own glyph substitution, not a scramble/charset bug — **FOUND AND FIXED, Stage 3 Task 12.3**
+
+A follow-up brief reported the LCD resolving to `"ehEEr98"` instead of real
+words and asked specifically whether it was a charset/character-pool issue
+or the final text being assigned before the scramble finished. Neither,
+confirmed empirically before writing a line of code: `.walkman-screen-lit`'s
+raw `textContent`/`innerHTML` was sampled every 100ms across a full send.
+It read `""` through t=900ms, then resolved cleanly to `"CHEERS!"` by
+t=1400ms and stayed exactly `"CHEERS!"` for the following 1.6s of
+sampling — the underlying data was correct and stable the entire time.
+There was never a timing race or a corrupted charset to fix.
+
+The garbling is a real characteristic of the DSEG7 Classic font itself,
+found by rendering the full alphabet at the LCD's actual on-page size and
+screenshotting it in chunks (`ABCD EFGH`, `IJKL MNOP`, `QRST UVWX`,
+`YZ 0123456789`): a true 7-segment display physically cannot form a
+full-height CAPITAL B, C, D, H, N, R (among others) without it becoming
+visually identical to a digit (capital B collapses onto 8, capital D onto
+0) — so the font substitutes smaller, differently-shaped "lowercase-style"
+glyphs for those specific letters, by design, not a bug in the font. Only
+a handful of letters (A, E, F, G, L, O confirmed) get true full-height
+capital forms; digits 0-9 are always clean, as expected. `"CHEERS!"`
+(Task 12.1's own previous choice) opens with two of the worst offenders
+back to back — C, then H — which is why it read as noise rather than a
+word at a glance, even though the string itself was never wrong.
+
+Fixed by choosing `"ALL DONE"` (`WALKMAN_LCD_TEXT`, `walkman.jsx`) instead
+of hunting for a scramble/timing fix that was never needed — it leans on
+the font's own clean set (A, L, L, O, E) with only "d"/"n" appearing in
+their small styled form, confirmed legible in a real screenshot before
+being picked. This is the SECOND time this exact LCD string has had to be
+revised after shipping (`"MESSAGE SENT"` → `"CHEERS!"` → `"ALL DONE"`) —
+each previous choice was screenshotted at the time and judged legible, but
+judged by comparing against ITS OWN previous string rather than against
+the font's now fully-mapped letter-by-letter behavior. Whoever next
+changes this string should render the target word/phrase at
+`.walkman-screen`'s real size and eyeball it fresh, not reason about it
+from the letters alone — "looks like it should be fine" has been wrong
+twice in a row here.
+
+### B44 — the send-success heading (now the ONLY confirmation message) can land entirely behind the fixed navbar — **FOUND AND FIXED, Stage 3 Task 12.3**
+
+Not reported in the brief — found during this task's own verification
+pass, and fixed because the brief's own requirement ("exactly one message
+on screen after send") is only actually satisfied if that one message is
+visible. With the compose form scrolled to a completely ordinary position
+before sending (`submit-button.scrollIntoView({block:'center'})` — not a
+contrived edge case, closer to how most visitors would actually be
+positioned when they click Send), the confirmation heading
+(`.contact-title`, "Thank you for reaching out!") rendered **entirely
+behind the fixed navbar**: measured live, the heading's own box sat at
+73–128px from the viewport top while the navbar's own bottom edge sits at
+144px — the whole heading was covered.
+
+Root cause: `#connect` is the last section on the page, and the entry
+pin's own hold only fixes the section's position DURING its one-time
+reveal — once released, the page is in completely normal scroll flow, and
+nothing has ever kept the heading itself clear of the fixed navbar at
+every possible scroll depth (nothing needed to, before this task, since
+the heading wasn't load-bearing for the confirmation — the OLD separate
+`.contact-success` block sat further down the page, out of the navbar's
+reach, at this same scroll position). Making the heading itself the
+confirmation message (Task 12.3's own headline-swap feature) is what
+turned a previously-harmless quirk (a heading scrolled up under the
+navbar, same as `#about`'s or `#experience`'s own headings would at a
+similar scroll depth) into a real problem.
+
+Fixed with a new `ensureHeadlineVisible()` (`connect.jsx`), called at the
+very start of `runSendSequence` (both the reduced-motion and full-motion
+paths): compares the heading's real `getBoundingClientRect().top` against
+`--navbar-height` plus a small margin, and does nothing at all if it's
+already clear — this must never fight normal scrolling for a visitor who
+already has room. When correction IS needed, it nudges scroll via the
+active Lenis instance (`window.scrollTo` as the fallback under reduced
+motion or no Lenis instance) to the smallest offset that clears the
+navbar. Re-verified with the identical realistic scroll position: heading
+top moved from 73px (fully hidden) to 160px (144px navbar edge + the
+intended 16px margin, exact).
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

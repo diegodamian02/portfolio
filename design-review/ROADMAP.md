@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-23, Stage 3 Task 12.2)*
+## 0. Current state — quick summary *(updated 2026-08-23, Stage 3 Task 12.3)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -270,6 +270,41 @@ box by exactly that padding; a smaller version of the same bug has existed
 since Task 12 shipped, Task 12.1's own padding increase just made it more
 visible. Fixed with one line. `STATUS.md`'s own Stage 3 Task 12.2 entry has
 the full writeup.
+
+**Also 2026-08-23 (Stage 3 Task 12.3) — `#connect`: heading takeover, LCD
+root cause, walkman prominence, real reset button:** a third decimal
+follow-up on Task 12's own feature. The heading itself now becomes the
+confirmation message via ScrambleTextPlugin ("Let's Connect" -> "Thank you
+for reaching out!"); `.contact-success` (the old separate two-paragraph
+success block) is removed entirely so there's exactly one message on
+screen. The brief asked whether the LCD's garbled text ("ehEEr98") was a
+scramble charset/timing bug — it wasn't: the underlying DOM text was
+sampled every 100ms through a full send and was correct and stable the
+entire time. Root-caused instead to DSEG7 Classic itself: a 7-segment
+display can't form full-height capital B/C/D/H/N/R without colliding with
+a digit shape, so the font substitutes small stylized glyphs for those
+letters by design, confirmed by rendering the whole alphabet at this exact
+size (`FINDINGS.md` B43) — the LCD now reads "ALL DONE" instead of
+"CHEERS!", chosen from the font's own clean letter set. The walkman's own
+rest size grew from 260px to 460px wide (measured centered, zero overflow
+at 390px) so it reads as the confirmation state's actual centerpiece. Its
+left window, previously an empty rect, now holds its own 6-bar visualizer
+(`colorwayFor()`-salted, joins the existing idle loop) layered over the
+cassette bay/lid — hidden during Phase 1's own use of that space, revealed
+once the lid seals. "Send another message" is a real bordered pill button
+now (reusing `.experience-date`'s own accent-border recipe, the closest
+existing pattern on a site with no other filled/bordered CTA) instead of
+the ghost-text `.submit-button` style, grouped with the walkman in a new
+`.walkman-stage` wrapper — and clicking it now returns the walkman to
+FULLY HIDDEN (a deliberate reversal of Task 12's own original "stay
+settled across a resend" design, flagged not silently changed) with every
+loop/tween killed, ready for a clean second send. One more real bug found
+during this task's OWN verification, not asked for but fixed: with the
+compose form scrolled to a completely ordinary position before sending,
+the confirmation heading landed entirely behind the fixed navbar
+(`FINDINGS.md` B44) — since it's now the only confirmation message, fixed
+with a new `ensureHeadlineVisible()` that nudges scroll only when actually
+needed. `STATUS.md`'s own Stage 3 Task 12.3 entry has the full writeup.
 
 **Not started yet, in the order the roadmap currently has them:**
 
@@ -1200,6 +1235,32 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > assumed from the brief's own description. `npm run lint` holds at 7
 > errors/2 warnings; `npm run build` is a net decrease (JS -0.41 kB, CSS
 > -0.09 kB) since this pass removed more than it added.
+
+> **Stage 3 Task 12.3 is DONE — 2026-08-23.** A third decimal follow-up on
+> Task 12's own feature. Heading now scrambles ("Let's Connect" -> "Thank
+> you for reaching out!") to BECOME the confirmation message via
+> ScrambleTextPlugin — `.contact-success` (the old separate success block)
+> is gone, exactly one message on screen. The brief's reported LCD garbling
+> ("ehEEr98") was investigated as a possible scramble/charset bug and
+> ruled out empirically (raw DOM text sampled every 100ms, correct and
+> stable the whole time); root-caused instead to DSEG7 Classic's own
+> glyph substitution for letters that would otherwise collide with digit
+> shapes, confirmed by rendering the full alphabet at this size
+> (`FINDINGS.md` B43) — LCD now reads "ALL DONE." Walkman's settled size
+> grew 260px -> 460px wide (measured centered, zero overflow at 390px);
+> its left window gained its own 6-bar `colorwayFor()` visualizer, layered
+> over the cassette bay/lid and revealed once the lid seals so it doesn't
+> fight Phase 1's own use of that space. "Send another message" is a real
+> bordered pill button now (`.experience-date`'s own accent-border recipe
+> — the closest existing pattern on a site with no other filled CTA),
+> grouped with the walkman in `.walkman-stage`; clicking it returns the
+> walkman to fully hidden with every loop/tween killed — a deliberate
+> reversal of Task 12's own "stay settled" design, flagged not silently
+> changed. One bug found during this task's own verification, not asked
+> for but fixed: the confirmation heading could land entirely behind the
+> fixed navbar at an ordinary scroll position (`FINDINGS.md` B44) — fixed
+> with a new `ensureHeadlineVisible()` that only corrects scroll when
+> actually needed. `npm run lint` holds at 7 errors/2 warnings.
 
 ### Stage 4 — `#my-taste` redesign
 

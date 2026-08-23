@@ -31,22 +31,44 @@ const EQ_BARS = Array.from({ length: EQ_BAR_COUNT }, (_, i) => ({
     colorway: colorwayFor(`walkman-eq-${i}`),
 }));
 
-// "CHEERS!" — not the requested "thank you for reaching out!" verbatim.
-// Two independent constraints, both checked live with real screenshots
-// before picking this, not assumed: (1) size — the LCD box/font-size
-// (main.scss) were tuned against "MESSAGE SENT" (12 characters); the
-// requested sentence is 27, clips badly at the same scale, and shrinking
-// the font enough to fit it renders it unreadable, not just small; (2)
-// DSEG7 Classic's glyph shapes — T, N and K in particular render as
-// distorted, hard-to-read forms at this size (confirmed by rendering
-// "THANK YOU!" and "THANKS" and screenshotting both: neither reads as
-// English at a glance). "CHEERS!" still says thank you, and its letters
-// (C H E E R S) avoid all three of those glyphs entirely — screenshotted
-// and confirmed legible before committing. The FULL original copy still
-// renders as normal, fully accessible text in .contact-success itself
-// (connect.jsx) — this is an added decorative confirmation on the device,
-// not a replacement for the readable one.
-export const WALKMAN_LCD_TEXT = "CHEERS!";
+// The left window's own bar visualizer — was a plain empty rect (the
+// cassette bay's own backdrop, still IS that during Phase 1's arrival;
+// see .walkman-visualizer's own comment in main.scss for how the two
+// share that space without conflicting). A separate bar set from the EQ
+// bars above, not a reuse of them — its own colorwayFor salt so it
+// doesn't coincidentally repeat the EQ bars' own five colours.
+const VIZ_BAR_COUNT = 6;
+const VIZ_BARS = Array.from({ length: VIZ_BAR_COUNT }, (_, i) => ({
+    id: `viz-bar-${i}`,
+    colorway: colorwayFor(`walkman-viz-${i}`),
+}));
+
+// "ALL DONE" — the second copy change here, and the second time this
+// comment has had to be corrected against a real screenshot rather than a
+// theory. "CHEERS!" (the previous choice) was reported back as rendering
+// GARBLED ("ehEEr98") — investigated before touching this string again:
+// the underlying DOM text was verified correct and stable the entire time
+// (sampled .textContent every 100ms through a full send — it resolved to
+// exactly "CHEERS!" and never changed again), so this was never a
+// scramble/charset/timing bug. It's a font characteristic of DSEG7
+// Classic itself: a true 7-segment display can't form a full-height
+// capital B, C, D, H, N, R (etc.) without it colliding with a digit
+// (capital B looks like 8, capital D looks like 0), so the font
+// substitutes smaller, differently-shaped "lowercase-style" glyphs for
+// those letters specifically — by design, not a bug in this font. Only a
+// handful of letters (A, E, F, G, L, O among them) get real full-height
+// capital forms. Confirmed by rendering the full alphabet at this exact
+// size and screenshotting it in chunks: "CHEERS!" opens with two of the
+// worst offenders back to back (C, then H), which is why it read as
+// garbage at a glance — swapping the word doesn't fix the font, it just
+// avoids stacking bad glyphs together. "ALL DONE" mostly uses the clean
+// set (A, L, L, O, E) with only "d"/"n" in their small styled form, which
+// stayed legible in context in a real screenshot before this was picked.
+// The FULL original copy still renders as normal, fully accessible text
+// elsewhere in #connect (the heading itself, post-send — connect.jsx) —
+// this is an added decorative confirmation on the device, not a
+// replacement for the readable one.
+export const WALKMAN_LCD_TEXT = "ALL DONE";
 
 // No propTypes convention/dependency in this codebase (same precedent as
 // turntable.jsx's `track` prop) — one line-disable for `rootRef`, a plain
@@ -94,6 +116,25 @@ export default function Walkman({ rootRef }) {
                 cassette settles into the bay. */}
             <div className="walkman-bay" />
             <div className="walkman-lid" />
+
+            {/* The left window's bar visualizer — sits in the exact same box
+                as .walkman-bay/.walkman-lid above it in paint order (DOM
+                order alone puts it on top, no z-index needed), hidden
+                (opacity: 0) until connect.jsx reveals it right after the lid
+                snaps shut. Before that reveal it stays invisible on purpose:
+                Phase 1 still needs that same physical space to show the
+                cassette landing and the lid closing over it, and a lit-up
+                visualizer showing through mid-animation would fight that
+                moment rather than follow it. */}
+            <div className="walkman-visualizer" aria-hidden="true">
+                {VIZ_BARS.map((bar) => (
+                    <span
+                        key={bar.id}
+                        className="walkman-visualizer-bar"
+                        style={{ "--viz-bar-color": `var(--vinyl-${bar.colorway})` }}
+                    />
+                ))}
+            </div>
 
             {/* LCD screen — ghost (dim, always-on "8" pattern) layer behind,
                 lit (real message, ScrambleTextPlugin target) layer on top,
