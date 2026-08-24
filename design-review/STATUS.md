@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-23 (Stage 5 `#my-taste` mobile layout, on top of Stage 3 Task 12.4) ·
-**HEAD:** `32755c7`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-24 (Stage 6 Phase 9 — pitch fader, on top of Stage 5 `#my-taste`
+mobile layout) · **HEAD:** `c0dd68c`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
