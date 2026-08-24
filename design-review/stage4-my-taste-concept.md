@@ -1000,17 +1000,32 @@ of scope for a report specifically about `#my-taste`), flagged for whoever picks
   first, visually-left card" even though Task 3.7 made it and `featured-2` equally
   prominent), then the remaining 4 cascade together, tier boundary un-observed. No
   old "1-then-4" beat survived to reuse or fight.
-- **Stage 5**'s mobile pass should look at the crate specifically — Task 3.5 found a stack
-  of six additional elements (label + 5 singles) drove mobile's fit ratio up (2.65×→3.01×);
-  Task 3.6's revert to one list card brought it back down to 2.73×, and Task 3.7's wall
-  restructure nudged it slightly further to 2.68× (taller featured cards, but mobile
-  un-rotates and single-columns regardless) — still worse than Task 3's own 2.65×. Tasks
-  3.9/4.1 pushed it again, to **2.80×** (the avatar row plus two zone titles) — still not
-  any of these tasks' job to fully address, mobile art direction is Stage 5's, but the
-  running total is worth Stage 5 seeing in one place rather than re-deriving from commits.
-- **Partially addressed by Task 3.9, worth a full pass in Stage 5:** the kicker row's own
-  mobile wrap (`.my-taste-heading-link`, `flex-wrap: wrap` + `white-space: nowrap`) stops
-  it breaking mid-word, but the result — text on one line, the Spotify icon alone on a
-  second, centered line below — is a functional fallback, not a composed one. A real
-  mobile pass could size the avatar/icon down, or choose a deliberate two-line split,
-  rather than whatever the browser's own flex-wrap happens to produce.
+- ~~**Stage 5**'s mobile pass should look at the crate specifically~~ — **DONE, 2026-08-23.**
+  The crate's mobile shape isn't a fit-ratio number to chase down anymore — it's a
+  different object entirely: `.my-taste-crate`'s numbered list is replaced (not stacked
+  alongside) by a new horizontal scroll-snap row of small track cards below 601px, inside
+  a section that deliberately fills `calc(100dvh - var(--scroll-offset))`. §17 below has
+  the mechanism.
+- ~~**Partially addressed by Task 3.9, worth a full pass in Stage 5:** the kicker row's own
+  mobile wrap~~ — **DONE, 2026-08-23.** The avatar shrinks (`--space-6` → `--space-5`) and
+  the desktop tail ("· listen on spotify" + icon) is replaced by a condensed "Spotify ↗"
+  one below 601px — a composed one-line row, not the flex-wrap fallback's two-line split.
+
+## 17. Stage 5's mechanism — two horizontal scroll-snap rows, not a stacked column
+
+Full writeup in `STATUS.md`'s own dated entry (2026-08-23) and `FINDINGS.md` B48 (the
+flex min-content bug found along the way — same trap as B25/B31, one level up: a card
+containing `white-space: nowrap` text needs its OWN `min-width: 0`, not just the row
+container's, or it grows past its `flex: 0 0 <width>` basis and stretches every sibling
+in the row to match).
+
+Short version for anyone landing here before reading `STATUS.md`: `.my-taste-wall` and a
+new `.my-taste-track-scroll` both become `overflow-x: auto; scroll-snap-type: x mandatory`
+flex rows below 601px, edge-to-edge via the section's own bleed technique. Featured/
+secondary's desktop size difference collapses to one shared card size (1:1 photos, one
+font size) — the brief's own explicit "all 5 the same size" ask. Torn edge/tape/rotation,
+dropped for mobile back in Task 3.7, are back for wall cards specifically. The section's
+own `min-height` is keyed to `--scroll-offset` (not the navbar height alone, and not a
+literal `100dvh`) — found live that a direct nav/hash landing pushes the section's top
+down by exactly that custom property (this project's own B3 fix), so a literal-100dvh
+section's bottom fell the same distance below the fold after landing that way.

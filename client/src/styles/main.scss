@@ -2547,6 +2547,51 @@ html {
   color: var(--text-color);
   text-align: center;
 
+  @media (max-width: 600px) {
+    // Stage 5 — fills exactly one screen on mobile, matching the
+    // full-screen-per-section feel the desktop pinned sections (About,
+    // Experience) already use. dvh, not vh (accounts for mobile browser
+    // chrome showing/hiding) — vh declared first as the fallback, dvh
+    // second so it wins where supported, the same dual-declaration order
+    // every other full-viewport rule in this file already uses.
+    //
+    // calc(... - var(--scroll-offset)), not the literal 100dvh first tried
+    // here: found live, not assumed — a nav click (or any direct
+    // #my-taste link/hash landing) uses this project's own B3 fix
+    // (scroll-margin-top: var(--scroll-offset), i.e. navbar-height + 24px
+    // breathing room) to land the section's top that far BELOW the
+    // viewport top, on purpose, so content never sits under the fixed bar.
+    // A literal 100dvh section landed that way pushes its own BOTTOM (the
+    // track row's dots) the same distance below the viewport — exactly the
+    // "vertical scroll required within the section" the fit target rules
+    // out. --navbar-height alone (tried first) closed most of it but left
+    // a flat, width-independent 24px gap every time — --scroll-offset's
+    // own extra buffer past the bar — reproduced live with a real
+    // hamburger-menu nav click at every width before landing on this.
+    // Matches .about-me-section/.contact-section's own PINNED-box formula
+    // in spirit, just keyed to the exact offset THIS section actually
+    // lands at rather than navbar-height alone.
+    min-height: calc(100vh - var(--scroll-offset));
+    min-height: calc(100dvh - var(--scroll-offset));
+    display: flex;
+    flex-direction: column;
+    // Distributes THREE items (kicker, top-artists, top-tracks — the
+    // brief's own wording), not two: .my-taste-layout goes display:
+    // contents below so its two children become direct flex items here
+    // alongside the heading, instead of a fixed-top heading plus one
+    // internal 2-way split absorbing 100% of the leftover space into a
+    // single gap.
+    justify-content: space-between;
+    // Outer whitespace, the same last-lever-after-card-sizing this section
+    // already reached for once before (Task 2.5's own space-8 -> space-6
+    // desktop trim) — re-measured live at the shortest realistic phone
+    // heights (320×568, 375×667) after the card/photo sizing above; this
+    // is what closes most of the remaining gap to 100dvh rather than
+    // shrinking any more content.
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-3);
+  }
+
   // Grain (Task 3) removed here: a feTurbulence noise overlay across the
   // whole section, meant to read as a "photocopied flyer" texture. Live
   // feedback: it read as a grainy/granite-like static on top of the real
@@ -2574,6 +2619,14 @@ html {
   color: var(--secondary-text);
   // space-7 -> space-6, Task 2.5's fit pass.
   margin: 0 0 var(--space-6);
+
+  @media (max-width: 600px) {
+    // Stage 5 — part of the same 100dvh fit pass as .my-taste-section's
+    // own padding trim: at the narrowest real widths this row's own 32px
+    // gap under a single-line kicker was disproportionate next to the two
+    // photo rows below it.
+    margin-bottom: var(--space-3);
+  }
 }
 
 // The kicker's own link (Task 3.8) — inherits everything above (font, size,
@@ -2653,6 +2706,34 @@ html {
   // "photo has a hairline edge" language across every image in this
   // section, avatar included.
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-color) 38%, transparent);
+
+  @media (max-width: 600px) {
+    // Stage 5 — the kicker's own mobile condensation: a smaller avatar
+    // alongside the shorter "Spotify ↗" tail below, in place of the
+    // functional-but-uncomposed two-line wrap Task 3.9's own flex-wrap
+    // safety net produced (stage4-my-taste-concept.md §16).
+    width: var(--space-5);
+    height: var(--space-5);
+  }
+}
+
+// Stage 5 — the kicker's own two tail variants (my-taste.jsx): the desktop
+// "· listen on spotify" + icon tail, and a condensed mobile "Spotify ↗"
+// one. Both render into the DOM at every width; CSS shows exactly one per
+// breakpoint below, never both, same "one DOM, CSS reshapes it" approach
+// this whole section already uses for every other mobile change.
+.my-taste-heading-tail-full {
+  @media (max-width: 600px) {
+    display: none;
+  }
+}
+
+.my-taste-heading-tail-short {
+  display: none;
+
+  @media (max-width: 600px) {
+    display: inline;
+  }
 }
 
 // Renders as-is — the duotone wash (grayscale+contrast + a mix-blend-mode
@@ -2706,7 +2787,20 @@ html {
   margin-top: var(--space-2);
 
   @media (max-width: 600px) {
-    grid-template-columns: minmax(0, 1fr);
+    // Stage 5 — was a single grid column just stacking wall-column above
+    // crate-column with whatever leftover gap fell out. display: contents
+    // takes this element OUT of the box model entirely (safe here — it's a
+    // plain, non-semantic <div>) so its two children become direct flex
+    // items of .my-taste-section itself, alongside the kicker <h2> —
+    // .my-taste-section's own justify-content: space-between (above) is
+    // what actually distributes all THREE across the full 100dvh, splitting
+    // the leftover space into two gaps (kicker <-> top-artists, top-artists
+    // <-> top-tracks) instead of concentrating 100% of it into one gap
+    // below a fixed-position heading. The align-items: start this rule's
+    // base declares (for the DESKTOP grid's cross-axis) simply stops
+    // applying once this element is display: contents — there's no box
+    // left for it to apply to.
+    display: contents;
   }
 }
 
@@ -2733,7 +2827,9 @@ html {
 // where it would land if left on .my-taste-crate directly.
 .my-taste-crate-column {
   @media (max-width: 600px) {
-    margin-top: var(--space-4);
+    // space-4 -> space-3, part of the same 100dvh fit pass as
+    // .my-taste-section's own padding trim above.
+    margin-top: var(--space-3);
   }
 }
 
@@ -2753,6 +2849,12 @@ html {
   color: var(--secondary-text);
   opacity: 0.7;
   margin: 0 0 var(--space-3);
+
+  @media (max-width: 600px) {
+    // space-3 -> space-2, same 100dvh fit pass as .my-taste-section's own
+    // padding trim above.
+    margin-bottom: var(--space-2);
+  }
 }
 
 // The wall — Stage 4 Task 2, restructured Task 3.7. grid-template-areas,
@@ -2824,14 +2926,71 @@ html {
   text-align: left;
 
   @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-    grid-template-areas:
-      "featured-1"
-      "featured-2"
-      "secondary-1"
-      "secondary-2"
-      "secondary-3";
+    // Stage 5 — was a single un-rotated column, one card per row; now one
+    // horizontal scroll-snap row, all 5 cards reached by swipe instead of
+    // vertical stacking. display: flex means the grid-template-* props
+    // above simply don't apply below 600px anymore (not redeclared to
+    // "none" — grid-only properties are inert once display isn't grid).
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    // Same defensive min-width: 0 this section has needed at every other
+    // nesting level (.my-taste-layout's own grid-track minmax(0) fix,
+    // this rule's own top-of-file comment) — a flex item that's ALSO a
+    // scroll container can still let its children's real content width
+    // push its own preferred size past what its parent offers even with
+    // overflow-x: auto set; checked live rather than assumed unnecessary.
+    min-width: 0;
+    gap: var(--space-3);
+    // Edge-to-edge bleed: cancel .my-taste-section's own horizontal
+    // padding (--space-5) with a negative margin, then re-apply the SAME
+    // value as this row's own padding — not a second, independently-tuned
+    // number — so the first/last cards still line up with every other
+    // section's own content edge while the row scrolls flush to the true
+    // viewport edge. Re-checked live for the exact overflow class this
+    // technique bit the project with before (CLAUDE.md, the fr-track
+    // minmax(0) issue) — zero horizontal page overflow at 320–600px.
+    margin: 0 calc(-1 * var(--space-5));
+    padding: 0 var(--space-5);
+  }
+}
+
+// Stage 5 — re-enables torn-edge + tape + rotation/jitter for wall cards
+// specifically at mobile, reversing the un-rotated/tape-hidden fallback
+// Task 3.7 shipped (.my-taste-card / .my-taste-card-tape below) before
+// this section had any real mobile art direction. Scoped to
+// ".my-taste-wall .my-taste-card" (not the bare .my-taste-card) so the
+// crate's own old setlist card — still straightened at every width via
+// .my-taste-card--setlist, and now hidden on mobile regardless (see
+// .my-taste-crate below) — keeps its existing un-rotated mobile behavior
+// as the default; higher selector specificity here doesn't depend on
+// source order. Card-to-card clipping in the new snap row checked live
+// against cardTransform()'s own margin-budget math (my-taste.jsx),
+// re-verified at THIS card's smaller mobile size rather than assumed
+// still-clear from the desktop numbers.
+.my-taste-wall .my-taste-card {
+  @media (max-width: 600px) {
+    flex: 0 0 clamp(92px, 30vw, 168px);
+    // Found live: a long, un-wrappable name (white-space: nowrap, set on
+    // .my-taste-featured-name/-secondary-name at this width) gives the
+    // CARD an automatic min-width equal to that name's own full text width
+    // — the exact same flex min-content trap this project has hit before
+    // (FINDINGS.md B25/B31), just one level up (the card, not the text
+    // row). Without this, a card like "Red Hot Chili Peppers" renders
+    // wider than its own flex-basis and every sibling stretches to match.
+    min-width: 0;
+    scroll-snap-align: start;
+    margin: 0; // spacing now comes from .my-taste-wall's own flex gap
+    transform:
+      rotate(var(--card-rotate, 0deg))
+      translate(var(--card-jitter-x, 0px), var(--card-jitter-y, 0px));
+  }
+}
+
+.my-taste-wall .my-taste-card-tape {
+  @media (max-width: 600px) {
+    display: block;
   }
 }
 
@@ -2846,6 +3005,14 @@ html {
   display: flex;
   flex-direction: column;
   text-align: left;
+
+  @media (max-width: 600px) {
+    // Stage 5 — replaced, not stacked alongside, by .my-taste-track-scroll
+    // below (my-taste.jsx renders both; CSS shows exactly one of the two
+    // per breakpoint, the same swap-not-stack approach as every other
+    // mobile change in this section).
+    display: none;
+  }
 }
 
 // Occupies a card's own grid-area (loading/error/empty states, per-list —
@@ -3098,6 +3265,17 @@ html {
 .my-taste-photo-slot--featured {
   aspect-ratio: 16 / 9;
   margin-bottom: var(--space-2);
+
+  @media (max-width: 600px) {
+    // Stage 5 — converges to --secondary's own mobile ratio just below:
+    // all 5 cards read as one uniform tier in the scroll row (the brief's
+    // own explicit ask), so the two ratios that expressed featured/
+    // secondary hierarchy on desktop can't both survive into it. Square,
+    // not portrait — measured against the real 100dvh fit target at
+    // 320-375px tall viewports: a taller ratio here was the single biggest
+    // lever standing between this row and actually fitting one screen.
+    aspect-ratio: 1 / 1;
+  }
 }
 
 // Renamed from .my-taste-photo-slot--support (Task 3.7) — same 3:2 ratio
@@ -3109,6 +3287,10 @@ html {
 .my-taste-photo-slot--secondary {
   aspect-ratio: 3 / 2;
   margin-bottom: var(--space-2);
+
+  @media (max-width: 600px) {
+    aspect-ratio: 1 / 1;
+  }
 }
 
 // Renamed from .my-taste-headliner-name (Task 3.7) — same rule, byte-
@@ -3136,6 +3318,22 @@ html {
   text-transform: uppercase;
   letter-spacing: 0.01em;
   margin: 0;
+
+  @media (max-width: 600px) {
+    // Stage 5 — converges to --secondary-name's own mobile treatment
+    // below, same "one uniform tier" reasoning as the photo aspect-ratio
+    // above. Truncation triplet reused from .record-crate-title (this
+    // file's own hero-crate rule — the real site-wide "one line, ellipsis"
+    // idiom; this section's own crate never had a truncating rule to copy,
+    // despite the brief's assumption that it did).
+    font-family: var(--taste-font-support);
+    font-size: var(--text-md);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 // Renamed from .my-taste-support-name (Task 3.7) — byte-identical rule.
@@ -3146,6 +3344,12 @@ html {
   text-transform: uppercase;
   letter-spacing: 0.02em;
   margin: 0;
+
+  @media (max-width: 600px) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 // Fanned/staggered (brief's own words, Task 3), not a flat row — a small
@@ -3303,6 +3507,123 @@ html {
 .my-taste-setlist-artist {
   min-width: 0;
   color: var(--secondary-text);
+}
+
+// Stage 5 — scroll-position dots for the two mobile horizontal rows
+// (my-taste.jsx). Both dot containers exist in the DOM at every width —
+// no point mounting/unmounting via JS just to hide them — display: none is
+// the only thing keeping them out of the desktop/tablet layout, the same
+// "one DOM, CSS reshapes it per breakpoint" approach the rest of this
+// section already uses. aria-hidden (my-taste.jsx) on both containers: a
+// scrollbar substitute, not content — the row's own cards carry the real
+// tab order and links.
+.my-taste-scroll-dots,
+.my-taste-track-dots {
+  display: none;
+
+  @media (max-width: 600px) {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+  }
+}
+
+.my-taste-scroll-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--secondary-text);
+  opacity: 0.35;
+  // Active state driven by my-taste.jsx's own IntersectionObserver
+  // (a plain effect, not GSAP — see that file's own comment) toggling
+  // .is-active per-dot as its matching card snaps into place. This
+  // transition is a simple opacity/scale swap, not "motion" in the
+  // reduced-motion sense (the same reasoning this site's hover states
+  // already aren't gated on that preference), so it isn't wrapped in a
+  // gsap.matchMedia() reduced-motion branch.
+  transition: opacity 0.15s ease, transform 0.15s ease;
+
+  &.is-active {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
+
+// Stage 5 — the mobile-only track row: small cards (thumbnail + title +
+// artist), replacing .my-taste-crate's plain numbered list on mobile (that
+// rule's own display: none above). Same scroll-snap/edge-bleed mechanism
+// as .my-taste-wall's own mobile override further up this file.
+.my-taste-track-scroll {
+  display: none;
+
+  @media (max-width: 600px) {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    min-width: 0;
+    gap: var(--space-3);
+    margin: 0 calc(-1 * var(--space-5));
+    padding: 0 var(--space-5);
+  }
+}
+
+.my-taste-track-card {
+  flex: 0 0 clamp(80px, 24vw, 132px);
+  // Found live — same flex min-content trap as .my-taste-wall .my-taste-card
+  // above, hit for real here: "I Ran (So Far Away) - Single Edit" (the same
+  // long title FINDINGS.md B31 already used as its own reference case) has
+  // no wrap point (white-space: nowrap on .my-taste-track-card-title), so
+  // without this the CARD's own automatic min-width becomes that title's
+  // full un-truncated text width (~203px, measured live) instead of the
+  // 132px flex-basis above — one card renders 71px taller than its
+  // siblings (aspect-ratio: 1/1 on the photo scales with it) and every
+  // other card in the row stretches to match via align-items: stretch.
+  min-width: 0;
+  scroll-snap-align: start;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover .my-taste-track-card-title {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+// Reuses .my-taste-photo-slot's own base rule (border, --card-tint
+// fallback) — just this card's own aspect-ratio, same pattern as
+// --featured/--secondary/--thumb above.
+.my-taste-photo-slot--track {
+  aspect-ratio: 1 / 1;
+  margin-bottom: var(--space-2);
+}
+
+.my-taste-track-card-title {
+  display: block;
+  font-family: var(--taste-font-support);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.my-taste-track-card-artist {
+  display: block;
+  font-family: var(--taste-font-mono);
+  font-size: var(--text-xs);
+  color: var(--secondary-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 //Thank you section

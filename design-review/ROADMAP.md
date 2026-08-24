@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-23, Stage 3 Task 12.4)*
+## 0. Current state — quick summary *(updated 2026-08-23, Stage 5 `#my-taste` mobile layout)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -343,6 +343,21 @@ visitor — `STATUS.md`'s own Stage 3 Task 12.5 entry has the full reasoning
 and a note to spot-check on a real device before `#connect`'s own
 design-system pass.
 
+**Also 2026-08-23 (Stage 5) — `#my-taste`'s own mobile layout: two horizontal scroll-snap
+rows.** Jumped ahead of this file's own stated Stage 5 dependency ("Stages 3/4 landing
+first, so mobile isn't built twice") — a deliberate reorder, noted per the working
+agreement rather than done silently, same as `#my-taste` itself jumping ahead of Stage 3's
+remainder once before. Replaces the un-rotated single-column stack every mobile override
+since Task 3.7 fell back to (fit ratio had crept to 2.80× one screen, `stage4-my-taste-concept.md`
+§16) with a `min-height: calc(100dvh - var(--scroll-offset))` section containing two
+horizontal scroll-snap rows (artists, tracks) plus scroll-position dots — verified live to
+fit with zero extra scroll after a direct nav/hash landing at 320/375/390/430/600px, not
+just "doesn't overflow." One real bug found and fixed along the way, the same flex
+min-content trap this section has hit twice before (B25, B31) one level up — a card
+containing `white-space: nowrap` text can grow past its own `flex: 0 0 <width>` basis
+without an explicit `min-width: 0` on the card itself, stretching every sibling in the row
+to match (`FINDINGS.md` B48). Full writeup: `STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -350,7 +365,8 @@ design-system pass.
 | **4 (remainder)** | `#my-taste` Task 5: time-range switching + `Flip` re-rank | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7, 4, 3.9, 4.1 — done |
 | **3 (remainder)** | Apply the design system to `#connect` — the same tokens/mixins already used on `#about`/`#projects`, just not applied there yet. This is the last piece of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
-| **5** | Mobile pass | Stages 3/4 landing first, so mobile isn't built twice |
+| **5 (`#my-taste` piece)** | ~~Mobile pass~~ — **done, above.** | — |
+| **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
 | **6** | Turntable delight — pitch fader, scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
 | **7** | "WOW layer" — audio-reactive waveform, `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |

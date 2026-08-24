@@ -2131,6 +2131,45 @@ change, not the entry pin. Worth a real-device/real-trackpad check before
 `#connect`" — Stage 3 remainder), since that task will already have the
 section open and scrolled into repeatedly.
 
+### B48 — a flex card containing `white-space: nowrap` text can grow past its own `flex: 0 0 <width>` basis, stretching every sibling in the row to match — **FOUND AND FIXED, Stage 5 `#my-taste` mobile layout**
+
+Same underlying trap as B25/B31 (both also `#my-taste`, both also a flex/wrap
+sizing surprise at mobile widths), one level up: those were about text
+wrapping or overflowing WITHIN a row; this is about the row's own CARD
+growing past its intended size because of text inside it.
+
+`.my-taste-track-card` (`main.scss`) declared `flex: 0 0 132px` — flex-grow
+and flex-shrink both `0`, which reads as "never resize from 132px." It
+still did, for exactly one card out of five: "I Ran (So Far Away) - Single
+Edit" (the same long title B31 already used as its own reference case).
+That card measured **256px tall**, 71px more than its siblings, and because
+`.my-taste-track-scroll`'s `align-items` was left at its default
+(`normal`/stretch for a flex row), every OTHER card stretched down to match
+it — one long track title inflated the whole row's height.
+
+**Root cause.** A flex item's automatic minimum size (`min-width: auto`)
+resolves to its content's min-content width unless the item's own overflow
+is non-`visible` on that axis. `.my-taste-track-card-title` has
+`white-space: nowrap` (deliberate — it's what makes the ellipsis
+truncation work), which means it has no wrap point at all: its min-content
+width equals its full, un-truncated text width. The CARD itself — not the
+title span — had no `min-width: 0`, so ITS automatic minimum became that
+same full text width (~203px, measured live), overriding the 132px
+flex-basis despite `flex-shrink: 0` explicitly saying "don't shrink this."
+
+**Fix.** `min-width: 0` on `.my-taste-track-card` itself (not just the row
+container, which already had it). Applied to `.my-taste-wall .my-taste-card`
+too in the same pass — the wall's mobile row has the identical shape
+(`white-space: nowrap` names, e.g. "Red Hot Chili Peppers," inside
+fixed-`flex-basis` cards), just not yet exercised by data long enough to
+have shown the symptom during manual testing.
+
+**Generalisable, worth carrying into any future fixed-width flex row on
+this site:** `min-width: 0` on a flex ROW's children is not automatically
+covered by `min-width: 0` on the row itself — the trap re-applies at
+every level that mixes a fixed `flex-basis` with un-wrappable content
+inside it, not just once per nesting depth.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

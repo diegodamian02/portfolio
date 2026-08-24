@@ -418,6 +418,13 @@ export default function MyTaste() {
     const kickerRef = useRef(null);
     const wallTitleRef = useRef(null);
     const crateTitleRef = useRef(null);
+    // Stage 5 — the two mobile horizontal scroll rows and their dot
+    // indicators. Refs only (no GSAP target here); wired up by the plain
+    // IntersectionObserver effect below, not the fullMotion cascade.
+    const wallScrollRef = useRef(null);
+    const artistDotsRef = useRef(null);
+    const trackScrollRef = useRef(null);
+    const trackDotsRef = useRef(null);
 
     useEffect(() => {
         fetchTopItems("tracks").then(setTracks);
@@ -430,6 +437,88 @@ export default function MyTaste() {
         window.addEventListener("themeChange", handleTheme);
         return () => window.removeEventListener("themeChange", handleTheme);
     }, []);
+
+    // Stage 5 — mobile scroll-position dots for the two horizontal rows.
+    // Deliberately a plain effect, not folded into the useGSAP cascade
+    // below: that cascade is gated behind BOTH a min-width AND
+    // prefers-reduced-motion (fullMotion), but a scroll-position readout
+    // isn't motion in that sense — it's a static-state indicator (no
+    // animated transition of its own beyond a trivial CSS opacity swap),
+    // the same reasoning this site's hover states aren't reduced-motion
+    // gated either — so it needs to work at mobile width regardless of
+    // that preference. Gated on its own bare `matchMedia`, independent of
+    // gsap.matchMedia() above (no GSAP tweens involved here at all).
+    useEffect(() => {
+        const mql = window.matchMedia("(max-width: 600px)");
+        let cleanups = [];
+
+        function wireRow(scrollEl, dotsEl) {
+            if (!scrollEl || !dotsEl) return null;
+            const cards = Array.from(scrollEl.children);
+            const dots = Array.from(dotsEl.children);
+            // Defensive only — dots are rendered 1:1 off the same arrays
+            // the cards are (below), so a mismatch would mean the two
+            // markup blocks drifted apart, not an expected runtime state.
+            if (cards.length === 0 || cards.length !== dots.length) return null;
+
+            // Ratios, not a single "current index" — a card's own
+            // callback only fires when ITS ratio changes, so the running
+            // map is what lets each batch re-derive "which ONE card is
+            // most visible right now" instead of naively toggling every
+            // card that happens to be over the threshold at once (found
+            // live: at this row's own card width, close to 2 cards clear
+            // 0.6 simultaneously at rest, which would light up two dots
+            // for one scroll position).
+            const ratios = new Map(cards.map((card) => [card, 0]));
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    entries.forEach((entry) => ratios.set(entry.target, entry.intersectionRatio));
+                    let bestCard = null;
+                    let bestRatio = 0;
+                    ratios.forEach((ratio, card) => {
+                        if (ratio > bestRatio) {
+                            bestRatio = ratio;
+                            bestCard = card;
+                        }
+                    });
+                    const activeIndex = bestCard ? cards.indexOf(bestCard) : -1;
+                    dots.forEach((dot, i) => dot.classList.toggle("is-active", i === activeIndex));
+                },
+                // root: the scroll container itself, not the viewport — this
+                // is "which card is centered in ITS OWN row," not "which
+                // card is on screen." A finer-grained threshold list (not
+                // one cutoff) is what gives the ratio map above enough
+                // resolution to actually rank cards against each other.
+                { root: scrollEl, threshold: [0, 0.25, 0.5, 0.75, 1] },
+            );
+            cards.forEach((card) => observer.observe(card));
+            return () => observer.disconnect();
+        }
+
+        function setup() {
+            cleanups.forEach((cleanup) => cleanup?.());
+            cleanups = [];
+            if (!mql.matches) return;
+            cleanups = [
+                wireRow(wallScrollRef.current, artistDotsRef.current),
+                wireRow(trackScrollRef.current, trackDotsRef.current),
+            ];
+        }
+
+        setup();
+        // Re-wire on an actual breakpoint cross (e.g. a tablet rotating
+        // past 600px), same "matchMedia governs whether X exists at all"
+        // shape Stage 2's own gsap.matchMedia() decision established,
+        // just via the native API since no GSAP tween is involved.
+        mql.addEventListener("change", setup);
+        return () => {
+            mql.removeEventListener("change", setup);
+            cleanups.forEach((cleanup) => cleanup?.());
+        };
+        // Re-run once real data lands — before that, the wall/track rows
+        // render placeholders (or nothing, for the dots) rather than the
+        // real cards these observers need to attach to.
+    }, [artists.status, tracks.status]);
 
     // Stage 4 Task 4 — the entrance cascade: a timed scroll-hold (pin, then
     // each card lands individually) rather than one blanket reveal.
@@ -835,14 +924,24 @@ export default function MyTaste() {
                         cascade (out of scope for this task). */}
                     <AvatarSlot imageUrl={avatar.imageUrl} imageAlt="Diego's Spotify profile photo" />
                     my taste
-                    <span className="my-taste-heading-dot" aria-hidden="true">·</span>
-                    listen on spotify
-                    {/* alt="" (decorative), unlike footer.jsx's OWN copy of
-                        this same icon (alt="Spotify" there) — this icon
-                        rides alongside text that already says "listen on
-                        spotify," so announcing it a second time would be
-                        redundant, not helpful. */}
-                    <img className="my-taste-heading-icon" src={theme === "dark" ? spotifyWhite : spotifyBlack} alt="" />
+                    {/* Stage 5 — the desktop tail ("· listen on spotify" +
+                        icon) and mobile's own condensed tail ("Spotify ↗")
+                        both render into the DOM; main.scss shows exactly one
+                        per breakpoint (same 600px cutoff every other mobile
+                        override in this section already uses), never both.
+                        Both live inside the one kicker <a> — this is still a
+                        single link, not a second nested one. */}
+                    <span className="my-taste-heading-tail-full">
+                        <span className="my-taste-heading-dot" aria-hidden="true">·</span>
+                        listen on spotify
+                        {/* alt="" (decorative), unlike footer.jsx's OWN copy of
+                            this same icon (alt="Spotify" there) — this icon
+                            rides alongside text that already says "listen on
+                            spotify," so announcing it a second time would be
+                            redundant, not helpful. */}
+                        <img className="my-taste-heading-icon" src={theme === "dark" ? spotifyWhite : spotifyBlack} alt="" />
+                    </span>
+                    <span className="my-taste-heading-tail-short">Spotify ↗</span>
                 </a>
             </h2>
 
@@ -864,7 +963,7 @@ export default function MyTaste() {
                         the actual fix this task is for, not just a bigger label
                         on the same old hierarchy. Zone B ("secondary",
                         data[2..4]) is the clearly smaller tier below. */}
-                    <div className="my-taste-wall">
+                    <div className="my-taste-wall" ref={wallScrollRef}>
                     {featured.length > 0
                         ? featured.map((artist, i) => (
                             <TasteCard
@@ -911,6 +1010,22 @@ export default function MyTaste() {
                             <div key={i} className="my-taste-card-placeholder" style={{ gridArea: `secondary-${i}` }} />
                         ))}
                     </div>
+                    {/* Stage 5 — mobile-only scroll-position dots, a
+                        scrollbar substitute for the row above (no visible
+                        scrollbar on iOS). aria-hidden: this is a position
+                        readout, not content — the cards themselves already
+                        carry the real tab order and links, per the same
+                        "hide decoration, not information" discipline this
+                        section already uses (e.g. the kicker's own dot
+                        separator). One dot per rendered card, so this only
+                        renders once there's real data to count. */}
+                    {(featured.length > 0 || secondary.length > 0) && (
+                        <div className="my-taste-scroll-dots" aria-hidden="true" ref={artistDotsRef}>
+                            {[...featured, ...secondary].map((artist) => (
+                                <span key={artist.id} className="my-taste-scroll-dot" />
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div className="my-taste-crate-column">
@@ -990,6 +1105,60 @@ export default function MyTaste() {
                         </div>
                     )}
                     </div>
+                    {/* Stage 5 — mobile-only track row: small cards
+                        (thumbnail + title + artist) in a second horizontal
+                        scroll-snap row, same row/snap/dots pattern as the
+                        wall's own mobile row above. Separate markup from
+                        .my-taste-crate's plain numbered list just above
+                        (CSS shows exactly one of the two per breakpoint) —
+                        the brief's own "small track cards" shape doesn't
+                        map onto reshaping <li> rows, and giving this new
+                        markup its own class names throughout keeps it from
+                        ever being matched by Task 4's own crate-scoped GSAP
+                        selectors above (.my-taste-setlist-item,
+                        .my-taste-photo-slot--thumb). No tape/torn edge on
+                        these chips — same "already the straightened, plain
+                        object" character the crate has carried since Task
+                        3.8, just extended to its mobile shape too.
+                        `track.imageUrl` already exists (pickImageUrl over
+                        track.album.images, used today for the crate's own
+                        top-3 thumbnails) — no new data dependency, and
+                        PhotoSlot's own --card-tint fallback still covers a
+                        missing/broken image exactly as it does everywhere
+                        else in this section. */}
+                    {tracks.status === "ready" && setlist.length > 0 && (
+                        <>
+                            <div className="my-taste-track-scroll" ref={trackScrollRef}>
+                                {setlist.map((track) => (
+                                    <a
+                                        key={track.id}
+                                        className="my-taste-track-card"
+                                        href={track.external_urls?.spotify}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        <PhotoSlot
+                                            id={track.id}
+                                            className="my-taste-photo-slot--track"
+                                            imageUrl={track.imageUrl}
+                                            imageAlt={track.imageAlt}
+                                        />
+                                        <span className="my-taste-track-card-title">{track.name}</span>
+                                        <span className="my-taste-track-card-artist">
+                                            {track.artists.map((a) => a.name).join(", ")}
+                                        </span>
+                                    </a>
+                                ))}
+                            </div>
+                            {/* Same dots mechanism/aria-hidden reasoning as
+                                the wall's own row above. */}
+                            <div className="my-taste-track-dots" aria-hidden="true" ref={trackDotsRef}>
+                                {setlist.map((track, index) => (
+                                    <span key={track.id ?? index} className="my-taste-scroll-dot" />
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
         </section>

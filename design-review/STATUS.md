@@ -1,6 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-23 (Stage 3 Task 12.4) · **HEAD:** `ea585ac`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-23 (Stage 5 `#my-taste` mobile layout, on top of Stage 3 Task 12.4) ·
+**HEAD:** `32755c7`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -4236,6 +4237,133 @@ for dozens of consecutive samples) and releases on schedule.
 Verified: full-page console/pageerror sweep clean; `npm run lint` (7/2, unchanged) and
 `npm run build` clean (CSS 46.54 kB → 46.19 kB, the duotone rules' own removal).
 Screenshots re-captured both themes.
+
+### Stage 5 — `#my-taste` mobile layout: two horizontal scroll-snap rows *(2026-08-23)*
+
+Mobile's own art direction, deliberately deferred since Task 3.7 (`stage4-my-taste-concept.md`
+§16, `ROADMAP.md`'s own Stage 5 line) — the un-rotated single-column stack every mobile
+override since Task 3.7 has fallen back to, replaced with two horizontal scroll-snap rows
+(artists, tracks) inside a section that deliberately fills one screen. Checked against the
+tree first, not against this file's own prose, per the brief's own instruction and this
+project's working agreement — two brief assumptions didn't match: `setlist` (my-taste.jsx)
+already carries `imageUrl` per track (`pickImageUrl(track.album?.images)`, already used for
+the crate's own top-3 thumbnails), so the mobile track row uses it directly — no new API
+call, and no text-only fallback chip was needed. And the crate's setlist rows never actually
+truncated with ellipsis (no `text-overflow` rule existed under any `.my-taste-*` selector);
+the real site-wide truncation idiom, reused here, is `.record-crate-title`/`-artist` (the
+hero's own crate, `main.scss:1410-1425`).
+
+**Sequencing, noted per the working agreement rather than silently done:** `ROADMAP.md`'s own
+"not started yet" table lists Stage 5 as depending on Stage 4 Task 5 (`#my-taste` time-range
+switching) and Stage 3's `#connect` design-system pass landing first. This task jumps
+`#my-taste`'s own mobile pass ahead of both — the same kind of deliberate reorder `#my-taste`
+itself already got once before (ahead of Stage 3's remainder, back in Stage 4's own opening).
+
+**Kicker.** Condensed to one row: the avatar shrinks (`--space-6` → `--space-5`), and a new
+`.my-taste-heading-tail-short` ("Spotify ↗") replaces the desktop "· listen on spotify" +
+icon tail — both render into the DOM at every width, CSS shows exactly one per breakpoint,
+same pattern every other mobile override in this section already uses. No longer relies on
+Task 3.9's own `flex-wrap` safety net actually triggering (stage4-my-taste-concept.md §16's
+own open item) — confirmed live, fits one line comfortably down to 320px.
+
+**Artists.** Same 5 `TasteCard`s, no new DOM — `.my-taste-wall` switches from a single-column
+grid stack to `display: flex; overflow-x: auto; scroll-snap-type: x mandatory` at this
+breakpoint. Featured/secondary's desktop size difference (16:9 vs 3:2 photos, two font
+sizes) converges to one shared treatment (1:1 photos, one font size) so all 5 read as one
+swipeable tier, the brief's own explicit ask. Torn edge + tape + rotation/jitter — dropped
+for mobile back in Task 3.7, before this section had any real mobile art direction — are
+**re-enabled** for wall cards specifically. A new `.my-taste-scroll-dots` row (`aria-hidden`,
+a scrollbar substitute, not content) sits below, one dot per card, active-state driven by an
+`IntersectionObserver` per row (see Mechanism below).
+
+**Tracks.** A new, separate mobile-only row (`.my-taste-track-scroll`/`.my-taste-track-card`)
+— thumbnail + title + artist chips — not a CSS reshape of the existing numbered list: the
+brief's own "small track cards" shape doesn't map onto `<li>` rows, and new class names
+throughout keep this row from ever being matched by Task 4's own crate-scoped GSAP
+selectors (`.my-taste-setlist-item`, `.my-taste-photo-slot--thumb`). `.my-taste-crate`
+(the desktop numbered list) gets `display: none` at this breakpoint — replaced, not
+stacked alongside. Same scroll-snap/dots/truncation pattern as the artist row.
+
+**Fit target — measured before/after, not assumed:**
+
+| Width × height | Before (single-column stack) | After |
+|---|---|---|
+| 320×568 | did not fit `100dvh` at all (never measured against it — pre-existing stack) | fits, 0px extra scroll after a direct `#my-taste` link/nav landing |
+| 375×667 | — | fits, 0px extra scroll |
+| 390×844 | fit ratio 2.80× one screen (Task 4.1's own number) | fits, 0px extra scroll |
+| 430×932 | — | fits, 0px extra scroll |
+| 600×960 | — | fits, 0px extra scroll |
+
+`min-height: calc(100dvh - var(--scroll-offset))`, not the brief's own literal `100dvh` —
+found live, not assumed: a direct nav/hash landing uses this project's own B3 fix
+(`scroll-margin-top: var(--scroll-offset)`) to land the section's top `--scroll-offset`
+below the viewport top on purpose. A literal `100dvh` section landed that way pushed its
+own bottom (the track row's dots) the same distance below the fold — reproduced with a
+real hamburger-menu nav click at every width before landing on the corrected formula.
+`--navbar-height` alone (tried first) closed most of it but left a flat 24px gap at every
+width — `--scroll-offset`'s own extra buffer past the bar. `.my-taste-layout` goes
+`display: contents` at this breakpoint so its two children become direct flex items of
+`.my-taste-section` alongside the kicker — a real 3-way `justify-content: space-between`
+(kicker / top-artists / top-tracks, the brief's own wording) instead of a fixed-top
+heading plus one internal 2-way split absorbing 100% of the leftover space into a single
+gap. Vertical density (card/photo sizing, section padding, zone-title margins) was loosened
+back up from a mockup-scale starting point and then re-tightened specifically at 320/375px
+once measured against the real target — not shrunk blindly to "fit at all costs."
+
+**Mechanism note — a real bug found and fixed during the build, not shipped and found
+later:** the flex min-content trap this project has hit before (`FINDINGS.md` B25/B31),
+one level up from where it bit last time. `flex: 0 0 <width>` alone doesn't stop a card
+from growing past its own basis when it contains `white-space: nowrap` text — without an
+explicit `min-width: 0` on the CARD itself (not just the row container), "I Ran (So Far
+Away) - Single Edit" (the same long title `FINDINGS.md` B31 already used as its own
+reference case) forced that one track card 71px taller than its siblings, and every other
+card in the row stretched to match via `align-items: stretch`. Same trap, same fix, applied
+to the wall's own cards too (a long artist name like "Red Hot Chili Peppers" is exactly the
+same shape of bug). Full writeup: `FINDINGS.md` B48.
+
+**Dots — active-state tracking, not just a static count.** One `IntersectionObserver` per
+row (`ratios` map + a "most-visible-wins" recompute each callback, not a naive per-entry
+toggle) — found live that at this row's own card width, close to two cards clear a single
+0.6 threshold simultaneously at rest, lighting up two dots for one scroll position; fixed
+by ranking all currently-tracked ratios and marking exactly one active. Wired in a plain
+`useEffect` gated on its own `matchMedia`, independent of the `fullMotion` GSAP cascade —
+a scroll-position readout isn't motion in the reduced-motion sense, so it isn't gated on
+that preference.
+
+**Touch/trackpad scroll — verified, not assumed (the brief's own explicit ask).** Read
+`node_modules/lenis/dist/lenis.mjs` directly rather than guessing: with `syncTouch: false`
+(this project's unmodified default, `smooth-scroll.jsx`), Lenis never calls
+`preventDefault()` on a touch event at all — native touch-scroll proceeds untouched. For
+wheel input, a pure horizontal gesture (`deltaY === 0`) hits Lenis's own `isUnknownGesture`
+early-return before any `preventDefault()` call, since this project never sets
+`gestureOrientation`. Confirmed live two ways: a real deltaX-only wheel event at both rows
+advanced `scrollLeft` correctly with zero effect on page `scrollY`; a genuine touch drag,
+dispatched via `Input.dispatchTouchEvent` at the CDP level (a JS-dispatched synthetic
+`TouchEvent` does **not** trigger a browser's real touch-scroll gesture recognizer —
+confirmed live, then routed around) advanced both rows' `scrollLeft` and correctly moved
+the active dot, again with zero vertical scroll movement.
+
+**Motion skip-to-settled-state.** Unchanged code path (`gsap.matchMedia()`'s own
+`fullMotion` query, `(min-width: 601px) and (prefers-reduced-motion: no-preference)`) —
+this task never touched it. Confirmed rather than assumed: every wall/track card measures
+`opacity: 1` immediately on a fresh mobile-width load, before any scroll at all, and the new
+mobile-only elements (new class names throughout) are never selected by the cascade's own
+`.my-taste-wall > .my-taste-card`/`.my-taste-setlist-item` selectors by construction.
+
+**B30 regression check.** B30 (pin never engaging on a fresh reload) is a `fullMotion`/desktop
+phenomenon — the pin is never constructed at all below 601px, so it doesn't apply here by
+construction. All of this task's CSS is scoped inside `@media (max-width: 600px)` except two
+new base rules (both `display: none` outside it) — desktop's own layout, screenshotted
+before/after, is pixel-identical.
+
+Verified: `npm run lint` (7 errors/2 warnings, unchanged) and `npm run build` clean — CSS
++2.95 kB / +0.38 kB gz, JS +1.93 kB / +0.50 kB gz (measured against a clean build of this
+same commit *before* this task's own diff, via `git stash`, not against a stale baseline).
+Zero horizontal page overflow at 320/375/390/430/600px. Sequential `Tab` walk confirmed
+kicker → 5 artist cards (in feature-then-secondary order) → 5 track cards, every stop with a
+visible `outline: solid 2px`. Screenshots: `stage5-my-taste-mobile-{320,375,390}-{dark,light}.png`,
+plus the standard `my-taste-mobile.png`/`my-taste-desktop.png` re-capture (both unaffected
+outside the new mobile shape).
 
 ### Resume removed — navbar link, `#connect` link, and the PDF itself *(2026-08-17)*
 
