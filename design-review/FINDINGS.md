@@ -2261,6 +2261,99 @@ its own. The only combination that does that is `update(false, false)`
 scratch (`Draggable(type:"rotation")`, ROADMAP.md §0) ever moves the platter
 via an external tween while a Draggable instance is also bound to it.
 
+### B51 — `WEBGL_lose_context.loseContext()` on dispose permanently bricked the canvas ELEMENT, so the fluid background reported "unsupported" on every remount — **FOUND AND FIXED, Stage 7a**
+
+`createFluidSim`'s `dispose()` called `loseContext()` to free the backing
+surface promptly, reasoning that browsers cap live WebGL contexts per page
+(~16) and a leaked one would eventually hand back `null`.
+
+That reasoning is wrong in a way that inverts the outcome. Losing a context
+permanently disables **the canvas element**: every subsequent
+`getContext('webgl2')` on that same element returns `null` forever. React
+keeps the same `<canvas>` node across an effect re-run, so the sequence was
+create → dispose (context destroyed) → create again on the same element →
+`null` → the component's own no-WebGL2 branch → `data-fluid-state="unsupported"`
+for the rest of the page's life.
+
+Surfaced immediately by StrictMode, which double-invokes every effect in dev
+(mount → cleanup → mount), so the background never worked *at all* in
+development. It was never only a dev problem, though: in production the same
+thing happens on any real remount, and this component has a real one — the
+effect depends on `reduced`, so a visitor changing their OS reduced-motion
+setting with the tab open would permanently lose the background.
+
+Misleading in isolation, too. A probe on a *detached* throwaway canvas
+reported WebGL2 and `EXT_color_buffer_float` both available, which read as
+"the environment supports this and the code is wrong somewhere else" — the
+element-scoped nature of the damage is what made the probe and the symptom
+disagree.
+
+**Fix.** Delete the GL objects (textures, FBOs, programs, buffers, VAO) and
+stop there. Nothing leaks: a canvas element owns exactly one context for its
+lifetime — `getContext` returns the existing one rather than allocating
+another — so the per-page cap is never approached and the context dies with
+the element.
+
+**Generalisable:** `loseContext()` is for reclaiming a context you are done
+with *and whose canvas you will never draw to again*. It is not a "free GPU
+memory" call, and it is actively wrong in any component that can re-run its
+setup against a retained DOM node.
+
+### B52 — a splat radius squared twice made every splat ~0.5% of the screen, so the fluid rendered correctly and was invisible — **FOUND AND FIXED, Stage 7a**
+
+The splat shader computes `exp(-dot(p, p) / radius)` with `p` in UV space, so
+its `radius` uniform is a **variance** (a squared length), not a length. The
+call site's own comment correctly reasoned that out — and then, on the
+strength of that reasoning, squared the value a second time:
+`(radius / 100) ** 2`. `radius / 100` already *was* the variance.
+
+At the idle radius that made the actual variance 1.6e-5 instead of 4e-3 —
+10,000× too small — giving a Gaussian with an effective screen radius around
+half a percent. The solver was running, the dye had exactly the right hue,
+and the canvas looked entirely blank.
+
+Every cheap check agreed it was fine and told us nothing: the shaders
+compiled, no GL error was raised, the frame counter advanced, and
+`data-fluid-state` said `running`. A page screenshot could not tell "drawing
+something invisibly small" from "not drawing at all" either. What found it
+was `readPixels` on a throwaway sim with one deliberate splat: **32 of
+120,000 pixels** had any alpha at all, with the centre pixel at the exactly
+correct colour. Correct hue plus near-zero coverage is what localised it to
+the radius rather than the pipeline. After the fix the same probe reports
+3,530 pixels.
+
+**Generalisable, and the reason this cost time:** for a shader whose output
+is a smooth falloff, "renders nothing visible" and "renders correctly at the
+wrong scale" are the same screenshot. Reach for `readPixels` and a coverage
+count before re-reading the solver.
+
+### B53 — dye dissipation carried over from a pointer-driven reference decayed the background to alpha 6/255 between idle splats — **FOUND AND FIXED, Stage 7a**
+
+Distinct from B52 (which was geometry) and found only after it: with splats
+the right *size*, the background was still invisible most of the time because
+they did not *last*.
+
+The standard reference value for `DENSITY_DISSIPATION` is 1.0, which is tuned
+for a demo where the visitor drags the pointer and injects dye continuously —
+fast decay is what stops that saturating. This background injects one splat
+every ~2.2s. At 1.0 the field had decayed to a peak alpha of **6/255** by the
+time anything sampled it.
+
+Tuned by measurement rather than by eye, sweeping dissipation × force ×
+radius × intensity and sampling peak alpha, mean alpha and coverage at fixed
+points across 20–30s runs of the real idle pattern. The sweep also caught the
+opposite failure: at 0.08 the dye accumulated until the seed burst clipped to
+a saturated alpha of 255, which behind hero type is exactly where a solid
+block of accent colour does not belong. 0.10 sits between them and stays
+bounded. Force needed the same treatment — the first value (900) flung each
+splat across the canvas within a few frames and smeared it to nothing; 260
+reads as a drift.
+
+**Generalisable:** the published constants for this technique are a matched
+set tuned against *continuous* injection. Any one of them transplanted into a
+sparse-injection context is out of balance, and dissipation is the one that
+fails silently rather than looking wrong.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

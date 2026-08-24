@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-24, Stage 6 Phase 9 — pitch fader)*
+## 0. Current state — quick summary *(updated 2026-08-24, Stage 7a — hero fluid background)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -378,6 +378,28 @@ calling it after a release re-applied Draggable's own stale pre-release
 position instead of adopting the tween's new one). Full writeup:
 `STATUS.md`'s own dated entry.
 
+**Also 2026-08-24 (Stage 7a) — a WebGL2 fluid background behind the whole
+hero.** Hand-rolled Stam-style solver (advect → curl → vorticity → Jacobi
+pressure projection → gradient subtract), full-bleed behind the text, crate
+and turntable, `pointer-events: none`. **Replaces the `.hero-vu-slot` waveform
+concept outright** — that element is deleted, not repurposed. Structural task
+only: no `AnalyserNode`, no per-track colour, no deck-state gating, all of
+which is 7b. Simulates at a 128 grid and renders dye at 512 (the numbers 7b
+should start from rather than re-derive; per-viewport allocations recorded in
+`STATUS.md`). Idle behaviour is a 4-splat seed plus a top-up every 1.6–2.8s
+and **7b should remove that loop rather than stack audio splats on it**;
+reduced motion renders exactly one static frame with no RAF loop. Paused by
+both a `visibilitychange` handler and an IntersectionObserver on the hero, each
+verified by frame count rather than by state flag. Two items in the task brief
+were stale against the tree and are corrected in `STATUS.md` (there is no
+IntersectionObserver in `navbar.jsx`, and `visibilitychange` lives in
+`turntable.jsx`, not `turntable-audio.js`). Three real bugs found and fixed —
+`FINDINGS.md` B51 (a `loseContext()` that permanently bricked the canvas
+element on remount), B52 (a splat radius squared twice, rendering correctly
+and invisibly), B53 (reference dissipation tuned for continuous injection,
+decaying this background to alpha 6/255 between splats). Full writeup:
+`STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -389,7 +411,8 @@ position instead of adopting the tween's new one). Full writeup:
 | **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
 | **6 (Phase 9)** | ~~Pitch fader~~ — **done, above.** | — |
 | **6 (Phases 8, 10)** | Turntable delight remainder — scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
-| **7** | "WOW layer" — audio-reactive waveform, `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done |
+| **7 (a)** | ~~Hero fluid background, structural~~ — **done, above.** | — |
+| **7 (b+)** | "WOW layer" remainder — drive the fluid from the `AnalyserNode` and the deck state, `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done; 7a's solver — done |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
 
 **Standing manual tasks (not code — need dashboard access), highest priority first:**

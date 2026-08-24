@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-24 (Stage 6 Phase 9 — pitch fader, on top of Stage 5 `#my-taste`
-mobile layout) · **HEAD:** `c0dd68c`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-24 (Stage 7a — hero fluid background, on top of Stage 6 Phase 9's
+pitch fader) · **HEAD:** `7f4921e`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -4575,6 +4575,117 @@ linked afterward on purpose, matching `spinUp()`/`spinDown()`'s own convention, 
 only a needle-drop-shaped event (track swap, preview end, replay) unlinks; keyboard
 self-centering is uniform with pointer, not pointer-only (reasoning above).
 
+### Stage 7a — fluid background behind the hero, structural *(2026-08-24)*
+
+A hand-rolled WebGL2 fluid simulation, full-bleed behind the entire hero —
+text, crate and turntable. **Replaces the `.hero-vu-slot` waveform concept
+outright**: that element reserved a 40–50px strip inside `.hero-content` and
+is now deleted (markup, its rule, and its mobile `display:none` override),
+since nothing will ever render inside it. Structural task only — no
+`AnalyserNode`, no `colorwayFor()`, no deck-state gating; that is 7b.
+
+**Two things in the brief were stale against the tree, flagged rather than
+built against:**
+- *"navbar.jsx's existing IntersectionObserver (used for the nav-link fade-in
+  past the hero) — reuse this mechanism."* There is no IntersectionObserver in
+  `navbar.jsx`. It drives its `scrolled` state from a plain `scroll` listener,
+  and the hide-during-hero gating it once had was removed with the orb-nav
+  hero — its own comment says so ("the hide-during-hero gating belonged to the
+  superseded orb-nav hero"). The only IntersectionObserver in the codebase is
+  `my-taste.jsx`'s mobile scroll-position dots, and that is the shape this
+  follows instead (construct → observe → `disconnect()` in cleanup).
+- *"turntable-audio.js's visibilitychange handling."* `turntable-audio.js`
+  contains no `visibilitychange` handler; it lives in `turntable.jsx`. Mirrored
+  from there, with one deliberate divergence: that handler pauses on hide and
+  does **not** auto-resume (silently restarting audio in a background tab is
+  hostile). A background visual has the opposite expectation, so this one
+  resumes on return.
+
+**Architecture.** `lib/fluid-sim.js` is framework-agnostic — no React — and
+owns the GL objects and a `step()`; `components/fluid-background.jsx` owns the
+RAF loop, the gating and the theme. That split is what let the gating be
+verified independently of the shader.
+
+**Resolution split (the numbers 7b should start from, not re-derive):** sim
+grid **128** on the short edge, dye grid **512**. Velocity/pressure/divergence/
+curl live on the 128 grid because the 20 Jacobi pressure iterations per frame
+are what actually costs; dye is advected once per frame and only needs to be
+sharp, so it gets 4× the linear resolution for 16× the texels at 1/20th the
+passes. Measured allocations at several viewports: 1440×900 → sim 171×128, dye
+683×512; 390×844 → sim 128×330, dye 512×1318; 320×640 → sim 128×320, dye
+512×1280. Backing store tracks the CSS box × DPR (capped at 2) at all five
+tested sizes.
+
+**Decisions the brief left open, made explicitly:**
+- **Idle behaviour: a seed burst of 4 splats at startup, then one top-up every
+  1.6–2.8s** — not nothing, and not top-ups alone. Sparse top-ups alone were
+  measured and rejected: peak alpha swung 16–97/255 across samples of the same
+  config, so the hero looked lit or empty purely depending on when you looked.
+  The seed means it is never blank on first paint. **7b should remove this
+  loop, not stack audio splats on top of it.**
+- **Reduced motion: exactly ONE static frame, no RAF loop** — verified, frame
+  count is 1 and stays 1. Not a blank canvas: that would make the hero visibly
+  poorer for people who set the preference, and it matches how the rest of the
+  site treats it (the record still drops and plays, it just doesn't animate
+  getting there).
+- **Colour: `--accent`, theme-aware, re-read on the `themeChange` event.** Not
+  a `--vinyl-N` — those are deliberately near-black record colours (`#0d1016`,
+  `#131f42`) that would be invisible as dye in dark theme and a smudge in
+  light. `--accent` is the one token already required to read against both
+  backgrounds.
+
+**Dye intensity is derived per theme, not fixed** — the one genuinely
+non-obvious result here. A fixed multiplier tuned in dark theme (0.45) turned
+the light theme into a grey haze over the whole hero, washing out the deck.
+Same alpha, same token, opposite outcome: `--accent` is `#6f9bff` on near-black
+in dark (luminance 0.0045 → 0.3404, Δ 0.336) but `#1f3fae` on near-white in
+light (0.9308 → 0.069, Δ 0.862), so per unit of alpha the light theme moves the
+background **2.5× further**. Intensity is now solved from a target luminance
+impact (0.155) divided by that measured contrast, which reproduces the tuned
+dark value (0.461) and brings light to 0.18 automatically — and stays correct
+if either token is ever retuned, as the light-theme deck colour already was.
+
+**Verification** (all measured, `data-fluid-state` on the canvas is the shipped
+queryable state — `data-deck-state`'s precedent — plus a dev-only frame counter
+that Vite strips from the production bundle, confirmed absent from `dist`):
+- *Renders:* `readPixels` on the live canvas — peak alpha 75, coverage 14.7%,
+  and the field's pixel signature changes between samples 0.9s apart. Screenshot
+  means were tried first and rejected as a check: they reported a drift of
+  0.5/255 for an effect `readPixels` shows peaking near 100, because averaging a
+  deliberately-subtle effect over a large region rounds it into the background.
+- *Tab hide/show:* frames advanced 26 → froze at exactly 0 while hidden → 26
+  again after show. State `running`/`paused`/`running`.
+- *Hero out of view:* frames froze at exactly 0 while three sections away, 65
+  after returning. Reaching that required navigating via a real nav link — a raw
+  `window.scrollTo` cannot get past About's scroll-hold, which pins at
+  `scrollY` 910 with 170px of hero still on screen (the observer correctly
+  reported `isIntersecting` there, and the first version of this test misread
+  that as a gating failure). That is this project's own **D14**, and this is its
+  documented workaround.
+- *Pointer-events:* `elementFromPoint` at the centre of the crate input, the
+  transport button and the fader handle returns the intended control in all
+  three cases, never the canvas — and end to end, a crate search returned 5
+  rows, a track loaded to PLAYING, and the pitch fader dragged to +8 through
+  the canvas.
+- *Frame timing:* median 16.7ms (60fps), mean 18.9ms, p95 33.3ms under headless
+  **SwiftShader** — a software rasteriser, so this is a pessimistic floor rather
+  than real-GPU performance, and the p95 is the software path missing frames.
+  Worth a re-measure on real hardware before 7b adds per-frame analyser work.
+
+**Three real bugs found and fixed while building this** — full writeups in
+`FINDINGS.md` B51/B52/B53: a `loseContext()` on dispose that permanently
+bricked the canvas element on any remount (StrictMode surfaced it immediately,
+but it was never only a dev problem); a splat radius squared twice, making
+every splat ~0.5% of the screen so the canvas rendered correctly and was
+invisible; and dissipation carried over from a pointer-driven reference that
+decayed the dye to alpha 6/255 between this task's much sparser idle splats.
+
+**Pre-existing bug re-confirmed, not caused here:** B47 still throws
+`TypeError: Cannot read properties of null (reading 'getBoundingClientRect')`
+at `loading-screen.jsx:53` from `onResize` at `:80` — once per resize, five
+resizes, five errors, byte-identical to B47's recorded stack. Still unfixed,
+still its own one-line change.
+
 ---
 
 ## 3. Current measurements *(refreshed 2026-08-24)*
@@ -4583,8 +4694,8 @@ self-centering is uniform with pointer, not pointer-only (reasoning above).
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **531.49 kB / 188.80 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **54.68 kB / 11.18 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| JS bundle | 407 KB / 147 KB gz | **545.60 kB / 193.21 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6; unchanged by Stage 6 Phase 9)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

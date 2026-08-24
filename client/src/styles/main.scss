@@ -534,10 +534,28 @@ html {
   margin: 0;
 }
 
-.hero-vu-slot {
-  height: clamp(40px, 4vw, 50px);
+// Stage 7a — the WebGL2 fluid background (fluid-background.jsx), full-bleed
+// behind the whole hero. Replaced .hero-vu-slot, which reserved a 40–50px
+// strip inside .hero-content for a waveform that is no longer the plan.
+//
+// z-index 0 rather than -1: a negative index would drop it behind .home's
+// own background-color, which is painted on the section itself, and the
+// canvas would never be seen. 0 puts it in the same painting layer as
+// positioned siblings, where DOM order decides — and it is first in the DOM,
+// with .hero-content (2), .record-crate (3) and .hero-deck-stage (1, set
+// below) all explicitly above it anyway.
+//
+// pointer-events:none is load-bearing, not defensive: the canvas covers the
+// entire hero including the crate's search field and every turntable
+// control, so without it the whole hero would be inert.
+.hero-fluid-canvas {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  margin-top: clamp(24px, 4vw, 48px);
+  height: 100%;
+  display: block;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .hero-deck-stage {
@@ -546,6 +564,10 @@ html {
   align-items: center;
   justify-content: flex-end;
   position: relative;
+  // Explicit rather than relying on DOM order against .hero-fluid-canvas's
+  // z-index 0 — both are positioned, and "first in the DOM loses" is a
+  // rule that quietly breaks the moment someone reorders the JSX.
+  z-index: 1;
 }
 
 // Turntable deck
@@ -4768,9 +4790,9 @@ html {
     text-align: center;
   }
 
-  .hero-vu-slot {
-    display: none;
-  }
+  // .hero-vu-slot's `display: none` lived here — the element is gone
+  // (Stage 7a). The fluid canvas that replaced it is full-bleed and needs
+  // no mobile override; it sizes itself off the section's own box.
 
   .hero-deck-stage {
     justify-content: center;
