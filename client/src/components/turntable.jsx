@@ -5,7 +5,7 @@ import useReducedMotion from "../hooks/use-reduced-motion.js";
 import VinylRecord from "./vinyl-record.jsx";
 import StrobeRing from "./strobe-ring.jsx";
 import * as audio from "../lib/turntable-audio.js";
-import { DECK } from "../lib/deck-state.js";
+import { DECK, emitDeckState } from "../lib/deck-state.js";
 import { armAngleForRadius, RADIUS_OUTER_GROOVE, ARM_OUTER_GROOVE_FALLBACK } from "../lib/tonearm-geometry.js";
 
 // 33⅓ RPM is 1.8s per revolution. Linear, because a real platter's speed is
@@ -78,6 +78,12 @@ export default function Turntable({ track = null }) {
     const applyDeckState = useCallback((next) => {
         deckStateRef.current = next;
         setDeckState(next);
+        // Publish synchronously, in this same statement run — see
+        // deck-state.js. The hero's fluid background bursts on the PLAYING
+        // edge, and at the needle-contact call site this line executes in the
+        // same tick as playCached(), so the visual and the sound start
+        // together rather than a React commit apart.
+        emitDeckState(next);
     }, []);
 
     // Evaluated at TWEEN START (GSAP accepts function values), not at build

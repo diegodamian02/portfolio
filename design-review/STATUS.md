@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-24 (Stage 7a — hero fluid background, on top of Stage 6 Phase 9's
-pitch fader) · **HEAD:** `7f4921e`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-24 (Stage 7b — fluid presence-gating + audio routing, on top of
+Stage 7a's solver) · **HEAD:** `7c71c26`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -4686,6 +4686,152 @@ at `loading-screen.jsx:53` from `onResize` at `:80` — once per resize, five
 resizes, five errors, byte-identical to B47's recorded stack. Still unfixed,
 still its own one-line change.
 
+### Stage 7b — fluid: presence-gated burst + audio routing *(2026-08-24)*
+
+The hero fluid is now **silent and invisible unless something is playing.** The
+moment playback starts it bursts in — in the same tick the needle is drawn
+touching the record — rides the track's own audio while it plays, and drains
+away when it stops. 7a's idle-splat placeholder is **deleted**, as 7a's own
+entry said it should be rather than left running underneath.
+
+**Presence model.** The RAF loop now has FOUR independent gates, not two:
+7a's tab-hidden and hero-out-of-view, plus `deckState === PLAYING` and a
+bounded settle window. Any one alone holds the loop down. Verified by frame
+count rather than by state flag: **0 frames** before the first play, 0 during
+`LOADING` while the record is still dropping, running only in `PLAYING`, and
+fully stopped after the settle — frame counter flat across a further 1.2s of
+parked time.
+
+**The burst is synchronous, and this is the whole point of the task.** It
+hangs off `applyDeckState` in turntable.jsx, which the needle-contact GSAP
+callback already calls immediately after `audio.playCached()` — the function
+that exists solely because Stage 1 measured the async path starting audio
+551ms late. An effect watching deckState would have reintroduced exactly that
+gap on the visual side. Measured the way Stage 1 measured its own sync bug
+(patching `AudioBufferSourceNode.prototype.start` to timestamp against the
+burst): **0.2ms apart, same animation frame (both at frame 150).**
+
+To carry that synchronously, `deck-state.js` gained a live store and a
+listener Set — the same shape as `turntable-audio.js`'s existing `onEnded()`,
+not a new event-bus abstraction. `emitDeckState` is called only from
+`applyDeckState`, which was already the single writer.
+
+**Reduced motion — revised, and this is a real accessibility call rather than
+a detail.** 7a rendered one static frame unconditionally at mount, which was
+right when the fluid was ambient. Now that PRESENCE is the signal, an
+always-on frame would actively lie — it would say "something is playing" when
+nothing is. So: **one static frame appears the moment PLAYING begins and the
+canvas is cleared the moment it ends.** Reduced-motion visitors get the same
+information the animation carries — the hero responds to playback — with no
+animated injection, no per-frame audio reactivity, and no RAF loop in either
+state. Verified: 0 frames idle, exactly 1 while playing (still 1 after 1.5s,
+so no loop), cleared on stop.
+
+**Decisions the brief left open, made explicitly:**
+- **Palette cycling: free-running wall clock**, `floor(Date.now() / 21000) %
+  5`. The brief offered this or a reset-to-first on every play. Chosen because
+  implementing it as a derivation rather than a timer means there is no
+  interval to start, stop, leak or drift and no state to reset — consecutive
+  plays land on different colours for free, and a long track drifts through
+  the palette as it plays, with new splats arriving in the next colour while
+  existing dye is still the previous one and the solver blending the two.
+- **Splat origin: anchored on the turntable**, not random across the canvas.
+  The hero's entire premise is that the deck is the source of the sound (goal
+  4); dye welling out of the platter says that, scattered dye says "animated
+  wallpaper". It also keeps the field off the headline on the left, which 7a's
+  contrast work showed is the part worth protecting — measured, alpha behind
+  the headline stays at 0–6/255 for most of a track, peaking at 59 only when a
+  filament drifts across. Measured from the live element rect, so the stacked
+  mobile layout anchors correctly instead of pointing at empty space.
+- **Rapid pause → resume does NOT force-clear.** Checked live rather than
+  reasoned about: residual dye is still drifting on a velocity field the new
+  burst adds to, and the two compose into one continuous swell (peak 0.157
+  mid-settle → 0.247 after the burst). A clear would instead blink the hero to
+  black at the exact moment the visitor asked for sound back. Screenshotted:
+  `stage7b-rapid-resume-{1-mid-settle,2-after-burst}.png`.
+- **Burst fires on every PLAYING transition**, needle-drop and resume-from-pause
+  alike — both are "silence to sound" and nothing about either looks different
+  from the visitor's side, so they are not distinguished.
+- **Mint is a fluid colour only** — not routed into `colorwayFor()` or the
+  vinyl pressings, per the brief. Those are record colours; mint would be a
+  bizarre record.
+
+**Audio routing.** `getByteFrequencyData` each frame, PLAYING only. Bass
+(bins 1–8, ~190–1500Hz) drives splat force and radius; treble (bins 32–96,
+~6–18kHz) shortens the gap between splats and widens their scatter from the
+deck. Both are multiplied by the pitch fader's live rate, read through a new
+`audio.getRate()` rather than by reaching into turntable.jsx's spin tween —
+Phase 9 already verified that value and the platter's timeScale track each
+other through a whole drag and its spring-back, so it is the authoritative
+number for what the visitor is hearing. Correlation confirmed against live
+analyser data during real playback, with bass genuinely varying (0.48–0.87):
+`corr(bass, force) = 1.00`, `corr(bass, radius) = 1.00`, `corr(treble,
+interval) = −1.00`. Fader coupling measured while held: **+8% → mean force
+552, 226ms gap; −8% → mean force 472, 276ms gap.**
+
+**Settle.** Injection stops immediately on leaving PLAYING; the existing dye
+then decays through the solver's OWN dissipation rather than a second fade
+layered on top. "Genuinely settled" is measured, not assumed — `peakDyeLevel()`
+renders the dye through a 64×64 readback target (a full-resolution readPixels
+every frame would stall the pipeline) and the loop stops when it drops below
+threshold, with a 4s ceiling as a safety bound. The threshold was retuned from
+0.02 to 0.035 after measuring that at 0.02 the decay was still at 0.024 when
+the ceiling fired — the safety net was doing the work on every single pause.
+Now it exits on the threshold at ~3.3s, and reading the real canvas back at
+that instant shows **max alpha 0, zero pixels above 10/255**: the canvas is
+already completely blank before the loop stops.
+
+**Amplitude, retuned twice against measurements rather than by eye.** 7a's
+dissipation of 0.10 was correct for its sparse idle drops and is wrong here
+for the reason `FINDINGS.md` **B53** recorded — 7b puts the field back into
+the continuous-injection regime the published constants were tuned for. At
+0.10 peak dye pinned at a saturated 1.0 for entire tracks; at 1.2 the field
+drained faster than the beat could refill it (true peak alpha fell from the
+burst's 107/255 to 10–20 with ~0% coverage within 5s, while the track still
+played). Landed at **0.85**, with the burst and the sustain given separate dye
+multipliers because they needed opposite corrections. Final measured behaviour,
+palette pinned so runs are comparable: burst ~111/255, sustained 41–107 at
+6–27% coverage.
+
+**Two measurement traps worth recording**, both of which produced confidently
+wrong readings first:
+- The 64×64 probe LINEAR-downsamples a 683×512 field, so it **averages** and
+  under-reports isolated peaks. It is sound for "has this decayed" and useless
+  for "how bright is this" — amplitude tuning had to move to full-resolution
+  readPixels.
+- Palette colour is wall-clock derived, so **consecutive tuning runs measured
+  different colours**, whose intensities legitimately differ by up to 4× by
+  design. An amplitude change appeared to make things dimmer when it had in
+  fact made them brighter. Fixed with a dev-only palette pin (`setPalette`),
+  after a first attempt at freezing `Date.now()` globally hung the page by
+  also freezing the intro loading screen's own animation.
+
+**All ten colour × theme combinations verified**, not spot-checked — and four
+of them failed, which is `FINDINGS.md` **B54**: wine, slate and terracotta
+against dark theme and mint against light all pinned the intensity solve at
+its 0.9 clamp, because a colour sitting on the background cannot be rescued by
+alpha. Fixed with a derived per-theme contrast adaptation that is a no-op for
+the six that were already fine. `FINDINGS.md` **B55** covers the beat detector
+whose baseline tracked the signal too closely to ever fire.
+
+**Real-device frame timing — resolves the caveat 7a flagged for this task.**
+Run headed on this machine's actual GPU (`ANGLE Metal Renderer: Apple M2`,
+confirmed via `WEBGL_debug_renderer_info`, not SwiftShader): with the fluid
+running during playback, **mean 16.68ms, median 16.7ms, p95 18.7ms, worst
+18.8ms — 60fps, zero frames over 20ms and zero over 33ms.** 7a's headless
+SwiftShader figure (p95 33.3ms) was the software rasteriser, as suspected.
+
+**Brief accuracy:** everything the brief named matched the tree, with one
+exception worth noting — it pointed at `turntable-audio.js` for "deck-state
+reads", and that module has none; deck state lives entirely in turntable.jsx
+and `deck-state.js`. The pitch fader's live timeScale was also taken from
+`audio.getRate()` (added here) rather than `setSpin`'s tween, for the reason
+given above.
+
+**Pre-existing bug re-confirmed, not caused here:** B47 still throws at
+`loading-screen.jsx:53` from `onResize` at `:80`, once per resize. Unchanged
+and still its own one-line fix.
+
 ---
 
 ## 3. Current measurements *(refreshed 2026-08-24)*
@@ -4694,7 +4840,7 @@ still its own one-line change.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **545.60 kB / 193.21 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress)* |
+| JS bundle | 407 KB / 147 KB gz | **548.79 kB / 194.58 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`)* |
 | CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6; unchanged by Stage 6 Phase 9)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |

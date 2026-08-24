@@ -39,22 +39,35 @@ const CURL_STRENGTH = 30;
 
 // Exponential decay rates, per second, applied inside the advection shader.
 //
-// Dye lingers far longer than the reference technique's default (1.0) —
-// that value is tuned for a pointer-driven demo where the visitor drags new
-// dye in continuously, so fast decay is what keeps it from saturating. Here
-// injection is one splat every ~2.2s, and dissipation has to be low enough
-// that the field survives between them. At 1.0 the dye had decayed to a
-// peak alpha of 6/255 by the time anything sampled it: the solver was
-// running correctly and the canvas was, in every way that matters, blank.
+// Raised back toward the reference technique's own default in Stage 7b, and
+// for exactly the reason FINDINGS.md B53 recorded when 7a lowered it.
 //
-// Chosen by measuring equilibrium over 30s runs of the real idle pattern
-// (seed burst + top-ups), not by eye — full numbers in STATUS.md. 0.22 and
-// 0.14 both decayed to ~5% coverage; 0.08 held ~25% but let the seed burst
-// clip to alpha 255. 0.10 sits between them and stays bounded.
-const DENSITY_DISSIPATION = 0.10;
+// B53's finding was that the published constants are tuned for CONTINUOUS
+// injection — a pointer-driven demo where the visitor drags dye in every
+// frame — so fast decay is what stops the field saturating. 7a's idle
+// placeholder injected one splat every ~2.2s, which is the opposite regime,
+// and at 1.0 the dye had decayed to a peak alpha of 6/255 before anything
+// could see it; 0.10 was the right answer for that.
+//
+// 7b puts the background back INTO the continuous-injection regime: while a
+// track plays, splats arrive on the beat, several times a second. At 0.10
+// that pinned peak dye at a fully saturated 1.0 for the entire playback and
+// left the settle window still above threshold when its 4s ceiling expired.
+// Measured across a dissipation x dye-contribution sweep (numbers in
+// STATUS.md). 1.2 was the first landing but drained the field faster than the
+// beat-driven splats could refill it — measured in the real page, peak dye
+// fell from the burst's 0.69 to ~0.09 within 5s while the track still played.
+// 0.85 sustains a visible field between splats and still clears the 0.02
+// settle threshold well inside the 4s ceiling.
+const DENSITY_DISSIPATION = 0.85;
 const VELOCITY_DISSIPATION = 0.2;
 
 const MAX_DT = 1 / 60;
+
+// Side length of the square readback target behind peakDyeLevel(). 64x64 is
+// 16KB per read — small enough that the synchronous stall is tolerable at the
+// few-times-a-second cadence the settle check uses it at.
+const PROBE_RESOLUTION = 64;
 
 const BASE_VERTEX_SHADER = `#version 300 es
 precision highp float;
@@ -453,6 +466,11 @@ export function createFluidSim(canvas, options = {}) {
     let divergence = null;
     let curl = null;
     let pressure = null;
+    // Small readback target for peakDyeLevel(). RGBA8 rather than a float
+    // format on purpose: readPixels to UNSIGNED_BYTE is the universally
+    // supported path, and 8 bits is ample for a "has this decayed yet" test.
+    let probe = null;
+    let probePixels = null;
     let disposed = false;
     let frameCount = 0;
 
@@ -472,11 +490,13 @@ export function createFluidSim(canvas, options = {}) {
             .filter(Boolean)
             .flatMap((d) => [d.read, d.write])
             .concat([divergence, curl].filter(Boolean));
+        if (probe) all.push(probe);
         all.forEach((target) => {
             gl.deleteTexture(target.texture);
             gl.deleteFramebuffer(target.fbo);
         });
-        dye = velocity = divergence = curl = pressure = null;
+        dye = velocity = divergence = curl = pressure = probe = null;
+        probePixels = null;
     }
 
     function initTargets() {
@@ -493,6 +513,13 @@ export function createFluidSim(canvas, options = {}) {
         divergence = createFBO(gl, sim.width, sim.height, R16F, RED, HALF_FLOAT, NEAREST);
         curl = createFBO(gl, sim.width, sim.height, R16F, RED, HALF_FLOAT, NEAREST);
         pressure = createDoubleFBO(gl, sim.width, sim.height, R16F, RED, HALF_FLOAT, NEAREST);
+
+        // Independent of the canvas aspect: this is a decay probe, not an
+        // image, so it only needs enough texels that a small surviving blob
+        // cannot fall between them. LINEAR so the downsample averages rather
+        // than point-samples, which would let a thin filament read as zero.
+        probe = createFBO(gl, PROBE_RESOLUTION, PROBE_RESOLUTION, gl.RGBA8, RGBA, gl.UNSIGNED_BYTE, LINEAR);
+        probePixels = new Uint8Array(PROBE_RESOLUTION * PROBE_RESOLUTION * 4);
     }
 
     /**
@@ -640,6 +667,66 @@ export function createFluidSim(canvas, options = {}) {
         frameCount++;
     }
 
+    /**
+     * Wipes dye, velocity and pressure and paints one blank frame.
+     *
+     * Used by Stage 7b for the hard cut at the end of a settle window, and
+     * for reduced motion's "disappears the moment PLAYING ends". NOT a fade —
+     * the gradual disappearance is the solver's own dissipation doing its
+     * job; this is the instantaneous reset that follows it.
+     */
+    function clear() {
+        if (disposed || !velocity) return;
+        const targets = [dye.read, dye.write, velocity.read, velocity.write,
+            pressure.read, pressure.write, divergence, curl];
+        gl.disable(gl.BLEND);
+        targets.forEach((target) => {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
+            gl.viewport(0, 0, target.width, target.height);
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+        });
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+
+    /**
+     * Peak dye intensity currently in the field, 0..1.
+     *
+     * Stage 7b stops its RAF loop once the dye has genuinely decayed after
+     * playback ends, and "genuinely" has to mean a measured value rather than
+     * a guess at how long the exponential takes — the same standard the rest
+     * of this project holds itself to.
+     *
+     * Reads back a heavily downsampled copy rather than the dye texture
+     * itself: the full grid is up to 683x512 and a readPixels of that size
+     * stalls the pipeline hard. Rendering it through the display program into
+     * a small FBO first lets LINEAR filtering do the downsampling on the GPU,
+     * so the synchronous read is a few kilobytes. Still not free — the caller
+     * throttles this to a few times a second and only during the settle
+     * window, never on a normal playing frame.
+     */
+    function peakDyeLevel() {
+        if (disposed || !dye || !probe) return 0;
+        const prog = programs.display;
+        gl.disable(gl.BLEND);
+        gl.useProgram(prog.program);
+        gl.uniform1i(prog.uniforms.uTexture, dye.read.attach(0));
+        blit(probe);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, probe.fbo);
+        gl.readPixels(0, 0, probe.width, probe.height, gl.RGBA, gl.UNSIGNED_BYTE, probePixels);
+        let peak = 0;
+        // Alpha carries dye intensity — the display program writes
+        // max(r,g,b) into it, so one channel is enough.
+        for (let i = 3; i < probePixels.length; i += 4) {
+            if (probePixels[i] > peak) peak = probePixels[i];
+        }
+        return peak / 255;
+    }
+
     function dispose() {
         if (disposed) return;
         disposed = true;
@@ -675,6 +762,8 @@ export function createFluidSim(canvas, options = {}) {
         resize,
         splat,
         step,
+        clear,
+        peakDyeLevel,
         dispose,
         get frameCount() { return frameCount; },
         get simResolution() { return velocity ? [velocity.width, velocity.height] : null; },

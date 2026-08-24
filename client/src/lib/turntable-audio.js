@@ -458,3 +458,21 @@ export function getState() {
 export function getAnalyser() {
     return analyser;
 }
+
+/**
+ * The live playback rate — which IS the platter's live timeScale.
+ *
+ * Not a parallel value that happens to agree: the spin linkage drives this
+ * from the spin tween's own onUpdate (see followSpin/settleSpin above), and
+ * Phase 9 verified the two track each other at every point of a pitch-fader
+ * drag and its spring-back, not merely at rest. Stage 7b's fluid multiplies
+ * splat force and cadence by it, so a fader drag bends the visuals on the
+ * same curve it bends the audio.
+ *
+ * Reading it here rather than reaching into turntable.jsx's spin tween keeps
+ * the fluid decoupled from the deck component, and this is the value that is
+ * actually authoritative for what the visitor is hearing.
+ */
+export function getRate() {
+    return playbackRate;
+}

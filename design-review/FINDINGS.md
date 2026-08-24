@@ -2354,6 +2354,75 @@ set tuned against *continuous* injection. Any one of them transplanted into a
 sparse-injection context is out of balance, and dissipation is the one that
 fails silently rather than looking wrong.
 
+### B54 — four of ten palette/theme combinations pinned the dye-intensity solve at its clamp, because a colour sitting ON the page background cannot be rescued by alpha — **FOUND AND FIXED, Stage 7b**
+
+7a's luminance-impact solve derives dye intensity as `target / |lum(colour) −
+lum(background)|`, clamped to 0.9. That worked when there was exactly one
+colour (`--accent`) chosen precisely because it reads against both
+backgrounds. 7b introduced a five-colour palette, and the brief asked for all
+ten colour × theme combinations to be verified rather than spot-checked.
+
+Four failed, all pinned at the 0.9 clamp:
+
+| theme | colour | contrast vs bg | solved intensity |
+|---|---|---|---|
+| dark | wine `#A6335D` | 0.108 | 0.9 (clamped) |
+| dark | slate `#404D73` | 0.072 | 0.9 (clamped) |
+| dark | terracotta `#b3552a` | 0.158 | 0.9 (clamped) |
+| light | mint `#BBF2ED` | 0.129 | 0.9 (clamped) |
+
+A clamp here is the model reporting that it cannot reach its target, and the
+reason is structural rather than a tuning miss: alpha only interpolates
+between the dye and the background, so as a colour approaches the background
+luminance no alpha makes it legible — compositing dark blue over near-black
+just converges on dark blue. Those four would have rendered visibly weaker
+than the other six while every number in the code looked deliberate.
+
+**Fix.** `adaptForContrast()` — before the intensity solve, nudge the colour
+away from the background (mix toward white on a dark page, toward black on a
+light one) by the smallest amount that clears a minimum luminance separation,
+found by binary search since luminance is monotonic along either direction.
+Hue is preserved; only lightness moves. After it, no combination clamps, and
+crucially it is a no-op for the six that already had enough contrast — only
+the four that needed it are altered (wine → `#b85d7e`, slate → `#707a96`,
+terracotta → `#b9623b` in dark; mint → `#b5eae5` in light).
+
+**Generalisable:** this project's own tokens already ship separate light/dark
+values by hand for exactly this reason (`--accent`, `--vinyl-N`, the deck
+colours). Deriving the adjustment rather than hand-authoring ten hexes keeps
+the palette a single list, and it is the only reason a five-colour palette can
+be declared once and still be legible in both themes.
+
+### B55 — the bass baseline tracked the signal so closely that beat detection almost never fired: 2 splats in 3.6s of a busy track — **FOUND AND FIXED, Stage 7b**
+
+The audio-driven splats trigger on an ADAPTIVE threshold — bass exceeding its
+own running average by 18% — deliberately, because preview clips arrive at
+wildly different mastering levels and any absolute cutoff either never fires
+on a quiet track or fires every frame on a loud one.
+
+The average's smoothing factor was 0.92 per frame. At 60fps that is a time
+constant of roughly 0.2s, so the "average" chased the current level almost
+exactly and bass essentially never exceeded it — the baseline was the signal.
+Measured on a deliberately percussive track: **2 splats in 3.6 seconds**,
+where the design intent was several per second.
+
+It also silently broke the test above it. The pitch-fader check read
+`lastSplat` while dragging and saw identical values at both fader extremes,
+which looks exactly like "the fader is not wired up" — it was actually the
+same stale splat, because no new one fired during either drag.
+
+**Fix.** 0.99 per frame (a ~1.7s baseline), which is a level a transient can
+actually stand out against — 20 splats in the same window afterwards. Paired
+with a companion `SPLAT_FORCED_GAP_MS` ceiling so a track with no sharp
+transients at all (a pad, a fade-in, a sustained vocal) still shows presence:
+the hero rendering nothing while audio plays would defeat the point of
+presence-gating entirely.
+
+**Generalisable:** an adaptive threshold whose baseline is smoothed on the
+same timescale as the thing it measures is not adaptive, it is a
+self-cancelling comparison. The baseline's time constant has to be an order of
+magnitude longer than the events being detected.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

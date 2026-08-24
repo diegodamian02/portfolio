@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-24, Stage 7a — hero fluid background)*
+## 0. Current state — quick summary *(updated 2026-08-24, Stage 7b — fluid presence-gating + audio)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -400,6 +400,28 @@ and invisibly), B53 (reference dissipation tuned for continuous injection,
 decaying this background to alpha 6/255 between splats). Full writeup:
 `STATUS.md`'s own dated entry.
 
+**Also 2026-08-24 (Stage 7b) — the fluid is presence-gated and audio-driven.**
+The hero background is now blank and its loop stopped whenever nothing is
+playing; the instant playback starts it bursts in, rides the track's own
+analyser data while it plays, and drains away when it stops. 7a's idle-splat
+placeholder is deleted rather than left underneath. The burst is fired
+SYNCHRONOUSLY from the same `applyDeckState` call the needle-contact callback
+makes right after `audio.playCached()` — measured at 0.2ms and the same
+animation frame as the audio it represents, which is the whole reason it does
+not go through a React effect (Stage 1 measured that path 551ms late).
+Bass drives splat force and radius, treble drives cadence and scatter, and
+both are multiplied by the pitch fader's live rate. Reduced motion was
+REVISED here as a deliberate accessibility call: one static frame appears when
+PLAYING begins and is cleared when it ends, so the preference still carries
+the "the hero responds to playback" information without an always-on frame
+falsely implying sound. A five-colour fluid-only palette cycles on a
+free-running wall clock, and all ten colour x theme combinations were verified
+rather than spot-checked — four of them failed and are `FINDINGS.md` B54,
+alongside B55 (a beat detector whose baseline tracked the signal too closely
+to fire). Real-GPU frame timing, which 7a flagged as owed to this task, is
+60fps with zero frames over 20ms on an Apple M2. Full writeup: `STATUS.md`'s
+own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -411,8 +433,8 @@ decaying this background to alpha 6/255 between splats). Full writeup:
 | **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
 | **6 (Phase 9)** | ~~Pitch fader~~ — **done, above.** | — |
 | **6 (Phases 8, 10)** | Turntable delight remainder — scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
-| **7 (a)** | ~~Hero fluid background, structural~~ — **done, above.** | — |
-| **7 (b+)** | "WOW layer" remainder — drive the fluid from the `AnalyserNode` and the deck state, `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done; 7a's solver — done |
+| **7 (a, b)** | ~~Hero fluid background + presence-gating and audio routing~~ — **done, above.** | — |
+| **7 (c+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done; 7a/7b — done |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
 
 **Standing manual tasks (not code — need dashboard access), highest priority first:**
