@@ -325,6 +325,24 @@ fixed neon token family on their own dark screen panels, and a third
 section block up 64px, message textarea one row taller. `STATUS.md`'s own
 Stage 3 Task 12.4 entry has the full writeup.
 
+**Also 2026-08-23 (Stage 3 Task 12.5) — `#connect`: heading punctuation +
+description restored.** Direct-request copy only, no bug report: heading
+"Let's Connect" -> "Let's Connect!"; `.contact-description` — removed
+entirely by Task 12.2 earlier the same day — brought back as a **different**
+paragraph (a plain thank-you note, no `mailto:` link, unlike the one 12.2
+removed) rather than a reversal of that call. Wired into the same
+entry-reveal `SplitText` cascade this project used pre-12.2 (title ->
+description -> form) and gated on the identical `status !== 'sent'`
+condition as the form, so it disappears alongside the compose box on send —
+Task 12.3's "exactly one message on screen after a send" guarantee needed
+no new logic to hold. One investigation, not logged as a bug (inconclusive,
+reproduces identically on the prior commit too): a synthetic 390px scroll
+test overshot the entry pin's intended engage line by ~140px, possibly a
+Lenis-velocity/wheel-emulation artifact rather than a real risk to an actual
+visitor — `STATUS.md`'s own Stage 3 Task 12.5 entry has the full reasoning
+and a note to spot-check on a real device before `#connect`'s own
+design-system pass.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |

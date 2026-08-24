@@ -3082,6 +3082,83 @@ Unrelated to `#connect`; surfaced because element-clipped screenshots trigger
 a resize. Left for its own change rather than folded into a `#connect` commit
 — it is the first thing every visitor sees.
 
+### Stage 3 Task 12.5 — `#connect`: heading punctuation + description restored *(2026-08-23)*
+
+A fifth decimal follow-up on Task 12, direct-request copy only — no bug
+report this time, and the brief opened by confirming Task 12.4's animation
+landed well before asking for this.
+
+**Heading:** "Let's Connect" -> **"Let's Connect!"**.
+
+**Description restored.** Task 12.2 (this same day, earlier) removed
+`.contact-description` entirely on direct feedback ("its very
+straightforward... i dont need any description box"). This is a
+**different paragraph** doing a **different job**, not a reversal of that
+call: the pre-12.2 paragraph doubled as an email fallback and carried a
+real `mailto:` link (`.contact-description a`, deleted alongside it); this
+one is a plain thank-you note with no link — the form is still the only
+contact path. Copy, exact: *"Thank you for taking the time to view my
+portfolio, I hope you had fun playing your favorite tunes! Feel free to
+leave a message."*
+
+Wired into the entry-pin's existing `SplitText` cascade as its own
+word-split target between the heading and the form tweens — the same
+three-step stagger shape (title -> description -> form) this project used
+before Task 12.2, reused rather than re-invented, with its own
+`descriptionSplit.revert()` in the effect's unmount cleanup (not the
+heading's unconditional onComplete revert — nothing later needs to
+scramble this paragraph's plain text the way `ScrambleTextPlugin` needs
+the heading's). Rendered conditionally on `status !== 'sent'`, the exact
+same condition already gating the form, so Task 12.3's own "exactly one
+message on screen after a send" guarantee still holds without any new
+logic — description and form disappear together, heading alone remains.
+
+`.contact-title`'s `margin-bottom` moved back `--space-6` -> `--space-4`
+(1rem): that larger value (Task 12.3) was sized for a heading with only
+the form directly beneath it; with the description back between them,
+`--space-6` read as too much air before the sentence introducing the form.
+`--space-4` is the exact value/reasoning the original pre-12.2 heading
+used. New `.contact-description` rule: `font-size: 1rem`, `line-height:
+1.6`, `color: var(--secondary-text)`, `margin-bottom: var(--space-7)` (3rem)
+— the same three values the pre-12.2 rule used (`text-align` intentionally
+left unset, i.e. left-aligned, also matching that rule's only prior
+precedent: this reads as a short paragraph of prose under a centered
+heading, and centering a two-line sentence would leave ragged line starts).
+
+**Verification:** dev pair (5173/5050). Both themes: heading text, description
+text/color, and description-hides-with-form-on-send all confirmed via live
+DOM read, not screenshot alone. 390px: no horizontal overflow, description
+renders full-width without clipping. Entry-reveal cascade confirmed
+completing with no console errors once scrolled cleanly past the entry
+pin's actual `ScrollTrigger` start line (an early pass measured the
+reveal as "stuck," traced to the test's own scroll loop stopping ~24px
+short of that line — not a real regression; the identical loop had worked
+at this section's shorter, pre-description content height). `npm run
+lint`: **7 errors, 2 warnings**, unchanged.
+
+**Investigated, not confirmed — no `FINDINGS.md` entry yet.** A synthetic-scroll
+test at 390px landed the entry pin's hold well past its intended engage line
+(`.contact-section` top measured **-32px** against an intended **0px**,
+i.e. scrolled roughly 140px too far) — but the identical overshoot reproduces
+**on the pre-Task-12.5 commit too** (checked via `git stash`), so this is not
+something this task introduced. Plausible mechanism: a burst of synthetic
+wheel events can hand Lenis more accumulated scroll velocity than a real
+trackpad flick would produce in the same wall-clock window, and `lenis.stop()`
+only halts *future* interpolation — it doesn't rewind whatever position the
+interpolation had already reached. Whether this is a real risk for an actual
+fast-scrolling visitor, or purely a Playwright wheel-emulation artifact, is
+genuinely unresolved — flagged here rather than logged as a bug on unconfirmed
+evidence, and rather than silently dropped. Worth a real device/trackpad check
+before Stage 3's own "apply the design system to `#connect`" task, since that
+task will already have the section open.
+
+**Flagged, not touched:** `client/src/styles/main.scss`, `client/src/sections/my-taste.jsx`,
+and this doc plus `FINDINGS.md`/`ROADMAP.md`/`stage4-my-taste-concept.md` currently carry
+a separate, uncommitted `#my-taste` mobile layout pass (Stage 5, below) from outside this
+task. This entry and Task 12.4's `main.scss` edit were both staged and committed as
+isolated hunks against a clean `HEAD` base, leaving that other work exactly as it stood in
+the working tree — not reviewed, not altered, not committed here.
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →

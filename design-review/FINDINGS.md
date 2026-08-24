@@ -2090,6 +2090,47 @@ errors for anyone reading the console.
 but this is the first thing every visitor sees and it does not belong folded
 into a `#connect` commit. Left for its own change.
 
+### D19 — a synthetic 390px scroll test overshot `#connect`'s entry-pin engage line by ~140px; inconclusive, not logged as a bug, Stage 3 Task 12.5
+
+While verifying Task 12.5's copy-only change (heading punctuation +
+`.contact-description` restored), a Playwright test scrolling `#connect`
+into view at 390px via repeated small `mouse.wheel()` bursts landed with
+`.contact-section`'s own top at **-32px** once fully settled, against the
+entry pin's intended engage line of **0px** (`top top+navbarHeight` —
+this project's own prior comments describe GSAP snapping the section to
+exactly that position the instant `onEnter` fires). That's roughly 140px
+of overshoot — enough that, in this one run, `.contact-title` landed
+partially behind the mobile navbar/hamburger before the visitor had done
+anything but scroll.
+
+**Not attributable to this task's own change.** `git stash`ed this task's
+edits and re-ran the identical test script against the prior commit
+(`32755c7`) — the same overshoot reproduced, same rough magnitude. Whatever
+this is, it predates the heading/description copy change and isn't caused
+by the small height increase that change added to the section's content.
+
+**Not confirmed as a real bug either.** The likeliest mechanism, not
+verified: Lenis accumulates interpolated scroll velocity from a burst of
+wheel input, and `lenis.stop()` (called from the pin's own `onEnter`) only
+halts *future* interpolation — it doesn't rewind whatever position the
+in-flight interpolation had already reached by the time `onEnter` fired.
+A rapid synthetic wheel burst may simply hand Lenis more accumulated
+velocity in a shorter wall-clock window than a real trackpad flick would,
+making this a test-emulation artifact rather than something an actual
+visitor would hit. Both readings are plausible; neither was confirmed
+before this task's own scope (a text change) ran out. A slower, more
+carefully-paced re-scroll at the same viewport (100px steps against a
+tight `top<=145 && top>-50` threshold, matching this project's own
+established test cadence) did NOT reproduce the overshoot in a separate
+run — which favors the test-artifact reading, but isn't proof either way
+with only one counter-example.
+
+**Left open, not chased further** — this task's own scope was a copy
+change, not the entry pin. Worth a real-device/real-trackpad check before
+`#connect`'s next task (`ROADMAP.md`'s own "apply the design system to
+`#connect`" — Stage 3 remainder), since that task will already have the
+section open and scrolled into repeatedly.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor
