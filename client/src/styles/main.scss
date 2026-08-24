@@ -135,6 +135,23 @@
   // two segment layers can never drift out of hue with each other.
   --lcd-bg: #0b1410;
   --lcd-lit: #6dffb0;
+
+  // Bar-visualiser neons (walkman.jsx's left window + the EQ row under the
+  // LCD). These used to be --vinyl-N, the same five deep, desaturated
+  // pressings the record crate uses — and that was the wrong family for a
+  // lit LED strip: --vinyl-1 (#0d1016) and --vinyl-4 (#131f42) are darker
+  // than the walkman's own case, so half the bars read as holes punched in
+  // the device rather than as light. Deliberately NOT redeclared under
+  // [data-theme="light"], same reasoning as --lcd-* directly above: an LED
+  // emits its own colour and doesn't dim because the SITE switched theme.
+  // Both bar rows now sit on --lcd-bg panels (main.scss, below) so these
+  // stay legible in either theme without a per-theme variant.
+  --viz-neon-1: #00e5ff;
+  --viz-neon-2: #3dffa8;
+  --viz-neon-3: #ffe14d;
+  --viz-neon-4: #ff4fa3;
+  --viz-neon-5: #9b7bff;
+
   --cassette-label: #efe9db;
   --cassette-label-line: #cbc1a6;
   --cassette-label-text: #2c2718;
@@ -3349,11 +3366,31 @@ html {
 .contact-container {
   max-width: 700px;
   width: 100%;
-  padding-top: 6rem;
+  // Was 6rem. This sits on top of .contact-section's own 5em top padding,
+  // so the heading started 176px below the section's top edge while the
+  // section itself is a full navbar-adjusted viewport tall — measured live,
+  // the content ended well above the section's bottom with ~100px of unused
+  // room left over, i.e. the block was hanging low rather than sitting
+  // where the eye expects it. 2rem pulls the whole block up 64px without
+  // letting the heading run into the fixed navbar (see .contact-title's own
+  // z-index note below, and connect.jsx's ensureHeadlineVisible).
+  padding-top: 2rem;
 }
 
 .contact-title {
   font-size: 2.5rem;
+  // The heading IS the confirmation message after a successful send
+  // (connect.jsx scrambles this same element to "Thank you for reaching
+  // out!"), and .connect-scrim — z-index 5, absolute over the whole
+  // section — was painting straight over it for the ~1.4s the takeover
+  // holds. Confirmed live before fixing: the heading measured opacity 1
+  // with correct text and correct colour the entire time, and was still
+  // invisible in the screenshot, because the scrim was on top of it. A
+  // z-index needs a positioned element to apply to, hence the
+  // position: relative; 8 puts it above .cassette-flight (7) too, so the
+  // flying cassette can never clip the message either.
+  position: relative;
+  z-index: 8;
   // Was `60` — a typo for `600` already flagged in ROADMAP.md/STATUS.md
   // (Stage 3 Q1/Q4 notes) but never actually corrected until now. Fixing
   // it here since this heading carries more visual weight on its own now
@@ -3640,7 +3677,20 @@ html {
 .connect-scrim {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, black 55%, transparent);
+  // 40%, down from 55%, for two reasons that point the same way. The
+  // takeover it dims for is now a 1.35x step forward rather than the old
+  // 2.3x balloon (connect.jsx), so a near-blackout was doing far more work
+  // than the motion behind it asked for. And .contact-title now sits ABOVE
+  // this layer (z-index, above) as the send's only confirmation message —
+  // measured at 55%, that heading read 17.89:1 in dark theme but only
+  // 3.73:1 in light, because darkening a light page pushes the ground
+  // TOWARD the dark text instead of away from it. At 40% light measures
+  // 6.18:1 with dark essentially unchanged at 17.66:1. Both figures are
+  // computed from the rendered DOM (scrim alpha x element opacity composited
+  // over the section's real background), not read off a screenshot.
+  // Flat colour, no gradient,
+  // matching the rest of this site's visual language.
+  background: color-mix(in srgb, black 40%, transparent);
   opacity: 0;
   pointer-events: none;
   z-index: 5;
@@ -3745,21 +3795,46 @@ html {
   top: 12.86%;
   width: 45.45%;
   height: 47.14%;
+  // No global box-sizing reset in this file (opt-in per rule — same note as
+  // .message-cassette textarea's own, and the same bug B42 caught there).
+  // Without it this box's own 10px padding is added OUTSIDE the 45.45%
+  // width, so the row rendered 20px wider than the bay it is supposed to
+  // sit inside — measured live, the last bar hung past the bay's right
+  // edge and over the EQ row.
+  box-sizing: border-box;
+  // Its own dark screen, not the bare lid underneath. Reusing --lcd-bg (the
+  // same fixed panel colour as the readout on the right) does two things at
+  // once: it makes the left window read as a second SCREEN, which is what a
+  // waveform visualiser wants, and it gives the neon bars a guaranteed dark
+  // ground in BOTH themes — the light theme's own lid (--walkman-body,
+  // #d7d9e0) would have washed every one of them out.
+  background: var(--lcd-bg);
+  border-radius: 6px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 3px;
-  padding: 8px;
+  gap: 4px;
+  padding: 10px;
   opacity: 0;
   pointer-events: none;
 }
 
 .walkman-visualizer-bar {
   flex: 1;
-  height: 30%;
+  // 26%, up from 30% of a box that was effectively shorter — this is the
+  // RESTING height the idle loop's scaleY (connect.jsx, 0.35–2.4) multiplies
+  // from, so it has to leave headroom for the top of the range: 26% x 2.4 is
+  // 62% of the padded box, comfortably inside it, where the old 30% x 1.8
+  // pair left the taller bars clipping their own container.
+  height: 26%;
   min-height: 2px;
   background: var(--viz-bar-color);
   border-radius: 1px;
+  // The bars ARE the light source in this window — a soft bloom in each
+  // bar's own colour is what separates "lit LED" from "coloured rectangle".
+  // currentColor isn't usable here (these are backgrounds, not text), hence
+  // the token repeated.
+  box-shadow: 0 0 6px color-mix(in srgb, var(--viz-bar-color) 60%, transparent);
   transform-origin: 50% 100%;
 }
 
@@ -3810,13 +3885,17 @@ html {
 
 // EQ bars — sit just under the screen (126,58,84,16 in the shared viewBox),
 // looping height oscillation once the takeover settles (connect.jsx).
-// Colours come from colorwayFor() (walkman.jsx), never hardcoded here.
+// Colours come from the --viz-neon-N ramp (walkman.jsx), never hardcoded here.
 .walkman-eq {
   position: absolute;
   left: 57.27%;
   top: 41.43%;
   width: 38.18%;
   height: 10%;
+  // Same box-sizing/padding pair as .walkman-visualizer above — this row's
+  // own 3px horizontal padding was landing outside its 38.18% width too,
+  // just less visibly than the left window's 10px did.
+  box-sizing: border-box;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -3830,6 +3909,7 @@ html {
   min-height: 2px;
   background: var(--eq-bar-color);
   border-radius: 1px;
+  box-shadow: 0 0 5px color-mix(in srgb, var(--eq-bar-color) 55%, transparent);
   transform-origin: 50% 100%;
 }
 

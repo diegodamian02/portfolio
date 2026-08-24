@@ -1994,6 +1994,102 @@ navbar. Re-verified with the identical realistic scroll position: heading
 top moved from 73px (fully hidden) to 160px (144px navbar edge + the
 intended 16px margin, exact).
 
+### B45 — the flying cassette was measured against a bay that had already been shrunk to half size, so it never landed in the slot — **FOUND AND FIXED, Stage 3 Task 12.4**
+
+The single most load-bearing moment in `#connect` — the message going *into*
+the walkman — was geometrically wrong from the day it shipped, and every
+screenshot taken of it hid that fact, because a still frame of a cassette
+mid-flight looks plausible wherever the cassette happens to be.
+
+`runSendSequence` (`connect.jsx`) read `bayEl.getBoundingClientRect()` about
+twenty lines *after* Phase 0's own `gsap.set(walkmanEl, { scale: 0.5 })`.
+Transform is not layout, but it *is* reflected in `getBoundingClientRect()` —
+so the destination rect Flip was handed described the bay at half its real
+size and offset from its real position. Measured live on a real send:
+destination **108.6 x 73** against an actual bay of **209.1 x 138**. The
+cassette flew to a too-small rectangle floating over the front of the device,
+overlapping the bay's right edge and spilling across the EQ row.
+
+Found by instrumenting rather than looking: a `requestAnimationFrame` sampler
+recording `getBoundingClientRect()` for the flight clone, walkman, bay,
+heading and scrim on every frame of a real send, run before and after the fix.
+
+**Fix.** Every rect the sequence needs — walkman, section, bay — is now
+measured in one block, above any `gsap.set` that transforms the walkman, with
+a comment saying why the ordering matters. Re-measured after: the cassette
+lands at **527.6, 354.0, 213.0 x 142.0** against a bay at **527.3, 354.1,
+209.4 x 138.2**. The 2px lip on each side is `.cassette-flight`'s own border
+(it has no `box-sizing: border-box`, deliberately — the cassette reading as
+slightly proud of the slot is correct for a tape seated in a deck).
+
+**Generalisable:** in any Flip sequence where the destination element is a
+child of something the same timeline also transforms, measure the destination
+*before* the first `gsap.set`. There is nothing in the resulting animation
+that looks like an error — it just quietly goes to the wrong place.
+
+### B46 — a tween added at position 0 silently pushed every later step 600ms late, leaving 1050ms of dead air with an orphan rectangle on screen — **FOUND AND FIXED, Stage 3 Task 12.4**
+
+Reported as "the animation isn't smooth." The cause was GSAP position-string
+semantics, not easing.
+
+`runSendSequence` added the heading scramble at explicit position `0` with a
+0.6s duration. The walkman's pop-in was then added with **no position
+argument at all**, which means `'>'` — *the end of the timeline as it
+currently stands*. Because the scramble had already extended the timeline to
+0.6s, the pop-in inherited a 0.6s start rather than the 0s its author
+clearly intended, and the cassette flight chained off `'>'` after that,
+starting at 1.05s.
+
+Measured on a real send: the form unmounted on click, and a large empty cream
+rectangle (the flight clone, rendered at the vanished textarea's old
+position) then sat **completely motionless on an otherwise blank section for
+1050ms** before anything moved. Total click-to-settled was **~4.15s**.
+
+**Fix.** Every step in the sequence now sits at an **explicit absolute
+position** computed from named constants (`POP_DUR`, `FLIGHT_DUR`,
+`flightStart`, `landed`, `lidShut`, `settleStart`) — no bare `'>'`, `'<'` or
+`'+='` anywhere in the function. First motion now at **117ms**; whole
+sequence **2.45s**. The `landed`/`lidShut` naming also made two further
+ordering bugs obvious on re-reading, both fixed in the same pass: the
+walkman's scale-up began 150ms *before* the flight clone was removed (pulling
+the bay out from under a cassette that stayed put — the clone is a sibling of
+`.walkman`, so it does not scale with it), and the clone was being yanked out
+of the DOM on Flip's `onComplete` rather than dissolving under the lid
+closing over it.
+
+**Generalisable:** relative position strings are fine in a timeline built
+strictly front-to-back, and a trap in one where anything is placed at an
+absolute position out of order. A single `, 0` on one tween silently
+re-times everything appended after it.
+
+### B47 — `loading-screen.jsx` throws an uncaught `TypeError` on every window resize after the loader finishes — **FOUND, NOT FIXED, Stage 3 Task 12.4**
+
+Surfaced while regression-testing `#connect`; unrelated to it. Element-clipped
+screenshots scroll and resize the viewport, which is what kept triggering it.
+
+```
+TypeError: Cannot read properties of null (reading 'getBoundingClientRect')
+    at build (loading-screen.jsx:53)
+    at onResize (loading-screen.jsx:80)
+```
+
+`build()` reads `wrapRef.current.getBoundingClientRect()`. Its `resize`
+listener is registered inside a `useGSAP(..., { dependencies: [shouldPlay,
+reduced] })` whose cleanup removes it correctly — but the loader hides its own
+content by calling `setFinished(true)` from the timeline's `onComplete`, which
+unmounts the referenced nodes **without changing either dependency**. So the
+effect never re-runs, its cleanup never fires, the listener stays attached,
+and `wrapRef.current` is `null` the next time the window resizes.
+
+Consequence is an uncaught error in the console on every resize for the rest
+of the page's life. Nothing visible breaks — the loader is already gone — but
+it is a real uncaught exception on a live site, and it will mask genuine
+errors for anyone reading the console.
+
+**Not fixed here.** The guard is one line (`if (!wrapRef.current) return;`),
+but this is the first thing every visitor sees and it does not belong folded
+into a `#connect` commit. Left for its own change.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

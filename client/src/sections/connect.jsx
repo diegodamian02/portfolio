@@ -100,7 +100,13 @@ function startIdleLoop(walkmanEl) {
     // each other.
     if (vizBars.length) {
         loop.to(vizBars, {
-            scaleY: () => gsap.utils.random(0.4, 1.8),
+            // Range widened from 0.4-1.8: paired with the shorter resting
+            // bar height in main.scss, this is what makes the row read as a
+            // spectrum analyser reacting to something rather than a set of
+            // blocks breathing in place. The top of the range is bounded by
+            // that resting height (26% x 2.4 = 62% of the padded window), so
+            // no bar can grow past its own container.
+            scaleY: () => gsap.utils.random(0.35, 2.4),
             duration: () => gsap.utils.random(0.4, 0.85),
             ease: 'sine.inOut',
             repeat: -1,
@@ -460,16 +466,41 @@ export default function Connect() {
         hasPoppedInRef.current = true;
         setSettled(false);
 
-        // Real-rect measurements for the takeover's own scale + centering —
-        // taken now, against the walkman's own natural (untransformed) rest
-        // position, never guessed. Capped so the takeover can never overflow
-        // .contact-section even at the narrowest currently-supported width
-        // (390px, verified live) — measured against the section's OWN box
-        // rather than a hardcoded breakpoint number, so it stays correct if
-        // either the width this project supports or this content changes.
+        // EVERY rect this sequence needs is measured HERE, in one block, while
+        // the walkman is still at its natural untransformed rest size — before
+        // Phase 0's own `gsap.set(walkmanEl, { scale: 0.5 })` below.
+        //
+        // The bay's rect used to be read 20 lines further down, AFTER that
+        // scale(0.5) had already been applied, which is why the cassette never
+        // actually landed in the bay: Flip was being handed a destination box
+        // half the real bay's size and offset from it (measured live —
+        // destination 108.6x73 against a real bay of 209.1x138), so the
+        // cassette flew to a too-small rectangle floating over the front of
+        // the device instead of seating into the slot. The whole point of this
+        // animation is the message going INTO the walkman, so this is the
+        // ordering that matters most in this function; keep all four
+        // measurements together and above any gsap.set that transforms the
+        // walkman.
         const walkmanRect = walkmanEl.getBoundingClientRect();
         const sectionRect = sectionEl.getBoundingClientRect();
-        const DESIRED_SCALE = 2.3;
+        const bayRect = bayEl ? bayEl.getBoundingClientRect() : null;
+
+        // Capped so the takeover can never overflow .contact-section even at
+        // the narrowest currently-supported width (390px, verified live) —
+        // measured against the section's OWN box rather than a hardcoded
+        // breakpoint number.
+        //
+        // 1.35, down from 2.3. That 2.3 was tuned against a walkman whose rest
+        // width was min(260px, 78%); Task 12.3 nearly doubled that rest size to
+        // min(460px, 92%) to make the device the confirmation state's
+        // centerpiece, and the old multiplier came along unchanged — so the
+        // takeover was scaling a 460px device to 1058px, filling the viewport
+        // edge to edge and then shrinking all the way back, the single largest
+        // chunk of motion in the sequence and the one that read as least
+        // purposeful. At the device's current rest size a gentler step forward
+        // (460 -> 621px), over the scrim, reads as emphasis without the
+        // balloon-and-deflate.
+        const DESIRED_SCALE = 1.35;
         const SAFE_FRACTION = 0.86;
         const maxScaleW = (sectionRect.width * SAFE_FRACTION) / walkmanRect.width;
         const maxScaleH = (sectionRect.height * SAFE_FRACTION) / walkmanRect.height;
@@ -479,6 +510,34 @@ export default function Connect() {
 
         const tl = gsap.timeline({ onComplete: () => setSettled(true) });
         sequenceTlRef.current = tl;
+
+        // Every step below is placed at an EXPLICIT absolute time on the
+        // timeline, computed from the constants here — no bare `'>'` /
+        // `'<'` / `'+='` relative positions anywhere in this sequence.
+        //
+        // That is not a style preference, it's the fix for the other half of
+        // what made this feel broken. `'>'` means "the end of the timeline as
+        // it currently stands," and the heading scramble is added at position
+        // 0 with a 0.6s duration — so the walkman's pop-in, appended with no
+        // position argument at all, silently inherited a 0.6s start, and the
+        // cassette flight chained off `'>'` after THAT. Measured live: the
+        // form unmounted on click and a large empty cassette rectangle then
+        // sat motionless on an otherwise blank section for 1050ms before
+        // anything moved. Absolute positions make each beat's timing readable
+        // on the page and impossible to shift by accident when a tween's
+        // duration changes.
+        const POP_DUR = 0.4;
+        const FLIGHT_DUR = 0.5;
+        // The flight starts BEFORE the pop-in has fully settled (0.35 of 0.4)
+        // so the two overlap into one gesture rather than reading as "device
+        // appears" then, separately, "cassette moves."
+        const flightStart = hasPoppedIn ? 0 : 0.35;
+        const canFly = Boolean(cassetteFlipState && bayRect && flightRef.current);
+        // When the cassette is seated in the bay — the beat the rest of the
+        // sequence hangs off.
+        const landed = canFly ? flightStart + FLIGHT_DUR : (hasPoppedIn ? 0 : POP_DUR);
+        const LID_DUR = 0.32;
+        const lidShut = landed + LID_DUR;
 
         // The heading itself becomes the confirmation message — a genuine
         // transformation of the SAME element (ScrambleTextPlugin), not a
@@ -503,10 +562,11 @@ export default function Connect() {
         // walkman is already visible/settled from a prior send in this
         // session, so this run jumps straight to Phase 1 instead of
         // popping in from scratch a second time, per the brief's own
-        // explicit instruction.
+        // explicit instruction. Runs at 0, alongside the heading scramble
+        // above rather than queued behind it.
         if (!hasPoppedIn) {
             gsap.set(walkmanEl, { opacity: 0, scale: 0.5 });
-            tl.to(walkmanEl, { opacity: 1, scale: 1, duration: 0.45, ease: WALKMAN_POP_EASE });
+            tl.to(walkmanEl, { opacity: 1, scale: 1, duration: POP_DUR, ease: WALKMAN_POP_EASE }, 0);
         }
 
         // Phase 1 — arrival.
@@ -523,9 +583,8 @@ export default function Connect() {
         //    Re-styled to the bay's own rect immediately beforehand so
         //    Flip's own internal getState(targets) call reads THAT as the
         //    target/end position.
-        if (cassetteFlipState && bayEl && flightRef.current) {
+        if (canFly) {
             const flight = flightRef.current;
-            const bayRect = bayEl.getBoundingClientRect();
             flight.style.left = `${bayRect.left - sectionRect.left}px`;
             flight.style.top = `${bayRect.top - sectionRect.top}px`;
             flight.style.width = `${bayRect.width}px`;
@@ -533,70 +592,100 @@ export default function Connect() {
 
             const flip = Flip.from(cassetteFlipState, {
                 targets: flight,
-                duration: 0.5,
+                duration: FLIGHT_DUR,
                 ease: SIGNATURE_EASE,
-                onComplete: () => setFlightSlot(null),
             });
-            tl.add(flip, hasPoppedIn ? 0 : '>');
+            tl.add(flip, flightStart);
+
+            // 2b. The clone dissolves as the lid comes down over it, rather
+            //     than being yanked out of the DOM the instant Flip finishes.
+            //     .cassette-flight is a SIBLING of .walkman (z-index 7 vs 6 —
+            //     it has to be, it's positioned against .contact-section, and
+            //     .walkman's own z-index makes the device one stacking unit
+            //     that nothing external can be interleaved between), so a
+            //     clone still at full opacity would paint on TOP of the lid
+            //     closing over it — the cassette sitting in front of the very
+            //     door meant to be shutting on it. Cross-fading it out across
+            //     the first two thirds of the lid's travel is what sells the
+            //     read the whole animation exists for: the tape goes in, the
+            //     lid closes, it's inside now. setFlightSlot moves here from
+            //     Flip's own onComplete for the same reason.
+            tl.to(flight, {
+                opacity: 0,
+                duration: 0.2,
+                ease: 'none',
+                onComplete: () => setFlightSlot(null),
+            }, landed);
         } else {
             setFlightSlot(null);
         }
 
         // 3. Lid snaps shut over the landed cassette.
         if (lidEl) {
-            tl.to(lidEl, { scaleY: 1, duration: 0.35, ease: WALKMAN_POP_EASE }, hasPoppedIn ? '>-=0.1' : '>-=0.15');
+            tl.to(lidEl, { scaleY: 1, duration: LID_DUR, ease: WALKMAN_POP_EASE }, landed);
         }
 
-        // 3b. Left window's bar visualizer fades in now that the lid has
-        //     sealed over the landed cassette — before this, that same
-        //     physical space was showing the cassette arrive (walkman.jsx's
-        //     own comment on .walkman-visualizer has the full reasoning for
-        //     why it can't just be visible the whole time).
+        // 4. Scrim appears, and 5. the walkman steps forward — both held
+        //    until the clone is gone (landed + 0.2). The clone does NOT scale
+        //    with the walkman (it isn't a child of it), so starting the
+        //    scale-up while it was still visible pulled the bay out from
+        //    under a cassette that stayed exactly where it was — measured
+        //    live at the old timings, 150ms of the two visibly detaching.
+        //    Scrim is scoped to the section (main.scss: position absolute
+        //    against .contact-section, never position: fixed).
+        const stepForward = landed + 0.2;
+        tl.to(scrimRef.current, { opacity: 1, duration: 0.3 }, stepForward);
+        //    A pure transform on a permanently position:static element
+        //    (main.scss's own comment on .walkman has the full reasoning) —
+        //    it never leaves normal flow, which is what makes "back to normal
+        //    in-flow content" later (step 9) as simple as animating the SAME
+        //    transform back to none.
+        tl.to(walkmanEl, { x: deltaX, y: deltaY, scale: finalScale, duration: 0.5, ease: SIGNATURE_EASE }, stepForward);
+
+        // 5b. Left window's bar visualizer fades in as the lid finishes
+        //     sealing — before this, that same physical space was showing the
+        //     cassette arrive (walkman.jsx's own comment on
+        //     .walkman-visualizer has the full reasoning for why it can't
+        //     just be visible the whole time).
         if (vizEl) {
-            tl.to(vizEl, { opacity: 1, duration: 0.3 }, '<');
+            tl.to(vizEl, { opacity: 1, duration: 0.3 }, lidShut - 0.1);
         }
 
-        // 4. Scrim appears — scoped to the section (main.scss: position
-        //    absolute against .contact-section, never position: fixed).
-        tl.to(scrimRef.current, { opacity: 1, duration: 0.3 }, '<');
-
-        // 5. Walkman scales up and centers within the section, over the
-        //    scrim. A pure transform on a permanently position:static
-        //    element (main.scss's own comment on .walkman has the full
-        //    reasoning) — it never leaves normal flow, which is what makes
-        //    "back to normal in-flow content" later (step 9) as simple as
-        //    animating the SAME transform back to none.
-        tl.to(walkmanEl, { x: deltaX, y: deltaY, scale: finalScale, duration: 0.55, ease: SIGNATURE_EASE }, '<');
-
-        // 6. EQ bars + cord — start looping now, keep running right through
-        //    settle into indefinite idle (step 10). Nothing later restarts
-        //    them; this is the only place this sequence starts them.
+        // 6. EQ bars + cord + the left window's bars — start looping now,
+        //    keep running right through settle into indefinite idle (step
+        //    10). Nothing later restarts them; this is the only place this
+        //    sequence starts them.
         tl.call(() => {
             idleLoopRef.current = startIdleLoop(walkmanEl);
-        }, [], '<+=0.1');
+        }, [], lidShut - 0.1);
 
         // 7. Thank-you line resolves into the LCD screen through the ghost
         //    layer underneath it (walkman.jsx's own ghost/lit stacked pair).
+        const LCD_DUR = 0.55;
+        const lcdStart = lidShut;
         if (litEl) {
             tl.to(litEl, {
                 scrambleText: { text: WALKMAN_LCD_TEXT, chars: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ', speed: 0.4 },
-                duration: 0.55,
-            }, '<+=0.15');
+                duration: LCD_DUR,
+            }, lcdStart);
         }
 
         // Phase 2 — settle. A held beat first so the takeover actually
-        // reads as a moment arrived at, not a blur passed through.
+        // reads as a moment arrived at, not a blur passed through. Measured
+        // from the LAST thing to finish (the LCD resolving) rather than from
+        // whatever happened to be at the end of the timeline.
         // 8. Scrim fades out.
-        tl.to(scrimRef.current, { opacity: 0, duration: 0.4 }, '+=0.5');
+        const settleStart = lcdStart + LCD_DUR + 0.3;
+        tl.to(scrimRef.current, { opacity: 0, duration: 0.4 }, settleStart);
         // 9. Walkman animates back down into its normal in-flow position —
         //    clearProps once it lands so nothing about a future transform
         //    on this element (a hover effect, say) inherits a stale inline
         //    value, same discipline My Taste's own cascade uses for its
         //    cards (Task 4).
         tl.to(walkmanEl, {
-            x: 0, y: 0, scale: 1, duration: 0.6, ease: SIGNATURE_EASE,
+            x: 0, y: 0, scale: 1, duration: 0.5, ease: SIGNATURE_EASE,
             onComplete: () => gsap.set(walkmanEl, { clearProps: 'transform' }),
-        }, '<');
+        }, settleStart);
     }
 
     const handleChange = (e) => {
@@ -781,12 +870,15 @@ export default function Connect() {
                                 main.scss so they read as quiet shell chrome,
                                 not something competing with the text below
                                 them while the visitor is actively typing.
-                                rows="3", not the old "5" — paired with the
-                                textarea's own bigger padding/line-height
-                                (main.scss), this reads as a compact modern
-                                message field rather than a large blank block;
-                                resize: vertical (unchanged) still lets a
-                                visitor drag it taller for a long message. */}
+                                rows="4" — was 5 originally, cut to 3 in Task
+                                12.1 to shrink a box that read as bulky, then
+                                nudged back up one row here: at 3 the field
+                                had gone slightly too far the other way, short
+                                enough against the cassette shell's own reel
+                                strip that the label looked taller than the
+                                writing area it was wrapping. resize: vertical
+                                (unchanged) still lets a visitor drag it
+                                taller for a long message. */}
                             <div className="message-cassette" ref={cassetteRef}>
                                 <div className="message-cassette-reels" aria-hidden="true">
                                     <span className="message-cassette-reel" />
@@ -795,7 +887,7 @@ export default function Connect() {
                                 <textarea
                                     name="message"
                                     id="message"
-                                    rows="3"
+                                    rows="4"
                                     maxLength={5000}
                                     value={formData.message}
                                     onChange={handleChange}

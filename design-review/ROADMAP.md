@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-23, Stage 3 Task 12.3)*
+## 0. Current state — quick summary *(updated 2026-08-23, Stage 3 Task 12.4)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -305,6 +305,25 @@ the confirmation heading landed entirely behind the fixed navbar
 (`FINDINGS.md` B44) — since it's now the only confirmation message, fixed
 with a new `ensureHeadlineVisible()` that nudges scroll only when actually
 needed. `STATUS.md`'s own Stage 3 Task 12.3 entry has the full writeup.
+
+**Also 2026-08-23 (Stage 3 Task 12.4) — `#connect`: the cassette actually
+goes in.** The send sequence was instrumented (per-frame rect sampling on a
+real send) before being tuned, which found two defects no screenshot of this
+feature had ever shown: the flying cassette had been aiming at a bay rect
+measured *after* the pop-in shrank the walkman to half size, so it never
+landed in the slot (`FINDINGS.md` B45); and a tween placed at position `0`
+silently pushed the pop-in and flight 600ms/1050ms late, leaving an orphan
+rectangle motionless on a blank section before anything moved
+(`FINDINGS.md` B46). Both fixed; first motion 683ms -> 117ms, whole sequence
+~4.15s -> 2.45s, cassette now lands flush on the bay. Takeover scale dropped
+2.3 -> 1.35 (that constant was tuned for a 260px walkman and never revisited
+when 12.3 grew it to 460px), the confirmation heading was lifted above the
+scrim it had been hidden behind, the scrim softened to keep light theme
+legible (3.73:1 -> 6.18:1, measured), both bar rows recoloured onto a new
+fixed neon token family on their own dark screen panels, and a third
+`box-sizing` overflow in B42's family cleaned up. Plus the two layout asks:
+section block up 64px, message textarea one row taller. `STATUS.md`'s own
+Stage 3 Task 12.4 entry has the full writeup.
 
 **Not started yet, in the order the roadmap currently has them:**
 
@@ -1261,6 +1280,47 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > fixed navbar at an ordinary scroll position (`FINDINGS.md` B44) — fixed
 > with a new `ensureHeadlineVisible()` that only corrects scroll when
 > actually needed. `npm run lint` holds at 7 errors/2 warnings.
+
+> **Stage 3 Task 12.4 is DONE — 2026-08-23.** A fourth decimal follow-up on
+> Task 12, prompted by a short ask with an explicit priority: *"remember the
+> animation is inserting the message box (cassette) into the walkman... Make
+> sure the animation is smooth. That's what we care about the most now."*
+> The send sequence was instrumented before being touched — a `requestAnimation
+> Frame` sampler recording real rects for the flight clone, walkman, bay,
+> heading and scrim on every frame of a real send — which found two defects
+> that no screenshot of this feature had ever revealed. **The cassette was
+> never landing in the bay** (`FINDINGS.md` B45): the bay's rect was read
+> *after* Phase 0's own `scale: 0.5`, so Flip's destination was 108.6x73
+> against a real bay of 209.1x138. **And 1050ms of dead air preceded any
+> motion at all** (`FINDINGS.md` B46): the heading scramble sits at position
+> `0` with a 0.6s duration, so the walkman pop-in — appended with no position
+> argument, i.e. `'>'` — silently inherited a 0.6s start and the flight
+> chained off that. Both fixed: all rects measured in one block above any
+> transforming `gsap.set` (cassette now lands flush, 527.6/354.0 against a bay
+> at 527.3/354.1), and every step placed at an explicit absolute position from
+> named constants — no relative position strings left in the function. First
+> motion 683ms -> **117ms**; click-to-settled ~4.15s -> **2.45s**. The lid now
+> actually closes *over* the cassette (the clone dissolves under it instead of
+> painting on top of it, and the scale-up waits until it is gone). Takeover
+> scale 2.3 -> **1.35** — that multiplier was tuned for a 260px walkman and
+> was never revisited when Task 12.3 grew the device to 460px, so it had been
+> inflating it to 1058px and back. `.contact-title` was found sitting *behind*
+> `.connect-scrim` for the whole hold despite being the send's only
+> confirmation message; now `z-index: 8`, and with it legible on top the scrim
+> was measured rather than assumed and softened `black 55% -> 40%` (light
+> theme 3.73:1 -> **6.18:1**, dark 17.66:1). Both bar rows moved off
+> `colorwayFor()`/`--vinyl-N` — two of those pressings are darker than the
+> walkman's own case — onto a new fixed `--viz-neon-1..5` family assigned as
+> an ordered left-to-right ramp (a hash is right for record pressings, wrong
+> for a spectrum analyser), with the left window gaining its own `--lcd-bg`
+> panel so the neons hold in both themes. A third `box-sizing` overflow in
+> B42's family found and fixed (`.walkman-visualizer` hung 20px past its bay;
+> now 0.00px). Layout asks landed too: `.contact-container` padding-top
+> `6rem -> 2rem` (block up 64px) and the message textarea `rows` 3 -> 4
+> (100 -> 126.4px). One unrelated pre-existing bug recorded but deliberately
+> NOT fixed here (`FINDINGS.md` B47): `loading-screen.jsx` throws an uncaught
+> `TypeError` on every window resize after the loader finishes. `npm run lint`
+> holds at 7 errors/2 warnings.
 
 ### Stage 4 — `#my-taste` redesign
 

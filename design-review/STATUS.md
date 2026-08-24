@@ -1,6 +1,6 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-23 (Stage 3 Task 12.3) · **HEAD:** `458d032`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-23 (Stage 3 Task 12.4) · **HEAD:** `ea585ac`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -2961,6 +2961,127 @@ correct LCD, correct heading). `npm run lint`: **7 errors, 2 warnings**,
 unchanged. `npm run build`: JS 525.08 -> **526.32 kB** (187.07 ->
 **187.40 kB** gz), CSS 50.08 -> **50.72 kB** (10.54 -> **10.60 kB** gz).
 
+### Stage 3 Task 12.4 — `#connect`: the cassette actually goes in *(2026-08-23)*
+
+A fourth decimal follow-up on Task 12. The ask was short and its priority
+explicit — *"remember the animation is inserting the message box (cassette)
+into the walkman... Make sure the animation is smooth. That's what we care
+about the most now"* — plus neon visualizer colours, the section shifted
+higher, and a slightly taller message box.
+
+Rather than tune by eye, the send sequence was instrumented first: a
+`requestAnimationFrame` sampler recording `getBoundingClientRect()` for the
+flight clone, the walkman, the bay, the heading and the scrim on every frame
+of a real send, alongside a 26-frame screenshot burst. That trace found
+**two independent defects, both of which had been invisible in every
+screenshot taken of this feature so far** (`FINDINGS.md` B45, B46).
+
+**B45 — the cassette was never landing in the bay.** `bayEl.getBoundingClientRect()`
+was being read ~20 lines *after* Phase 0's own
+`gsap.set(walkmanEl, { scale: 0.5 })`, so Flip was handed a destination box
+at **half** the bay's real size and offset from it: measured
+**108.6 x 73** against a real bay of **209.1 x 138**. The cassette flew to a
+too-small rectangle floating over the front of the device instead of seating
+into the slot — which is the one thing this entire animation exists to show.
+Fixed by hoisting every rect this sequence needs into a single measurement
+block above any transforming `gsap.set`. Re-measured after: the cassette
+lands at **527.6, 354.0, 213.0 x 142.0** against a bay at
+**527.3, 354.1, 209.4 x 138.2** — flush, the 2px lip on each side being
+`.cassette-flight`'s own border.
+
+**B46 — 1050ms of dead air before anything moved.** The heading scramble is
+added at timeline position `0` with a 0.6s duration; the walkman's pop-in was
+appended with **no position argument**, so it silently inherited `'>'` — the
+end of the timeline *as it then stood*, i.e. 0.6s — and the cassette flight
+chained off `'>'` after that. Measured: the form unmounted on click and a
+large empty cream rectangle then sat motionless on an otherwise blank section
+for **1050ms**. Every step in the sequence now sits at an **explicit absolute
+position** computed from named duration constants (`POP_DUR`, `FLIGHT_DUR`,
+`landed`, `lidShut`, `settleStart`) — no bare `'>'`/`'<'`/`'+='` anywhere in
+this function. First motion now at **117ms**.
+
+**The lid actually closes over the cassette.** `.cassette-flight` is a sibling
+of `.walkman` at z-index 7 vs 6 — it has to be, it's positioned against
+`.contact-section`, and `.walkman`'s own z-index makes the device a single
+stacking unit nothing external can be interleaved into. So a clone still at
+full opacity paints *on top of* the lid closing over it. The clone now
+cross-fades out across the first two thirds of the lid's travel, and the
+scrim/scale-up wait until it is gone — previously the scale-up began 150ms
+before the clone was removed, pulling the bay out from under a cassette that
+stayed exactly where it was.
+
+**Takeover scale 2.3 -> 1.35.** That 2.3 was tuned against a walkman whose
+rest width was `min(260px, 78%)`; Task 12.3 nearly doubled that to
+`min(460px, 92%)` and the multiplier came along unchanged, so the takeover was
+inflating a 460px device to **1058px** and shrinking it all the way back —
+the largest single chunk of motion in the sequence and the least purposeful.
+Now 460 -> **621px**. Whole sequence: **~4.15s -> 2.45s** from click to
+settled.
+
+**The heading was behind the scrim.** `.connect-scrim` (absolute, z-index 5,
+covering the section) was painting straight over `.contact-title` for the
+~1.4s hold — and since Task 12.3 that heading is the send's *only*
+confirmation message. `.contact-title` now takes `position: relative;
+z-index: 8`, above both the scrim and the flight clone. With it now legible
+on top of the scrim, the scrim's own weight was measured rather than assumed:
+at `black 55%` the heading read **17.89:1** in dark theme but only **3.73:1**
+in light, because darkening a light page pushes the ground *toward* dark text
+instead of away from it. At `black 40%` light measures **6.18:1**, dark
+**17.66:1** — both computed by compositing the scrim's alpha x element opacity
+over the section's real rendered background, not read off a screenshot.
+
+**Neon bars, on their own screens.** The two bar rows were on `colorwayFor()`
+-> `--vinyl-N`, and two of those five pressings (`#0d1016`, `#131f42`) are
+*darker than the walkman's own case*, so half the bars read as holes punched
+in the device rather than as light. New fixed `--viz-neon-1..5` token family
+(cyan / spring / amber / hot pink / violet), declared once and deliberately
+**not** redeclared per theme — same reasoning as `--lcd-*`: an LED emits its
+own colour and doesn't dim because the site switched theme. Assigned by a
+left-to-right ramp, **not** a hash: `colorwayFor()` scatters colour at random,
+which is right for record pressings and wrong for a spectrum analyser, where
+reading as an ordered sweep is the whole idiom. The left window also gained
+its own `--lcd-bg` panel, which makes it read as a second *screen* and gives
+the neons a guaranteed dark ground in **both** themes — the light theme's own
+lid (`#d7d9e0`) would have washed every one of them out. The EQ row was
+recoloured with it (slightly wider than the literal ask, flagged): the two
+rows sit 20px apart on one device and leaving one on the old palette would
+read as an oversight.
+
+**A third box-sizing overflow (B42's family).** `.walkman-visualizer` had
+`width: 45.45%` plus its own `10px` padding and no `box-sizing: border-box` —
+there is still no global reset in this file — so the row rendered 20px wider
+than the bay it sits inside and the last bar hung past the bay's right edge
+over the EQ row. Now `0.00px` overflow, measured at 390px. `.walkman-eq` had
+the same latent bug with 3px padding; fixed alongside. Bars went 6 -> 8 and
+shorter at rest (30% -> 26%, idle range 0.4-1.8 -> 0.35-2.4): at 6 they
+measured ~30px wide against a ~41px resting height, near-square blocks rather
+than a waveform.
+
+**The two layout asks.** `.contact-container` padding-top `6rem -> 2rem`,
+moving the whole block up 64px (heading now 145.2px below the section's top
+edge, was 209.2). Message textarea `rows` 3 -> 4, height 100 -> **126.4px** —
+at 3 it had gone slightly too far the other way from Task 12.1's trim, short
+enough against the cassette shell's reel strip that the label looked taller
+than the writing area it wrapped.
+
+**Verification:** dev pair (5173/5050). Full-frame rAF trace before and after
+at 1440px; compose + takeover + settled captured in both themes; 390px
+confirmed no section overflow, no horizontal body overflow and 0.00px
+visualizer overflow; reduced motion confirmed heading swap + visualizer
+visible + LCD correct + reset button present; idle loop confirmed still
+animating after **30s** and still moving at 30.5s; full reset cycle confirmed
+(heading back to "Let's Connect", form back, walkman unmounted, message
+field cleared) followed by a clean second send with no stray flight clone.
+`npm run lint`: **7 errors, 2 warnings**, unchanged. `npm run build`: JS
+526.32 -> **526.48 kB** (187.40 -> **187.50 kB** gz), CSS 50.72 ->
+**51.09 kB** (10.60 -> **10.68 kB** gz).
+
+**Found but not fixed — `FINDINGS.md` B47:** `loading-screen.jsx` throws an
+uncaught `TypeError` on **every window resize** once the loader has finished.
+Unrelated to `#connect`; surfaced because element-clipped screenshots trigger
+a resize. Left for its own change rather than folded into a `#connect` commit
+— it is the first thing every visitor sees.
+
 ### Stage 4 (`#my-taste`) — task numbering, consolidated
 
 The dated entries below run 1 → 2 → 2.5 → 3 → 3.5 → 3.6 → 3.8 → 3.7 → 3.7 follow-up →
@@ -4148,8 +4269,8 @@ crate too, not just `#my-taste`.
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **526.32 kB / 187.40 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3 added +7.55 kB / +2.27 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.3 alone added +1.24 kB / +0.33 kB gz for the headline scramble, the visualizer bars' own idle-loop step, and `ensureHeadlineVisible()`)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **50.72 kB / 10.60 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| JS bundle | 407 KB / 147 KB gz | **526.48 kB / 187.50 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **51.09 kB / 10.68 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

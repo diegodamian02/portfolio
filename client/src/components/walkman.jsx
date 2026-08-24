@@ -1,4 +1,21 @@
-import { colorwayFor } from "./vinyl-record.jsx";
+// A left-to-right sweep across the five --viz-neon-N tokens (main.scss),
+// NOT colorwayFor() — a deliberate replacement, flagged rather than left
+// silent. colorwayFor() is a HASH: it scatters colours across the row at
+// random, which is what you want for record pressings (a song should
+// always arrive on the same, arbitrary-looking pressing) and exactly what
+// you don't want for a spectrum analyser, where the colours reading as an
+// ordered ramp is the whole visual idiom. The vinyl palette itself was
+// also wrong here for a second, simpler reason — see --viz-neon-N's own
+// comment in main.scss: two of the five pressings are darker than the
+// walkman's case, so those bars read as holes rather than light.
+//
+// `count - 1` in the denominator so the ramp spans the full 1..5 range
+// endpoint to endpoint regardless of how many bars a row has; guarded for
+// count === 1, where the division would be 0/0.
+function neonRamp(index, count) {
+    if (count <= 1) return 1;
+    return 1 + Math.round((index / (count - 1)) * 4);
+}
 
 // The send-success takeover's own prop — Stage 3 Task 11.2's follow-up.
 // Purely presentational: every part GSAP touches is reached by class name
@@ -20,27 +37,33 @@ import { colorwayFor } from "./vinyl-record.jsx";
 // coordinate space) — a future redraw of walkman-body's shapes should
 // recompute these against the same box, not eyeball new ones.
 //
-// EQ bar colours come from colorwayFor() (the SAME deterministic
-// id -> --vinyl-N mapping the turntable/My Taste already use for
-// pressings/photos), per the brief's own instruction not to hardcode
-// them — salted per bar index so the 5 bars don't collapse onto one
-// repeated colour by chance the way an unsalted hash could.
+// The EQ row under the LCD. Recoloured onto the neon ramp along with the
+// left window's visualizer below — the ask named "the waveform bar," i.e.
+// the left window, but these two rows are the same visual family sitting
+// 20px apart on one device, and leaving this one on the old vinyl palette
+// while the other went neon would read as an oversight rather than a
+// choice. Flagged as slightly wider than the literal ask.
 const EQ_BAR_COUNT = 5;
 const EQ_BARS = Array.from({ length: EQ_BAR_COUNT }, (_, i) => ({
     id: `eq-bar-${i}`,
-    colorway: colorwayFor(`walkman-eq-${i}`),
+    neon: neonRamp(i, EQ_BAR_COUNT),
 }));
 
 // The left window's own bar visualizer — was a plain empty rect (the
 // cassette bay's own backdrop, still IS that during Phase 1's arrival;
 // see .walkman-visualizer's own comment in main.scss for how the two
-// share that space without conflicting). A separate bar set from the EQ
-// bars above, not a reuse of them — its own colorwayFor salt so it
-// doesn't coincidentally repeat the EQ bars' own five colours.
-const VIZ_BAR_COUNT = 6;
+// share that space without conflicting).
+//
+// 8 bars, up from 6: measured against the window's real box (209x138 at
+// the walkman's own rest width), 6 flex:1 bars came out ~30px wide against
+// a ~41px resting height — near-square blocks, which is why the row read
+// as coloured tiles rather than a waveform. 8 bars in the same box are
+// ~20px wide against a taller resting height (main.scss), a ratio that
+// actually reads as bars.
+const VIZ_BAR_COUNT = 8;
 const VIZ_BARS = Array.from({ length: VIZ_BAR_COUNT }, (_, i) => ({
     id: `viz-bar-${i}`,
-    colorway: colorwayFor(`walkman-viz-${i}`),
+    neon: neonRamp(i, VIZ_BAR_COUNT),
 }));
 
 // "ALL DONE" — the second copy change here, and the second time this
@@ -131,7 +154,7 @@ export default function Walkman({ rootRef }) {
                     <span
                         key={bar.id}
                         className="walkman-visualizer-bar"
-                        style={{ "--viz-bar-color": `var(--vinyl-${bar.colorway})` }}
+                        style={{ "--viz-bar-color": `var(--viz-neon-${bar.neon})` }}
                     />
                 ))}
             </div>
@@ -151,7 +174,7 @@ export default function Walkman({ rootRef }) {
                     <span
                         key={bar.id}
                         className="walkman-eq-bar"
-                        style={{ "--eq-bar-color": `var(--vinyl-${bar.colorway})` }}
+                        style={{ "--eq-bar-color": `var(--viz-neon-${bar.neon})` }}
                     />
                 ))}
             </div>
