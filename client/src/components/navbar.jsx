@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import "../styles/main.scss";
 import sunIcon from "../assets/sun.png";
 import moonIcon from "../assets/moon.png";
+import vinylLogo from "../assets/vinyl-logo.png";
 import { SECTIONS } from "../lib/sections.js";
 import { scrollToSection } from "../lib/scroll.js";
 
@@ -183,7 +184,18 @@ export default function Navbar() {
 
     return (
         <nav className={`navbar ${scrolled ? "navbar-scrolled" : ""} ${isMenuActive ? "navbar-menu-open" : ""}`}>
-            <h1 className="logo">D.</h1>
+            <h1 className="logo">
+                {/* Same handleNavClick/scrollToSection path every other nav
+                    link already uses (SECTIONS[0] is "home") — not a second,
+                    separately-invented "go home" mechanism. */}
+                <a
+                    href="#home"
+                    aria-current={activeId === "home" ? "page" : undefined}
+                    onClick={(e) => handleNavClick(e, "home")}
+                >
+                    <img src={vinylLogo} alt="Diego Damian" />
+                </a>
+            </h1>
 
             <div className="navbar-right">
                 <div className="navbar-links">

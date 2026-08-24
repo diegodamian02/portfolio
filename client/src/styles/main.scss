@@ -1539,10 +1539,38 @@ html {
   gap: 15px;
 }
 
+// The vinyl-record mark, replacing the old "D." text wordmark. margin: 0
+// resets the <h1>'s own default block margin (invisible before this change
+// only because it was folded into the text's own font-size-driven line
+// box) and line-height: 0 stops that same default line box adding height
+// above/below the image now that there's no text baseline to align to —
+// together, this element's own rendered height is exactly the <img>'s.
+// Sized well under --navbar-height's own available content height at
+// every breakpoint (104px desktop, 80px/68px at the two steps below) —
+// comfortably safe, not a re-measured fit the way the OLD text logo's
+// height directly informed that token (this file's own --navbar-height
+// comment).
 .logo {
-  font-size: 2.4rem;
-  font-weight: 500;
-  color: var(--text-color);
+  margin: 0;
+  line-height: 0;
+
+  a {
+    display: block;
+    // Matches .theme-toggle's own hover treatment below — the navbar's
+    // other icon-only control — rather than .navbar-links a:hover's color
+    // shift, which needs text for --accent to recolor.
+    transition: transform 0.4s ease-in-out;
+
+    &:hover {
+      transform: scale(1.1);
+    }
+  }
+
+  img {
+    height: 36px;
+    width: auto;
+    display: block;
+  }
 }
 
 .navbar-links a {
@@ -4816,8 +4844,8 @@ html {
     --start-button-size: 36px;
   }
 
-  .logo {
-    font-size: 1.8rem;
+  .logo img {
+    height: 28px;
   }
 
 
@@ -4888,8 +4916,8 @@ html {
     overflow-x: hidden;
   }
 
-  .logo {
-    font-size: 1.5rem;
+  .logo img {
+    height: 24px;
   }
 
   .navbar-links a {
