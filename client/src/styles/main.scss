@@ -3392,17 +3392,35 @@ html {
   position: relative;
   z-index: 8;
   // Was `60` — a typo for `600` already flagged in ROADMAP.md/STATUS.md
-  // (Stage 3 Q1/Q4 notes) but never actually corrected until now. Fixing
-  // it here since this heading carries more visual weight on its own now
-  // that .contact-description is gone (below).
+  // (Stage 3 Q1/Q4 notes) but never actually corrected until now.
   font-weight: 600;
-  // Was 1rem, tuned for a heading sitting right above a description
-  // paragraph. With that paragraph removed, the form now sits directly
-  // under the heading — 1rem read as cramped, so this grew to
-  // `--space-6`, the same margin-bottom `@mixin section-title` (used by
-  // `.portfolio-title`) already gives a standalone section heading.
-  margin-bottom: var(--space-6);
+  // var(--space-4) (1rem) — back down from --space-6. That larger value
+  // was tuned for a heading sitting directly above the FORM, from the
+  // window when .contact-description didn't exist; now that the
+  // description is back as a direct request, it sits between the two
+  // again, and --space-6 read as too much air between a heading and the
+  // sentence introducing it (this is the exact value/reasoning the
+  // original description-era heading used, before it was ever grown).
+  margin-bottom: var(--space-4);
   text-align: center;
+}
+
+// A different paragraph from the one this project carried before Task 12.2
+// removed it — that one doubled as an email fallback and included a real
+// `mailto:` link (hence its own now-deleted `.contact-description a` rule);
+// this one is a plain thank-you note with no link, brought back by direct
+// request. Left-aligned (no text-align override), matching this same
+// class's own only prior precedent — this reads as a short paragraph of
+// prose, not a second heading, and center-aligning multi-line prose this
+// long would hurt its own readability (ragged line starts).
+.contact-description {
+  font-size: 1rem;
+  line-height: 1.6;
+  // var(--space-7) (3rem) — the same value/reasoning this class used before
+  // removal: enough separation that the form reads as its own block below
+  // the introduction, not crowded against it.
+  margin-bottom: var(--space-7);
+  color: var(--secondary-text);
 }
 
 .contact-form {

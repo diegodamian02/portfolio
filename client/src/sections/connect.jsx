@@ -138,13 +138,25 @@ const EMPTY = { name: '', email: '', message: '', website: '' };
 // it. Per the brief's own explicit requirement: exactly one message on
 // screen after a send, not the original heading left sitting above a
 // separate success paragraph (the previous shape, now removed).
-const HEADLINE_IDLE = "Let's Connect";
+const HEADLINE_IDLE = "Let's Connect!";
 const HEADLINE_SENT = 'Thank you for reaching out!';
+
+// Reintroduced by direct request after Task 12.2 removed the old
+// mailto-fallback description entirely ("i dont need any description box
+// under that — its very straightforward"). This is a different paragraph
+// with a different job: not an email fallback (the form is the only
+// contact path now, unchanged), just a friendly note before the compose
+// box. Shown only alongside the form (see the JSX below) — hidden the
+// instant `status === 'sent'`, same as the form itself, so Task 12.3's own
+// requirement still holds: exactly one message on screen after a send.
+const CONTACT_DESCRIPTION =
+    "Thank you for taking the time to view my portfolio, I hope you had fun playing your favorite tunes! Feel free to leave a message.";
 
 export default function Connect() {
     const rootRef = useRef(null);
     const containerRef = useRef(null);
     const titleRef = useRef(null);
+    const descriptionRef = useRef(null);
     const cassetteRef = useRef(null);
     const flightRef = useRef(null);
     const walkmanRootRef = useRef(null);
@@ -212,6 +224,11 @@ export default function Connect() {
 
         mm.add('(prefers-reduced-motion: no-preference)', () => {
             const titleSplit = new SplitText(titleRef.current, { type: 'words' });
+            // type: "words", not "lines" or "chars" — this is plain prose
+            // with no inline element inside it (unlike the old mailto-
+            // fallback description this replaced), so there's no risk here,
+            // just consistency with titleSplit/formTargets' own granularity.
+            const descriptionSplit = new SplitText(descriptionRef.current, { type: 'words' });
             // The compose box, batched as one stagger group rather than
             // individually SplitText'd — these are form CONTROLS, not text
             // to fragment. `.contact-hp` (the honeypot) is deliberately
@@ -263,7 +280,8 @@ export default function Connect() {
             // SIGNATURE_EASE curve every calm, one-time entrance on this
             // site already shares.
             tl.from(titleSplit.words, { opacity: 0, y: 16, duration: 0.5, ease: SIGNATURE_EASE, stagger: 0.06 }, 0);
-            tl.from(formTargets, { opacity: 0, y: 14, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.08 }, '>+=0.2');
+            tl.from(descriptionSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.02 }, '>+=0.2');
+            tl.from(formTargets, { opacity: 0, y: 14, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.08 }, '>+=0.25');
 
             const navbarHeight = () =>
                 parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 0;
@@ -375,6 +393,12 @@ export default function Connect() {
                 st.kill();
                 tl.kill();
                 titleSplit.revert();
+                // Only reverted here, unlike titleSplit's own unconditional
+                // revert above (tl's onComplete) — nothing later reads this
+                // paragraph's plain text (no ScrambleTextPlugin target, no
+                // scramble-on-send), so there's no correctness reason to
+                // revert it any earlier than normal unmount.
+                descriptionSplit.revert();
             };
         });
 
@@ -821,7 +845,17 @@ export default function Connect() {
                     "Thanks for reaching out.../I'll get back to you soon.")
                     — the heading above IS the confirmation message now
                     (ScrambleTextPlugin, runSendSequence). Exactly one
-                    message on screen after a send, per the brief. */}
+                    message on screen after a send, per the brief.
+
+                    This description is a DIFFERENT paragraph from that old
+                    one (a friendly note, not an email fallback) and is
+                    scoped to the SAME condition as the form below it —
+                    hidden the instant a send succeeds, so the "exactly one
+                    message on screen" guarantee still holds. */}
+                {status !== 'sent' && (
+                    <p className="contact-description" ref={descriptionRef}>{CONTACT_DESCRIPTION}</p>
+                )}
+
                 {status !== 'sent' && (
                     <form className="contact-form" onSubmit={handleSubmit} noValidate>
                         {/* Name + email side by side — was two full-width stacked
