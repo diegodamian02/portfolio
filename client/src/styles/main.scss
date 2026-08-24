@@ -663,6 +663,47 @@ html {
   background: var(--accent);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   z-index: 1;
+  // GSAP Draggable (turntable.jsx, Stage 6 Phase 9) owns vertical dragging —
+  // without this a touch-drag also tries to scroll the page underneath it.
+  touch-action: none;
+}
+
+// The real control (Stage 6 Phase 9). Visually transparent and
+// pointer-events:none — GSAP Draggable owns pointer/touch dragging of
+// .turntable-fader-handle above; this exists purely for keyboard focus and
+// screen-reader semantics, so a pointerdown here must fall through to the
+// handle rather than being captured by the input.
+//
+// writing-mode + direction:rtl is the standard vertical-range trick: plain
+// LTR would put the input's min at the visual TOP, backwards for this
+// control (top of the track = +8%, per turntable.jsx's own PITCH_RANGE
+// comment) — rtl flips it so min (-8) sits at the bottom.
+.turntable-fader-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+// :focus-visible lands on the (invisible) input; the ring is drawn on the
+// track it overlays instead, since the input has no visible box of its own
+// worth outlining.
+.turntable-fader-track:has(.turntable-fader-input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 // Positioning mount (static) — sizing/placement only, never rotates.

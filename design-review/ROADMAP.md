@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-23, Stage 5 `#my-taste` mobile layout)*
+## 0. Current state — quick summary *(updated 2026-08-24, Stage 6 Phase 9 — pitch fader)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -358,6 +358,26 @@ containing `white-space: nowrap` text can grow past its own `flex: 0 0 <width>` 
 without an explicit `min-width: 0` on the card itself, stretching every sibling in the row
 to match (`FINDINGS.md` B48). Full writeup: `STATUS.md`'s own dated entry.
 
+**Also 2026-08-24 (Stage 6 Phase 9) — the pitch fader, self-centering:**
+`.turntable-fader` was decorative-only markup since Stage 1; now a real,
+spring-loaded control — drag it and pitch bends live ±8%, let go and it
+always animates back to centre (never left off-centre, which removes the
+persist-across-pause/reset-on-swap state an earlier draft of this task would
+otherwise have needed). GSAP `Draggable` on the visual handle (first real
+use — registered since Stage 0) plus a layered, `pointer-events:none` native
+`<input type="range">` for keyboard/SR semantics; reuses the transport's own
+`beginSpinLink()`/`followSpin()` machinery for the drag-through-spring-back
+rather than building a second one. State-gated and verified for all five
+deck states, including the mid-drag/transport-press conflict the task
+specifically flagged as worth checking directly (resolved by reading deck
+state live on every tick rather than once at gesture-start). Two real bugs
+found and fixed along the way, both non-obvious GSAP API misreadings —
+`FINDINGS.md` B49 (`setSpin`'s `seconds` is a rate, not a flat duration) and
+B50 (`Draggable.update(true, true)`'s `sticky` resync only fires mid-press;
+calling it after a release re-applied Draggable's own stale pre-release
+position instead of adopting the tween's new one). Full writeup:
+`STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -367,7 +387,8 @@ to match (`FINDINGS.md` B48). Full writeup: `STATUS.md`'s own dated entry.
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
 | **5 (`#my-taste` piece)** | ~~Mobile pass~~ — **done, above.** | — |
 | **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
-| **6** | Turntable delight — pitch fader, scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
+| **6 (Phase 9)** | ~~Pitch fader~~ — **done, above.** | — |
+| **6 (Phases 8, 10)** | Turntable delight remainder — scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
 | **7** | "WOW layer" — audio-reactive waveform, `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
 

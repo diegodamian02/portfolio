@@ -4466,17 +4466,126 @@ which held for preview audio and was never true for search. **B5 fixed in the sa
 pass** and its severity re-rated: a malformed `VITE_API_BASE_URL` now breaks the record
 crate too, not just `#my-taste`.
 
+### Stage 6 Phase 9 — pitch fader, self-centering *(2026-08-24)*
+
+`.turntable-fader` was decorative markup only (`aria-hidden`, no interaction) since
+Stage 1. Now a real, spring-loaded control: drag it and pitch bends live, ±8%; let go
+and it always animates back to centre — it is never left off-centre outside of active
+touch, which is what makes this the SELF-CENTERING version of the brief (an earlier
+draft that could sit off-centre indefinitely, needing state to persist/reset it across
+pause/resume/track-swap, was explicitly not built).
+
+**How it works.** GSAP `Draggable` (`type:"y"`, bounded to `.turntable-fader-track`) on
+the visual handle owns pointer/touch dragging — first real use of `Draggable`
+(registered since Stage 0, unused since; `InertiaPlugin` stays unused — the release is
+a deliberate spring tween back to a fixed point, not momentum, so there's nothing for
+it to do here). A native `<input type="range" min="-8" max="8" step="0.1">`, layered
+over the track with `pointer-events:none` and `writing-mode:vertical-lr; direction:rtl`
+(the standard vertical-range trick), supplies keyboard/SR semantics without competing
+with `Draggable` for the same pointerdown — confirmed via the same
+ancestor/descendant `aria-hidden` fix already applied to the transport button (Stage 1
+Task 4): `aria-hidden` moved off the `.turntable-fader` wrapper onto the decorative
+ticks/handle individually, since it was blocking the input from ever reaching the
+accessibility tree.
+
+Reuses the existing `beginSpinLink()`/`followSpin()` machinery (built for the
+transport's power ramps) rather than a second one: press links spin, each drag tick
+calls `setSpin(1 + pitch/100, …)` (a near-instant per-tick ramp), and release is ONE
+`setSpin(1, …)` call whose own tween IS the spring — `followSpin`'s `onUpdate` keeps
+audio locked to the platter for the whole return, not just snapped at the end. Verified
+by instrumentation, not inspection: sampling the live `AudioBufferSourceNode`'s
+`playbackRate` alongside the platter's own `timeScale` (inferred from rAF-paced
+rotation-angle deltas, since neither is exposed on `window`) at multiple points during
+both the drag and the return — they track each other throughout, not just at rest
+(held at top: rate `1.08`, inferred `timeScale` `1.07`–`1.09`; held at bottom: rate
+`0.92`, inferred `timeScale` `0.92`; mid-return: both converge 1.08→1.0 smoothly across
+the same ~400ms window).
+
+**State-gated, confirmed for all five deck states.** `PLAYING` (not reduced): full
+spin-link behaviour above. `PLAYING`, reduced motion: `setSpin` already no-ops in this
+mode, so the drag bypasses it entirely and calls `audio.setRate()` directly; release
+tweens a plain proxy value back to 0 over the same timing, calling `setRate` from its
+`onUpdate` — confirmed live: platter rotation genuinely static (0° drift over 300ms)
+while the rate glides smoothly 1.08→1.0 across ~392ms on release, matching the brief's
+explicit ask ("audio rate changes smoothly… platter visually static throughout").
+`PAUSED`/`STOPPED_LOADED`/`EMPTY`: visual-only, confirmed by holding a drag through this
+state and reading the live rate on every sample — it stayed bit-for-bit flat
+(`0.22916264832019806`, the frozen tail-end value a prior brake had already left
+behind) across the whole gesture and after release, while `input.value` moved normally.
+
+**The mid-drag/transport-conflict case the brief specifically asked to check, not
+assume:** every per-tick handler reads `deckStateRef.current` live rather than a value
+captured at gesture-start. Confirmed both directions — pausing transport while
+mid-drag: the very next tick sees `PAUSED` and silently drops to visual-only (dragged
+the rest of the way to the opposite end of the track, `input.value` tracked correctly
+the whole time, no audio touched); resuming transport mid-drag (a drag that started
+while `PAUSED`): the next tick sees `PLAYING` and starts driving audio again, picking
+up wherever the handle already was, with a defensive `if (!audio.isSpinLinked())
+audio.beginSpinLink()` covering the one path (drag-started-while-paused) that
+`handlePitchPress` itself doesn't link.
+
+**Keyboard**, the brief's own explicitly-raised open question (self-center on
+keyboard too, or pointer-only?) — resolved as **uniform**: arrow keys move the input
+and drive audio live exactly like a drag tick; "release" has no native key event, so
+it's inferred two ways — a `PITCH_KEY_IDLE_MS` (500ms) debounce after the last change,
+and immediately on blur (so tabbing away mid-adjustment doesn't leave it hanging).
+Verified: 10× `ArrowUp` → `1.0`/rate `1.0017`; 700ms idle afterward → still mid-glide
+(`0.1`, converging — the 500ms debounce plus the ~400ms spring compose to ~900ms total,
+which the test undershot, not a bug); a second run confirms blur is immediate — right
+after blur, already fully centred, no debounce wait.
+
+**Two real bugs found and fixed while building this, both non-obvious misreadings of
+existing GSAP APIs — full root-cause writeups in `FINDINGS.md` B49/B50:**
+- **B49** — `setSpin`'s `seconds` argument is "seconds per unit of `timeScale` span,"
+  not a flat duration (correct for `spinUp`/`spinDown`, whose span covers the full
+  `[0,1]`). Passed straight through for the fader's own ≤0.08 span, the intended 400ms
+  return actually applied as ~32ms — caught only by sampling the live rate over time,
+  not by reading the code. Fixed by dividing `PITCH_RETURN_SECONDS` by the actual span
+  at the call site so `setSpin`'s own multiplication cancels back out to exactly 400ms.
+- **B50** — `Draggable.update(true, true)`, called in the release tween's
+  `onComplete` to resync `Draggable`'s bookkeeping to the tween's new position, instead
+  re-applied `Draggable`'s own STALE pre-release coordinates — its `sticky` resync only
+  runs while a press is still active, which it never is by `onComplete`. The handle
+  visibly glided back to centre, then snapped back to the dragged-from position the
+  instant the tween completed. Fixed with `update(false, false)`, which takes the
+  `syncXY(true)` branch instead and actually reads the current position.
+
+**Direction assumption confirmed correct, no flip needed:** top of track measured as
+`+8`/rate `1.08`, bottom as `-8`/rate `0.92`, matching the brief's stated default.
+
+**Verification:** lint holds at the known baseline (7 errors / 2 warnings, none new);
+build clean. Bundle: JS 526.48 kB → **531.49 kB** (+5.01 kB) / 187.50 kB → **188.80 kB**
+gz (+1.30 kB gz); CSS 51.09 kB → **54.68 kB** (+3.59 kB) / 10.68 kB → **11.18 kB** gz
+(+0.50 kB gz) — `Draggable`'s own code was already in the bundle (registered since
+Stage 0), so this delta is the fader's own logic/markup/styles, not the plugin.
+Screenshots: `stage6-phase9-fader-{rest,mid-drag,mid-return}.png`.
+
+**Brief accuracy:** every file/symbol the brief named (`turntable.jsx`'s
+`.turntable-fader` markup/`setSpin`/`spinUp`/`spinDown`, `turntable-audio.js`'s
+`setRate`/`followSpin`/`settleSpin`/`beginSpinLink`/`endSpinLink`/`RATE_FLOOR`,
+`main.scss`'s fader rules) matched the actual tree exactly — nothing stale to report.
+`turntable-audio.js`'s own `setRate` doc comment already said "Also used by the spin
+linkage above, and by Phase 9 (pitch fader)," written well before this task started.
+
+**Decisions made rather than left to fall out silently, per the brief's own asks:**
+ease is `power2.out` (the brief's stated default, not `elastic.out` — no overshoot,
+consistent with this site's restraint-over-decoration register elsewhere); spin-link is
+never explicitly ended after a release (`endSpinLink()` is NOT called) — it stays
+linked afterward on purpose, matching `spinUp()`/`spinDown()`'s own convention, where
+only a needle-drop-shaped event (track swap, preview end, replay) unlinks; keyboard
+self-centering is uniform with pointer, not pointer-only (reasoning above).
+
 ---
 
-## 3. Current measurements *(refreshed 2026-08-23)*
+## 3. Current measurements *(refreshed 2026-08-24)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **526.48 kB / 187.50 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **51.09 kB / 10.68 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
-| ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6)* |
+| JS bundle | 407 KB / 147 KB gz | **531.49 kB / 188.80 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **54.68 kB / 11.18 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6; unchanged by Stage 6 Phase 9)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 
 ---

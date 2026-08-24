@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useGSAP } from "@gsap/react";
-import { gsap } from "../lib/gsap.js";
+import { gsap, Draggable } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import VinylRecord from "./vinyl-record.jsx";
 import StrobeRing from "./strobe-ring.jsx";
@@ -26,6 +26,15 @@ const ARM_LIFT = 18.5;
 // Reduced motion has no spin to pin the audio to, so transport gets a plain
 // gain fade at this length instead of a pitch bend.
 const REDUCED_FADE_SECONDS = 0.15;
+
+// Stage 6, Phase 9 — pitch fader. Percent units throughout, matching the
+// native <input>'s own min/max, converted to a rate multiplier only at the
+// point of calling setSpin/audio.setRate (1 + pitch / 100).
+const PITCH_RANGE = 8;
+const PITCH_DRAG_SECONDS = 0.08; // per-tick while actively dragging — near-instant
+const PITCH_RETURN_SECONDS = 0.4; // the spring, on release
+const PITCH_RETURN_EASE = "power2.out";
+const PITCH_KEY_IDLE_MS = 500; // idle gap after a keypress before it self-centers
 
 export default function Turntable({ track = null }) {
     const reduced = useReducedMotion();
@@ -406,6 +415,272 @@ export default function Turntable({ track = null }) {
         }
     }, [spinUp, spinDown, startAudio, startAudioSync, outerGrooveAngle, applyDeckState, reduced]);
 
+    // ---- pitch fader (Stage 6, Phase 9) ------------------------------------
+    //
+    // Self-centering: the fader is never left off-center outside of active
+    // touch (pointer OR keyboard). That removes an entire category of state
+    // this control would otherwise need to carry — no offset persists across
+    // pause/resume, none survives a track swap, nothing can get stuck at an
+    // extreme. spinUp() above is untouched; it still always targets 1.
+    //
+    // Reuses beginSpinLink()/followSpin() rather than building a second
+    // audio-follows-motion mechanism: the live-drag-through-spring-back
+    // sequence is the exact same shape as the transport's own power ramps (a
+    // ramp with a start and a settle point), just centred at 1 instead of 0.
+
+    const faderTrackRef = useRef(null);
+    const faderHandleRef = useRef(null);
+    const faderInputRef = useRef(null);
+    const pitchDraggableRef = useRef(null);
+    // The handle's own spring-back tween (always runs, every deck state) and
+    // — reduced motion only — the separate proxy tween that glides audio
+    // rate back to 1 with no platter tween to piggyback on. Tracked so a
+    // fast re-grab kills an in-flight return instead of fighting it.
+    const pitchReturnTweenRef = useRef(null);
+    const pitchAudioTweenRef = useRef(null);
+    const pitchKeyIdleTimerRef = useRef(null);
+
+    // y (the handle's own GSAP-tracked transform property, px, 0 at rest) <->
+    // percent pitch. Reads minY/maxY off the Draggable instance itself rather
+    // than assuming the track is perfectly symmetric above/below the resting
+    // handle — it should be, but the geometry isn't asserted anywhere, and
+    // this is correct either way.
+    //
+    // Direction assumption: top of track = +PITCH_RANGE, bottom =
+    // -PITCH_RANGE. One-line flip if that's backwards — swap which side of
+    // the subtraction PITCH_RANGE sits on in both functions below.
+    const pitchFromY = useCallback((y) => {
+        const d = pitchDraggableRef.current;
+        if (!d) return 0;
+        const range = d.maxY - d.minY;
+        if (range <= 0) return 0;
+        const t = (y - d.minY) / range; // 0 at top, 1 at bottom
+        return Math.max(-PITCH_RANGE, Math.min(PITCH_RANGE, PITCH_RANGE - t * 2 * PITCH_RANGE));
+    }, []);
+
+    const yFromPitch = useCallback((pitch) => {
+        const d = pitchDraggableRef.current;
+        if (!d) return 0;
+        const range = d.maxY - d.minY;
+        const clamped = Math.max(-PITCH_RANGE, Math.min(PITCH_RANGE, pitch));
+        const t = (PITCH_RANGE - clamped) / (2 * PITCH_RANGE);
+        return d.minY + t * range;
+    }, []);
+
+    // The native <input> is the keyboard/SR layer, not the pointer one (see
+    // the JSX below and its own comment) — this just keeps its value honest
+    // whenever the POINTER path moves the handle, so a screen reader or a
+    // sighted keyboard user tabbing in mid-drag reads the true position.
+    const syncPitchInput = useCallback((pitch) => {
+        if (faderInputRef.current) faderInputRef.current.value = pitch.toFixed(1);
+    }, []);
+
+    // Per-tick during an active drag or key-repeat. Reads deckStateRef LIVE
+    // on every call rather than a value captured at gesture-start — that's
+    // what makes a transport press mid-drag resolve correctly in EITHER
+    // direction: pause it mid-drag and the very next tick sees PAUSED and
+    // silently drops to visual-only; resume it mid-drag (from a drag that
+    // started while paused) and the next tick sees PLAYING and starts
+    // driving audio, picking up wherever the handle currently sits.
+    const applyPitchLive = useCallback((pitch) => {
+        if (deckStateRef.current !== DECK.PLAYING) return; // visual only
+        if (reduced) {
+            // No platter tween in this mode (setSpin no-ops), so there is
+            // nothing to link to — drive the rate directly.
+            audio.setRate(1 + pitch / 100);
+            return;
+        }
+        // Defensive, not load-bearing: handlePitchPress already links when a
+        // drag STARTS while already playing. This covers the one case that
+        // doesn't — a drag that started while PAUSED and crossed into
+        // PLAYING mid-gesture via a transport press, which links via
+        // handleTransport's own beginSpinLink() call, not this one.
+        if (!audio.isSpinLinked()) audio.beginSpinLink();
+        setSpin(1 + pitch / 100, PITCH_DRAG_SECONDS, "power2.out");
+    }, [reduced, setSpin]);
+
+    // The spring. Always moves the handle back to centre; only touches audio
+    // when the deck was actually PLAYING at the moment of release (read live,
+    // same reasoning as applyPitchLive — a transport press mid-drag has
+    // already changed deckStateRef by the time the finger/key lifts).
+    const releasePitch = useCallback(() => {
+        pitchReturnTweenRef.current?.kill();
+        pitchAudioTweenRef.current?.kill();
+        pitchReturnTweenRef.current = null;
+        pitchAudioTweenRef.current = null;
+
+        const handle = faderHandleRef.current;
+        if (!handle) return;
+        const startPitch = pitchFromY(gsap.getProperty(handle, "y"));
+        const state = deckStateRef.current;
+
+        // Visual spring. Instant under reduced motion — same convention as
+        // the play/pause glyph crossfade above (duration collapses to 0
+        // rather than the tween being skipped outright) — because
+        // direct-manipulation dragging itself is never shortened, only this
+        // untriggered afterward-animation is.
+        pitchReturnTweenRef.current = gsap.to(handle, {
+            y: yFromPitch(0),
+            duration: reduced ? 0 : PITCH_RETURN_SECONDS,
+            ease: PITCH_RETURN_EASE,
+            onUpdate: () => syncPitchInput(pitchFromY(gsap.getProperty(handle, "y"))),
+            onComplete: () => {
+                // NOT update(true, true): Draggable's own `sticky` resync
+                // (that's what the second `true` means) only runs while
+                // self.isPressed — and the press ended well before this
+                // 400ms tween even started, so that branch is always a
+                // no-op here. With applyBounds true (the first `true`) and
+                // no resync, update() instead calls applyBounds(), which
+                // re-renders Draggable's own (stale, last-drag) x/y back
+                // onto the handle — confirmed by instrumentation: the
+                // handle visibly glided to centre, then SNAPPED back to
+                // its pre-release dragged position the instant this fired.
+                // update(false, false) is the actual resync: it skips
+                // applyBounds and runs syncXY(true) instead, which reads
+                // the CURRENT rendered position (this tween's real
+                // endpoint) into Draggable's bookkeeping.
+                pitchDraggableRef.current?.update(false, false);
+                pitchReturnTweenRef.current = null;
+            },
+        });
+
+        if (state !== DECK.PLAYING) return; // PAUSED / STOPPED_LOADED / EMPTY / etc — nothing to settle
+
+        if (reduced) {
+            // Glides smoothly over the SAME timing as the visual snap above
+            // even though the snap itself is instant: prefers-reduced-motion
+            // is about visual/vestibular motion, and a pitch bend easing back
+            // to true is not that — the brief's own explicit ask is "audio
+            // rate changes smoothly... platter visually static throughout."
+            const proxy = { pitch: startPitch };
+            pitchAudioTweenRef.current = gsap.to(proxy, {
+                pitch: 0,
+                duration: PITCH_RETURN_SECONDS,
+                ease: PITCH_RETURN_EASE,
+                onUpdate: () => audio.setRate(1 + proxy.pitch / 100),
+                onComplete: () => { pitchAudioTweenRef.current = null; },
+            });
+            return;
+        }
+
+        // The ONE spring call the brief describes: setSpin's own tween IS
+        // the return, and because spin-link is already active, followSpin's
+        // onUpdate (wired into setSpin's onUpdate) keeps audio locked to the
+        // platter for the entire return, not just snapped at the end. Left
+        // linked afterward on purpose — spinUp()/spinDown() never call
+        // endSpinLink() either; only a needle-drop-shaped event (swap,
+        // preview end, replay) does. Ending it here would be a second,
+        // narrower unlink rule that doesn't exist anywhere else in this file.
+        //
+        // setSpin's own `seconds` is NOT a flat duration — its actual applied
+        // duration is `seconds * span` (see its own comment: "resuming from
+        // 0.6 takes 0.48s"), which is what makes a standing 0-to-1 wind-up
+        // take the full SPIN_UP_SECONDS while a partial one is proportionally
+        // shorter. That's correct for spin up/down, where span ranges over
+        // the whole [0,1]. The fader's span is at most PITCH_RANGE/100 = 0.08
+        // — passed straight through, PITCH_RETURN_SECONDS would apply as
+        // ~0.4*0.08 = 32ms, not 400ms, and the platter/audio return would
+        // finish long before the handle's own 400ms visual spring (below) —
+        // caught by instrumentation (measured rate at true 1.0 within ~150ms
+        // of release), not by inspection. Dividing by span here cancels
+        // setSpin's own multiplication back out, so the ACTUAL duration is
+        // PITCH_RETURN_SECONDS regardless of how far off-center the fader
+        // was — matching the handle's own fixed-duration spring exactly.
+        const span = Math.abs(startPitch) / 100;
+        const perUnitSeconds = span > 1e-4 ? PITCH_RETURN_SECONDS / span : PITCH_RETURN_SECONDS;
+        setSpin(1, perUnitSeconds, PITCH_RETURN_EASE);
+    }, [reduced, setSpin, pitchFromY, yFromPitch, syncPitchInput]);
+
+    // Shared by Draggable's onPress and the input's onKeyDown — "interaction
+    // starts" either way. Kills any in-flight return so a fresh grab/keypress
+    // doesn't fight a tween still animating back to centre, and links spin
+    // once, up front, exactly like handleTransport's own PAUSED/PLAYING
+    // branches already do.
+    const handlePitchPress = useCallback(() => {
+        pitchReturnTweenRef.current?.kill();
+        pitchAudioTweenRef.current?.kill();
+        pitchReturnTweenRef.current = null;
+        pitchAudioTweenRef.current = null;
+        if (pitchKeyIdleTimerRef.current) {
+            clearTimeout(pitchKeyIdleTimerRef.current);
+            pitchKeyIdleTimerRef.current = null;
+        }
+        if (!reduced && deckStateRef.current === DECK.PLAYING) audio.beginSpinLink();
+    }, [reduced]);
+
+    // GSAP Draggable owns pointer/touch dragging of the visual handle. The
+    // native range input (JSX below) is deliberately pointer-events:none —
+    // it exists for keyboard/SR semantics only, not as a second pointer
+    // target competing with Draggable for the same gesture. dependencies:
+    // [reduced] so the closures below (which all ultimately read `reduced`,
+    // directly or via setSpin) get rebuilt if the OS-level setting flips
+    // mid-session, rather than a Draggable created once at mount staying
+    // bound to a stale value forever.
+    useGSAP(() => {
+        if (!faderHandleRef.current || !faderTrackRef.current) return;
+        const [d] = Draggable.create(faderHandleRef.current, {
+            type: "y",
+            bounds: faderTrackRef.current,
+            cursor: "grab",
+            activeCursor: "grabbing",
+            onPress: handlePitchPress,
+            onDrag() {
+                const pitch = pitchFromY(this.y);
+                syncPitchInput(pitch);
+                applyPitchLive(pitch);
+            },
+            onRelease: releasePitch,
+        });
+        pitchDraggableRef.current = d;
+        return () => { d.kill(); pitchDraggableRef.current = null; };
+    }, { scope: rootRef, dependencies: [reduced] });
+
+    // Keyboard path through the native input. Open question the brief itself
+    // raised rather than settling: does self-centering apply to keyboard too,
+    // or only pointer drag? Applied uniformly here — a control that only
+    // self-centers for a mouse would be a stranger inconsistency than one
+    // that centers for both. "Release" for a key has no native event, so
+    // it's inferred: it fires PITCH_KEY_IDLE_MS after the last change (so
+    // holding/repeating an arrow key doesn't fight its own spring-back), and
+    // immediately on blur (tabbing away mid-adjustment).
+    const handlePitchChange = useCallback((e) => {
+        const pitch = Number(e.target.value);
+        // Discrete step-per-keypress, not a continuous drag — move the
+        // decorative handle to match immediately rather than tweening it.
+        if (faderHandleRef.current) {
+            gsap.set(faderHandleRef.current, { y: yFromPitch(pitch) });
+            // See the matching comment in releasePitch's onComplete — this
+            // is the same not-currently-pressed resync, needed here because
+            // a keyboard nudge moves the handle via gsap.set() rather than
+            // through Draggable's own drag mechanism.
+            pitchDraggableRef.current?.update(false, false);
+        }
+        applyPitchLive(pitch);
+
+        if (pitchKeyIdleTimerRef.current) clearTimeout(pitchKeyIdleTimerRef.current);
+        pitchKeyIdleTimerRef.current = setTimeout(() => {
+            pitchKeyIdleTimerRef.current = null;
+            releasePitch();
+        }, PITCH_KEY_IDLE_MS);
+    }, [applyPitchLive, releasePitch, yFromPitch]);
+
+    const handlePitchBlur = useCallback(() => {
+        if (pitchKeyIdleTimerRef.current) {
+            clearTimeout(pitchKeyIdleTimerRef.current);
+            pitchKeyIdleTimerRef.current = null;
+        }
+        releasePitch();
+    }, [releasePitch]);
+
+    // Only the debounce timer needs its own cleanup on unmount — the
+    // Draggable instance and its tweens are handled by the useGSAP above and
+    // by killing on the next press/keydown.
+    useEffect(() => {
+        return () => {
+            if (pitchKeyIdleTimerRef.current) clearTimeout(pitchKeyIdleTimerRef.current);
+        };
+    }, []);
+
     const transportLabel =
         deckState === DECK.PLAYING ? "Pause" :
         deckState === DECK.PAUSED ? "Resume" :
@@ -437,14 +712,41 @@ export default function Turntable({ track = null }) {
     return (
         <div className="turntable" ref={rootRef} data-deck-state={deckState}>
             <div className="turntable-plinth">
-                <div className="turntable-fader" aria-hidden="true">
-                    <div className="turntable-fader-track">
-                        <span className="turntable-fader-tick" style={{ top: "0%" }} />
-                        <span className="turntable-fader-tick" style={{ top: "25%" }} />
-                        <span className="turntable-fader-tick turntable-fader-tick-center" style={{ top: "50%" }} />
-                        <span className="turntable-fader-tick" style={{ top: "75%" }} />
-                        <span className="turntable-fader-tick" style={{ top: "100%" }} />
-                        <div className="turntable-fader-handle" />
+                {/* aria-hidden removed from this wrapper — it was blocking the
+                    input below from ever reaching the accessibility tree, the
+                    same ancestor/descendant aria-hidden bug already fixed on
+                    the transport button above, this time on the fader. Ticks
+                    and the decorative handle carry their own aria-hidden
+                    instead; the native range input is the one real control
+                    here. */}
+                <div className="turntable-fader">
+                    <div className="turntable-fader-track" ref={faderTrackRef}>
+                        <span className="turntable-fader-tick" style={{ top: "0%" }} aria-hidden="true" />
+                        <span className="turntable-fader-tick" style={{ top: "25%" }} aria-hidden="true" />
+                        <span className="turntable-fader-tick turntable-fader-tick-center" style={{ top: "50%" }} aria-hidden="true" />
+                        <span className="turntable-fader-tick" style={{ top: "75%" }} aria-hidden="true" />
+                        <span className="turntable-fader-tick" style={{ top: "100%" }} aria-hidden="true" />
+                        <div className="turntable-fader-handle" ref={faderHandleRef} aria-hidden="true" />
+                        {/* pointer-events:none (see SCSS) — GSAP Draggable
+                            above owns pointer/touch dragging of the visual
+                            handle; this exists purely for keyboard focus and
+                            screen-reader semantics, so a pointerdown here
+                            must fall through to the handle rather than being
+                            captured by the input itself. */}
+                        <input
+                            ref={faderInputRef}
+                            type="range"
+                            className="turntable-fader-input"
+                            min={-PITCH_RANGE}
+                            max={PITCH_RANGE}
+                            step={0.1}
+                            defaultValue={0}
+                            disabled={!track}
+                            aria-label={track ? `Pitch — ${track.title}` : "Pitch"}
+                            onKeyDown={handlePitchPress}
+                            onChange={handlePitchChange}
+                            onBlur={handlePitchBlur}
+                        />
                     </div>
                 </div>
 

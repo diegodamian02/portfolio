@@ -2170,6 +2170,97 @@ covered by `min-width: 0` on the row itself — the trap re-applies at
 every level that mixes a fixed `flex-basis` with un-wrappable content
 inside it, not just once per nesting depth.
 
+### B49 — `setSpin`'s `seconds` parameter is a rate ("seconds per unit of span"), not a flat duration — passing a literal 400ms return time to it actually applied ~32ms — **FOUND AND FIXED, Stage 6 Phase 9 (pitch fader)**
+
+`setSpin(target, seconds, ease)` (`turntable.jsx`) computes its ACTUAL applied
+tween duration as `seconds * Math.abs(target - from)` — proportional to how
+far the platter's `timeScale` is actually travelling, documented in its own
+comment ("a standing start takes the full 1.2s, resuming from 0.6 takes
+0.48s"). That's correct for `spinUp`/`spinDown`, where `span` ranges over the
+whole `[0,1]` and `seconds` (`SPIN_UP_SECONDS`/`SPIN_DOWN_SECONDS`) IS the
+max-duration by construction.
+
+The pitch fader's own release call passed `PITCH_RETURN_SECONDS` (0.4)
+straight through the same way: `setSpin(1, PITCH_RETURN_SECONDS, ease)`. Its
+`span` is at most `PITCH_RANGE / 100 = 0.08`, so the actual applied duration
+was `0.4 * 0.08 = 0.032s` — a 32ms snap, not the intended 400ms spring.
+Invisible by inspection (the call reads as "return over 0.4s"); caught by
+instrumentation, sampling live `AudioBufferSourceNode.playbackRate` on a
+tight interval after release — it read `1.0` again within ~150ms, and the
+platter's own inferred `timeScale` (from two closely-spaced rotation-angle
+samples) confirmed the same. It also silently desynced the platter/audio
+return from the fader HANDLE's own visual spring-back, which animates `y`
+directly via a plain `gsap.to` with a real, literal 400ms duration — so the
+handle and the pitch bend it's supposed to represent finished at wildly
+different times.
+
+**Fix.** Compute the per-unit rate at the call site instead of passing
+`PITCH_RETURN_SECONDS` directly: `span = Math.abs(startPitch) / 100;
+perUnitSeconds = span > 1e-4 ? PITCH_RETURN_SECONDS / span :
+PITCH_RETURN_SECONDS; setSpin(1, perUnitSeconds, ease)`. `setSpin`'s own
+multiplication (`perUnitSeconds * span`) then cancels back out to exactly
+`PITCH_RETURN_SECONDS`, regardless of how far off-center the fader was —
+matching the handle's own fixed-400ms visual tween. Re-verified: live rate
+now glides smoothly (1.08 → 1.055 → 1.035 → 1.019 → 1.009 → 1.003 → 1.0008 →
+1.00005) across ~392ms, not a near-instant jump.
+
+**Generalisable:** any future caller of `setSpin` whose own `target`/`from`
+values live on a narrower scale than `[0,1]` (this fader is the first) needs
+this same span-cancelling division — `setSpin`'s "seconds" is never a flat
+duration on its own.
+
+### B50 — `Draggable.update(true, true)` called after a release re-applied the Draggable instance's own STALE pre-release position, snapping the pitch-fader handle back to where it was dragged FROM the instant its spring-back tween finished — **FOUND AND FIXED, Stage 6 Phase 9 (pitch fader)**
+
+The fader's release handler animates the handle back to centre with a plain
+`gsap.to(handle, {y: ...})` tween (not through Draggable's own drag
+mechanism, since no gesture is active during a spring-back), then called
+`draggable.update(true, true)` in that tween's `onComplete` — intended to
+resync Draggable's bookkeeping to the tween's new resting position, on the
+assumption that the second argument (`sticky`) means "adopt the element's
+current position."
+
+Reading `Draggable.js`'s own `update(applyBounds, sticky, ...)` source
+directly rather than continuing to assume: the `sticky`-driven resync block
+is gated `if (sticky && self.isPressed)` — it only runs while a drag is
+still physically active. By the time a release tween's `onComplete` fires,
+the press has already ended (that's what triggered the tween), so this
+branch is always a no-op here. With `applyBounds` true and no resync,
+`update()` instead calls `self.applyBounds()`, which re-renders Draggable's
+OWN internal `x`/`y` — last written during the actual drag gesture, i.e.
+the DRAGGED-TO position, not the tween's settled one — back onto the
+target.
+
+Symptom, confirmed by sampling the handle's live `transform` through an
+entire release: it glides correctly from the dragged position back to
+centre over ~350ms (matching B49's fix), sits at the correct centred
+transform for two more samples, then on the very next sample — the instant
+`onComplete` fires — SNAPS back to the exact pre-release dragged transform.
+`input.value` (driven by the tween's own `onUpdate`, not by this call)
+stayed correctly centred throughout, so this was a purely visual
+handle/Draggable desync, not audible and not a value bug — but on real
+hardware it reads as "I let go of the fader and it visually flew back to
+where I'd dragged it from," which is a striking regression to have shipped.
+
+**Fix.** `update(false, false)`. With `applyBounds` false, `update()` takes
+the other branch — `syncXY(true)` — which reads the element's CURRENT
+rendered position into Draggable's own `x`/`y`, the actual "adopt the new
+position" operation. Re-verified across a full four-scenario sequence
+(drag-to-top-and-release, drag-to-bottom-and-release, drag-while-paused,
+resume-mid-release): the handle's rendered `y` returns to the exact resting
+value (`258.265625`px in the verification viewport) after every release, with
+no drift across repeated cycles. The identical, separate call site in the
+keyboard path (`handlePitchChange`, which moves the handle via `gsap.set`
+rather than a tween) had the same bug and got the same fix.
+
+**Generalisable:** `Draggable.update()`'s two boolean arguments are NOT
+symmetric conveniences — `applyBounds` re-asserts Draggable's own
+last-known position onto the target, `sticky`'s resync branch only fires
+mid-press, and neither one reads the target's actual current position on
+its own. The only combination that does that is `update(false, false)`
+(`syncXY(true)`'s branch). Worth checking for this exact mistake if Phase 8's
+scratch (`Draggable(type:"rotation")`, ROADMAP.md §0) ever moves the platter
+via an external tween while a Draggable instance is also bound to it.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor
