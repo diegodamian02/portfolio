@@ -1,7 +1,8 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-25 (Stage 7d — fluid ribbons, spectrum-bound, curl-noise
-flow) · **HEAD:** `544637f`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-25 (Stage 7 rebuild — the fluid is deleted; a synthwave
+skyline spectrum replaces it) · **HEAD:** `3e1a31e`+ · **Live:**
+https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -4575,7 +4576,21 @@ linked afterward on purpose, matching `spinUp()`/`spinDown()`'s own convention, 
 only a needle-drop-shaped event (track swap, preview end, replay) unlinks; keyboard
 self-centering is uniform with pointer, not pointer-only (reasoning above).
 
-### Stage 7a — fluid background behind the hero, structural *(2026-08-24)*
+> ### ⚠ Stages 7a–7d are SUPERSEDED *(2026-08-25)*
+>
+> The four entries that follow describe a **WebGL2 fluid background that no
+> longer exists**. `client/src/lib/fluid-sim.js` and
+> `client/src/components/fluid-background.jsx` were deleted, and the
+> `simplex-noise` dependency with them, when the hero background was rebuilt as
+> a Canvas2D skyline spectrum. See **"Stage 7 (rebuild)"** below for what is
+> actually there.
+>
+> They are kept because what they measured is still true and still cost real
+> time to learn — B54's colour/luminance trap, B55's runaway reference, the
+> 551 ms cost of an effect at the needle-contact call site, the dev-diagnostics
+> tree-shaking trap. Read them as findings, not as documentation.
+
+### Stage 7a — fluid background behind the hero, structural *(2026-08-24)* — **SUPERSEDED**
 
 A hand-rolled WebGL2 fluid simulation, full-bleed behind the entire hero —
 text, crate and turntable. **Replaces the `.hero-vu-slot` waveform concept
@@ -4686,7 +4701,7 @@ at `loading-screen.jsx:53` from `onResize` at `:80` — once per resize, five
 resizes, five errors, byte-identical to B47's recorded stack. Still unfixed,
 still its own one-line change.
 
-### Stage 7b — fluid: presence-gated burst + audio routing *(2026-08-24)*
+### Stage 7b — fluid: presence-gated burst + audio routing *(2026-08-24)* — **SUPERSEDED**
 
 The hero fluid is now **silent and invisible unless something is playing.** The
 moment playback starts it bursts in — in the same tick the needle is drawn
@@ -4834,7 +4849,7 @@ and still its own one-line fix.
 
 ---
 
-### Stage 7c — fluid: vibrancy, energy, roaming, one colour per track *(2026-08-24)*
+### Stage 7c — fluid: vibrancy, energy, roaming, one colour per track *(2026-08-24)* — **SUPERSEDED**
 
 Not a brief this time — direct feedback on 7b as it actually looked live:
 
@@ -5292,7 +5307,7 @@ work around it; that block should be removed once B56 is fixed.
 
 ---
 
-### Stage 7d — fluid: ribbons instead of clouds, and the spectrum drives them *(2026-08-25)*
+### Stage 7d — fluid: ribbons instead of clouds, and the spectrum drives them *(2026-08-25)* — **SUPERSEDED**
 
 Feedback on 7c, in two parts:
 
@@ -5494,14 +5509,469 @@ distribution and should be read as such.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-25, Stage 7d)*
+### Stage 7 (rebuild) — the fluid is deleted; a synthwave skyline spectrum replaces it *(2026-08-25)*
+
+> **This supersedes Stages 7a–7d entirely.** `client/src/lib/fluid-sim.js` and
+> `client/src/components/fluid-background.jsx` are **deleted**, not deprecated,
+> and the `simplex-noise` dependency is removed with them. The four entries
+> above are kept as a record of what was learned, not as a description of code
+> that exists. Anything they say about the hero background's *implementation* is
+> historical from this date.
+
+The brief: a full-bleed neon skyline behind the whole hero — a horizon of
+vertical columns, one per frequency bucket, rising and falling with the music,
+gradient-filled and glowing. Same presence model the fluid was built around:
+silent and gone when nothing is playing, appearing in sync with the needle.
+
+**Three new files, and the split mirrors the one the fluid used:**
+
+| File | Role |
+|---|---|
+| `client/src/lib/skyline-spectrum.js` | Canvas2D renderer. Bucketing, ballistics, drawing, glow, text masks. No React. |
+| `client/src/lib/palette-cycle.js` | The palette, its per-theme solve, and the crossfade clock. Knows nothing about canvases. |
+| `client/src/components/skyline-background.jsx` | RAF loop, deck gating, reduced motion, DOM measurement. |
+
+---
+
+#### 0. What the task brief said that was not true of the tree
+
+The brief asked to check itself against reality first, so:
+
+- **It describes the tree as being at Stage 7a/7b.** It was at **7d**. Two more
+  stages had shipped (`544637f`, `3e1a31e`) — a vibrancy/energy/palette pass and
+  a ribbon rewrite bound to the spectrum.
+- **It assumed a palette-cycling module already existed**, "built deliberately
+  decoupled from the fluid renderer for exactly this situation", and said to
+  reuse it. **It did not exist.** Through 7a–7d the palette lived inline in
+  `fluid-background.jsx`, wired straight to a WebGL dye colour. It is a real
+  module now, for the first time.
+- **The five colours it names — wine `#A6335D`, slate `#404D73`, mint
+  `#BBF2ED`, amber `#c97a1a`, terracotta `#b3552a` — are the 7b palette, which
+  was deleted in 7c on direct instruction** ("stay away from darker colors...
+  bright mint, glowing... 7 colors in rotation"). `FINDINGS.md` **B54** has the
+  measurement behind that: four of those ten colour × theme combinations pinned
+  the contrast solve at its clamp, because a colour sitting at the page's own
+  luminance cannot be rescued by alpha.
+
+  Resolved by following the brief's **primary** instruction ("reuse it") rather
+  than its stale recollection of the contents: the seven-hue neon list carries
+  forward, and the brief's five are kept in the module as an exported
+  `BRIEF_PALETTE` so the comparison stays re-runnable rather than asserted.
+- **The sync mechanism it asks for already exists.** `deck-state.js`'s
+  `emitDeckState`/`onDeckState` is synchronous and is called from
+  `applyDeckState` in the same statement run as `audio.playCached()`. Reused,
+  not rebuilt.
+- **`analyser.fftSize` was 256**, which cannot feed a log-spaced skyline at all.
+  Raised to 2048 — see §2.
+
+---
+
+#### 1. Why Canvas2D, and what was deliberately not used
+
+**`audioMotion-analyzer` was researched and rejected on licence.** It is
+AGPL-3.0. Bundling it into a deployed site carries real copyleft obligations
+rather than an attribution line, and this site is deployed. Its *techniques* —
+log frequency scale, attack/release ballistics, gradient fills — are textbook
+spectrum-analyser practice and are reimplemented here from first principles.
+Same posture Stage 7a took with Navier-Stokes versus Pavel Dobryakov's actual
+source.
+
+Nothing else was added. Net dependency change for this stage is **−1**:
+`simplex-noise` leaves with the fluid.
+
+---
+
+#### 2. Log bucketing, and the `fftSize` that made it possible
+
+Columns are log-spaced from 32 Hz to 16 kHz — 44 of them at desktop width,
+derived from the canvas width (`clamp(round(width / 30), 20, 44)`) so a 390px
+phone gets 20 readable columns rather than 44 slivers.
+
+**Log spacing is the whole point, and it is worth one number.** Of 44 columns,
+how many are dedicated to the region below 500 Hz, where the musical energy
+actually is?
+
+| bucketing | columns below 500 Hz | share of hero width |
+|---|---|---|
+| **log** | **20 of 44** | **45%** |
+| linear | 2 of 44 | 5% |
+
+**`analyser.fftSize` 256 → 2048.** At 256 there are 128 bins, each 187 Hz wide
+at this 48 kHz context, so the first twenty columns all live inside the first
+two or three bins. A/B'd on **rendered column heights** over 240 frames of the
+same playing track — not on the bin arithmetic, which is only a prediction of
+them:
+
+| fftSize | adjacent bass pairs indistinguishable >80% of frames | mean neighbour height difference (bass) |
+|---|---|---|
+| 256 | **7 of 19** — a run of eight columns moving as one | 0.0066 |
+| **2048** | **0 of 19** | **0.0402** |
+
+Six times the detail in exactly the region log spacing exists to make room for.
+Cost is a 43 ms analysis window and a 1024-byte copy per frame; the FFT is
+computed by the graph whether or not anyone reads it. Recorded as **B62**.
+
+Sub-bin columns interpolate between adjacent bins rather than indexing an
+integer bin — that is what keeps the lowest six distinct. Multi-bin columns take
+the **max**, not the mean: a treble column spans ninety bins and averaging
+buries a cymbal in the silence either side of it.
+
+---
+
+#### 3. Ballistics — the fix for "abrupt"
+
+Each column's **displayed** height is its own state, never a direct readout of
+the frame's data. Rises are adopted outright; falls are exponential toward the
+incoming value, applied as `exp(-dt / 0.34)` rather than a per-frame multiplier
+so a 120 Hz display and a 60 Hz one decay at the same rate in *seconds*. A bare
+`h *= 0.92` per frame is the common form and is frame-rate dependent by
+construction.
+
+Measured over 420 consecutive frames of real playback:
+
+| | |
+|---|---|
+| mean rise per frame | **0.0748** |
+| mean fall per frame | **0.0246** — 3.0× slower |
+| largest single-frame rise | 0.576 |
+| largest single-frame fall | 0.208 |
+| median half-life of a fall from a local peak | **9 frames / 767 ms** |
+
+The node's own `smoothingTimeConstant` stays at 0.55 and is deliberately *not*
+raised toward the 0.8 default. That default is tuned for a display driven only
+by the node's smoothing, and it is **symmetric** — buying a smooth release from
+it also buys a slow attack. The renderer's own asymmetric ballistics are
+strictly the better instrument.
+
+---
+
+#### 4. Peak normalisation does not give a display dynamic range
+
+The first build measured column heights spanning **0.54 to 0.92**. That draws as
+a solid block with a texture, not as a skyline.
+
+`getByteFrequencyData` maps decibels linearly onto 0–255, and real music does not
+go near the bottom of that window. Measured per-octave peaks across three
+previews: 234 → 104 (Daft Punk), 189 → 43 (Norah Jones), 135 → 28 (Metallica).
+Dividing any of those by its own maximum leaves everything bunched in the top
+half.
+
+So the **span** is normalised, not the peak: a low reference as well as a high
+one, mapping `[quiet, loud]` onto `[0, 1]`. Both are global, so the map is affine
+and identical for every column and the spectrum's **shape** survives exactly —
+which is the reason per-column auto-gain (Stage 7d's ribbons used it) is wrong
+here: it normalises every column to its own history, so all of them eventually
+reach full height and the shape is destroyed. Both references move fast toward
+the signal and slowly away from it; a reference that chases its own signal as
+fast as it rises is not a reference (**B55**). Recorded as **D24**.
+
+---
+
+#### 5. Tilt and gamma, swept offline
+
+Music has systematically less energy the higher you look, and with columns
+spaced by pitch that shows as a permanently stubby right-hand third. Adding a
+tilt is standard analyser-display practice; the question is how much.
+
+Rather than one browser run per candidate, **167–189 frames of raw analyser data
+were captured from five previews and replayed through this exact pipeline
+offline** at 60 combinations. Scored on: mean height near 0.45, per-frame spread
+as large as possible, treble not stubbed — and, the term that stops this
+collapsing into a compressor, **the loud track and the quiet track still
+differing from each other**.
+
+| tilt | gamma | score | mean-height error | spread | treble short | between-track difference |
+|---|---|---|---|---|---|---|
+| **0.14** | **2.10** | **0.781** | 0.093 | 0.779 | 0.030 | 0.331 |
+| 0.08 | 1.90 | 0.779 | 0.088 | 0.786 | 0.033 | 0.294 |
+| 0.14 | 1.90 | 0.775 | 0.101 | 0.762 | 0.022 | 0.328 |
+| 0.20 | 2.10 | 0.766 | 0.107 | 0.758 | 0.020 | 0.364 |
+
+**0.30 measured as a clear overcorrection**: on a dense, heavily-compressed
+master it lifted the whole spectrum into the top of the range — mean height 0.81
+with only 0.46 of per-frame spread. `MIN_SPAN` never bound on any of the five
+captures, so 0.26 and 0.34 scored identically; it is a guard for the case the
+captures do not contain, not a tuning knob.
+
+Final, over 14-second windows on the shipped build:
+
+| track | mean height | per-frame spread | histogram (0–.2 / .2–.4 / .4–.6 / .6–.8 / .8–1) |
+|---|---|---|---|
+| Daft Punk — Get Lucky | 0.63 | 0.74 | 2% 22% 22% 24% 31% |
+| Norah Jones — Don't Know Why | 0.49 | 0.86 | 13% 25% 27% 22% 12% |
+| Metallica — Enter Sandman | 0.36 | 0.84 | 30% 37% 12% 14% 7% |
+
+A **0.27 spread in mean height between tracks** is the "match the energy of the
+song" requirement, measured. (As Stage 7c found, the model responds to the
+30-second *preview clip*, not the song's reputation — Enter Sandman's preview is
+its clean intro and correctly reads as the quietest of the three.)
+
+---
+
+#### 6. The palette module
+
+Seven neon hues, and each is solved **twice** per theme — once deep for a
+column's base, once bright for its tip — because a skyline column is a gradient.
+That second stop is the only genuinely new thing in the module; the hue list and
+the saturation-pinned lightness search carry forward from 7c.
+
+**The base is a target and the peak is a band, and the asymmetry is the point.**
+The base is meant to be a uniform deep footing, so pinning it to one luminance is
+exactly right — that is what makes seven different colours sit at the same visual
+weight. The peak is meant to be *the authored colour*.
+
+A first pass used a target for both and put the dark-theme tip at 0.82, reasoning
+that a dark page means a bright tip. **Rendered, every hue arrived as a pastel**:
+magenta `#ffe0f6`, mint `#9efbe7`, aqua `#c3f2ff` — near-whites with a tint.
+Saturation is pinned at 0.92, so a high luminance target can only be met by
+driving HSL lightness past 0.9, and every hue converges on white up there no
+matter how saturated it nominally is. **That is B54's lesson in a new costume.**
+
+With a band, five of the seven dark-theme peaks pass through **at exactly the hex
+they were authored as**:
+
+| entry | base (dark) | vs bg | peak (dark) | vs bg | peak (light) | vs bg |
+|---|---|---|---|---|---|---|
+| mint | `#057e64` | 3.83:1 | `#7bfade` | 15.19:1 | `#07b28d` | 2.53:1 |
+| aqua | `#00799c` | 3.86:1 | `#48d6ff` *(authored)* | 11.31:1 | `#00aadb` | 2.52:1 |
+| violet | `#774aff` | 3.86:1 | `#a98cff` *(authored)* | 7.23:1 | `#a88bff` | 2.51:1 |
+| magenta | `#d30094` | 3.85:1 | `#ff6ed4` *(authored)* | 7.73:1 | `#ff5fd0` | 2.51:1 |
+| coral | `#d52d00` | 3.86:1 | `#ff8a6b` *(authored)* | 8.34:1 | `#ff734e` | 2.51:1 |
+| gold | `#946700` | 3.85:1 | `#ffc94d` *(authored)* | 12.57:1 | `#c68a00` | 2.79:1 |
+| lime | `#3e7e00` | 3.84:1 | `#94ff2c` | 15.22:1 | `#58b200` | 2.52:1 |
+
+The white-hot core comes from where it should — the additive glow pass blooms
+overlapping columns past the palette, so the palette does not have to be
+near-white to begin with.
+
+**On light theme the peak lands at ~2.5:1 against the page and that is
+deliberate, not a miss.** It is the top of the column, where the gradient's alpha
+is already ramping to zero; the *visible* body of a light-theme column is its
+base, at 6.1:1. On a near-white page the only legible direction is down, so a
+light-theme column is deep ink at the base and saturated colour at the tip — the
+same gradient read the other way up.
+
+**Crossfade.** The cycle advances **one step per track** (7c's decision, kept
+deliberately: a wall clock walked the whole palette while one song played, so the
+colour stopped meaning anything) and crossfades on its own wall clock over
+**1.4 s** — measured settling at 1421–1462 ms across three transitions. Because
+the gradient uses two *adjacent* entries at once, one step forward changes both
+stops, the old tip becoming the new base. Four consecutive tracks gave four
+distinct positions: `coral→gold`, `gold→lime`, `lime→mint`, `mint→aqua`.
+
+---
+
+#### 7. Presence and sync
+
+Unchanged in intent from 7b, re-implemented on the new renderer.
+
+| Check | Result |
+|---|---|
+| Before any record is chosen | state `idle`, RAF **not running**, **0 frames drawn**, **0 lit pixels** |
+| At the `PLAYING` emit | canvas already `playing` **and** `audio.getState().isPlaying` true — same synchronous statement run as `playCached()` |
+| First painted frame | **1 rAF later (+20.1 ms)** — the minimum possible; 0 frames had been drawn before the emit |
+| Pause mid-track | columns fall by their own release ballistics; peak 0.313 → 0.031 → RAF stopped after **1176 ms**, then **0 lit pixels**, state `idle` |
+| Hero scrolled out of view while playing | **0 frames advanced**, **0 lit pixels** |
+| Tab hidden while playing | **0 frames advanced**, **0 lit pixels** |
+| Reduced motion, both themes | exactly **1 frame** on play, **0 advanced** over 2.5 s, **0 lit pixels** on pause |
+
+The reveal fires on `deck-state.js`'s synchronous emitter, not an effect. Stage 1
+measured what an effect costs at this call site: **551 ms**.
+
+**One real bug found here (B63).** Cancelling the RAF left whatever was last
+drawn sitting on the canvas — the two gates that can close *mid-playback*
+(scrolling the hero away, hiding the tab) froze a full-height skyline there,
+waiting to be seen for one tick on return. Measured at **2,364,869 lit pixels**
+left behind. The canvas is now cleared on every stop, not only when a settle
+completes.
+
+---
+
+#### 8. Text legibility — the mask that was supposed to be unnecessary
+
+The first version of this file claimed geometry made a mask unnecessary: columns
+rise from the bottom to a hard ceiling and the gradient is most transparent at
+its top, so they should stay clear of the type by construction.
+
+**Measured, that was wrong twice over.** The tagline sits at 46% of the hero
+height and the crate at 65% — both *inside* the columns, not above them. And the
+glow is composited with `lighter`, which adds **alpha** as well as light, so it
+lifts the canvas's opacity above the gradient's own wherever it spreads.
+
+| element | dark, before | dark, after | light, after |
+|---|---|---|---|
+| nav link | never reached | never reached | never reached |
+| headline | 6.68:1 | **12.62:1** | **14.75:1** |
+| tagline | **1.55:1** | **5.29:1** | **6.08:1** |
+| crate input | **2.00:1** | **10.71:1** | **9.94:1** |
+
+Measured from **composited pixels**, not from a screenshot and not from the token
+values: the canvas paints straight-alpha RGBA over the page, so the effective
+background behind a glyph is `canvasRGB·a + pageRGB·(1−a)` per pixel. Reported at
+the worst pixel of 90 frames, because the field moves and an average hides the
+moment that actually fails. All four elements are transparent — verified, not
+assumed — so nothing paints its own background underneath.
+
+**The zone shape took three attempts, and the first two are visible failures:**
+
+1. **One rectangle per zone.** Plainly visible in the render as a rectangular
+   panel of dimmed columns. A downscaled buffer feathers by about one source
+   texel, and the eye finds a straight edge in a field of vertical bars instantly.
+2. **An ellipse with a radial falloff.** Does not fit the shape of the problem:
+   for a wide, short text line, an ellipse whose *core* still covers the text has
+   to be roughly 2.4× the line's width, which swallows the hero.
+3. **Shipped: a stack of seven concentric rounded rects**, each inset further,
+   each at the per-layer alpha that composes exactly to the target strength
+   (`n` layers of alpha `a` compose to `1−(1−a)ⁿ`). The ramp follows the box's own
+   shape, reaches zero 64 px outside it, and has no edge anywhere.
+
+Three strengths rather than one, because the three elements sit at three depths
+in the gradient: headline **0.34**, tagline **0.50**, crate **0.55**. The tagline
+gets its own zone rather than inheriting the headline's — it is
+`--secondary-text` at weight 300, so it starts with far less contrast in hand,
+and at the headline's strength it measured 3.35:1. That is a pass for 24 px text
+under WCAG's large-text rule and still too thin for a light weight, so it is
+treated as normal text and held above 4.5:1.
+
+**The change that did most for legibility was not a mask.** Backing the whole
+alpha ramp off — peak stop 0.96 → **0.72** — is what stopped the columns reading
+as a solid wall, and it let every zone strength drop. Zones are measured from
+live DOM boxes, so the mobile restack (deck above crate, everything centred) is
+handled without a second set of constants.
+
+---
+
+#### 9. The horizon was below the fold
+
+Anchoring the columns to the canvas's bottom edge is the obvious default and it
+is wrong here. The hero is **1080 px tall against a 900 px window** on desktop
+(1004 against 844 on a phone), and everything below the crate is padding — so the
+horizon sat **180 px below the fold** and the skyline read as bars running off
+the bottom of the screen rather than standing on anything.
+
+The horizon is now placed at `min(1, window.innerHeight / heroHeight)` of the
+canvas height, measured per layout. Derived from the window height rather than
+the canvas's current `getBoundingClientRect().top`, or the horizon would depend
+on where the visitor happened to be scrolled when the last resize fired — the
+hero is the first section, so its document position is the top of the page.
+Recorded as **D23**.
+
+---
+
+#### 10. Glow — and a benchmark that inverts between renderers
+
+The brief expected a downscaled second pass to be cheaper than per-bar
+`shadowBlur`. **On a real GPU it is. In headless it is not**, and the difference
+is large enough that measuring this in the wrong browser would have led straight
+to the wrong choice.
+
+| technique | headless (SwiftShader) | **headed (ANGLE Metal, Apple M2)** |
+|---|---|---|
+| per-bar `shadowBlur(16px)` | **0.164 ms** | 0.15–0.34 ms |
+| full-res `filter: blur(16px)` | 11.076 ms | 0.542 ms |
+| **1/6 offscreen + `blur(3.5px)` — shipped** | 1.145 ms | **0.097 ms** |
+| 1/6 offscreen, upscale only (no `filter`) | 0.959 ms | 0.080 ms |
+| bars only, no glow (floor) | 0.061 ms | 0.057 ms |
+
+Two things worth keeping. First, `shadowBlur` is far cheaper than the brief
+assumed because **all 44 columns are batched into one path and one `fill()`** —
+it is one shadow operation, not 44. Second, headless Chromium falls back to
+software rasterisation, which reverses the ranking outright; the brief's demand
+for a real-device number was the right call.
+
+`ctx.filter` is feature-detected. Without it (Safari before 17) the glow degrades
+to the upscale's own bilinear smoothing rather than throwing — 0.080 ms and
+slightly softer.
+
+**Shipped renderer, live page, real GPU: 0.228 ms/frame** at 2880×2160 backing
+store, 44 columns — **1.4% of a 16.67 ms 60 Hz budget**. Reading the analyser is
+0.0037 ms.
+
+---
+
+#### 11. A bug in the fix for the last stage's bug
+
+Stage 7d found that dev-only diagnostics ship, because a *property of an object
+literal* is not tree-shakeable, and fixed it by spreading them behind
+`import.meta.env.DEV`. That fix is itself a trap, and this stage walked into it.
+
+**Object spread invokes getters.** `...(DEV ? { get columnCount() {…} } : {})`
+copies the getter's *value at spread time* and the property stops being live. It
+reads as working and reports a constant: `columnCount` sat at its
+construction-time `20` while the renderer was really drawing `44`, and five other
+diagnostics silently froze with it.
+
+Both files now use `Object.defineProperties` inside an `if (import.meta.env.DEV)`
+**statement** — genuinely removed by the minifier, and the getters inside stay
+getters. Verified both ways: live values change with a resize (44 → 30 → 44
+across viewport changes), and `dist` contains none of `__skylineDebug`,
+`solvedFor`, `setPalette`, `binRanges`, `columnEdgesHz`, `rawLevels`,
+`gainReference`, `usesRoundRect` or `BRIEF_PALETTE`. Recorded as **B61**.
+
+*(Two apparent hits when grepping `dist` are false positives worth naming so the
+next check does not re-investigate them: `setIndex` is GSAP's ScrambleText
+plugin, and `columnCount` is React's list of unitless CSS properties.)*
+
+---
+
+#### 12. Removal, verified by grep
+
+`fluid-sim.js` (1,158 lines) and `fluid-background.jsx` (1,404 lines) deleted;
+`simplex-noise` uninstalled; `.hero-fluid-canvas` renamed to
+`.hero-skyline-canvas`; stale comments in `deck-state.js`, `turntable.jsx`,
+`turntable-audio.js` and `home.jsx` updated to describe what actually exists.
+
+`dist` contains no `createFluidSim`, no `simplex`, no `createNoise3D`. The only
+surviving matches for "fluid" in `client/src` are two unrelated *fluid
+typography* comments in `main.scss` and deliberate historical references in the
+three new files' headers.
+
+---
+
+#### 13. Measurements
+
+| Check | Result |
+|---|---|
+| Columns | **44** at 1440px, **30** at 900px, **20** at 390px — width-derived, verified live across resizes |
+| Log vs linear bucketing | **20 of 44** columns below 500Hz vs **2 of 44** |
+| fftSize 2048 vs 256 | **0 of 19** flat bass pairs vs **7 of 19**; neighbour detail 0.0402 vs 0.0066 |
+| Attack vs release | rise **0.0748**/frame vs fall **0.0246**/frame; half-life **9 frames / 767 ms** |
+| Height distribution (3 tracks, 14s) | means **0.63 / 0.49 / 0.36**, per-frame spread **0.74–0.86** |
+| Text contrast, dark | nav untouched, headline **12.62:1**, tagline **5.29:1**, crate **10.71:1** |
+| Text contrast, light | nav untouched, headline **14.75:1**, tagline **6.08:1**, crate **9.94:1** |
+| Palette | 5 of 7 dark peaks at the authored hex; crossfade settles **1421–1462 ms**; 4 tracks → 4 distinct positions |
+| Idle / out of view / tab hidden | **0 frames, 0 lit pixels** in every case |
+| Reveal | canvas `playing` in the same tick as `playCached()`; first paint **+20.1 ms** (one rAF) |
+| Settle after pause | RAF stopped after **1176 ms**, canvas **0 lit pixels** |
+| Reduced motion | exactly **1 frame**, 0 advanced over 2.5s, cleared on pause, both themes |
+| GPU cost per frame, M2 | **0.228 ms** against a 16.67 ms 60Hz budget (**1.4%**) |
+| Bundle | 558.96 → **542.63 kB** (**−16.33 kB**), gz 198.65 → **193.53 kB** (**−5.12 kB**) |
+| Lint | 7 errors / 2 warnings — unchanged baseline |
+
+The bundle **shrank**: the WebGL2 solver with its eleven GLSL sources plus
+`simplex-noise` cost more than a Canvas2D renderer, a palette module and a
+component together.
+
+---
+
+#### 14. Named follow-up, not built
+
+**A true perspective horizon grid with a vanishing point** — the receding
+floor-grid half of the synthwave idiom. It is a decorative layer over a structure
+that has to be correct first, which is the same structural-before-motion split
+every prior stage has taken. The columns are flat and full-width in this pass by
+deliberate choice, not omission.
+
+---
+
+## 3. Current measurements *(refreshed 2026-08-25, Stage 7 rebuild)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **558.96 kB / 198.65 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`; Stage 7c added **+7.68 kB / +2.75 kB gz** for the bloom chain's two extra GLSL sources, the HSL colour solve, the energy model and the DOM-measured calm zones — the three dev diagnostics (`fieldStats`, `benchmark`, `setSolver`) are spread into the returned object behind `import.meta.env.DEV` so they collapse away at build time, which was worth doing explicitly: returned unconditionally they shipped, since a property of an object literal is not something a bundler can tree-shake); Stage 7d added **+2.49 kB / +1.32 kB gz**, which includes the one dependency this project has added since GSAP — `simplex-noise` 4.0.3, for the curl-noise flow field. Meyda was the other candidate and was declined: 115kB of tarball against 15.9kB, for band splitting that is fifteen lines against an `AnalyserNode` the component already owns)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules; Stage 7c added **nothing** — every 7c change lives in the shader or the component, and the canvas rule was already correct. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| JS bundle | 407 KB / 147 KB gz | **542.63 kB / 193.53 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`; Stage 7c added **+7.68 kB / +2.75 kB gz** for the bloom chain's two extra GLSL sources, the HSL colour solve, the energy model and the DOM-measured calm zones — the three dev diagnostics (`fieldStats`, `benchmark`, `setSolver`) are spread into the returned object behind `import.meta.env.DEV` so they collapse away at build time, which was worth doing explicitly: returned unconditionally they shipped, since a property of an object literal is not something a bundler can tree-shake); Stage 7d added **+2.49 kB / +1.32 kB gz**, which includes the one dependency this project has added since GSAP — `simplex-noise` 4.0.3, for the curl-noise flow field. Meyda was the other candidate and was declined: 115kB of tarball against 15.9kB, for band splitting that is fifteen lines against an `AnalyserNode` the component already owns. **The Stage 7 rebuild then gave all of that back and more: −16.33 kB / −5.12 kB gz.** Deleting the WebGL2 solver with its eleven GLSL sources — shipped as strings, so they barely compress — plus `simplex-noise`, costs more than the Canvas2D renderer, the palette module and the component together. `audioMotion-analyzer` was researched for this stage and rejected on **licence, not size**: it is AGPL-3.0, and bundling it into a deployed site carries real copyleft obligations. Net dependency change for the rebuild is **−1**)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules; Stage 7c added **nothing** — every 7c change lives in the shader or the component, and the canvas rule was already correct. The Stage 7 rebuild also added **nothing**: `.hero-fluid-canvas` was renamed to `.hero-skyline-canvas` and its declarations are unchanged, since a full-bleed `pointer-events: none` canvas at `z-index: 0` is the same requirement whichever API draws into it. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6; unchanged by Stage 6 Phase 9)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

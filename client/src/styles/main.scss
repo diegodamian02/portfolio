@@ -534,9 +534,10 @@ html {
   margin: 0;
 }
 
-// Stage 7a — the WebGL2 fluid background (fluid-background.jsx), full-bleed
-// behind the whole hero. Replaced .hero-vu-slot, which reserved a 40–50px
-// strip inside .hero-content for a waveform that is no longer the plan.
+// Stage 7 — the skyline spectrum background (skyline-background.jsx),
+// full-bleed behind the whole hero. Replaced .hero-vu-slot, which reserved a
+// 40–50px strip inside .hero-content for a waveform that is no longer the
+// plan; the WebGL fluid that occupied this slot through 7a–7d is deleted.
 //
 // z-index 0 rather than -1: a negative index would drop it behind .home's
 // own background-color, which is painted on the section itself, and the
@@ -548,7 +549,7 @@ html {
 // pointer-events:none is load-bearing, not defensive: the canvas covers the
 // entire hero including the crate's search field and every turntable
 // control, so without it the whole hero would be inert.
-.hero-fluid-canvas {
+.hero-skyline-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -564,7 +565,7 @@ html {
   align-items: center;
   justify-content: flex-end;
   position: relative;
-  // Explicit rather than relying on DOM order against .hero-fluid-canvas's
+  // Explicit rather than relying on DOM order against .hero-skyline-canvas's
   // z-index 0 — both are positioned, and "first in the DOM loses" is a
   // rule that quietly breaks the moment someone reorders the JSX.
   z-index: 1;
@@ -4819,8 +4820,9 @@ html {
   }
 
   // .hero-vu-slot's `display: none` lived here — the element is gone
-  // (Stage 7a). The fluid canvas that replaced it is full-bleed and needs
-  // no mobile override; it sizes itself off the section's own box.
+  // (Stage 7). The skyline canvas that replaced it is full-bleed and needs
+  // no mobile override; it sizes itself off the section's own box, and
+  // derives its column count from its own measured width.
 
   .hero-deck-stage {
     justify-content: center;

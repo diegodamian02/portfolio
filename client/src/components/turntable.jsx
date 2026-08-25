@@ -79,7 +79,7 @@ export default function Turntable({ track = null }) {
         deckStateRef.current = next;
         setDeckState(next);
         // Publish synchronously, in this same statement run — see
-        // deck-state.js. The hero's fluid background bursts on the PLAYING
+        // deck-state.js. The hero's skyline background appears on the PLAYING
         // edge, and at the needle-contact call site this line executes in the
         // same tick as playCached(), so the visual and the sound start
         // together rather than a React commit apart.

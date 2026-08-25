@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-25, Stage 7d — fluid ribbons, spectrum-bound)*
+## 0. Current state — quick summary *(updated 2026-08-25, Stage 7 rebuild — synthwave skyline spectrum; the fluid is deleted)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -501,6 +501,57 @@ Coverage median 0.19 desktop / 0.22 mobile, text contrast 16.7:1 or better in
 both themes, GPU 1.89ms per step against a 16.67ms budget. Full writeup:
 `STATUS.md`'s own dated entry.
 
+> **⚠ The four Stage 7a–7d paragraphs above are SUPERSEDED as of 2026-08-25.**
+> The WebGL2 fluid they describe is **deleted** — solver, component and the
+> `simplex-noise` dependency. They are kept for what they measured, not as a
+> description of the hero background. See the entry immediately below.
+
+**Also 2026-08-25 (Stage 7, rebuild) — the fluid is gone; the hero background is
+a synthwave skyline spectrum.** A full-bleed horizon of neon columns, one per
+log-spaced frequency bucket, rising and falling with the track, gradient-filled
+and glowing. **Canvas2D, hand-rolled, no library.** `audioMotion-analyzer` was
+the obvious reference and was rejected on **licence**: AGPL-3.0 is a real
+copyleft obligation for a deployed site, so its techniques were reimplemented and
+its source was not touched. Net dependency change **−1**, and the bundle
+**shrank** by 16.33 kB (5.12 kB gz).
+
+Three files, split the way the fluid's was:
+`client/src/lib/skyline-spectrum.js` (renderer),
+`client/src/lib/palette-cycle.js` (**the palette module the last two task briefs
+assumed already existed — it did not, until now**), and
+`client/src/components/skyline-background.jsx` (RAF loop, gating, DOM
+measurement). The presence model and the synchronous needle-contact reveal carry
+over unchanged in intent; `deck-state.js` was reused, not rebuilt.
+
+**`analyser.fftSize` 256 → 2048**, and this is not a preference. At 256 the first
+twenty columns of a log scale share two or three bins: A/B'd on rendered heights,
+**7 of 19 adjacent bass pairs were indistinguishable on >80% of frames** at 256
+and **0 of 19** at 2048. Log spacing gives **20 of 44 columns to below 500 Hz
+against linear's 2** — the brief's own comparison, measured.
+
+Four things worth carrying forward, all in `FINDINGS.md`: **B61** — Stage 7d's
+fix for shipping dev diagnostics (spread them behind `import.meta.env.DEV`) is
+itself a trap, because **object spread invokes getters** and freezes them;
+**B62** — the `fftSize` finding above; **B63** — cancelling a RAF leaves the last
+frame on the canvas, so a gate closing mid-playback froze the skyline;
+**D23** — the hero is 1080px tall against a 900px window, so a background
+anchored to its bottom edge puts its horizon below the fold; **D24** — a spectrum
+display normalised to its *peak* has no dynamic range (heights spanned 0.54–0.92
+and drew as a block), the span has to be normalised instead.
+
+The **task brief was stale in four ways** and all four are documented in
+`STATUS.md` rather than implemented against: it described the tree as being at
+7a/7b (it was at 7d); it assumed a decoupled palette module existed; the five
+colours it named are the 7b palette that **B54** measured as failing and that 7c
+deleted on direct instruction; and the synchronous reveal it specified was
+already built.
+
+Text contrast **5.29:1 or better** in both themes at the worst pixel of 90
+frames, GPU **0.228 ms/frame** (1.4% of a 60 Hz budget) on an M2, blank canvas
+and stopped loop in every non-playing state. Full writeup, including the three
+attempts the text mask took and a glow benchmark whose ranking **inverts between
+software and hardware rasterisation**: `STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -512,8 +563,10 @@ both themes, GPU 1.89ms per step against a 16.67ms budget. Full writeup:
 | **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
 | **6 (Phase 9)** | ~~Pitch fader~~ — **done, above.** | — |
 | **6 (Phases 8, 10)** | Turntable delight remainder — scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
-| **7 (a–d)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy pass, spectrum-bound ribbons~~ — **done, above.** | — |
-| **7 (e+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done; 7a/7b — done |
+| **7 (a–d)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy pass, spectrum-bound ribbons~~ — **superseded and DELETED, see the rebuild above.** | — |
+| **7 (rebuild)** | ~~Hero synthwave skyline spectrum — Canvas2D renderer, standalone palette module, presence + synchronous reveal~~ — **done, above.** | — |
+| **7 (perspective grid)** | The receding horizon grid with a vanishing point — the other half of the synthwave idiom. Deliberately **not** built in the rebuild: it is a decorative layer over a structure that has to be correct first, the same structural-before-motion split every prior stage took | The rebuild — done |
+| **7 (e+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done. **`meyda` is the flagged candidate if the visualizer wants real timbral features** (spectral flux/centroid/chroma); it was declined for the hero, where band splitting is fifteen lines |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
 
 **Standing manual tasks (not code — need dashboard access), highest priority first:**
@@ -1811,8 +1864,10 @@ site.** They pick a song in the hero; its frequency data animates the waveform u
 the name, pulses section transitions, drives the `#my-taste` visualizer. One choice at
 the top makes the entire scroll reactive to *their* taste meeting Diego's.
 
-- Audio-reactive waveform in the reserved `.hero-vu-slot` *(already present in
-  `home.jsx` and styled in `main.scss` — the slot exists and is empty)*
+- ~~Audio-reactive waveform in the reserved `.hero-vu-slot`~~ — **done, and not
+  this way.** The slot was deleted in 7a; the hero background is now a full-bleed
+  skyline spectrum (`.hero-skyline-canvas`), which does the same job across the
+  whole hero rather than in a 40–50px strip. Nothing will ever render in that slot
 - `#my-taste` frequency visualizer
 - `#projects` as a horizontal `ScrollTrigger`-pinned record crate
 - A continuous waveform line connecting sections as the transition language

@@ -128,6 +128,19 @@ in the same place in every capture.
 | `t5-button-dark.png` / `t5-button-light.png` | Transport button close-up, same |
 | `t5-deck-theme-dark.png` / `t5-deck-theme-light.png` | Theme endpoints, deck only |
 
+**Stage 7 rebuild — the hero skyline spectrum** *(2026-08-25)*. All captured
+while a track is playing, since the background is invisible otherwise:
+
+| File | Shows |
+|---|---|
+| `stage7-skyline-{dark,light}-{0..6}-{base}-{peak}.png` | All seven palette positions in both themes, 14 files. Each filename names the two adjacent entries in the gradient — the base hue at the columns' feet and the peak hue at their tips |
+| `stage7-skyline-mobile-{dark,light}.png` | 390×844, where the hero restacks and the column count drops from 44 to 20 |
+| `stage7-skyline-reduced-{dark,light}.png` | `prefers-reduced-motion` — one static frame, drawn on play and cleared on pause, never animated |
+
+> Screenshots of the **Stage 7a–7d fluid background** (`stage7c-*.png`,
+> `stage7d-*.png`) are kept but show **code that no longer exists**. Read them
+> alongside the superseded STATUS entries, not as a picture of the site.
+
 A fixed navbar overlays these captures wherever it happened to sit during scroll.
 That is a screenshot artifact, not a layout bug — but see finding **B3**, which is
 a real bug in the same area.
@@ -2652,6 +2665,15 @@ already moving. If the invariant is about POSITION, correct position.
 
 ### B56 — `SplitText` rewrites the `#my-taste` kicker's DOM while React still renders a child into it, and the next React update takes the whole page down — **FOUND, NOT FIXED (outside Stage 7c's scope), reproduces in the production build**
 
+> **Still unfixed as of the Stage 7 rebuild (2026-08-25).** The Stage 7 work hit
+> the same *blast radius* from an unrelated cause — a temporal-dead-zone throw in
+> the hero background's mount effect blanked the entire site (**B64**) — which is
+> the second independent demonstration that the missing piece is not either
+> component but the absence of an **error boundary anywhere in the tree**. One
+> boundary around the routed content would turn both of these from a white page
+> into a missing section. Worth pairing with the fix rather than shipping it
+> alone.
+
 **This is the root cause of `D17`**, which recorded the same crash during
 Stage 3 Task 11.2, confirmed it pre-existing, and stopped at *"likely
 mechanism, not yet root-caused: a classic shape for a lost-race between an
@@ -2753,6 +2775,147 @@ single instantaneous native jump the way only test automation does, so this isn'
 as a live bug. Worth revisiting if this site ever grows a skip-link, in-page search, or
 any other jump-to-section feature that doesn't route through `scrollToSection()`.
 
+### B61 — the fix for "dev diagnostics ship to production" silently froze them instead, because **object spread invokes getters** — **FOUND AND FIXED, Stage 7 rebuild**
+
+Stage 7d found that dev-only diagnostics reach the production bundle: a
+**property of an object literal** is not tree-shakeable, since a minifier cannot
+prove nothing reads it by name. `fluid-sim.js` shipped `fieldStats`, `benchmark`
+and `setSolver`. The fix it applied was to spread them behind a flag:
+
+```js
+return {
+    ...realApi,
+    ...(import.meta.env.DEV ? { get columnCount() { return columns; } } : {}),
+};
+```
+
+That does remove them from the build. It also **breaks them in development**,
+which is worse than the bug it fixes, because it fails silently and in the
+direction of "looks fine".
+
+**Object spread reads every own enumerable property, getters included, and copies
+the resulting VALUE.** The property on the spread-into object is a plain data
+property from that moment on. So the getter runs exactly once — at construction —
+and reports that value forever.
+
+Caught by a measurement that disagreed with itself: `__skylineDebug.columns`
+reported **20** on a 1440px viewport where the renderer was demonstrably drawing
+**44**, and kept reporting 20 after a resize to 900px and back. 20 was
+`COLUMNS_MIN`, the value the variable held when `createSkyline()` returned. Five
+other diagnostics (`heights`, `rawLevels`, `gainReference`, `binRanges`,
+`columnEdgesHz`) had frozen with it, and any measurement taken through them in
+that window is snapshots of construction time rather than live readings.
+
+**Fix.** `Object.defineProperties` inside an `if (import.meta.env.DEV) { … }`
+**statement**. A statement guarded by a constant-folded condition is genuinely
+removed by the minifier, and the getters defined inside it stay getters.
+
+```js
+const api = { /* real API */ };
+if (import.meta.env.DEV) {
+    Object.defineProperties(api, { columnCount: { get: () => columns } });
+}
+return api;
+```
+
+Verified in **both** directions, because either one alone would have passed here:
+live values track a resize (44 → 30 → 44), and `dist` contains none of
+`__skylineDebug`, `solvedFor`, `setPalette`, `binRanges`, `columnEdgesHz`,
+`rawLevels`, `gainReference`, `usesRoundRect` or `BRIEF_PALETTE`.
+
+*(Two apparent hits when grepping `dist` are false positives, named here so the
+next check does not re-investigate them: `setIndex` is GSAP's ScrambleText
+plugin, and `columnCount` is React's list of unitless CSS properties. Grep
+case-sensitively and read the context.)*
+
+**Generalisable:** a getter is not a value, and every mechanism that "copies an
+object" in JavaScript — spread, `Object.assign`, `{...a, ...b}` — flattens it into
+one. If a property must stay live, it has to be **defined** on the target, not
+copied onto it.
+
+### B62 — `analyser.fftSize` 256 cannot feed a log-spaced spectrum display at all — **FOUND AND FIXED, Stage 7 rebuild**
+
+The hero's `AnalyserNode` was built in Stage 1 at `fftSize = 256` and nothing read
+it until Stage 7. 256 gives 128 bins; at this project's 48 kHz context each bin is
+**187 Hz wide**.
+
+A skyline spaced by *pitch* puts its first twenty columns between 32 Hz and
+500 Hz — 45% of the hero's width — which is entirely inside the first two or three
+of those bins. Every one of them reads the same number.
+
+Measured on **rendered column heights** rather than on the bin arithmetic, over
+240 frames of the same playing track, counting adjacent pairs indistinguishable
+(<0.005 apart) on more than 80% of frames:
+
+| fftSize | bin width | flat bass pairs | mean neighbour difference (bass half) |
+|---|---|---|---|
+| 256 | 187 Hz | **7 of 19** — a run of eight columns moving as one block | 0.0066 |
+| **2048** | **23 Hz** | **0 of 19** | **0.0402** |
+
+Six times the detail, in exactly the region log spacing exists to make room for.
+
+**Fix.** `fftSize = 2048`. Cost is a 43 ms analysis window and a 1024-byte copy
+per frame; the FFT is computed by the audio graph whether or not anyone reads it.
+
+Two supporting details in the renderer matter as much as the constant. Columns
+**narrower than one bin interpolate** between adjacent bins rather than indexing
+an integer bin — that is what keeps the lowest six distinct even at 2048. Columns
+**wider than one bin take the max, not the mean** — a treble column spans ninety
+bins and averaging buries a cymbal in the silence either side of it.
+
+**Generalisable:** the default `fftSize` is fine for a level meter and wrong for
+anything spaced logarithmically. Check the bin width against the *narrowest*
+bucket the display asks for, not against the audible range.
+
+### B63 — cancelling the RAF left the last frame painted, so a gate closing mid-playback froze the skyline on screen — **FOUND AND FIXED, Stage 7 rebuild**
+
+The presence model has three independent gates: the deck is playing, the hero is
+in view, the tab is visible. `sync()` started and stopped the loop from all three.
+
+The **clear** lived in the frame callback, on the settle-complete path only —
+which is correct for the way a track ends, and wrong for the other two gates.
+Scrolling the hero away or hiding the tab cancels the RAF *between* frames, so
+whatever was last drawn stays on the canvas indefinitely, waiting to be seen for
+one tick when the visitor comes back.
+
+Measured: hiding the tab mid-playback left **2,364,869 lit pixels** on the canvas
+with the loop stopped, reported as state `idle`. The state flag said blank; the
+pixels said otherwise.
+
+**Fix.** Clear on every stop, in `sync()`, not only when a settle finishes. After
+it: **0 lit pixels and 0 frames advanced** for out-of-view, tab-hidden, idle and
+post-settle alike.
+
+**Generalisable:** "stopped" and "blank" are different properties and a state flag
+only tracks the first. This is why every presence check in this project counts
+**lit pixels** off the real canvas rather than reading the component's own state.
+
+### B64 — a `const` arrow function called before its declaration blanked the entire site, again with no error boundary to catch it — **FOUND AND FIXED, Stage 7 rebuild**
+
+While wiring the horizon measurement, `sizeToHost()` was called at its definition
+site — above the `const measureBaseline = () => …` it calls. A `const` in the
+temporal dead zone throws on access, so the effect threw during mount:
+
+```
+Cannot access 'measureBaseline' before initialization
+```
+
+React unmounted the whole tree. `document.getElementById('root').children.length`
+was **0** — a completely white page, not a missing background.
+
+Trivially fixed by moving the declaration above its first use. It is logged
+because of the second half: **this is the third time a single component throwing
+has taken the entire site down**, and the reason is unchanged from **B56** — there
+is no error boundary anywhere in the tree. A decorative background that fails
+should cost the background, not the portfolio.
+
+See **B56** for the same failure mode reached from `#my-taste`'s `SplitText`
+collision, which is still unfixed and still reproduces in the production build.
+
+**Generalisable:** function *declarations* hoist; `const` arrow functions do not.
+Inside a long `useEffect` body, ordering is load-bearing and the failure is a
+hard throw at mount rather than an undefined call.
+
 ### D13 — the two spacing systems this project has been carrying
 
 `about.jsx`/`my-taste.jsx` use raw px throughout (5/10/15/20/40/50/60/70), while
@@ -2853,6 +3016,79 @@ large empty lower third, some readers will not realise there is more.
 - **No resume/CV link anywhere.** For a portfolio whose job is converting recruiter
   attention, this is a larger gap than any unfinished animation.
 - No project thumbnails in the list — entries are text-only until expanded.
+
+### D23 — the hero is 180px taller than the window, so a background anchored to its bottom edge puts its horizon below the fold — **FOUND AND FIXED, Stage 7 rebuild**
+
+`.home` measures **1080px against a 900px window** on desktop, and **1004 against
+844** on a 390px phone. That overshoot is not content: everything below the record
+crate is the section's own `padding-bottom`, ~340px of empty space on desktop.
+
+A full-bleed background canvas fills the *section*, so "put the horizon on the
+canvas's bottom edge" — the obvious default, and what the first build did — places
+it 180px below the fold. The skyline then reads as bars running off the bottom of
+the screen rather than standing on anything, and the most opaque third of every
+column is in a region no one sees on load.
+
+**Fix.** The horizon is placed at `min(1, window.innerHeight / heroHeight)` of the
+canvas height, measured per layout rather than assumed, since the overshoot
+differs between breakpoints.
+
+Derived from the **window height**, deliberately, not from the canvas's current
+`getBoundingClientRect().top`. The latter is the more obvious formula and it makes
+the horizon depend on where the visitor happened to be scrolled when the last
+resize fired — a resize after scrolling would move the horizon. The hero is the
+first section, so its document position is the top of the page and the window
+height is the whole answer.
+
+**Generalisable:** a section's box and the visible viewport are different
+rectangles, and any decorative element positioned against the *bottom* of a
+full-bleed section is really being positioned against whichever of the two is
+shorter. Measure the section against `innerHeight` before anchoring anything to
+its lower edge — several sections in this project carry padding that makes them
+taller than the window.
+
+### D24 — a spectrum display normalised to its peak has almost no dynamic range; the SPAN has to be normalised — **FOUND AND FIXED, Stage 7 rebuild**
+
+The skyline's first build auto-gained the way the obvious approach suggests:
+divide every column by a running peak, so the loudest column reaches full height
+whatever the track's mastering level. Measured, column heights spanned **0.54 to
+0.92**. That draws as a solid block with a texture on it, not as a skyline.
+
+The cause is in `getByteFrequencyData` itself. It maps decibels **linearly** onto
+0–255 across the analyser's `minDecibels`..`maxDecibels` window (−100..−30 by
+default), and real music does not go near the bottom of that window. Measured
+per-octave peaks across three previews:
+
+| track | 20–60 Hz | 12–20 kHz |
+|---|---|---|
+| Daft Punk — Get Lucky | 234 | 104 |
+| Norah Jones — Don't Know Why | 189 | 43 |
+| Metallica — Enter Sandman | 135 | 28 |
+
+Dividing any of those by its own maximum leaves everything bunched in the top
+half. A peak-follower normalises where the *top* sits; it does nothing about where
+the bottom sits, and the bottom is what a display's dynamic range is made of.
+
+**Fix.** Track a **low** reference as well as a high one and map `[quiet, loud]`
+onto `[0, 1]`. Both references are global rather than per-column, so the mapping
+is one affine transform applied identically everywhere and the spectrum's *shape*
+survives exactly. Per-column auto-gain — which Stage 7d's ribbons used correctly
+for their own purpose — is wrong for a display: it normalises every column to its
+own history, so all of them eventually reach full height and the shape, the entire
+point of a spectrum, is destroyed.
+
+Both references move fast toward the signal and slowly away from it, for the
+reason **B55** records: a reference that chases its own signal as fast as it rises
+is not a reference.
+
+After it, plus a measured tilt and response gamma, per-frame spread runs
+**0.74–0.86** and mean height differs by **0.27 between a dense loud master and a
+sparse quiet one** — which is what "the visual should match the energy of the
+song" means when it is measured rather than asserted.
+
+**Generalisable:** whenever a normalisation makes everything look the same, check
+whether it is anchoring one end of the range or both. Peak normalisation is the
+default reach and it only ever fixes the top.
 
 ---
 

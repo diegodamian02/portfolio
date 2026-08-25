@@ -15,7 +15,7 @@ export const DECK = {
 
 // ---- live deck state, published synchronously (Stage 7b) -------------------
 //
-// The hero's fluid background needs to know the instant playback begins, and
+// The hero's skyline background needs to know the instant playback begins, and
 // "the instant" is load-bearing rather than approximate. turntable.jsx's
 // needle-contact callback calls audio.playCached() and then applyDeckState()
 // back to back inside ONE GSAP timeline tick, specifically so the sound
@@ -26,8 +26,8 @@ export const DECK = {
 // A React state round-trip would reintroduce exactly that failure on the
 // visual side: an effect watching deckState runs after commit, a tick later.
 // So deck state is published here as well, from the same single writer
-// (applyDeckState), and subscribers are invoked SYNCHRONOUSLY — the fluid's
-// burst therefore lands in the same tick as the audio it represents.
+// (applyDeckState), and subscribers are invoked SYNCHRONOUSLY — the skyline
+// therefore appears in the same tick as the audio it represents.
 //
 // Same shape as turntable-audio.js's own onEnded(): a module-level listener
 // Set with an unsubscribe return, not a new event-bus abstraction.
