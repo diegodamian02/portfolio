@@ -136,10 +136,27 @@ the columns' feet, the peak hue at their tips:
 | File | Shows |
 |---|---|
 | `stage7-1-wave-travel-{0..4}.png` | Five frames two seconds apart with the bar heights **frozen**, so colour is the only variable. The band visibly crosses the skyline; ring position runs 2.012 → 0.009 |
-| `stage7-1-wave-travel-{0..4}.png` | Five frames two seconds apart with the bar heights FROZEN, so colour is the only variable. The band visibly crosses the skyline; ring position runs 2.012 → 0.009 |
 | `stage7-1-skyline-{dark,light}-{0..6}-{base}-{peak}.png` | All seven palette positions in both themes, 14 files |
 | `stage7-1-skyline-mobile-{dark,light}.png` | 390×844 — 20 columns, ceiling 0.839 |
 | `stage7-1-skyline-reduced-{dark,light}.png` | `prefers-reduced-motion` — one static frame, wave sampled at t=0 |
+
+**Stage 7.2 — light theme, banding, tips** *(2026-08-25)*.
+
+> **Read the 7.1 set above for the palette ring and the wave only.** Those two are
+> unchanged and its 14 palette frames are still the reference for what each hue
+> pair looks like. Everything else in them is one stage out of date: the tips are
+> the old 3px flat slab, the safe-zone mask is the seven-tread staircase at
+> 0.80/0.78/0.55, and the **light-theme frames in particular** show the pale wash
+> that D27 exists to fix. They were kept rather than reshot because the hues are
+> what they are there for.
+
+| File | Shows |
+|---|---|
+| `stage7-2-hero-{dark,light}.png` | The hero at 1440×900. Light theme is the one to look at — the columns are coloured objects over their whole length now, with paper between them |
+| `stage7-2-tips-{dark,light}.png` | The bar tips close up. The cap is a 14px falloff, not a 3px slab, so there is no hard line where it meets the body |
+| `stage7-2-copy-mask-{dark,light}.png` | The band the merged copy zone covers — the case that was a 400px white fog band when the headline's and tagline's zones compounded to 0.956 |
+| `stage7-2-zoom8x-{dark,light}.png` | Two bars at 8× nearest neighbour, which is where the contouring was. Smooth ramp plus fine dither grain; the grain is a device-pixel dither and is not visible at 1× |
+| `stage7-2-mobile-390-{dark,light}.png` | 390×844 — 20 columns, both zones at the right per-theme strength |
 
 > The Stage 7 rebuild's own `stage7-skyline-*.png` set was **deleted** rather
 > than kept: it predates the electric palette and the raised ceiling, so every
@@ -3195,6 +3212,15 @@ vertical bars. Extending each zone across the whole canvas leaves only the
 that height rather than as a hole around the type. The feather widened 64 → 96px
 to match. Final: dark 12.50 / 6.74 / 12.68, light 14.92 / 7.05 / 10.06.
 
+> **Both halves of this fix were themselves wrong, and are corrected in D28 and
+> D29.** The seven-rect stack is a staircase, not a ramp, and it is what actually
+> produced the horizontal contouring later reported as "pixeled" (**D28**). And
+> full-width bands *compose* where box zones did not, so raising the strengths
+> here quietly created a 0.956 hole across the middle of the hero (**D29**). The
+> reasoning below is still right about *why* strength and shape had to move; the
+> two mechanisms it reached for both had a defect the measurement of the day did
+> not catch, because contrast was the only thing being measured.
+
 **Generalisable:** any measured protection — a mask, a contrast floor, a safe
 area — is a fact about a *pair*: the protection and the thing it protects
 against. Changing either invalidates it, and the failure is silent because the
@@ -3202,6 +3228,152 @@ mechanism still looks correct in the code. Every geometry change to this canvas
 should re-run the contrast pass, on all elements, not one.
 
 ---
+
+### D27 — on a LIGHT background, chroma is bought with coverage; a translucent ramp is a DESATURATED colour, not a dim one — **FOUND AND FIXED, Stage 7.2**
+
+Reported as *"the lighter mode looks kinda white on that background"*, and correct.
+
+The light theme was not badly tuned. It was tuned as though it were the dark
+theme at a different exposure, via a single alpha ramp and a per-theme
+multiplier. That is not what a light background is.
+
+Compositing at alpha `a` moves a pixel a fraction `a` of the way **from the page
+to the colour**. On a near-black page that gives a *dim* version of the hue —
+still the hue. On a near-white page it gives a *desaturated* one. Measured chroma
+of the composited pixel, bucketed by alpha:
+
+| alpha band | dark | light |
+|---|---|---|
+| 0.15–0.25 | 0.500 | **0.106** |
+| 0.35–0.45 | 0.608 | **0.182** |
+| 0.55–0.65 | 0.735 | 0.311 |
+| 0.70+ | 0.785 | 0.586 |
+
+Light needed **alpha 0.70 to reach the chroma dark has at 0.20**, and the ramp
+only got there in the bottom fifth of the hero. The top of the ramp was alpha
+**0** — the dark theme's ethereal fade, scaled by 1.5, and zero times anything is
+zero. On paper a bar that fades out does not go ethereal, it goes *absent*: there
+is no such thing as a transparent mark.
+
+**Two ramps, not one and a multiplier.** Light starts at 0.42 and climbs to 0.92;
+dark is unchanged.
+
+**The trap on the way, worth more than the fix.** The halo had to come down at
+the same time — on a near-white page it is not glow, it is a soft coloured shadow,
+and at 0.72 it filled the gaps with the same wash as the columns, so the lower
+hero was one continuous pink field with white stripes cut into it. The *gap* had
+become the figure. But the halo is drawn UNDER the columns and its alpha compounds
+with theirs, so cutting it took out about as much as a first pass at the ramp put
+in: measured after that pass, the alpha histogram **had not moved at all** and the
+theme looked exactly as washed as before. Two changes that each look right in a
+constants diff, cancelling.
+
+**Generalisable:** on a dark ground, alpha trades brightness. On a light ground it
+trades saturation, and saturation is the thing a colour is *for*. And whenever a
+pixel's coverage comes from more than one pass, the passes have to be sized
+together against a target for the composite — not one at a time against intent.
+
+---
+
+### D28 — a falloff built by ACCUMULATING N layers is a staircase, and it is indistinguishable from 8-bit banding — **FOUND AND FIXED, Stage 7.2**
+
+Reported as the bars looking *"pixeled instead of a high quality soundbar"*.
+
+Everything pointed at colour depth. A column's alpha ramp crosses the whole hero
+and changes very little doing it — measured, the composited blue channel moved
+**2 levels across a 259px window** — so quantised to 8 bits it holds one integer
+for 20–40 device pixels at a stretch, and because every column samples the same
+gradient those runs line up across all 44 at once. A one-unit step drawn as a
+straight line the full width of the hero is the most visible artefact 8-bit
+colour has.
+
+That is all true, and it was **not** the reported artefact.
+
+The reported one was the safe-zone mask, from D26's own fix. Each zone's falloff
+was built by accumulating **seven** concentric rounded rects at the per-layer
+alpha that composes to `strength` — arithmetic that is exactly right (`1-(1-a)^n`)
+and that produces a **staircase, not a ramp**. Seven layers over a 96px feather
+put a boundary every 13.7px with a flat plateau between, and at strength 0.80
+each boundary removes a fifth of what is left: **8%-alpha steps, 27 device pixels
+apart, straight across every column at once.**
+
+Counting bands in an 8× blow-up: ~4.4 over 60 CSS px. 60 / 13.7 = 4.4. The
+mechanism was in the code the whole time, spelled as a smooth-sounding word.
+
+D26 had already removed the reason for the stack — once every zone became a
+full-width band there were no corners to follow, so the falloff is purely
+vertical, which is what a **linear gradient** is for. Sampled along a smoothstep
+rather than left linear (a straight ramp meeting a flat top is a first-derivative
+corner, and a corner in a luminance ramp is a Mach band — the same visible line,
+moved rather than removed). Three fills a frame instead of twenty-one.
+
+**The dither**, for the genuine 8-bit banding underneath: a second fill of each
+column's path with a fixed noise tile — **one third white, one third black, one
+third transparent**, at one 255th alpha. The mix is the trick, not a hedge. A
+single ink loses its amplitude wherever the pixel is already near it: with black
+ink on light theme the deep end of a column sits at ~50/255, the difference term
+collapsed from ~200 to ~50, and the worst flat run went **up**, 21px → 58px.
+Carrying both, the peak-to-peak perturbation is `a·(255−c) + a·c = a·255` —
+independent of the pixel, one quantisation step everywhere, on either theme,
+nothing to rebuild on a theme flip. `source-atop` was the obvious alternative and
+is wrong here: it preserves destination alpha but blends colour, so it fades to
+nothing in exactly the transparent regions where banding is worst.
+
+Worst flat run down one pixel column, three windows per theme:
+
+| | dark | light |
+|---|---|---|
+| before | 13 / 28 / 40 px | 11 / 24 / 21 px |
+| after | 10 / 12 / 15 px | 5 / 14 / 8 px |
+
+**Generalisable, twice.** A visual defect that matches a familiar cause exactly is
+still worth localising — "8-bit banding" and "a mask with seven treads in it"
+produce the same picture and have nothing in common. And any falloff assembled
+from a *countable* number of layers is a staircase whose tread width is
+`extent / n`; if that is bigger than a pixel or two, it is visible, however
+correct the per-layer arithmetic.
+
+---
+
+### D29 — full-width safe zones COMPOSE, and two adjacent ones make a hole neither number describes — **FOUND AND FIXED, Stage 7.2**
+
+Zones knock alpha back independently, so overlapping ones compose as
+`1-(1-a)(1-b)`. That is harmless while zones are boxes around separate elements.
+D26 made every zone a **full-width band** — the right call for its own problem —
+and in doing so made any two zones whose *vertical* extents meet overlap along
+their entire length.
+
+The headline's band ended 25px above where the tagline's began. With a 96px
+feather on each they overlapped almost completely, composing 0.80 and 0.78 into
+an effective **0.956**: a near-total hole in the skyline about 400px tall, which
+rendered as a white fog band across the middle of the hero once the light theme's
+columns were strong enough to show it. Neither authored number was ever meant to
+be that, and neither one said so — the compound existed only at runtime.
+
+Fixed by merging: the headline and the tagline are one block of copy sitting 25px
+apart, so **one zone over both** is both what they are and the only shape that
+cannot compound with itself.
+
+The strengths then went **per theme**, which is not a fudge. A mask holds a
+contrast *ratio*, and how much alpha it must remove to hold one depends on how
+close the columns land to the text in luminance — which flips with the theme, and
+not in step. `.hero-tagline` is `--secondary-text`: luminance **0.367 on dark**
+(a mid tone, with the columns as the brightest thing in frame, closing fast) and
+**0.077 on light** (columns as deep ink, closing from the other side, slowly).
+Measured at a single 0.70 across both: **dark 3.63:1 against light 5.15:1, from
+the same mask.** Final: copy 0.85 dark / 0.70 light, crate 0.55 both.
+
+**Generalisable:** a per-element strength is a claim about one element in
+isolation. The moment the elements' regions overlap, the number that acts is a
+product nobody wrote down. Either keep regions disjoint, or give one region to
+each *group* of things that share space.
+
+*(A measurement note that cost a sweep: the palette's ring position is seeded
+from the clock, and an uncontrolled contrast run therefore measures a different
+hue every time — enough to move the tagline by a whole ratio point and make a
+strength sweep read BACKWARDS, which it did. Every contrast number above is the
+worst case over all seven entries, stepped explicitly.)*
+
 
 ## 6. Accessibility
 

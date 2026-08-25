@@ -41,18 +41,25 @@ const SETTLE_MAX_MS = 3000;
 const SETTLE_PROBE_INTERVAL_MS = 120;
 const SETTLE_HEIGHT_THRESHOLD = 0.015;
 
-// Theme-dependent glow compositing — see skyline-spectrum.js's render().
-// `alphaScale` multiplies the renderer's whole alpha ramp, and the two themes
-// need genuinely different amounts of it.
+// Theme-dependent compositing — see skyline-spectrum.js's render(). `ramp`
+// selects one of the renderer's two alpha ramps; it replaced a single ramp with
+// a per-theme multiplier in 7.2, because scaling a ramp that starts at zero
+// still starts at zero, and zero alpha on a white page is not a faint column,
+// it is no column.
 //
-// On a near-black page a translucent column still reads as light, because
-// anything above the background is visible. On a near-white page the column has
-// to be DARKER than the background to exist at all, and the same ramp that
-// looks like neon on black looks like a watermark on white — measured, the
-// light theme's columns faded out entirely above their lower third.
+// The glow numbers moved with it, in the opposite direction, and the two
+// changes are the same idea:
+//
+//   * On a near-black page the halo is LIGHT — it adds to the background, so
+//     it reads as glow and the gaps between columns stay black.
+//   * On a near-white page it is a soft coloured shadow that fills the gaps
+//     with the same wash as the columns. At 0.72 the whole lower hero was one
+//     continuous pink field with white stripes cut into it: the GAP had become
+//     the figure and the column the ground. Cutting it to 0.34 puts the paper
+//     back between the bars, which is what makes them read as objects.
 const THEME_RESPONSE = {
-    dark: { additiveGlow: true, glowAlpha: 0.9, alphaScale: 1 },
-    light: { additiveGlow: false, glowAlpha: 0.72, alphaScale: 1.5 },
+    dark: { ramp: "dark", additiveGlow: true, glowAlpha: 0.9 },
+    light: { ramp: "light", additiveGlow: false, glowAlpha: 0.34 },
 };
 
 const MAX_DPR = 2;
@@ -60,32 +67,40 @@ const MAX_DPR = 2;
 // How much alpha each text region gives up, and how far the zone extends past
 // the element's own box.
 //
-// Three strengths rather than one, because the three elements sit at three
-// depths in the gradient and one number strong enough for the deepest would
-// dim the whole left half of the hero for no reason. The headline is near the
-// top of the columns where they are already faint; the crate is two thirds of
-// the way down where the gradient is close to opaque.
+// TWO zones, not the three this had through 7.1, and the merge is a fix rather
+// than a tidy-up. Zones compose the way overlapping alpha does, `1-(1-a)(1-b)`,
+// and since D26 made every zone a FULL-WIDTH band, any two whose vertical
+// extents meet overlap along their whole length. The headline's band ended 25px
+// above where the tagline's began, so with a 96px feather on each they
+// overlapped almost entirely and composed 0.80 and 0.78 into an effective
+// **0.956** — a near-total hole in the skyline about 400px tall, which rendered
+// as a white fog band straight across the middle of the hero. Neither number
+// was ever meant to be that, and nothing in either one said so.
 //
-// The tagline gets its own zone rather than inheriting the headline's: it is
-// `--secondary-text` at weight 300, so it starts with far less contrast in
-// hand than the headline does, and at the headline's 0.45 it measured 3.35:1.
-// That is a pass for 24px text under WCAG's large-text rule and still too thin
-// for a light weight — so it is treated as normal text and held above 4.5:1.
-// Every value here was solved against measured contrast; the table is in
-// STATUS.md.
-// Raised sharply in 7.1, and the reason is worth keeping: the rebuild's values
-// were tuned against a ceiling of 0.62, where the headline sat near the
-// TRANSPARENT top of the gradient and needed almost nothing. At 0.809 the same
-// band of the hero carries full-height column bodies, their tip caps at alpha
-// 0.92, and both additive glow passes.
+// The headline and the tagline are one block of copy sitting 25px apart. One
+// zone over both, at one strength, is what they are, and it is the only shape
+// that cannot compound with itself.
 //
-// Measured at the new ceiling with the old strengths: dark headline 2.68:1 and
-// tagline 2.62:1, from 12.62 and 5.29. The mask shape was still correct — its
-// falloff and its coverage were fine — it was simply being asked to remove
-// twice as much as before.
-const HEADLINE_ZONE_STRENGTH = 0.8;
-const TAGLINE_ZONE_STRENGTH = 0.78;
-const CRATE_ZONE_STRENGTH = 0.6;
+// PER THEME, and that is not a fudge either. The mask exists to hold a contrast
+// RATIO, and how much alpha it has to remove to hold one depends on how close
+// the columns land to the text in luminance — which flips with the theme, and
+// not in step:
+//
+//   * `.hero-tagline` is `--secondary-text`, luminance 0.367 on dark and 0.077
+//     on light. On dark it is a MID tone and the columns behind it are the
+//     brightest thing in the frame, so they close on it fast.
+//   * On light the columns are deep ink and the tagline is nearly as dark as
+//     the body text, so they close from the other side, more slowly.
+//
+// Measured at a single 0.70 across both: dark 3.63:1 against light 5.15:1, from
+// the same mask. The tagline is the binding element in both themes — 24px at
+// weight 300, which WCAG would let through at 3:1 as large text and which this
+// site holds to 4.5:1 anyway, because a thin weight is not what that rule had in
+// mind. The headline and the crate then follow with a wide margin.
+const ZONE_STRENGTH = {
+    dark: { copy: 0.85, crate: 0.55 },
+    light: { copy: 0.70, crate: 0.55 },
+};
 const ZONE_PAD_X = 26;
 const ZONE_PAD_Y = 16;
 
@@ -170,6 +185,7 @@ export default function SkylineBackground() {
         const measureSafeZones = () => {
             const box = canvas.getBoundingClientRect();
             if (box.width === 0 || box.height === 0) return;
+            const strength = ZONE_STRENGTH[themeName()];
             // FULL-WIDTH bands, not boxes around the text.
             //
             // A box has left and right edges, and at the strength the taller
@@ -191,16 +207,21 @@ export default function SkylineBackground() {
                 strength,
             });
             const zones = [];
+            // The union of the headline and the tagline, as one band.
             const name = host?.querySelector(".hero-name")?.getBoundingClientRect();
-            if (name) zones.push(toZone(name, HEADLINE_ZONE_STRENGTH));
             const tagline = host?.querySelector(".hero-tagline")?.getBoundingClientRect();
-            if (tagline) zones.push(toZone(tagline, TAGLINE_ZONE_STRENGTH));
+            const copy = [name, tagline].filter(Boolean);
+            if (copy.length) {
+                const top = Math.min(...copy.map((r) => r.top));
+                const bottom = Math.max(...copy.map((r) => r.bottom));
+                zones.push(toZone({ top, height: bottom - top }, strength.copy));
+            }
             // The crate's own box collapses to the input row when the results
             // panel is closed, so measure the row and let the pad cover the
             // rest — a zone sized to an open panel would be a hole in the
             // skyline most of the time.
             const crate = host?.querySelector(".record-crate-input-row")?.getBoundingClientRect();
-            if (crate) zones.push(toZone(crate, CRATE_ZONE_STRENGTH));
+            if (crate) zones.push(toZone(crate, strength.crate));
             skyline.setSafeZones(zones);
         };
 
@@ -435,11 +456,13 @@ export default function SkylineBackground() {
         );
         if (host) observer.observe(host);
 
-        // The theme can change mid-track. The cycle caches its solve per theme,
-        // so the cache has to be dropped explicitly; a settled canvas also has
-        // to be repainted, since no frame is coming to do it.
+        // The theme can change mid-track. Three things depend on it and none of
+        // them recompute on their own: the cycle caches its solve per theme, the
+        // safe zones now carry a per-theme strength, and a settled canvas has to
+        // be repainted by hand because no frame is coming to do it.
         const themeObserver = new MutationObserver(() => {
             cycle.invalidate();
+            measureSafeZones();
             if (rafId === null && canvas.dataset.skylineState !== "idle") paint();
         });
         themeObserver.observe(document.documentElement, {

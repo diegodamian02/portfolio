@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-25, Stage 7.1 — electric palette, taller columns, travelling colour wave)*
+## 0. Current state — quick summary *(updated 2026-08-25, Stage 7.2 — light theme reads as colour, the banding was the mask, smooth tips)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -596,6 +596,42 @@ Contrast back to **12.50:1 / 6.74:1 / 12.68:1** dark and **14.92 / 7.05 / 10.06*
 light, zero white-clipped pixels with the more saturated palette (the brief
 predicted the opposite), GPU **0.307 ms/frame** (1.8% of a 60Hz budget). Full
 writeup: `STATUS.md`'s own dated entry.
+
+**Also 2026-08-25 (Stage 7.2) — the light theme, the banding, and the tips.**
+Three pieces of live feedback, and all three were about something other than what
+they looked like.
+
+*"The lighter mode looks kinda white"* is `FINDINGS.md` **D27**. Alpha does not do
+the same job on the two themes: on a dark ground it trades brightness, on a light
+one it trades **saturation**. Measured, light theme needed alpha 0.70 to reach the
+chroma dark theme has at 0.20, and its ramp started at **0** — the dark theme's
+ethereal fade, scaled. On paper a bar that fades out does not go ethereal, it goes
+absent. There are two ramps now rather than one and a multiplier, and the halo came
+down to 0.34 in step, because it is drawn *under* the columns and its alpha
+compounds with theirs — sized separately, the two changes cancelled exactly and the
+histogram did not move.
+
+*"The bars look pixeled"* is **D28**, and it looked exactly like 8-bit banding.
+It was the mask: 7.1's seven-rect accumulated falloff is a **staircase**, 8%-alpha
+steps 27 device pixels apart across every column at once. It is now a vertical
+linear gradient sampled along a smoothstep — three fills a frame instead of
+twenty-one. The genuine 8-bit banding underneath got a **dither**, one third white
+/ one third black / one third transparent at one 255th alpha, which is the only
+mix whose amplitude does not collapse where the pixel is already near the ink.
+
+*"Make the tips smooth, not that hard line"* — the lit cap went from a 3px slab at
+flat 0.92 to a **14px falloff**, so the only edge left is the bar's own outline.
+
+**D29** is the one that was latent: full-width safe zones **compose**, so the
+headline's and the tagline's bands — 25px apart, 96px feather each — were quietly
+running at an effective **0.956**, a 400px hole across the middle of the hero that
+neither authored number described. They are one zone over one block of copy now,
+and the strengths are per theme, because `--secondary-text` flips luminance and the
+two themes' columns close on it from opposite sides.
+
+Contrast, worst case over all seven palette entries: **12.28 / 5.87 / 12.11 /
+17.03** dark and **11.75 / 5.15 / 8.02 / 17.44** light. GPU **0.363 ms/frame**
+(2.2% of a 60Hz budget). Full writeup: `STATUS.md`'s own dated entry.
 
 **Not started yet, in the order the roadmap currently has them:**
 

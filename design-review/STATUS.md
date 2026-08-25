@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-25 (Stage 7.1 — electric palette, taller columns, a
-travelling colour wave) · **HEAD:** `541ec18`+ · **Live:**
+**Updated:** 2026-08-25 (Stage 7.2 — light theme reads as colour, the banding
+was the mask, smooth tips) · **HEAD:** `8b7acbc`+ · **Live:**
 https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
@@ -5964,6 +5964,208 @@ deliberate choice, not omission.
 
 ---
 
+### Stage 7.2 — light theme reads as colour, the banding was the mask, smooth tips *(2026-08-25)*
+
+Three pieces of live feedback, and all three turned out to be about something
+other than what they looked like:
+
+1. *"fix the lighter mode too because it looks kinda white on that background"*
+2. *"when the bars are displaying it looks like they are pixeled instead of a
+   high quality soundbar"*
+3. mid-build: *"make sure the tip of the bars are smooth not that hard line"*
+
+---
+
+#### 1. "Looks kinda white" — alpha does not do the same thing on the two themes
+
+The light theme was not badly tuned. It was tuned as though it were the dark
+theme at a different exposure, and that is not what a light background is.
+
+Compositing at alpha `a` moves a pixel a fraction `a` of the way from the page to
+the colour. On a **near-black** page that makes a translucent column a *dim*
+version of its hue — still the hue. On a **near-white** page it makes it a
+*desaturated* one. Measured chroma of the composited pixel on the shipped 7.1
+build, bucketed by alpha so the number does not depend on which bars happened to
+be tall:
+
+| alpha band | dark | light |
+|---|---|---|
+| 0.15–0.25 | 0.500 | **0.106** |
+| 0.35–0.45 | 0.608 | **0.182** |
+| 0.55–0.65 | 0.735 | 0.311 |
+| 0.70+ | 0.785 | 0.586 |
+
+Light theme needed alpha **0.70 to reach the chroma dark theme has at 0.20**, and
+the ramp only got there in the bottom fifth of the hero. Everywhere above that
+the columns were a pale wash — and the top of the ramp was alpha **0**, because
+it was the dark theme's ethereal fade scaled by 1.5. Zero times anything is zero:
+on paper a bar that fades out does not go ethereal, it goes *absent*.
+
+So the ramp is no longer one ramp and a multiplier. There are two:
+
+| gradient offset | dark | light (was, effective) | light (now) |
+|---|---|---|---|
+| 0.00 | 0.00 | 0.00 | **0.42** |
+| 0.20 | 0.22 | 0.33 | **0.66** |
+| 0.52 | 0.34 | 0.51 | **0.79** |
+| 0.82 | 0.44 | 0.66 | **0.88** |
+| 1.00 | 0.50 | 0.75 | **0.92** |
+
+**The halo had to move the opposite way at the same time, and the first attempt
+at this failed because it did not.** On a near-white page the halo is not glow,
+it is a soft coloured shadow, and at 0.72 it filled the gaps with the same wash
+as the columns: the lower hero was one continuous pink field with white stripes
+cut into it — the *gap* had become the figure. Cutting it to **0.34** puts the
+paper back between the bars.
+
+But the halo is drawn *under* the columns and its alpha compounds with theirs, so
+cutting it took out roughly as much as a first pass at the ramp put in. Measured
+after that pass: the alpha histogram had **not moved at all** and light theme
+looked exactly as washed as before. The two have to be sized together, against a
+target for the composite — ~0.85 inside a bar, under 0.15 in the gap — which is
+what the numbers above are solved for.
+
+Result, same instrument: chroma at the 0.70+ band **0.586 → 0.607**, and the
+number of pixels in that band **71,598 → 135,742**. The colour did not get more
+saturated; nearly twice as much of the hero now carries it.
+
+---
+
+#### 2. "Pixeled" — it was the mask, not the colour depth
+
+This looked exactly like 8-bit gradient banding, and the arithmetic supported it:
+a column's ramp crosses the whole hero and changes very little doing it, so
+quantised to 8 bits it holds one integer value for 20–40 device pixels at a
+stretch, and because every column samples the same gradient those runs line up
+across all 44 at once.
+
+That is real, and it was fixed (below). **It was not the reported artefact.**
+
+The reported one was the safe-zone mask. Since 7.1 each zone's falloff was built
+by accumulating **seven** concentric rounded rects at the per-layer alpha that
+composes to `strength` — arithmetic that is exactly right and produces a
+*staircase*, not a ramp. Seven layers over a 96px feather put a boundary every
+13.7px with a flat plateau between, and at strength 0.80 each boundary removes a
+fifth of whatever is left. The mask was drawing **8%-alpha steps, 27 device
+pixels apart, straight across every column at once**.
+
+Counting the bands in an 8× blow-up: ~4.4 over 60 CSS px. 60 / 13.7 = 4.4.
+
+D26 had already removed the reason for the stack — once every zone became a
+full-width band there were no corners to follow and no horizontal edge to hide,
+so the falloff is purely **vertical**, which is what a linear gradient is for.
+Sampled along a smoothstep rather than left linear (a straight ramp meeting a
+flat top is a first-derivative corner, and a corner in a luminance ramp is a Mach
+band — the same visible line, moved rather than removed), on a 1/4 buffer rather
+than 1/8, and **three fills a frame instead of twenty-one**.
+
+**The dither**, for the genuine 8-bit banding underneath: a second fill of each
+column's own path with a fixed noise tile, one third white, one third black, one
+third transparent, at one 255th alpha. The mix is the whole trick rather than a
+hedge — a single ink loses its amplitude wherever the pixel is already near it,
+and measured with black ink on light theme the deep end of a column sits at
+~50/255, so the difference term collapsed from ~200 to ~50 and the worst flat run
+went **up**, 21px → 58px. Carrying both, the peak-to-peak perturbation is
+`a·(255−c) + a·c = a·255` — independent of the pixel, one quantisation step
+everywhere, on either theme, with nothing to rebuild on a theme flip.
+
+Worst flat run down a single pixel column, three windows per theme:
+
+| | dark | light |
+|---|---|---|
+| before | 13 / 28 / 40 px | 11 / 24 / 21 px |
+| after | 10 / 12 / 15 px | 5 / 14 / 8 px |
+
+*(The dark third window reads 46px on the blue channel and is a false positive —
+blue is near zero at the base of a warm column, so it is a flat **channel**, not a
+contour. Measured across all four: red 15px, green 14px, luminance 15px, blue
+55px. Luminance is what the eye contours on, so 15px is the honest number.)*
+
+---
+
+#### 3. The tips
+
+The lit cap at each column's own tip exists for a real reason — every column
+samples one shared gradient, so only a full-height column ever reaches its bright
+end, and short columns were all base colour. 7.1 drew it as a **3px slab at a
+flat 0.92**, which put a hard horizontal line across every column where the
+slab's bottom met the body.
+
+It is now a **14px falloff** — full alpha at the very top, out to nothing by the
+bottom — so the only edge left is the bar's own outline, which is meant to be
+there. Positioned by translating the context to the column's tip and filling a
+gradient defined in that local space, rather than building one per column per
+frame; the same reason the body ramps are tiled into buckets.
+
+---
+
+#### 4. The white fog band, which was nobody's number
+
+Raising the light ramp exposed something that had been latent since D26: a
+**400px-tall near-total hole** in the skyline across the middle of the hero.
+
+Zones compose the way overlapping alpha does, `1-(1-a)(1-b)`. Once every zone
+became a full-width band, any two whose vertical extents meet overlap along their
+whole length — and the headline's band ended 25px above where the tagline's
+began. With a 96px feather on each they overlapped almost entirely, composing
+0.80 and 0.78 into an effective **0.956**. Neither number was ever meant to be
+that, and nothing in either one said so.
+
+The headline and the tagline are one block of copy sitting 25px apart. **One zone
+over both**, at one strength, is what they are, and it is the only shape that
+cannot compound with itself.
+
+The strengths are now **per theme**, which is not a fudge: the mask exists to hold
+a contrast *ratio*, and how much alpha it must remove depends on how close the
+columns land to the text in luminance — which flips with the theme, and not in
+step. `.hero-tagline` is `--secondary-text`, luminance **0.367 on dark** and
+**0.077 on light**; on dark it is a mid tone with the columns as the brightest
+thing in the frame, closing on it fast, and on light the columns are deep ink
+closing from the other side, more slowly. Measured at a single 0.70 across both:
+**dark 3.63:1 against light 5.15:1, from the same mask.**
+
+Final: copy zone **0.85 dark / 0.70 light**, crate **0.55** both.
+
+---
+
+#### 5. Verification
+
+Contrast, worst case over all seven palette entries (the ring's start position is
+clock-seeded, and left uncontrolled it moves the tagline by a whole ratio point —
+enough to make a strength sweep read *backwards*, which it did once here):
+
+| | dark | light |
+|---|---|---|
+| `.hero-name` | 12.28:1 | 11.75:1 |
+| `.hero-tagline` | **5.87:1** | **5.15:1** |
+| `.record-crate-input` | 12.11:1 | 8.02:1 |
+| `.navbar-links a` | 17.03:1 | 17.44:1 |
+
+The tagline is the binding element in both themes — 24px at weight 300, which
+WCAG would let through at 3:1 as large text and which this site holds to 4.5:1
+anyway, because a thin weight is not what that rule had in mind.
+
+Everything else held: reveal **+21.4 ms** (one rAF, canvas `playing` in the same
+tick as `playCached()`); settle stops at **1455 ms** with **0 lit pixels**;
+**0 lit pixels and the RAF stopped** when idle, scrolled out of view *(via the
+app's own navbar links — `window.scrollTo` stalls around 910px under Lenis and
+leaves the hero still intersecting, which makes a working gate look broken)*, and
+tab-hidden; reduced motion draws **exactly 1 frame** in both themes and clears to
+0 on pause; mobile 390px gives 20 columns and both zones at the right per-theme
+strength.
+
+GPU **0.363 ms/frame** on ANGLE Metal / Apple M2 — **2.2%** of a 16.67 ms budget,
+up from 0.307 for 44 dither fills plus 44 translated cap gradients, against the
+mask dropping from 21 fills to 3. Bundle 543.80 → **545.23 kB** (+1.43), gz
+194.00 → **194.56** (+0.56). CSS **unchanged**. Lint 7 errors / 2 warnings —
+the known baseline. No dev diagnostics in `dist`.
+
+Screenshots: `stage7-2-hero-{dark,light}`, `stage7-2-tips-{dark,light}`,
+`stage7-2-copy-mask-{dark,light}`, `stage7-2-zoom8x-{dark,light}` (8× nearest
+neighbour, where the banding was), `stage7-2-mobile-390-{dark,light}`.
+
+---
+
 ### Stage 7.1 — electric palette, taller columns, and a travelling colour wave *(2026-08-25)*
 
 Three asks on top of the rebuild: more glow and more attention, fill more of the
@@ -6246,14 +6448,14 @@ rebuild, unchanged and deliberately not started.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-25, Stage 7.1)*
+## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **543.80 kB / 194.00 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`; Stage 7c added **+7.68 kB / +2.75 kB gz** for the bloom chain's two extra GLSL sources, the HSL colour solve, the energy model and the DOM-measured calm zones — the three dev diagnostics (`fieldStats`, `benchmark`, `setSolver`) are spread into the returned object behind `import.meta.env.DEV` so they collapse away at build time, which was worth doing explicitly: returned unconditionally they shipped, since a property of an object literal is not something a bundler can tree-shake); Stage 7d added **+2.49 kB / +1.32 kB gz**, which includes the one dependency this project has added since GSAP — `simplex-noise` 4.0.3, for the curl-noise flow field. Meyda was the other candidate and was declined: 115kB of tarball against 15.9kB, for band splitting that is fifteen lines against an `AnalyserNode` the component already owns. **The Stage 7 rebuild then gave all of that back and more: −16.33 kB / −5.12 kB gz.** Deleting the WebGL2 solver with its eleven GLSL sources — shipped as strings, so they barely compress — plus `simplex-noise`, costs more than the Canvas2D renderer, the palette module and the component together. `audioMotion-analyzer` was researched for this stage and rejected on **licence, not size**: it is AGPL-3.0, and bundling it into a deployed site carries real copyleft obligations. Net dependency change for the rebuild is **−1**; Stage 7.1 then added **+1.17 kB / +0.47 kB gz** for the electric palette solve, the per-column bucket gradients, the tip caps and the travelling wave, with no new dependency)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules; Stage 7c added **nothing** — every 7c change lives in the shader or the component, and the canvas rule was already correct. The Stage 7 rebuild also added **nothing**: `.hero-fluid-canvas` was renamed to `.hero-skyline-canvas` and its declarations are unchanged, since a full-bleed `pointer-events: none` canvas at `z-index: 0` is the same requirement whichever API draws into it. Stage 7.1 added nothing either — the palette, the ceiling, the glow and the travelling wave all live in the two lib files and the component. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| JS bundle | 407 KB / 147 KB gz | **545.23 kB / 194.56 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`; Stage 7c added **+7.68 kB / +2.75 kB gz** for the bloom chain's two extra GLSL sources, the HSL colour solve, the energy model and the DOM-measured calm zones — the three dev diagnostics (`fieldStats`, `benchmark`, `setSolver`) are spread into the returned object behind `import.meta.env.DEV` so they collapse away at build time, which was worth doing explicitly: returned unconditionally they shipped, since a property of an object literal is not something a bundler can tree-shake); Stage 7d added **+2.49 kB / +1.32 kB gz**, which includes the one dependency this project has added since GSAP — `simplex-noise` 4.0.3, for the curl-noise flow field. Meyda was the other candidate and was declined: 115kB of tarball against 15.9kB, for band splitting that is fifteen lines against an `AnalyserNode` the component already owns. **The Stage 7 rebuild then gave all of that back and more: −16.33 kB / −5.12 kB gz.** Deleting the WebGL2 solver with its eleven GLSL sources — shipped as strings, so they barely compress — plus `simplex-noise`, costs more than the Canvas2D renderer, the palette module and the component together. `audioMotion-analyzer` was researched for this stage and rejected on **licence, not size**: it is AGPL-3.0, and bundling it into a deployed site carries real copyleft obligations. Net dependency change for the rebuild is **−1**; Stage 7.1 then added **+1.17 kB / +0.47 kB gz** for the electric palette solve, the per-column bucket gradients, the tip caps and the travelling wave, with no new dependency; Stage 7.2 added **+1.43 kB / +0.56 kB gz** for the second alpha ramp, the dither tile, the gradient tip caps and the gradient mask — the mask rewrite gave code back, since a linear gradient replaced the seven-rect accumulation loop)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules; Stage 7c added **nothing** — every 7c change lives in the shader or the component, and the canvas rule was already correct. The Stage 7 rebuild also added **nothing**: `.hero-fluid-canvas` was renamed to `.hero-skyline-canvas` and its declarations are unchanged, since a full-bleed `pointer-events: none` canvas at `z-index: 0` is the same requirement whichever API draws into it. Stage 7.1 added nothing either — the palette, the ceiling, the glow and the travelling wave all live in the two lib files and the component. Nor did Stage 7.2, for the same reason. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6; unchanged by Stage 6 Phase 9)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 

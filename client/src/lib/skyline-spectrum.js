@@ -184,7 +184,7 @@ const GLOW_BLUR_PX = 2;
 const GLOW_WIDE_BLUR_PX = 6;
 const GLOW_WIDE_SHARE = 0.34;
 
-// A short bright cap at each column's own tip, in CSS pixels.
+// A lit cap at each column's own tip, in CSS pixels.
 //
 // This exists because of a real limitation in the shared-gradient design: every
 // column samples ONE gradient spanning the full height range, which is what
@@ -192,11 +192,28 @@ const GLOW_WIDE_SHARE = 0.34;
 // wherever its height happens to put it, and only a full-height column ever
 // reaches the bright end. Short columns were all base colour, all the time.
 //
-// A cap drawn at each column's actual top gives every one of them the same
-// crisp lit edge regardless of height. It is the one part of a spectrum
-// analyser's look that cannot come out of a shared vertical ramp.
-const TIP_CAP_PX = 3;
+// A cap drawn at each column's actual top gives every one of them the same lit
+// edge regardless of height. It is the one part of a spectrum analyser's look
+// that cannot come out of a shared vertical ramp.
+//
+// 7.1 drew it as a 3px slab at a flat 0.92, which put a hard horizontal line
+// across every column where the slab's bottom met the body — reported as the
+// tips wanting to be smooth rather than a hard line. It is now a 14px FALLOFF:
+// full alpha at the very top and out to nothing by the bottom, so the only edge
+// left is the bar's own outline against the page, which is meant to be there.
+//
+// Positioned by translating the context to the column's tip and filling a
+// gradient defined in that local space, rather than by building one gradient
+// per column per frame — same reason the body ramps are tiled into buckets.
+const TIP_CAP_PX = 14;
 const TIP_CAP_ALPHA = 0.92;
+const TIP_CAP_FALLOFF = [
+    { at: 0.00, alpha: 1.00 },
+    { at: 0.22, alpha: 0.74 },
+    { at: 0.45, alpha: 0.42 },
+    { at: 0.70, alpha: 0.16 },
+    { at: 1.00, alpha: 0.00 },
+];
 
 // ---- text safe zones --------------------------------------------------------
 //
@@ -212,7 +229,8 @@ const TIP_CAP_ALPHA = 0.92;
 // canvas's opacity above the gradient's own wherever it spreads. Dark theme
 // measured 1.55:1 on the tagline and 2.00:1 on the crate input before this.
 //
-// Each zone is drawn as a STACK of concentric rounded rects, not one rect.
+// The falloff is a VERTICAL GRADIENT, and getting there took three shapes and
+// one outright bug.
 //
 // A single rect is plainly visible in the render — a rectangular panel of
 // dimmed columns behind the headline and another behind the crate, reading as a
@@ -225,17 +243,36 @@ const TIP_CAP_ALPHA = 0.92;
 // still covers the text has to be about 2.4x the line's width, which swallows
 // the hero.
 //
-// So the falloff is built by accumulation instead. MASK_STEPS rounded rects,
+// So 7.1 built the falloff by ACCUMULATION: seven concentric rounded rects,
 // each inset a little further, each at the per-layer alpha that composes to
-// `strength` once all of them have landed — exactly, since n layers of alpha a
-// compose to 1-(1-a)^n. The result is a ramp that follows the box's own shape
-// and reaches zero MASK_FEATHER_PX outside it, with no edge anywhere.
-const MASK_SCALE = 8;
-// Widened from 64 in 7.1. The zones are full-width bands now, so the only edge
-// left is the vertical one, and a longer ramp is what keeps it from reading as
-// a horizontal line across the columns.
+// `strength` once all seven have landed, since n layers of alpha a compose to
+// 1-(1-a)^n. The arithmetic is right and the result is not a ramp. Seven layers
+// over a 96px feather put a boundary every 13.7px with a FLAT PLATEAU between
+// them, and at strength 0.8 each boundary removes a fifth of whatever is left —
+// so the mask was drawing a staircase of 8%-alpha steps, 27 device pixels
+// apart, straight across every column at once. That is the horizontal
+// contouring reported as the bars looking "pixeled": not the 8-bit banding it
+// looks exactly like, but a mask with seven treads in it.
+//
+// D26 had already removed the reason for the stack. Once every zone became a
+// full-width band there were no corners left to follow and no horizontal edge
+// to hide — the falloff is purely vertical, which is what a linear gradient is
+// for. Smooth by construction, no step count to get wrong, and three fills a
+// frame instead of twenty-one.
+//
+// Sampled along a smoothstep rather than left linear: a straight ramp meeting a
+// flat top is a first-derivative corner, and a corner in a luminance ramp is a
+// Mach band — the same visible line, moved rather than removed.
+//
+// The buffer is at 1/4 rather than 1/8 for the same reason. A gradient is only
+// as smooth as the surface it is rasterised onto, and the upscale interpolates
+// between texels: 12 of them across the feather is a knee every 8 CSS pixels.
+const MASK_SCALE = 4;
+// Widened from 64 in 7.1. The zones are full-width bands, so the only edge left
+// is the vertical one, and a longer ramp is what keeps it from reading as a
+// horizontal line across the columns.
 const MASK_FEATHER_PX = 96;
-const MASK_STEPS = 7;
+const MASK_RAMP_STOPS = 8;
 
 // ---- gradient stops ---------------------------------------------------------
 //
@@ -244,30 +281,121 @@ const MASK_STEPS = 7;
 // colour by construction: a short column is all base, a tall one runs the
 // whole ramp and its tip is the bright peak hue.
 //
-// The alpha ramp is doing two jobs at once. It is the ethereal fade a
-// synthwave tip wants, AND it is the reason hero type stays legible: the part
-// of a column nearest the text is the part that is nearly transparent, so the
-// contrast problem is solved by the same shape that makes it look right,
-// rather than by a separate mask (which is what the fluid needed).
-// The peak alpha is deliberately well short of opaque. At 0.96 the columns read
-// as a solid wall of colour across the lower half of the hero rather than as
-// light, and every text zone then needed a mask strong enough to be visible as
-// a dark smudge in its own right. Backing the whole ramp off does more for
-// legibility than any mask does, and it is the change that makes the field look
-// like a glow instead of a bar chart.
-// Backed off again in 7.1, and further than the rebuild's own reduction. The
-// columns are much taller now, so the same alpha covers far more of the hero
-// and the field read as a solid pane of colour rather than as light. Neon is
-// LOW coverage at HIGH contrast; the body of a tube is dim and the edge is what
-// burns. The tip cap above supplies the burn, which is what makes it safe for
-// the body to be this transparent.
-const STOPS = [
-    { at: 0.00, colour: "peak", alpha: 0.00 },
-    { at: 0.20, colour: "peak", alpha: 0.22 },
-    { at: 0.52, colour: "mid", alpha: 0.34 },
-    { at: 0.82, colour: "base", alpha: 0.44 },
-    { at: 1.00, colour: "base", alpha: 0.50 },
-];
+// TWO ramps, not one ramp and a multiplier, and Stage 7.2 is where that
+// stopped being a refinement and became the whole fix for light theme.
+//
+// The two themes are not the same picture at different exposures, because
+// alpha does not do the same thing on them. Compositing at alpha `a` moves a
+// pixel a fraction `a` of the way from the page background to the colour — so
+// on a near-black page a translucent column is a DIM version of its hue, and
+// on a near-white page it is a DESATURATED one. Measured on the shipped 7.1
+// build, chroma of the composited pixel:
+//
+//   alpha band     dark    light
+//   0.15-0.25      0.500   0.106
+//   0.35-0.45      0.608   0.182
+//   0.55-0.65      0.735   0.311
+//   0.70+          0.785   0.586
+//
+// Light theme needed alpha 0.7 to reach the chroma dark theme has at 0.2, and
+// the ramp only got there in the bottom fifth of the hero. Everywhere else the
+// columns were a pale wash — reported, exactly and correctly, as "it looks
+// kinda white on that background".
+//
+// So the light ramp is not the dark one scaled. It starts at 0.30 instead of 0
+// and is much flatter, because on paper a bar that fades out does not go
+// ethereal, it goes ABSENT: there is no such thing as a transparent mark. The
+// ethereal top belongs to the dark theme, where fading into the night sky is a
+// real effect, and the light theme gets ink instead.
+const ALPHA_RAMPS = {
+    // Dark. The peak alpha is deliberately well short of opaque. At 0.96 the
+    // columns read as a solid wall of colour across the lower half of the hero
+    // rather than as light, and every text zone then needed a mask strong
+    // enough to be visible as a dark smudge in its own right.
+    //
+    // Backed off again in 7.1, and further than the rebuild's own reduction:
+    // the columns are much taller now, so the same alpha covers far more of the
+    // hero. Neon is LOW coverage at HIGH contrast; the body of a tube is dim
+    // and the edge is what burns. The tip cap supplies the burn, which is what
+    // makes it safe for the body to be this transparent.
+    dark: {
+        id: "dark",
+        stops: [
+            { at: 0.00, colour: "peak", alpha: 0.00 },
+            { at: 0.20, colour: "peak", alpha: 0.22 },
+            { at: 0.52, colour: "mid", alpha: 0.34 },
+            { at: 0.82, colour: "base", alpha: 0.44 },
+            { at: 1.00, colour: "base", alpha: 0.50 },
+        ],
+    },
+    // Light. A floor at the top, and a short climb rather than a long one —
+    // the bar is a coloured object over its whole length, and the gradient's
+    // job here is depth rather than presence.
+    //
+    // These are higher than they look, because they have to be. The ramp is not
+    // the only thing setting a pixel's coverage: the halo is drawn UNDER the
+    // columns and its alpha compounds with theirs, so cutting the light halo
+    // from 0.72 to 0.34 took roughly as much alpha out of the bar interiors as
+    // a first pass at this ramp put in — measured, the alpha histogram did not
+    // move at all and light theme looked exactly as washed as before. The two
+    // changes have to be sized together, against the target for the COMPOSITE:
+    // ~0.85 inside a bar, and under 0.15 in the gap between two.
+    light: {
+        id: "light",
+        stops: [
+            { at: 0.00, colour: "peak", alpha: 0.42 },
+            { at: 0.20, colour: "peak", alpha: 0.66 },
+            { at: 0.52, colour: "mid", alpha: 0.79 },
+            { at: 0.82, colour: "base", alpha: 0.88 },
+            { at: 1.00, colour: "base", alpha: 0.92 },
+        ],
+    },
+};
+
+// ---- dither -----------------------------------------------------------------
+//
+// A column's gradient runs the height of the hero and changes very little over
+// it — measured on the 7.1 build, the composited blue channel moved 2 levels
+// across a 259px window. Quantised to 8 bits that is a flat run of ONE integer
+// value 20 to 40 device pixels tall, and because every column samples the same
+// gradient the run boundaries line up across all 44 of them. A one-unit step
+// drawn as a straight line the full width of the hero is the single most
+// visible artefact 8-bit colour has, and it is what was reported as the bars
+// looking "pixeled instead of high quality".
+//
+// Measured worst flat run before this: 40px dark, 24px light.
+//
+// The fix is a dither — noise added before the quantiser, in the only place
+// this pipeline offers one: a second fill of each column's own path with a
+// fixed noise tile. What that fill does to a pixel is
+//
+//     result += alpha_noise * (ink - what_is_already_composited_there)
+//
+// so the perturbation is CONSTANT in absolute terms rather than scaled by the
+// column's own alpha. That rules out the obvious alternative — `source-atop`,
+// which preserves destination alpha but blends colour, and therefore fades to
+// nothing in exactly the transparent regions where the banding is worst.
+//
+// The tile is a THIRD white, a third black and a third transparent, and that
+// mix is the whole trick rather than a hedge. A single ink loses its amplitude
+// wherever the pixel is already near it — measured with black ink on light
+// theme, the deep end of a column sits at ~50/255, so the difference term
+// collapses from ~200 to ~50 and the worst flat run went UP, from 21px to 58px.
+// Carrying both inks, the peak-to-peak perturbation is
+//
+//     a * (255 - c)  +  a * c  =  a * 255
+//
+// independent of `c`. At one 255th it is exactly one quantisation step
+// everywhere, on either theme, with no per-theme tuning and nothing to rebuild
+// on a theme flip. The two inks' mean shifts also very nearly cancel.
+//
+// Filled per column rather than over the whole band, for two reasons: the
+// banding is in the columns, and a full-width noise field would need an edge
+// somewhere, which is the artefact this is trying to remove.
+//
+// Fixed, never regenerated per frame — animated noise is not grain, it is
+// crawling.
+const DITHER_TILE = 64;
 
 // ---- the travelling wave ----------------------------------------------------
 //
@@ -343,6 +471,42 @@ export function createSkyline(canvas) {
     const maskCtx = maskCanvas.getContext("2d", { alpha: true });
     let safeZones = [];
 
+    // The dither tile, and the pattern built from it. Rebuilt only when the ink
+    // changes, which is on a theme flip.
+    const ditherCanvas = document.createElement("canvas");
+    ditherCanvas.width = DITHER_TILE;
+    ditherCanvas.height = DITHER_TILE;
+    let ditherPattern = null;
+    let ditherKey = null;
+
+    function ditherStyle(ratio) {
+        const key = String(ratio);
+        if (key === ditherKey) return ditherPattern;
+        ditherKey = key;
+        const dc = ditherCanvas.getContext("2d");
+        const image = dc.createImageData(DITHER_TILE, DITHER_TILE);
+        for (let i = 0; i < image.data.length; i += 4) {
+            const pick = (Math.random() * 3) | 0; // 0 white, 1 black, 2 nothing
+            const value = pick === 0 ? 255 : 0;
+            image.data[i] = value;
+            image.data[i + 1] = value;
+            image.data[i + 2] = value;
+            image.data[i + 3] = pick === 2 ? 0 : 1; // one 255th — one step
+        }
+        dc.putImageData(image, 0, 0);
+        ditherPattern = ctx.createPattern(ditherCanvas, "repeat");
+        // Patterns live in user space, and the context is scaled by the device
+        // pixel ratio — so without this the tile is stretched and each noise
+        // texel covers a 2x2 block of real pixels on a retina display, which
+        // is grain rather than dither. Undoing the ratio puts one noise sample
+        // on one physical pixel, where it belongs.
+        if (ditherPattern && typeof ditherPattern.setTransform === "function"
+            && typeof DOMMatrix === "function") {
+            ditherPattern.setTransform(new DOMMatrix().scaleSelf(1 / ratio));
+        }
+        return ditherPattern;
+    }
+
     let width = 0;
     let height = 0;
     let pixelRatio = 1;
@@ -367,6 +531,7 @@ export function createSkyline(canvas) {
     let gradients = [];
     let glowGradients = [];
     let caps = [];
+    let glowCaps = [];
     let gradientKey = null;
     let frozen = false;
     // Column -> bucket, rebound each render because it closes over the wave's
@@ -539,22 +704,24 @@ export function createSkyline(canvas) {
 
         render(wave, {
             additiveGlow = true, glowAlpha = 0.85, scale = 1, baseline = DEFAULT_BASELINE,
-            maxHeightFraction = MAX_HEIGHT_FRACTION, alphaScale = 1,
+            maxHeightFraction = MAX_HEIGHT_FRACTION, ramp = "dark",
         } = {}) {
             if (width === 0 || height === 0) return;
 
+            const { id: rampId, stops } = ALPHA_RAMPS[ramp] ?? ALPHA_RAMPS.dark;
             const baseY = height * clamp(baseline, 0.2, 1);
             const maxBar = baseY * clamp(maxHeightFraction, 0.1, 1) * scale;
             const top = baseY - maxBar;
 
             const buckets = wave.ringSize * BUCKETS_PER_ENTRY;
-            const key = `${wave.version}|${maxBar}|${baseY}|${alphaScale}`;
+            const key = `${wave.version}|${maxBar}|${baseY}|${rampId}`;
 
             if (key !== gradientKey) {
                 gradientKey = key;
                 gradients = new Array(buckets);
                 glowGradients = new Array(buckets);
                 caps = new Array(buckets);
+                glowCaps = new Array(buckets);
                 for (let b = 0; b < buckets; b++) {
                     const { base, peak } = wave.sample(b / BUCKETS_PER_ENTRY);
                     const pick = { base, mid: mix(base, peak, 0.5), peak };
@@ -562,16 +729,32 @@ export function createSkyline(canvas) {
                     const gg = glowCtx.createLinearGradient(
                         0, top / GLOW_SCALE, 0, baseY / GLOW_SCALE,
                     );
-                    for (const stop of STOPS) {
-                        const colour = rgba(pick[stop.colour], clamp(stop.alpha * alphaScale, 0, 1));
+                    for (const stop of stops) {
+                        const colour = rgba(pick[stop.colour], clamp(stop.alpha, 0, 1));
                         g.addColorStop(stop.at, colour);
                         gg.addColorStop(stop.at, colour);
                     }
+                    // Local space: 0 is the column's own tip, TIP_CAP_PX below
+                    // it is where the cap has faded out. Translated into place
+                    // per column at paint time.
+                    const cap = ctx.createLinearGradient(0, 0, 0, TIP_CAP_PX);
+                    const gcap = glowCtx.createLinearGradient(
+                        0, 0, 0, TIP_CAP_PX / GLOW_SCALE,
+                    );
+                    for (const stop of TIP_CAP_FALLOFF) {
+                        const colour = rgba(peak, stop.alpha * TIP_CAP_ALPHA);
+                        cap.addColorStop(stop.at, colour);
+                        gcap.addColorStop(stop.at, colour);
+                    }
+
                     gradients[b] = g;
                     glowGradients[b] = gg;
-                    caps[b] = rgba(peak, TIP_CAP_ALPHA);
+                    caps[b] = cap;
+                    glowCaps[b] = gcap;
                 }
             }
+
+            const grain = ditherStyle(pixelRatio);
 
             const slot = width / columns;
             const gap = slot * GAP_RATIO;
@@ -590,7 +773,7 @@ export function createSkyline(canvas) {
 
             const capHeight = Math.max(1, TIP_CAP_PX);
 
-            const paint = (target, k, ramps) => {
+            const paint = (target, k, ramps, capRamps, dither) => {
                 for (let i = 0; i < columns; i++) {
                     const bucket = bucketOf(i);
                     const h = Math.max(minBar, displayed[i] * maxBar);
@@ -606,14 +789,29 @@ export function createSkyline(canvas) {
                     else target.rect(x, y, w, bh);
                     target.fill();
 
-                    // The lit edge, at this column's own tip rather than at a
-                    // fixed point on the shared ramp.
+                    // The same path again, in noise — see DITHER_TILE. Only on
+                    // the main pass: the glow buffer is upscaled and blurred,
+                    // which smooths its own quantisation, and dithering it
+                    // would just put the noise through a low-pass filter.
+                    if (dither) {
+                        target.fillStyle = dither;
+                        target.fill();
+                    }
+
+                    // The lit tip, at this column's own top rather than at a
+                    // fixed point on the shared ramp. Translated rather than
+                    // rebuilt: the cap ramp is defined once per bucket in
+                    // tip-local space, so putting it in place costs a translate
+                    // instead of a createLinearGradient.
                     const ch = Math.min(capHeight / k, bh);
-                    target.fillStyle = caps[bucket];
+                    target.save();
+                    target.translate(0, y);
+                    target.fillStyle = capRamps[bucket];
                     target.beginPath();
-                    if (roundRectSupported) target.roundRect(x, y, w, ch, [r, r, 0, 0]);
-                    else target.rect(x, y, w, ch);
+                    if (roundRectSupported) target.roundRect(x, 0, w, ch, [r, r, 0, 0]);
+                    else target.rect(x, 0, w, ch);
                     target.fill();
+                    target.restore();
                 }
             };
 
@@ -623,7 +821,7 @@ export function createSkyline(canvas) {
             glowCtx.setTransform(1, 0, 0, 1, 0, 0);
             glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
             glowCtx.scale(pixelRatio, pixelRatio);
-            paint(glowCtx, GLOW_SCALE, glowGradients);
+            paint(glowCtx, GLOW_SCALE, glowGradients, glowCaps);
 
             // Additive on a near-black page is what makes the tips bloom. On a
             // near-white one it does the opposite — adding light moves the
@@ -641,7 +839,7 @@ export function createSkyline(canvas) {
             haloPass(GLOW_WIDE_BLUR_PX, glowAlpha * GLOW_WIDE_SHARE);
             haloPass(GLOW_BLUR_PX, glowAlpha);
 
-            paint(ctx, 1, gradients);
+            paint(ctx, 1, gradients, caps, grain);
 
             // Text safe zones, applied LAST so they knock back the glow as
             // well as the columns — the glow is the half that was actually
@@ -653,22 +851,18 @@ export function createSkyline(canvas) {
                 for (const z of safeZones) {
                     const strength = clamp(z.strength, 0, 1);
                     if (strength <= 0) continue;
-                    maskCtx.fillStyle =
-                        `rgba(255,255,255,${1 - (1 - strength) ** (1 / MASK_STEPS)})`;
-                    for (let k = 0; k < MASK_STEPS; k++) {
-                        const grow = MASK_FEATHER_PX * (1 - k / MASK_STEPS);
-                        const x = z.x - grow;
-                        const y = z.y - grow;
-                        const w = z.w + grow * 2;
-                        const h = z.h + grow * 2;
-                        maskCtx.beginPath();
-                        if (roundRectSupported) {
-                            maskCtx.roundRect(x, y, w, h, Math.min(w, h) / 2);
-                        } else {
-                            maskCtx.rect(x, y, w, h);
-                        }
-                        maskCtx.fill();
+                    const y0 = z.y - MASK_FEATHER_PX;
+                    const total = z.h + MASK_FEATHER_PX * 2;
+                    const ramp = MASK_FEATHER_PX / total;
+                    const g = maskCtx.createLinearGradient(0, y0, 0, y0 + total);
+                    for (let k = 0; k <= MASK_RAMP_STOPS; k++) {
+                        const t = k / MASK_RAMP_STOPS;
+                        const a = strength * (t * t * (3 - 2 * t)); // smoothstep
+                        g.addColorStop(ramp * t, `rgba(255,255,255,${a})`);
+                        g.addColorStop(1 - ramp * t, `rgba(255,255,255,${a})`);
                     }
+                    maskCtx.fillStyle = g;
+                    maskCtx.fillRect(z.x, y0, z.w, total);
                 }
                 ctx.save();
                 ctx.globalCompositeOperation = "destination-out";
