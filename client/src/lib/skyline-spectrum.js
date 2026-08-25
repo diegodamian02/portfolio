@@ -120,9 +120,18 @@ const TILT_TOP = 0.14;
 // ---- geometry ---------------------------------------------------------------
 
 // Fraction of the distance from the horizon to the top of the canvas that the
-// tallest possible column reaches. The rest is headroom for the hero type, and
-// it is a hard bound rather than a tendency.
-const MAX_HEIGHT_FRACTION = 0.62;
+// tallest possible column reaches. A hard bound, not a tendency.
+//
+// This is only the FALLBACK. The component overrides it with a value derived
+// from the live navbar box (see `maxHeightFraction` in render()), because the
+// thing the ceiling actually has to clear is the nav links, and their position
+// is a measured constant on this site rather than a fraction anyone can name.
+//
+// 0.62 shipped in the rebuild and was too low: on desktop the tallest possible
+// column topped out 342px down a 900px window, and because a column only
+// reaches the ceiling on a peak, the *typical* tallest column sat nearer 450px
+// — "almost at the middle", which is exactly what it looked like.
+const MAX_HEIGHT_FRACTION = 0.81;
 
 // Where the horizon sits, as a fraction of canvas height. 1 puts it on the
 // canvas's bottom edge, which is the obvious default and measured wrong: the
@@ -136,7 +145,10 @@ const DEFAULT_BASELINE = 1;
 // continuous horizon rather than a row of gaps with three bars in it.
 const MIN_HEIGHT_FRACTION = 0.012;
 
-const GAP_RATIO = 0.16;
+// Widened in 7.1. The gap is not empty space, it is the thing that makes the
+// columns read as separate objects — and it has to survive the glow bleeding
+// into it from both sides, which at 0.16 it did not.
+const GAP_RATIO = 0.22;
 const CORNER_RATIO = 0.42;
 
 // ---- glow -------------------------------------------------------------------
@@ -149,8 +161,42 @@ const CORNER_RATIO = 0.42;
 // bilinear smoothing do most of the spreading costs a 36th of the pixels, and
 // the `filter` blur that sharpens it is applied to that small surface rather
 // than to the full-resolution hero. Measured comparison in STATUS.md.
-const GLOW_SCALE = 6;
-const GLOW_BLUR_PX = 3.5;
+// 1/4, not 1/6. The upscale's own bilinear smoothing IS part of the blur, and
+// at 1/6 it contributes about six CSS pixels before `filter` adds anything —
+// which, on a 27px-wide column with a 7px gap, is already enough to close the
+// gap. A tighter buffer is the difference between a neon line and a wash.
+const GLOW_SCALE = 4;
+
+// TWO additive passes, at different radii, rather than one.
+//
+// `globalAlpha` caps at 1, so with a single pass already at 0.9 there was no
+// headroom left to make the glow stronger — the only lever was a brighter
+// palette, which fights the move to saturated (and therefore darker) hues.
+//
+// The first attempt at this read as OPAQUE rather than bright: a 9px blur on a
+// 1/6 buffer is a ~54px halo, so every column's glow reached its neighbours and
+// the lower half of the hero filled in solid. The fix is not less glow but
+// TIGHTER glow — a neon tube is a thin hot line with a close halo, and what
+// makes it read as light rather than as paint is the dark gap beside it.
+//
+// The wide pass survives at low alpha, doing atmosphere rather than brightness.
+const GLOW_BLUR_PX = 2;
+const GLOW_WIDE_BLUR_PX = 6;
+const GLOW_WIDE_SHARE = 0.34;
+
+// A short bright cap at each column's own tip, in CSS pixels.
+//
+// This exists because of a real limitation in the shared-gradient design: every
+// column samples ONE gradient spanning the full height range, which is what
+// makes height map to colour — but it also means a column's own tip lands
+// wherever its height happens to put it, and only a full-height column ever
+// reaches the bright end. Short columns were all base colour, all the time.
+//
+// A cap drawn at each column's actual top gives every one of them the same
+// crisp lit edge regardless of height. It is the one part of a spectrum
+// analyser's look that cannot come out of a shared vertical ramp.
+const TIP_CAP_PX = 3;
+const TIP_CAP_ALPHA = 0.92;
 
 // ---- text safe zones --------------------------------------------------------
 //
@@ -185,7 +231,10 @@ const GLOW_BLUR_PX = 3.5;
 // compose to 1-(1-a)^n. The result is a ramp that follows the box's own shape
 // and reaches zero MASK_FEATHER_PX outside it, with no edge anywhere.
 const MASK_SCALE = 8;
-const MASK_FEATHER_PX = 64;
+// Widened from 64 in 7.1. The zones are full-width bands now, so the only edge
+// left is the vertical one, and a longer ramp is what keeps it from reading as
+// a horizontal line across the columns.
+const MASK_FEATHER_PX = 96;
 const MASK_STEPS = 7;
 
 // ---- gradient stops ---------------------------------------------------------
@@ -206,13 +255,38 @@ const MASK_STEPS = 7;
 // a dark smudge in its own right. Backing the whole ramp off does more for
 // legibility than any mask does, and it is the change that makes the field look
 // like a glow instead of a bar chart.
+// Backed off again in 7.1, and further than the rebuild's own reduction. The
+// columns are much taller now, so the same alpha covers far more of the hero
+// and the field read as a solid pane of colour rather than as light. Neon is
+// LOW coverage at HIGH contrast; the body of a tube is dim and the edge is what
+// burns. The tip cap above supplies the burn, which is what makes it safe for
+// the body to be this transparent.
 const STOPS = [
     { at: 0.00, colour: "peak", alpha: 0.00 },
-    { at: 0.22, colour: "peak", alpha: 0.30 },
-    { at: 0.52, colour: "mid", alpha: 0.52 },
-    { at: 0.82, colour: "base", alpha: 0.66 },
-    { at: 1.00, colour: "base", alpha: 0.72 },
+    { at: 0.20, colour: "peak", alpha: 0.22 },
+    { at: 0.52, colour: "mid", alpha: 0.34 },
+    { at: 0.82, colour: "base", alpha: 0.44 },
+    { at: 1.00, colour: "base", alpha: 0.50 },
 ];
+
+// ---- the travelling wave ----------------------------------------------------
+//
+// The palette module owns the wave's shape; this owns making it cheap.
+//
+// Every column now samples the ring at its own position, so a single shared
+// gradient no longer works. Building one gradient per column per frame would be
+// 44 `createLinearGradient` calls plus ~220 `addColorStop`s every frame, in both
+// the main and the glow context.
+//
+// Instead the ring is TILED once into a fixed set of gradients, at positions
+// that never move. The wave then travels by each column picking a different
+// bucket, which costs an add, a multiply and a floor. Rebuilt only when the
+// solved colours change (a theme flip) or the geometry does (a resize).
+//
+// 24 buckets per palette entry puts each step at ~1/24th of the distance
+// between two authored hues — far below what is visible as banding, and 168
+// gradient objects total for a seven-entry ring.
+const BUCKETS_PER_ENTRY = 24;
 
 const MAX_DPR = 2;
 
@@ -288,9 +362,17 @@ export function createSkyline(canvas) {
     let quietRef = 0;
     let frames = 0;
 
-    let gradient = null;
-    let glowGradient = null;
+    // One gradient per ring bucket, tiling the whole palette — see
+    // BUCKETS_PER_ENTRY. Rebuilt on a theme flip or a resize, never per frame.
+    let gradients = [];
+    let glowGradients = [];
+    let caps = [];
     let gradientKey = null;
+    let frozen = false;
+    // Column -> bucket, rebound each render because it closes over the wave's
+    // current position. Exposed for the harness so the travel can be traced
+    // without re-deriving the mapping.
+    let bucketOf = () => 0;
 
     function rebuildBuffers(next) {
         if (next === columns && raw.length === columns) return;
@@ -433,6 +515,12 @@ export function createSkyline(canvas) {
 
         /** Attack-fast, release-slow. Frame-rate independent by construction. */
         advance(dt) {
+            // Only ever true in development — the setter is behind the DEV
+            // block below, so production has no way to reach it. It exists
+            // because a still of a travelling colour wave is unreadable when
+            // the bars are also moving: freezing the heights isolates the one
+            // variable the screenshots are meant to show.
+            if (frozen) return;
             const keep = Math.exp(-Math.max(dt, 0) / RELEASE_TAU);
             for (let i = 0; i < columns; i++) {
                 const target = raw[i];
@@ -449,25 +537,39 @@ export function createSkyline(canvas) {
             raw.set(displayed);
         },
 
-        render({ base, peak }, {
+        render(wave, {
             additiveGlow = true, glowAlpha = 0.85, scale = 1, baseline = DEFAULT_BASELINE,
+            maxHeightFraction = MAX_HEIGHT_FRACTION, alphaScale = 1,
         } = {}) {
             if (width === 0 || height === 0) return;
 
             const baseY = height * clamp(baseline, 0.2, 1);
-            const maxBar = baseY * MAX_HEIGHT_FRACTION * scale;
+            const maxBar = baseY * clamp(maxHeightFraction, 0.1, 1) * scale;
             const top = baseY - maxBar;
-            const key = `${base.join()}|${peak.join()}|${maxBar}|${baseY}`;
+
+            const buckets = wave.ringSize * BUCKETS_PER_ENTRY;
+            const key = `${wave.version}|${maxBar}|${baseY}|${alphaScale}`;
 
             if (key !== gradientKey) {
                 gradientKey = key;
-                const mid = mix(base, peak, 0.5);
-                const pick = { base, mid, peak };
-                gradient = ctx.createLinearGradient(0, top, 0, baseY);
-                glowGradient = glowCtx.createLinearGradient(0, top / GLOW_SCALE, 0, baseY / GLOW_SCALE);
-                for (const stop of STOPS) {
-                    gradient.addColorStop(stop.at, rgba(pick[stop.colour], stop.alpha));
-                    glowGradient.addColorStop(stop.at, rgba(pick[stop.colour], stop.alpha));
+                gradients = new Array(buckets);
+                glowGradients = new Array(buckets);
+                caps = new Array(buckets);
+                for (let b = 0; b < buckets; b++) {
+                    const { base, peak } = wave.sample(b / BUCKETS_PER_ENTRY);
+                    const pick = { base, mid: mix(base, peak, 0.5), peak };
+                    const g = ctx.createLinearGradient(0, top, 0, baseY);
+                    const gg = glowCtx.createLinearGradient(
+                        0, top / GLOW_SCALE, 0, baseY / GLOW_SCALE,
+                    );
+                    for (const stop of STOPS) {
+                        const colour = rgba(pick[stop.colour], clamp(stop.alpha * alphaScale, 0, 1));
+                        g.addColorStop(stop.at, colour);
+                        gg.addColorStop(stop.at, colour);
+                    }
+                    gradients[b] = g;
+                    glowGradients[b] = gg;
+                    caps[b] = rgba(peak, TIP_CAP_ALPHA);
                 }
             }
 
@@ -476,19 +578,43 @@ export function createSkyline(canvas) {
             const barWidth = Math.max(1, slot - gap);
             const minBar = baseY * MIN_HEIGHT_FRACTION;
 
-            const paint = (target, k) => {
-                target.beginPath();
+            // Column -> bucket. The wave's whole visible behaviour is this one
+            // line: the shared position moves with time, the per-column term
+            // does not, so the pattern slides sideways.
+            const spread = columns > 1 ? wave.span / (columns - 1) : 0;
+            bucketOf = (i) => {
+                const ring = wave.position + spread * i;
+                const b = Math.round(ring * BUCKETS_PER_ENTRY);
+                return ((b % buckets) + buckets) % buckets;
+            };
+
+            const capHeight = Math.max(1, TIP_CAP_PX);
+
+            const paint = (target, k, ramps) => {
                 for (let i = 0; i < columns; i++) {
+                    const bucket = bucketOf(i);
                     const h = Math.max(minBar, displayed[i] * maxBar);
                     const x = (i * slot + gap / 2) / k;
                     const y = (baseY - h) / k;
                     const w = barWidth / k;
                     const bh = h / k;
                     const r = Math.min(w * CORNER_RATIO, bh / 2);
+
+                    target.fillStyle = ramps[bucket];
+                    target.beginPath();
                     if (roundRectSupported) target.roundRect(x, y, w, bh, [r, r, 0, 0]);
                     else target.rect(x, y, w, bh);
+                    target.fill();
+
+                    // The lit edge, at this column's own tip rather than at a
+                    // fixed point on the shared ramp.
+                    const ch = Math.min(capHeight / k, bh);
+                    target.fillStyle = caps[bucket];
+                    target.beginPath();
+                    if (roundRectSupported) target.roundRect(x, y, w, ch, [r, r, 0, 0]);
+                    else target.rect(x, y, w, ch);
+                    target.fill();
                 }
-                target.fill();
             };
 
             ctx.clearRect(0, 0, width, height);
@@ -497,22 +623,25 @@ export function createSkyline(canvas) {
             glowCtx.setTransform(1, 0, 0, 1, 0, 0);
             glowCtx.clearRect(0, 0, glowCanvas.width, glowCanvas.height);
             glowCtx.scale(pixelRatio, pixelRatio);
-            glowCtx.fillStyle = glowGradient;
-            paint(glowCtx, GLOW_SCALE);
+            paint(glowCtx, GLOW_SCALE, glowGradients);
 
-            ctx.save();
             // Additive on a near-black page is what makes the tips bloom. On a
             // near-white one it does the opposite — adding light moves the
             // glow TOWARD the background — so light theme composites the halo
             // normally instead.
-            ctx.globalCompositeOperation = additiveGlow ? "lighter" : "source-over";
-            ctx.globalAlpha = glowAlpha;
-            if (filterSupported) ctx.filter = `blur(${GLOW_BLUR_PX}px)`;
-            ctx.drawImage(glowCanvas, 0, 0, width, height);
-            ctx.restore();
+            const haloPass = (blurPx, alpha) => {
+                if (alpha <= 0) return;
+                ctx.save();
+                ctx.globalCompositeOperation = additiveGlow ? "lighter" : "source-over";
+                ctx.globalAlpha = Math.min(1, alpha);
+                if (filterSupported) ctx.filter = `blur(${blurPx}px)`;
+                ctx.drawImage(glowCanvas, 0, 0, width, height);
+                ctx.restore();
+            };
+            haloPass(GLOW_WIDE_BLUR_PX, glowAlpha * GLOW_WIDE_SHARE);
+            haloPass(GLOW_BLUR_PX, glowAlpha);
 
-            ctx.fillStyle = gradient;
-            paint(ctx, 1);
+            paint(ctx, 1, gradients);
 
             // Text safe zones, applied LAST so they knock back the glow as
             // well as the columns — the glow is the half that was actually
@@ -613,6 +742,13 @@ export function createSkyline(canvas) {
             heights: { get: () => Array.from(displayed) },
             rawLevels: { get: () => Array.from(raw) },
             safeZones: { get: () => safeZones.map((z) => ({ ...z })) },
+            // The bucket each column is currently drawing with. Two frames of
+            // this is the proof that the wave travels.
+            columnBuckets: {
+                get: () => Array.from({ length: columns }, (_, i) => bucketOf(i)),
+            },
+            bucketsPerEntry: { get: () => BUCKETS_PER_ENTRY },
+            freezeHeights: { get: () => frozen, set: (v) => { frozen = !!v; } },
             gainReference: {
                 get: () => ({ loud: loudRef, quiet: quietRef, span: Math.max(loudRef - quietRef, MIN_SPAN) }),
             },

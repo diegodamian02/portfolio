@@ -42,9 +42,17 @@ const SETTLE_PROBE_INTERVAL_MS = 120;
 const SETTLE_HEIGHT_THRESHOLD = 0.015;
 
 // Theme-dependent glow compositing — see skyline-spectrum.js's render().
+// `alphaScale` multiplies the renderer's whole alpha ramp, and the two themes
+// need genuinely different amounts of it.
+//
+// On a near-black page a translucent column still reads as light, because
+// anything above the background is visible. On a near-white page the column has
+// to be DARKER than the background to exist at all, and the same ramp that
+// looks like neon on black looks like a watermark on white — measured, the
+// light theme's columns faded out entirely above their lower third.
 const THEME_RESPONSE = {
-    dark: { additiveGlow: true, glowAlpha: 0.9 },
-    light: { additiveGlow: false, glowAlpha: 0.72 },
+    dark: { additiveGlow: true, glowAlpha: 0.9, alphaScale: 1 },
+    light: { additiveGlow: false, glowAlpha: 0.72, alphaScale: 1.5 },
 };
 
 const MAX_DPR = 2;
@@ -65,11 +73,34 @@ const MAX_DPR = 2;
 // for a light weight — so it is treated as normal text and held above 4.5:1.
 // Every value here was solved against measured contrast; the table is in
 // STATUS.md.
-const HEADLINE_ZONE_STRENGTH = 0.34;
-const TAGLINE_ZONE_STRENGTH = 0.5;
-const CRATE_ZONE_STRENGTH = 0.55;
+// Raised sharply in 7.1, and the reason is worth keeping: the rebuild's values
+// were tuned against a ceiling of 0.62, where the headline sat near the
+// TRANSPARENT top of the gradient and needed almost nothing. At 0.809 the same
+// band of the hero carries full-height column bodies, their tip caps at alpha
+// 0.92, and both additive glow passes.
+//
+// Measured at the new ceiling with the old strengths: dark headline 2.68:1 and
+// tagline 2.62:1, from 12.62 and 5.29. The mask shape was still correct — its
+// falloff and its coverage were fine — it was simply being asked to remove
+// twice as much as before.
+const HEADLINE_ZONE_STRENGTH = 0.8;
+const TAGLINE_ZONE_STRENGTH = 0.78;
+const CRATE_ZONE_STRENGTH = 0.6;
 const ZONE_PAD_X = 26;
 const ZONE_PAD_Y = 16;
+
+// How much clear space to leave between the tallest possible column and the
+// bottom of the navbar.
+//
+// The ceiling is derived from the navbar rather than being a fraction, because
+// the nav links are the one thing in the hero the columns must never reach:
+// they sit above the horizon-anchored gradient's transparent end, so they get
+// no protection from it, and they are deliberately outside the safe zones
+// (measured at "never reached" through the whole rebuild). Every other element
+// is protected by a zone; this one is protected by geometry.
+const NAVBAR_CLEARANCE_PX = 28;
+// Used only if the navbar cannot be measured — the renderer's own default.
+const FALLBACK_MAX_HEIGHT_FRACTION = 0.81;
 
 export default function SkylineBackground() {
     const canvasRef = useRef(null);
@@ -111,10 +142,22 @@ export default function SkylineBackground() {
          * last resize fired.
          */
         let baseline = 1;
+        let maxHeightFraction = FALLBACK_MAX_HEIGHT_FRACTION;
         const measureBaseline = () => {
             const box = canvas.getBoundingClientRect();
             if (box.height === 0) return;
             baseline = Math.min(1, Math.max(0.4, window.innerHeight / box.height));
+
+            // The ceiling, in the same units the renderer wants: a fraction of
+            // the horizon's distance from the top of the canvas.
+            const nav = document.querySelector(".navbar")?.getBoundingClientRect();
+            const horizon = box.height * baseline;
+            if (!nav || horizon <= 0) {
+                maxHeightFraction = FALLBACK_MAX_HEIGHT_FRACTION;
+                return;
+            }
+            const ceiling = nav.bottom - box.top + NAVBAR_CLEARANCE_PX;
+            maxHeightFraction = Math.min(0.95, Math.max(0.3, (horizon - ceiling) / horizon));
         };
 
         /**
@@ -127,10 +170,23 @@ export default function SkylineBackground() {
         const measureSafeZones = () => {
             const box = canvas.getBoundingClientRect();
             if (box.width === 0 || box.height === 0) return;
+            // FULL-WIDTH bands, not boxes around the text.
+            //
+            // A box has left and right edges, and at the strength the taller
+            // columns now need (0.8 against the rebuild's 0.34) those edges are
+            // plainly visible: a soft oval of dimmed columns sitting behind the
+            // headline, with brighter columns either side of it. Reading as a
+            // smudge is exactly what this is supposed to avoid.
+            //
+            // Extending every zone across the whole canvas leaves only the
+            // VERTICAL falloff, which has no shape to notice — it reads as
+            // atmospheric haze at that height rather than as a hole around the
+            // type. It costs a little brightness on the right-hand side, where
+            // the deck sits on top of the columns anyway.
             const toZone = (rect, strength) => ({
-                x: rect.left - box.left - ZONE_PAD_X,
+                x: -ZONE_PAD_X,
                 y: rect.top - box.top - ZONE_PAD_Y,
-                w: rect.width + ZONE_PAD_X * 2,
+                w: box.width + ZONE_PAD_X * 2,
                 h: rect.height + ZONE_PAD_Y * 2,
                 strength,
             });
@@ -158,9 +214,12 @@ export default function SkylineBackground() {
         };
         sizeToHost();
 
-        const paint = () => {
+        const paint = (waveAtMs) => {
             const theme = themeName();
-            skyline.render(cycle.sample(theme), { ...THEME_RESPONSE[theme], baseline });
+            skyline.render(
+                cycle.waveState(theme, waveAtMs),
+                { ...THEME_RESPONSE[theme], baseline, maxHeightFraction },
+            );
         };
 
         // ---- reduced motion ---------------------------------------------------
@@ -180,7 +239,28 @@ export default function SkylineBackground() {
                 }
                 sizeToHost();
                 skyline.loadStaticProfile();
-                paint();
+                // The wave is sampled at t=0 — a FIXED REFERENCE STATE, not a
+                // frozen instant of the live animation.
+                //
+                // Both were on the table. A frozen instant would show whatever
+                // phase the wave happened to be in when the visitor pressed
+                // play, so the one frame a reduced-motion visitor ever sees
+                // would depend on timing they cannot perceive or repeat.
+                //
+                // The SPATIAL half of the wave is fully present: columns still
+                // sample different points on the ring by index, so the static
+                // frame carries the same colour band across the skyline that
+                // the animated one does. Only the travel is removed, which is
+                // the part that is motion. Verified: the per-column bucket
+                // DELTAS are byte-identical across two cold loads.
+                //
+                // What still varies between visits is the palette's own
+                // starting position, which is seeded from the clock and has
+                // been since 7c so that a first visit is not always mint. That
+                // is deliberate and unrelated to motion — a reduced-motion
+                // visitor sees the same hue everyone else would that session,
+                // just not moving.
+                paint(0);
                 canvas.dataset.skylineState = "static-playing";
             };
 
@@ -214,6 +294,12 @@ export default function SkylineBackground() {
                     get columns() { return skyline.columnCount; },
                     get heights() { return skyline.heights; },
                     get palette() { return cycle.sample(themeName()); },
+                    // The spatial half of the wave is present in the static
+                    // frame; the travel is not. These are what prove it.
+                    get columnBuckets() { return skyline.columnBuckets; },
+                    get bucketsPerEntry() { return skyline.bucketsPerEntry; },
+                    get maxHeightFraction() { return maxHeightFraction; },
+                    get baseline() { return baseline; },
                 };
             }
 
@@ -405,6 +491,25 @@ export default function SkylineBackground() {
                 get palette() { return cycle.sample(themeName()); },
                 get paletteIndex() { return cycle.index; },
                 get paletteTrackId() { return cycle.trackId; },
+                get paletteSize() { return cycle.size; },
+                get wave() { return cycle.wave; },
+                get waveState() {
+                    const w = cycle.waveState(themeName());
+                    return { version: w.version, ringSize: w.ringSize, position: w.position, span: w.span };
+                },
+                get columnBuckets() { return skyline.columnBuckets; },
+                set freezeHeights(v) { skyline.freezeHeights = v; },
+                get freezeHeights() { return skyline.freezeHeights; },
+                get bucketsPerEntry() { return skyline.bucketsPerEntry; },
+                get maxHeightFraction() { return maxHeightFraction; },
+                get baseline() { return baseline; },
+                /** The ring position a given column is sampling, right now. */
+                ringAt: (i) => {
+                    const w = cycle.waveState(themeName());
+                    const n = skyline.columnCount;
+                    return w.position + (n > 1 ? (w.span / (n - 1)) * i : 0);
+                },
+                stopsAtRing: (position) => cycle.stopsAtRing(themeName(), position),
                 solvedFor: (theme) => cycle.solvedFor(theme),
                 setPalette: (i) => { cycle.setIndex(i); if (rafId === null) paint(); },
                 paint,

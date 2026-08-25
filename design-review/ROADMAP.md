@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-25, Stage 7 rebuild — synthwave skyline spectrum; the fluid is deleted)*
+## 0. Current state — quick summary *(updated 2026-08-25, Stage 7.1 — electric palette, taller columns, travelling colour wave)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -552,6 +552,51 @@ and stopped loop in every non-playing state. Full writeup, including the three
 attempts the text mask took and a glow benchmark whose ranking **inverts between
 software and hardware rasterisation**: `STATUS.md`'s own dated entry.
 
+**Also 2026-08-25 (Stage 7.1) — the skyline goes electric, taller, and the
+colour travels.** Three asks plus one piece of live feedback mid-build.
+
+**Palette.** Seven hues moved from *bright* to *electric* — the change was
+**lightness**, not saturation: every entry was already at HSL 91–100%, and what
+made them read as pastel was L 71–81%. `gold` left, `azure` joined (the ring had
+no true blue — a 75° gap, the widest on the wheel), mint kept by request. The
+peak luminance band had to widen to `{0.18, 0.85}` and the base target drop to
+0.085, because a saturated hue is *darker* than its pastel version: five of the
+seven new entries landed below the old floor and would have been lifted straight
+back into pastels. **All seven authored hexes now pass through untouched.**
+
+**Height.** The ceiling is derived from the live navbar box rather than being a
+fraction: the tallest possible column tops out **28px below the navbar**, which
+is 0.809 of the horizon on desktop and 0.839 on mobile — **81% of the visible
+height, up from 62%**. The nav links are the one hero element with no safe zone,
+so keeping them clear by geometry rather than by luck is the point.
+
+**Travelling wave.** Each column samples the palette ring at its own position
+(shared position + spatial offset from its index), so a band of colour crosses
+the skyline instead of one hue changing everywhere. Continuous and
+one-directional, **1.15 palette entries across the hero width at 0.14
+entries/second** — a lava-lamp drift, measured at −0.137 entries/s. It lives in
+`palette-cycle.js`; the ring is tiled once into 168 fixed gradients so a column
+picks a bucket rather than building a gradient per frame.
+
+**The live feedback — "the bars look a bit opaque" — was the most useful thing
+said about this stage,** and is now `FINDINGS.md` **D25**: the first pass at
+"more glow" added *alpha*, and alpha is coverage, not brightness. Tightening the
+halo (buffer 1/6 → 1/4, blur 3.5 → 2), backing the body ramp off (0.72 → 0.50)
+and adding a **per-column tip cap** is what makes it read as neon. The cap also
+fixes a real limitation: with one shared gradient, only a full-height column
+ever reaches the bright end, so short columns were all base colour.
+
+**D26** records the other half: a text mask is tuned against a *geometry*, and
+raising the ceiling dropped the dark headline from 12.62:1 to **2.68:1** with the
+mask untouched. Strengthening it worked but made the zones visible as an oval
+behind the type; the fix was **shape, not strength** — full-width bands have no
+left/right edge to notice.
+
+Contrast back to **12.50:1 / 6.74:1 / 12.68:1** dark and **14.92 / 7.05 / 10.06**
+light, zero white-clipped pixels with the more saturated palette (the brief
+predicted the opposite), GPU **0.307 ms/frame** (1.8% of a 60Hz budget). Full
+writeup: `STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -565,6 +610,7 @@ software and hardware rasterisation**: `STATUS.md`'s own dated entry.
 | **6 (Phases 8, 10)** | Turntable delight remainder — scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
 | **7 (a–d)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy pass, spectrum-bound ribbons~~ — **superseded and DELETED, see the rebuild above.** | — |
 | **7 (rebuild)** | ~~Hero synthwave skyline spectrum — Canvas2D renderer, standalone palette module, presence + synchronous reveal~~ — **done, above.** | — |
+| **7.1** | ~~Electric palette, navbar-derived height ceiling, travelling colour wave, neon glow pass~~ — **done, above.** | — |
 | **7 (perspective grid)** | The receding horizon grid with a vanishing point — the other half of the synthwave idiom. Deliberately **not** built in the rebuild: it is a decorative layer over a structure that has to be correct first, the same structural-before-motion split every prior stage took | The rebuild — done |
 | **7 (e+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done. **`meyda` is the flagged candidate if the visualizer wants real timbral features** (spectral flux/centroid/chroma); it was declined for the hero, where band splitting is fifteen lines |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |

@@ -128,18 +128,25 @@ in the same place in every capture.
 | `t5-button-dark.png` / `t5-button-light.png` | Transport button close-up, same |
 | `t5-deck-theme-dark.png` / `t5-deck-theme-light.png` | Theme endpoints, deck only |
 
-**Stage 7 rebuild — the hero skyline spectrum** *(2026-08-25)*. All captured
-while a track is playing, since the background is invisible otherwise:
+**Stage 7.1 — the hero skyline spectrum** *(2026-08-25)*. All captured while a
+track is playing, since the background is invisible otherwise. Each palette
+filename names the two adjacent ring entries in the gradient — the base hue at
+the columns' feet, the peak hue at their tips:
 
 | File | Shows |
 |---|---|
-| `stage7-skyline-{dark,light}-{0..6}-{base}-{peak}.png` | All seven palette positions in both themes, 14 files. Each filename names the two adjacent entries in the gradient — the base hue at the columns' feet and the peak hue at their tips |
-| `stage7-skyline-mobile-{dark,light}.png` | 390×844, where the hero restacks and the column count drops from 44 to 20 |
-| `stage7-skyline-reduced-{dark,light}.png` | `prefers-reduced-motion` — one static frame, drawn on play and cleared on pause, never animated |
+| `stage7-1-wave-travel-{0..4}.png` | Five frames two seconds apart with the bar heights **frozen**, so colour is the only variable. The band visibly crosses the skyline; ring position runs 2.012 → 0.009 |
+| `stage7-1-wave-travel-{0..4}.png` | Five frames two seconds apart with the bar heights FROZEN, so colour is the only variable. The band visibly crosses the skyline; ring position runs 2.012 → 0.009 |
+| `stage7-1-skyline-{dark,light}-{0..6}-{base}-{peak}.png` | All seven palette positions in both themes, 14 files |
+| `stage7-1-skyline-mobile-{dark,light}.png` | 390×844 — 20 columns, ceiling 0.839 |
+| `stage7-1-skyline-reduced-{dark,light}.png` | `prefers-reduced-motion` — one static frame, wave sampled at t=0 |
 
-> Screenshots of the **Stage 7a–7d fluid background** (`stage7c-*.png`,
-> `stage7d-*.png`) are kept but show **code that no longer exists**. Read them
-> alongside the superseded STATUS entries, not as a picture of the site.
+> The Stage 7 rebuild's own `stage7-skyline-*.png` set was **deleted** rather
+> than kept: it predates the electric palette and the raised ceiling, so every
+> frame in it shows colours and a column height that no longer occur. The
+> `stage7c-*.png` / `stage7d-*.png` fluid captures are still here and still show
+> **code that no longer exists** — read those alongside the superseded STATUS
+> entries, not as a picture of the site.
 
 A fixed navbar overlays these captures wherever it happened to sit during scroll.
 That is a screenshot artifact, not a layout bug — but see finding **B3**, which is
@@ -3089,6 +3096,110 @@ song" means when it is measured rather than asserted.
 **Generalisable:** whenever a normalisation makes everything look the same, check
 whether it is anchoring one end of the range or both. Peak normalisation is the
 default reach and it only ever fixes the top.
+
+### D25 — "more glow" implemented as more alpha reads as OPAQUE, not brighter; a neon look is low coverage at high contrast — **FOUND AND FIXED, Stage 7.1**
+
+Asked for more glow and more attention-grabbing, the first pass did the obvious
+things: a second additive halo pass at a wide radius, and a higher alpha ramp on
+the columns. Live feedback, immediately and correctly: *"the bars and colors look
+a bit opaque."*
+
+The trap is that `globalAlpha` caps at 1. With a single glow pass already at 0.9
+there was no headroom left, so the only remaining way to add glow was to add
+alpha — **and alpha is coverage, not brightness.** The result was the lower half
+of the hero filled in as one solid pane of colour with the gaps between columns
+closed.
+
+Two mechanisms were doing it, and both are easy to underestimate:
+
+- **The glow buffer's own upscale is part of the blur.** The halo is drawn into a
+  downscaled canvas and drawn back up, so the bilinear smoothing contributes
+  roughly one source texel of spread before `filter` adds anything. At 1/6 scale
+  that is ~6 CSS px per side — on a 27px column with a 7px gap, enough to close
+  the gap on its own. The `blur(9px)` wide pass on top of it was a ~54px halo.
+- **`lighter` adds alpha as well as light**, so every halo pass raises the
+  canvas's opacity wherever it reaches, not just its brightness.
+
+**Fix, all of it pulling the opposite way from "more":**
+
+| | before | after |
+|---|---|---|
+| glow buffer scale | 1/6 | 1/4 |
+| tight halo blur | 3.5px | 2px |
+| wide halo blur / share | 9px @ 0.62 | 6px @ 0.34 |
+| body alpha ramp (peak → base) | 0.34 → 0.72 | 0.22 → 0.50 |
+| gap between columns | 0.16 of slot | 0.22 |
+
+Plus one addition that does the actual work: a **tip cap**, a 3px bar of the peak
+colour at alpha 0.92 at each column's own top.
+
+The cap also fixes a real limitation in the shared-gradient design, worth
+recording separately. Every column samples ONE gradient spanning the full height
+range — that is what makes height map to colour — but it also means a column's
+tip lands wherever its height puts it, and **only a full-height column ever
+reaches the bright end of the ramp.** Short columns were all base colour, all the
+time. A cap at each column's actual top gives every one of them the same crisp
+lit edge regardless of height. It is the one part of a spectrum analyser's look
+that cannot come out of a shared vertical ramp.
+
+**Generalisable:** a neon tube is not a bright rectangle. It is a thin hot line
+with a close halo, and what makes it read as *light* rather than as paint is the
+dark gap beside it. When something is asked to glow more, check whether the lever
+being reached for raises brightness or raises coverage — they look the same in a
+constants diff and opposite on screen.
+
+*(A related premise in the task brief was inverted and is worth correcting here
+because it would send the next reader the wrong way: `lighter` does NOT push
+saturated colours toward white faster than muted ones. Additive blending clips
+the highest channels first, so a saturated hue — which by definition has one or
+two low channels — stays chromatic far longer than a pastel, whose three
+near-equal channels converge on 255 together. Measured after deliberately moving
+to a MORE saturated palette: zero full-white pixels, zero near-white, zero
+desaturated, across ~2.1M lit pixels in both themes.)*
+
+### D26 — a text-protection mask is tuned against a GEOMETRY, and silently fails when that geometry changes — **FOUND AND FIXED, Stage 7.1**
+
+The Stage 7 rebuild ended with the hero's type comfortably legible over the
+skyline: dark headline 12.62:1, tagline 5.29:1, from a seven-rect feathered mask
+at strengths 0.34 / 0.50 / 0.55.
+
+Stage 7.1 raised the column ceiling from 0.62 of the horizon to 0.809 and changed
+nothing about the mask. Re-measured:
+
+| dark theme | rebuild | same mask, new ceiling |
+|---|---|---|
+| headline | 12.62:1 | **2.68:1** |
+| tagline | 5.29:1 | **2.62:1** |
+| crate input | 10.71:1 | 12.21:1 |
+
+Nothing about the mask was wrong. Its falloff was still smooth, its coverage
+still correct, its shape still invisible. It was simply being asked to remove
+about twice as much as before: at the old ceiling the headline sat near the
+**transparent top** of the gradient, and at the new one the same band of the hero
+carries full-height column bodies, their tip caps at alpha 0.92, and both glow
+passes. The crate, low in the frame, barely moved — which is why a spot check of
+one element would have missed this entirely.
+
+**Fix, in two parts, and the second is the interesting one.**
+
+Strengths went to 0.80 / 0.78 / 0.60, which restored the numbers — and made the
+zones **visible**, as a soft oval of dimmed columns behind the headline with
+brighter columns either side. That is exactly the smudge the rebuild's
+three-attempt falloff work existed to eliminate, reintroduced by strength rather
+than by shape.
+
+So the shape changed instead: **every zone is now a full-width band.** A box has
+left and right edges, and at 0.8 they are plainly visible against a field of
+vertical bars. Extending each zone across the whole canvas leaves only the
+*vertical* falloff, which has no shape to find — it reads as atmospheric haze at
+that height rather than as a hole around the type. The feather widened 64 → 96px
+to match. Final: dark 12.50 / 6.74 / 12.68, light 14.92 / 7.05 / 10.06.
+
+**Generalisable:** any measured protection — a mask, a contrast floor, a safe
+area — is a fact about a *pair*: the protection and the thing it protects
+against. Changing either invalidates it, and the failure is silent because the
+mechanism still looks correct in the code. Every geometry change to this canvas
+should re-run the contrast pass, on all elements, not one.
 
 ---
 

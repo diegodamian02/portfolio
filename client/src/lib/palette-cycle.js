@@ -26,33 +26,33 @@
 // for its tip — and the two targets are per theme.
 
 /**
- * Seven neon hues, spread around the wheel so consecutive tracks read as
+ * Seven electric hues, spread around the wheel so consecutive tracks read as
  * obviously different rather than subtly different.
+ *
+ * Stage 7.1 moved these from *bright* to *electric*, which is a smaller change
+ * than it sounds and a different one than the brief described. Every entry in
+ * the previous list was already at HSL saturation 100% (mint at 92%) — nothing
+ * muted or earthy had been in rotation since 7c. What they actually were was
+ * **high-lightness**: aqua `#48D6FF`, violet `#A98CFF`, magenta `#FF6ED4` and
+ * coral `#FF8A6B` all sat at L 71–81%, which is where a fully saturated hue
+ * starts reading as a pastel. Dropping lightness at fixed saturation is what
+ * makes a colour read as neon.
+ *
+ * `gold` left the rotation and `azure` joined it. Warm coverage is carried by
+ * orange on its own now, and the ring was missing a true blue between cyan and
+ * violet — a 75-degree gap, the widest on the wheel.
  *
  * Deliberately NOT the vinyl pressing colours (`colorwayFor`) — those are
  * chosen to look like vinyl. Separate systems.
  */
 export const PALETTE = [
-    { name: "mint", hex: "#7CF9DE" },
-    { name: "aqua", hex: "#48D6FF" },
-    { name: "violet", hex: "#A98CFF" },
-    { name: "magenta", hex: "#FF6ED4" },
-    { name: "coral", hex: "#FF8A6B" },
-    { name: "gold", hex: "#FFC94D" },
-    { name: "lime", hex: "#B4FF6B" },
-];
-
-/**
- * The palette the Stage 7 brief names. Kept as an exported constant rather
- * than deleted so the comparison in STATUS.md can be re-run, and so the
- * decision to ship PALETTE instead is checkable rather than asserted.
- */
-export const BRIEF_PALETTE = [
-    { name: "wine", hex: "#A6335D" },
-    { name: "slate", hex: "#404D73" },
-    { name: "mint-pale", hex: "#BBF2ED" },
-    { name: "amber", hex: "#c97a1a" },
-    { name: "terracotta", hex: "#b3552a" },
+    { name: "mint", hex: "#7CF9DE" },       // kept by explicit request
+    { name: "cyan", hex: "#00E5FF" },       // was aqua #48D6FF (L 64%)
+    { name: "azure", hex: "#4C7DFF" },      // new — the ring had no true blue
+    { name: "violet", hex: "#9B4DFF" },     // was #A98CFF (L 77%)
+    { name: "magenta", hex: "#FF2BC0" },    // was #FF6ED4 (L 72%)
+    { name: "orange", hex: "#FF6B15" },     // was coral #FF8A6B (L 71%)
+    { name: "chartreuse", hex: "#C6FF29" }, // was lime #B4FF6B (L 71%)
 ];
 
 // Saturation floor, applied before the lightness solve — see the header.
@@ -98,15 +98,66 @@ const HSL_LIGHTNESS_MAX = 0.94;
 // legible direction is down, so the light band is a narrow one low in the
 // range: a light-theme column is deep ink at the base and saturated colour at
 // the tip — the same gradient read the other way up.
+// Stage 7.1 moved both dark-theme numbers, and the reason is a direct
+// consequence of going electric. A saturated hue is DARKER than its pastel
+// version — that is most of what "electric" means. Measured: the new entries
+// land at luminance 0.195 (violet), 0.234 (azure), 0.268 (magenta) and 0.318
+// (orange), all of them *below* the old peak floor of 0.34. Left alone, the
+// band would have lifted five of the seven straight back into the pastels this
+// change exists to remove.
+//
+// So the floor drops to 0.18 and the ceiling rises to 0.85, which is wide
+// enough that **all seven authored hexes pass through untouched** on dark
+// theme.
+//
+// The base then has to come down with it, and this is the part that is easy to
+// miss: at the old 0.16 the base would have been BRIGHTER than violet's own
+// peak (0.195), inverting the gradient for two of the seven entries. 0.085
+// keeps a visible ramp for the darkest hue (2.3x) without flattening the
+// brightest (9x for mint). A darker footing also makes the lit tip pop harder,
+// which is the actual ask.
 const LUMINANCE_TARGETS = {
-    dark: { base: 0.16, peak: { min: 0.34, max: 0.78 } },
-    light: { base: 0.11, peak: { min: 0.16, max: 0.34 } },
+    dark: { base: 0.085, peak: { min: 0.18, max: 0.85 } },
+    light: { base: 0.11, peak: { min: 0.14, max: 0.32 } },
 };
 
 // How long one palette step takes to cross over. Long enough to read as a
 // transition rather than a cut, short enough that it has finished well inside
 // a 30-second preview.
 const CROSSFADE_MS = 1400;
+
+// ---- the travelling wave (Stage 7.1) ----------------------------------------
+//
+// Until now every column showed the same hue pair at the same instant, so a
+// palette change was one colour swapping everywhere at once. The wave adds a
+// SPATIAL phase: what a column samples depends on the shared position AND on
+// its own horizontal index, so a band of colour travels across the skyline.
+//
+// It lives here rather than in the renderer because the renderer has no
+// business knowing what a palette entry is — decoupling the two is why this
+// module exists at all.
+//
+// Both numbers are expressed in PALETTE ENTRIES, not pixels or hues, so they
+// stay meaningful if the palette grows or shrinks.
+
+// How much of the ring is visible across the full hero width. At 1.15 you see
+// a little more than one palette step end to end: the left edge is mid-way
+// between two hues and the right edge is mid-way between the next two, which
+// reads as one travelling band rather than as a rainbow. Above ~2 it stops
+// looking like a wave and starts looking like a test pattern.
+const WAVE_SPAN_ENTRIES = 1.15;
+
+// How fast the band travels, in palette entries per second. 0.14 is one step
+// every ~7.1s, so a given hue takes about 8.2s to cross the hero — a lava-lamp
+// drift rather than a chase light. Slow enough that it never competes with the
+// columns' own audio-driven motion, which is the fast thing on screen.
+const WAVE_SPEED_ENTRIES_PER_SECOND = 0.14;
+
+// Continuous and one-directional, not a bounce. A ping-pong has two turning
+// points where the motion visibly stops and reverses, and on a ring — where
+// the last hue is adjacent to the first — there is no seam that would justify
+// one. Left to right, because the hero reads that way.
+const WAVE_DIRECTION = -1;
 
 // ---- colour maths -----------------------------------------------------------
 
@@ -279,9 +330,16 @@ export function createPaletteCycle({
     seed = Math.floor(Date.now() / 1000),
 } = {}) {
     const size = palette.length;
-    let index = ((seed % size) + size) % size;
+
+    // An UNBOUNDED step counter, not an index modulo `size`.
+    //
+    // The position is continuous now (the wave samples between entries), and a
+    // counter that wraps 6 -> 0 makes the crossfade run *backwards* through the
+    // whole ring on that one transition. Wrapping happens at sample time, in
+    // `ringLerp`, where it is a lookup rather than a direction.
+    let step = ((seed % size) + size) % size;
     let trackId = null;
-    let fadeFrom = index;
+    let fadeFrom = step;
     let fadeStartedAt = -Infinity;
 
     let cache = null; // { theme, entries: solved[] }
@@ -293,6 +351,36 @@ export function createPaletteCycle({
     };
 
     const at = (entries, i) => entries[((i % size) + size) % size];
+
+    /**
+     * One stop, at a FRACTIONAL ring position — the whole basis of the wave.
+     *
+     * Interpolating between adjacent solved entries rather than between two
+     * discrete palette steps is what lets a column sit anywhere on the ring,
+     * and it subsumes the old crossfade exactly: with no wave offset, a fade
+     * from step k to k+1 is `ringLerp` walking the same interval.
+     */
+    const ringLerp = (entries, position, key) => {
+        const wrapped = ((position % size) + size) % size;
+        const i0 = Math.floor(wrapped);
+        const t = wrapped - i0;
+        if (t === 0) return at(entries, i0)[key];
+        return mixRgb(at(entries, i0)[key], at(entries, i0 + 1)[key], t);
+    };
+
+    /** The shared position, eased through any crossfade in flight. */
+    const currentPosition = () => {
+        if (fadeStartedAt === -Infinity) return step;
+        const t = crossfadeMs > 0
+            ? smoothstep((now() - fadeStartedAt) / crossfadeMs)
+            : 1;
+        return fadeFrom + (step - fadeFrom) * t;
+    };
+
+    const stopsAt = (entries, position) => ({
+        base: ringLerp(entries, position, "base"),
+        peak: ringLerp(entries, position + 1, "peak"),
+    });
 
     const api = {
         /**
@@ -306,8 +394,11 @@ export function createPaletteCycle({
             const first = trackId === null;
             trackId = id;
             if (first) return false;
-            fadeFrom = index;
-            index = (index + 1) % size;
+            // Resume from wherever the eased position actually is, not from the
+            // last landed step — otherwise a track change during a crossfade
+            // snaps backwards before moving on.
+            fadeFrom = currentPosition();
+            step += 1;
             fadeStartedAt = now();
             return true;
         },
@@ -315,27 +406,49 @@ export function createPaletteCycle({
         /**
          * The two gradient stops for this instant, in a given theme.
          *
-         * `base` and `peak` are already theme-solved and crossfaded — the
-         * consumer does no colour maths at all.
+         * `offset` moves along the ring in palette entries; the renderer passes
+         * a column's own wave phase there. Omitted, this is exactly the
+         * pre-wave behaviour.
          */
-        sample(theme) {
+        sample(theme, offset = 0) {
             const entries = solved(theme);
-            const t = crossfadeMs > 0
-                ? smoothstep((now() - fadeStartedAt) / crossfadeMs)
-                : 1;
-
-            const fromBase = at(entries, fadeFrom);
-            const fromPeak = at(entries, fadeFrom + 1);
-            const toBase = at(entries, index);
-            const toPeak = at(entries, index + 1);
-
+            const position = currentPosition() + offset;
+            const { base, peak } = stopsAt(entries, position);
+            const settled = Math.round(((position % size) + size) % size);
             return {
-                base: t >= 1 ? toBase.base : mixRgb(fromBase.base, toBase.base, t),
-                peak: t >= 1 ? toPeak.peak : mixRgb(fromPeak.peak, toPeak.peak, t),
-                baseName: toBase.name,
-                peakName: toPeak.name,
-                fading: t < 1,
-                t,
+                base,
+                peak,
+                baseName: at(entries, settled).name,
+                peakName: at(entries, settled + 1).name,
+                position,
+                fading: fadeStartedAt !== -Infinity && currentPosition() !== step,
+            };
+        },
+
+        /**
+         * Everything the renderer needs to draw one frame of the travelling
+         * wave, and nothing about how to draw it.
+         *
+         * `sample` is a pure function of ring position, so the renderer can
+         * pre-build a fixed set of gradients tiling the ring ONCE and then do
+         * nothing per frame but pick one per column. That is the difference
+         * between 44 `createLinearGradient` calls every frame and none.
+         *
+         * `version` changes only when the solved colours change — i.e. on a
+         * theme flip — and is the renderer's cache key.
+         *
+         * `atMs` is passed in rather than read from the clock so a caller can
+         * ask for a specific instant. Reduced motion asks for 0.
+         */
+        waveState(theme, atMs = now()) {
+            const entries = solved(theme);
+            const travel = WAVE_DIRECTION * (atMs / 1000) * WAVE_SPEED_ENTRIES_PER_SECOND;
+            return {
+                version: `${theme}:${size}`,
+                ringSize: size,
+                position: currentPosition() + travel,
+                span: WAVE_SPAN_ENTRIES,
+                sample: (position) => stopsAt(entries, position),
             };
         },
 
@@ -350,16 +463,26 @@ export function createPaletteCycle({
     if (import.meta.env.DEV) {
         /** Forces the position, for dev sweeps and the screenshot harness. */
         api.setIndex = (i) => {
-            index = ((i % size) + size) % size;
-            fadeFrom = index;
+            step = ((i % size) + size) % size;
+            fadeFrom = step;
             fadeStartedAt = -Infinity;
         };
         api.solvedFor = (theme) => solved(theme);
+        /** The stops at an arbitrary ring position — used to trace the wave. */
+        api.stopsAtRing = (theme, position) => stopsAt(solved(theme), position);
         Object.defineProperties(api, {
-            index: { get: () => index },
+            index: { get: () => ((step % size) + size) % size },
+            position: { get: () => currentPosition() },
             trackId: { get: () => trackId },
             size: { get: () => size },
             palette: { get: () => palette },
+            wave: {
+                get: () => ({
+                    span: WAVE_SPAN_ENTRIES,
+                    speedEntriesPerSecond: WAVE_SPEED_ENTRIES_PER_SECOND,
+                    direction: WAVE_DIRECTION,
+                }),
+            },
         });
     }
 
