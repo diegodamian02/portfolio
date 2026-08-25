@@ -2423,6 +2423,206 @@ same timescale as the thing it measures is not adaptive, it is a
 self-cancelling comparison. The baseline's time constant has to be an order of
 magnitude longer than the events being detected.
 
+### B57 — the display pass normalised hue by a CLAMPED peak, so the brightest dye desaturated toward white while its halo stayed transparent: the fluid rendered as grey haze instead of light — **FOUND AND FIXED, Stage 7c**
+
+Present since 7a and invisible as a defect until 7c asked the background to
+look like something. The display shader did:
+
+```glsl
+float a = clamp(max(c.r, max(c.g, c.b)), 0.0, 1.0);
+vec3 hue = a > 0.001 ? c / a : vec3(0.0);
+```
+
+Dividing by the *clamped* peak is the standard way to get a hot core — a
+channel past 1.0 stays past 1.0 and clips toward white. Every reference fluid
+demo does it, which is why it survived three stages unexamined.
+
+It is wrong for a background composited with straight alpha over a page,
+because it damages both halves of the result at once. In the core, dividing
+by a clamp desaturates toward white — so the brightest dye is the *least*
+coloured. In the halo, where the peak is below 1.0, the divide is a no-op and
+alpha stays low — so the coloured part is the transparent part. The visitor
+sees a washed-out grey smear with no saturated region anywhere.
+
+Measured side by side at identical dye levels, same track, same moment:
+
+| Denominator | peak | coverage ≥25% | reads as |
+|---|---|---|---|
+| clamped peak (7a/7b) | 0.37 | 2.6% | fog |
+| true peak | 0.70 | 20% | light |
+
+**Fix.** Divide by the true peak: `hue = c / peak`. The rendered hue is then
+exactly the palette colour at every texel and density shows up purely in
+alpha, so an over-full field goes more *opaque* rather than whiter.
+
+This was first implemented as a per-theme `uBlowout` uniform, on the
+hypothesis that dark theme wanted the hot core and only light theme could not
+afford it. The measurement said both themes wanted the same thing, so the
+uniform was **deleted** rather than shipped pinned to one value in both
+callers — a knob that only ever takes one value is a false affordance.
+
+**Generalisable:** technique defaults are tuned for the context they were
+demonstrated in. A fluid demo renders onto its own black canvas, where
+clipping to white is a highlight; composited over an arbitrary page with
+straight alpha, the same operation is a desaturation. This is the third time
+in Stage 7 that a published constant or idiom was right for its own regime and
+wrong for this one (B53, B55, and now this).
+
+### B58 — both audio envelopes started at zero, so every track's first five seconds read as a quiet track having a seizure — **FOUND AND FIXED, Stage 7c**
+
+7c drives the fluid's character from two envelopes over broadband RMS: a fast
+one (~50ms) and a slow one (~3.3s). `energy` is the slow one normalised;
+`punch` is the ratio of fast to slow.
+
+Both were initialised to 0. With a 3.3s time constant, the slow envelope needs
+roughly five seconds to reach a track's real level — so for that whole opening
+`energy` sat pinned at its 0.30 floor while `punch`, being fast/slow, read
+**3.7** on completely ordinary material. Measured on Daft Punk at 4s in:
+`energy 0.30, punch 3.71` where the settled values are `0.81` and `~1.2`.
+
+Every track therefore began by rendering as maximally soft *and* maximally
+transient at the same time — the two things the model is supposed to
+distinguish, both wrong, in the exact window a visitor is most likely to be
+watching, since it starts the moment they press play.
+
+**Fix.** Prime both envelopes from the first real sample rather than letting
+them climb from zero.
+
+**Generalisable, and this is B55 one level up:** B55 was the wrong *time
+constant* for a baseline. This is the right time constant with the wrong
+*starting point*. Any smoothed baseline used as a comparison denominator has
+two parameters, and a long time constant makes the initial condition matter
+for exactly as long as it makes the baseline stable.
+
+### B59 — the "transient detector" fired on 57–85% of frames, making it a metronome the cadence gate was silently doing the work of — **FOUND AND FIXED, Stage 7c**
+
+`PUNCH_TRIGGER` — the fast/slow envelope ratio that counts as a beat worth a
+splat — was set to 1.16, by analogy with 7b's `BASS_TRIGGER_RATIO` of 1.18.
+
+Measured across four deliberately different tracks, the fraction of frames
+exceeding 1.16 was **0.65, 0.85, 0.57, 0.57**. A detector that says yes most
+of the time is not detecting anything; the refractory interval behind it was
+deciding every splat, so the "beat-driven" field was actually a metronome
+running at the cadence rate.
+
+The cause is distributional. RMS over a 5ms window is heavily right-skewed, so
+the fast envelope rides the peaks and sits well above the slow mean even on
+perfectly steady material — mean punch measured 1.20–1.69 across the four
+tracks, *above* the trigger. 1.16 was chosen against an intuition that steady
+material sits at 1.0.
+
+**Fix.** 1.45, above the skew, with the sparse-material fallback re-expressed
+as a multiple of the current cadence (2.2×) rather than 7b's fixed 620ms — a
+fixed floor drops five sixths of the beats on a 110ms-cadence track and fires
+between beats on a 420ms one.
+
+**Generalisable:** before setting a threshold on a derived ratio, measure what
+that ratio actually does on real input. The value 1.16 is defensible from the
+model and indefensible from the data, and only one of those was checked.
+
+### D15 — a full-bleed animated background and readable hero text are in direct tension, and dimming the whole field is the wrong resolution — **RESOLVED, Stage 7c**
+
+Recorded because it will recur: `#my-taste`'s visualizer and `#projects`' record-crate
+scrub (ROADMAP Stage 7c+) put moving colour behind text the same way.
+
+Measured over 16 seconds of one track at the amplitude that makes the hero
+look alive, taking the worst frame for each element:
+
+| | worst contrast |
+|---|---|
+| nav links | **1.1 : 1** |
+| headline | **2.4 : 1** |
+| tagline | 6.7 : 1 |
+
+The obvious response — dim the field until its worst case is safe — is what
+makes backgrounds like this look timid, and it is a bad trade on the
+arithmetic alone: text occupies roughly a fifth of the hero and would set the
+ceiling for all of it.
+
+**Resolution.** Hold the dye back *only over the boxes that carry text*, in
+the display shader, with both boxes measured from the live DOM rather than
+hardcoded (`uCalmA`/`uCalmB`, separable smoothsteps, 0.075 feather). Retained
+fractions derived from compositing, not taste: near-white text over dye at
+alpha *a* sits at 5.2:1 for a = 0.4 and 3.9:1 at 0.5, so 0.4 is the last value
+clearing 4.5:1 for small text. Navbar keeps 0.34, the text column 0.44 (the
+headline is 4.5rem and needs only 3:1). Result on the same window: nav
+**16.9:1**, headline **16.8:1**, tagline 6.5:1, crate 16.2:1.
+
+Measuring from the DOM rather than hardcoding is what makes it survive the
+mobile layout, where the text stacks above the deck and a desktop-derived
+rectangle would mask empty space while leaving the text exposed.
+
+**Generalisable:** when a background and its foreground conflict, mask the
+background where the foreground is, not everywhere. And derive the mask's
+geometry from the layout that actually shipped.
+
+### B56 — `SplitText` rewrites the `#my-taste` kicker's DOM while React still renders a child into it, and the next React update takes the whole page down — **FOUND, NOT FIXED (outside Stage 7c's scope), reproduces in the production build**
+
+Found incidentally while running Stage 7c's light-theme fluid sweeps: the
+entire React tree unmounted mid-run and the hero canvas disappeared with it.
+Not a fluid bug — the fluid was the thing that noticed.
+
+`my-taste.jsx` renders the section kicker as:
+
+```jsx
+<a className="my-taste-heading-link" ref={kickerRef}>
+    <AvatarSlot imageUrl={avatar.imageUrl} … />
+    my taste
+    …
+</a>
+```
+
+and then, in its GSAP cascade, calls
+`new SplitText(kickerRef.current, { type: "words" })`.
+
+SplitText replaces that element's contents with its own generated word spans.
+React is not told. `AvatarSlot` is a React child of the same element and
+returns `null` until the Spotify profile fetch resolves — so when the avatar
+lands (or fails, or the `theme` state changes and the section re-renders),
+React tries to insert into a DOM it no longer has an accurate record of and
+throws `Failed to execute 'insertBefore' on 'Node'`. There is no error
+boundary, so **the whole app unmounts** — a blank page, not a degraded one.
+
+The source comment right above `AvatarSlot` says it is *"Not part of
+kickerRef's SplitText pop (that only ever touched the surrounding TEXT
+nodes)"*. That is the actual defect: SplitText takes an ELEMENT, not a
+selection of nodes, and rewrites everything inside it. The comment describes
+the intent; the call does something else.
+
+**It is a race, which is why it looks intermittent and theme-specific.**
+Whether the avatar fetch resolves before or after the cascade runs decides
+whether it crashes. Measured on the current tree:
+
+| Build | Trigger | Result |
+|---|---|---|
+| dev (5173) | load with `theme=light` already stored, no interaction | **tree unmounted** |
+| dev | load dark, no interaction | fine |
+| dev | load dark, toggle to light | fine |
+| production build on 5173 | load dark, toggle to light | **tree unmounted** |
+| production build on 5173 | load light, scroll to `#my-taste` | **tree unmounted** |
+| production build on 5173 | load light, no interaction | fine |
+| live `diegodamian.com` | both themes, no interaction | fine |
+
+Light theme is not the cause — it is a re-render trigger (`my-taste.jsx`'s
+own `theme` state) that happens to lose the race more often. Dark theme wins
+the same race by timing, not by design.
+
+The live site not reproducing is **not** evidence it is safe: different
+network latency on the avatar fetch moves the race, and the two crashing rows
+above are the bundle that would be deployed next.
+
+**Fix shape (one line, not applied here — different section, and it is a real
+call about who owns that subtree).** Either give SplitText an element that
+React does not render into — wrap just the literal text in its own
+`<span ref={kickerRef}>` and leave `<AvatarSlot>` outside it — or hold the
+cascade until `avatar.status` has resolved. The first is preferable: it makes
+the ownership boundary explicit rather than depending on ordering.
+
+**Generalisable, and this codebase now has two instances of it:** any library
+that rewrites DOM in place (SplitText, Flip, third-party widgets) must be
+pointed at a subtree React does not also render into. "It only touches the
+text nodes" is not a property SplitText has.
+
 ### D14 — a scroll captured by a section's own hold can only be released by that section's own escape hatch, and only programmatic scrolls trigger it
 
 Found while re-capturing `#projects`' screenshots (Stage 3 Task 10), not a live-visitor

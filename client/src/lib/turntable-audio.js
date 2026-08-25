@@ -81,7 +81,16 @@ export function init() {
 
         analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.8;
+        // Lowered from the 0.8 Stage 7 was built against. That default is
+        // tuned for a spectrum ANALYSER DISPLAY, where the job is a steady
+        // readable bar graph, and it averages each bin over roughly a quarter
+        // of a second — which is longer than a kick drum. The fluid reads
+        // this to decide what counts as a transient, so the smoothing was
+        // erasing exactly the events it was being asked to detect. 0.55 still
+        // suppresses per-frame FFT noise without flattening the attack.
+        //
+        // Nothing else reads the analyser.
+        analyser.smoothingTimeConstant = 0.55;
 
         masterGain.connect(ctx.destination);
         // Tap only — an AnalyserNode processes whatever reaches it and does not

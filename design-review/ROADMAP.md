@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-24, Stage 7b — fluid presence-gating + audio)*
+## 0. Current state — quick summary *(updated 2026-08-24, Stage 7c — fluid vibrancy, energy, roaming)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -422,6 +422,49 @@ to fire). Real-GPU frame timing, which 7a flagged as owed to this task, is
 60fps with zero frames over 20ms on an Apple M2. Full writeup: `STATUS.md`'s
 own dated entry.
 
+**Also 2026-08-24 (Stage 7c) — the fluid now looks like something.** Direct
+feedback on 7b as it shipped: the waves were "very subtle", the colours needed
+to be "vibrant and catch the person", the field should "take the entire hero
+background to roam around", energy should follow the song, and the colour
+should change per track — with "fading neon, bright mint, glowing" and no dark
+colours in either theme. All of that is a fair reading: 7b's numbers were about
+synchrony and gating, and none of them were about how it looked.
+
+Five changes. **Bloom** in the display pass (dye without a glow reads as fog).
+A **seven-hue neon palette** — mint, aqua, violet, magenta, coral, gold, lime —
+solved into a per-theme luminance BAND rather than to a single target, which
+lifts only the hues that need it and leaves the authored neon alone; all
+fourteen colour × theme combinations rendered. **One colour per track**,
+advancing on the id inside the same synchronous handler the burst fires from —
+this replaces 7b's free-running wall clock, which made colour a property of
+*when* you pressed play. An **energy model** off broadband RMS with fast/slow
+envelopes, so soft tracks get big slow swells and punchy ones tight frequent
+ones (measured: energy 0.30/0.79/0.95 across three previews, radius 2.81 →
+2.04, cadence 310ms → 105ms). And **three roaming emitters** plus dye-free
+"current" splats, so the field crosses the whole hero instead of pooling at the
+deck.
+
+The one place two goals genuinely conflicted is recorded as `FINDINGS.md` D15:
+at the amplitude that makes the hero look alive, the nav links measured
+**1.1:1**. Resolved by holding the dye back only over the boxes that carry
+text, measured from the live DOM — nav is **17.0:1** after, with the field
+brighter everywhere else. Also `FINDINGS.md` B57 (the display pass normalising
+by a clamped peak, which is why every earlier version read as haze), B58
+(both audio envelopes starting at zero, so every track's first five seconds
+read as a quiet track having a seizure) and B59 (a "transient detector" firing
+on 57–85% of frames). Real-GPU cost is **1.94ms per step** against a 16.67ms
+60Hz budget — measured through a readback, because rAF timing reported the
+display's refresh rate and `gl.finish()` reported 0.02ms. Full writeup:
+`STATUS.md`'s own dated entry.
+
+> **Found while doing this, NOT fixed, and it should not wait:**
+> `FINDINGS.md` **B56** — `#my-taste` hands an element to GSAP `SplitText`
+> that React also renders a child into, and when the Spotify profile fetch
+> resolves React throws `insertBefore` and **the entire page goes blank**.
+> Reproduces in the production build (load dark → toggle to light; or load
+> light → scroll to `#my-taste`). Live does not currently reproduce, which is
+> timing, not safety. One-line fix shape is in the finding.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -433,8 +476,8 @@ own dated entry.
 | **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
 | **6 (Phase 9)** | ~~Pitch fader~~ — **done, above.** | — |
 | **6 (Phases 8, 10)** | Turntable delight remainder — scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
-| **7 (a, b)** | ~~Hero fluid background + presence-gating and audio routing~~ — **done, above.** | — |
-| **7 (c+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done; 7a/7b — done |
+| **7 (a, b, c)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy/roaming pass~~ — **done, above.** | — |
+| **7 (d+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done; 7a/7b — done |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
 
 **Standing manual tasks (not code — need dashboard access), highest priority first:**

@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-24 (Stage 7b — fluid presence-gating + audio routing, on top of
-Stage 7a's solver) · **HEAD:** `7c71c26`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-24 (Stage 7c — fluid vibrancy, energy model, roaming, one
+colour per track) · **HEAD:** `c89478b`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -4834,14 +4834,472 @@ and still its own one-line fix.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-24)*
+### Stage 7c — fluid: vibrancy, energy, roaming, one colour per track *(2026-08-24)*
+
+Not a brief this time — direct feedback on 7b as it actually looked live:
+
+> *"when i play the records and some songs are punchy there are very subtle
+> waves of color coming out behind the deck. This is meh, the colors has to be
+> vibrant and catch the person who is playing a song. Also make sure to match
+> the energy of the song… the liquid waves should take the entire hero
+> background to roam around and follow the flow of the song too! We switch
+> color per different track too!… in the dark background some colors are barely
+> visable and in the light background too. Stay away from darker colors, keep
+> emphazis on fading neon, bright mint, glowing effects in the waves so it
+> looks etheral."*
+
+Every one of those is a fair reading of what 7b shipped. 7b was verified on
+the things it set out to do — synchrony, gating, correlation with the analyser
+— and all of those numbers were real. None of them were about whether it
+looked like anything. It did not.
+
+**On the offer to use a library.** Declined, and worth saying why rather than
+leaving it implied: what was missing was a bloom pass and a colour model, not
+a solver. Bringing in three.js or ogl would have meant rewriting the working
+7a solver against someone else's abstractions to obtain about eighty lines of
+shader this file could just contain. The bundle cost is the smaller argument;
+the larger one is that 7a's whole rationale — own primitives, the same call as
+raw SVG for the strobe ring — would have been reversed for no capability.
+
+---
+
+#### 1. Bloom — why the field read as fog
+
+A fluid solver produces soft-edged density. Composited straight onto the page,
+soft-edged density is *fog*: it has no bright core, so nothing about it reads
+as light. Every version through 7b did exactly that.
+
+`fluid-sim.js` now runs a standard threshold → downsample → additive-upsample
+bloom chain between advection and display: prefilter at a 0.32 soft-knee
+threshold into a 256-short-edge RGBA16F target, six halvings down, additive
+blur back up. RGBA16F throughout and not RGBA8 for a specific reason — the
+prefilter's entire job is to isolate values *above* 1.0, which an 8-bit target
+cannot represent and would clamp away.
+
+**A hypothesis that measured wrong, and got deleted rather than kept.** The
+display pass had divided hue by the *clamped* peak since 7a, so an over-full
+channel clipped toward white — the standard "hot core inside a coloured halo"
+every reference fluid demo uses. I extended that into a per-theme `uBlowout`
+uniform on the theory that dark theme wanted the hot core and light theme
+never could. Rendered side by side at identical dye levels:
+
+| Display path | peak | coverage ≥25% | looks like |
+|---|---|---|---|
+| divide by clamped peak (7a/7b behaviour, `uBlowout: 1`) | 0.37 | 2.6% | grey haze |
+| divide by true peak (`uBlowout: 0`) | 0.70 | 20% | light |
+
+Dividing by a clamp desaturates the core *and* leaves the halo's alpha low —
+the bright part goes white while the coloured part stays transparent. Both
+themes wanted the same answer, so the uniform is gone rather than shipped as a
+knob pinned to one value in both callers.
+
+`stage7c-display-clamped-haze.png` and `stage7c-display-normalised.png` show
+the difference. Note these two are an illustration, not the controlled A/B —
+bloom intensity differs between them as well; the controlled comparison is the
+table above, where only the denominator changed.
+
+Normalising by the true peak has a second consequence worth stating: the
+rendered hue is now *exactly* the solved palette colour at every texel, never
+a lighter version of it. Dye density shows up purely as alpha.
+
+#### 2. The palette — seven neon hues, solved into a band per theme
+
+7b's five (wine, slate, terracotta, amber, mint) are gone. Three of the five
+were dark, which is the worst possible property here: dark dye on a near-black
+page has nowhere to go, and B54's contrast pass had to lighten wine, slate and
+terracotta so far to rescue them that they arrived as pastels anyway.
+
+Seven now, spread around the wheel so consecutive tracks are obviously rather
+than subtly different: **mint `#7CF9DE`, aqua `#48D6FF`, violet `#A98CFF`,
+magenta `#FF6ED4`, coral `#FF8A6B`, gold `#FFC94D`, lime `#B4FF6B`.** Still
+fluid-only — deliberately not routed through `colorwayFor()` or the vinyl
+pressings, which are record colours.
+
+`adaptForContrast()` (7b) is replaced by `adaptNeon()`. The old one mixed
+toward white on a dark page and toward black on a light one, which is correct
+contrast arithmetic and wrong colour: mixing toward white desaturates, and
+mixing toward black produces exactly the dark dye this stage was asked to
+eliminate. The new one pins saturation at a 0.92 floor **first** — so the
+solve cannot satisfy a luminance bound by draining the colour, which every hue
+will do if allowed — then binary-searches HSL *lightness* only.
+
+**The band, not a target — the first attempt was wrong in an instructive way.**
+Solving each colour to a single luminance equalises by dragging the luminous
+hues *down* as hard as it lifts the dim ones up. At a 0.45 target, `#7CF9DE`
+came out `#08CAA0`: the authored bright mint destroyed by the arithmetic meant
+to protect it. A band only acts on colours outside it, so most of the palette
+passes through untouched:
+
+Solved against the live `--bg-color` in the running page, not against a
+literal — measured values, with the per-colour alpha the intensity solve
+derives for each:
+
+| | dark, band [0.42, 1.0] | intensity | light, band [0.20, 0.48] | intensity |
+|---|---|---|---|---|
+| mint | `#7bfade` *(untouched)* | 0.493 | `#09d0a5` | 0.843 |
+| aqua | `#48d6ff` *(untouched)* | 0.676 | `#04c7ff` | 0.843 |
+| violet | `#b79fff` *(lifted)* | 0.915 | `#a98cff` *(untouched)* | 0.648 |
+| magenta | `#ff81da` *(lifted)* | 0.915 | `#ff6ed4` *(untouched)* | 0.680 |
+| coral | `#ff8f71` *(lifted)* | 0.915 | `#ff8a6b` *(untouched)* | 0.723 |
+| gold | `#ffc94d` *(untouched)* | 0.602 | `#f4aa00` | 0.843 |
+| lime | `#b4ff6b` *(untouched)* | 0.464 | `#67d000` | 0.843 |
+
+Four of seven pass through untouched in dark theme and three in light — the
+band doing only the work it has to.
+
+The bands are asymmetric because the backgrounds are: from near-black there is
+a whole scale above, so dark theme needs a floor and no ceiling; from
+near-white the only direction is down. Where the light ceiling sits is a real
+trade — lower is more legible and less neon — and 0.48 is where violet,
+magenta and coral still pass through untouched.
+
+`dyeIntensityFor()` survives and now does the job it was always for: the
+remaining luminance spread is equalised in **alpha**, which costs no colour.
+In dark theme its output ranges 0.46 (lime) to 0.92 (violet/magenta/coral) —
+a 2× spread that a single multiplier would have got wrong for five of seven.
+
+All **fourteen** colour × theme combinations were rendered and measured, not
+spot-checked — `stage7c-palette-{theme}-{name}.png`.
+
+**The "hue is exactly the palette colour" claim, checked rather than asserted.**
+The dark-coral capture looked *pink* rather than salmon, which would have meant
+the display pass was shifting hue. Sampling the brightest 1% of a
+pure-background region of the live canvas:
+
+| | solved | rendered |
+|---|---|---|
+| coral | `#ff8f71` | `#fe8e71` |
+| magenta | `#ff81da` | `#fe80d9` |
+| mint | `#7bfade` | `#7efee2` |
+
+Within a bit or two — the claim holds. The pink impression was the *low-alpha*
+regions: coral at ~30% over a blue-black page composites to mauve, which is
+correct alpha blending rather than a hue error. (A first attempt at this
+measurement sampled a region that included the opaque turntable and reported
+`#e2a098`, which is the deck, not the fluid.)
+
+#### 3. One colour per track
+
+7b derived the palette index from a free-running wall clock
+(`floor(now / 21s) % n`). That was a deliberate choice at the time and it is
+simply the wrong one for what the palette now says: it made colour a property
+of *when* you pressed play. A long track drank through the whole palette while
+the same song played, and two different records started in the same colour
+whenever they were started inside the same 21 seconds.
+
+The index now advances on the first play of a track whose id differs from the
+last one's, read from `audio.getState().trackId` inside the same synchronous
+`onDeckState` handler the burst fires from. Advancing sequentially rather than
+hashing the id is deliberate: it *guarantees* consecutive tracks differ, which
+a hash cannot promise. The initial index is seeded from the clock once, so a
+first visit is not always mint.
+
+Precisely — and this is stated because the first version of this note got it
+wrong — **the colour is a property of the change, not of the track.** Only the
+previous id is remembered, so pausing and resuming the same record keeps its
+colour, but returning to a record after playing others gives it a new one.
+Verified: `violet -> magenta -> coral -> gold`, then `gold` again on going back
+to the first record. Keying a `Map` on track id would make colour stick to the
+record permanently and was rejected deliberately — once more than seven records
+have been played the stored indices wrap, and two consecutive plays could then
+land on the same colour, which is the one guarantee this exists to provide.
+
+#### 4. Energy — measured on real tracks, not guessed
+
+7b drove everything from the bass band, which is a statement about arrangement
+rather than about energy: a sparse track with a big kick read as more
+energetic than a dense one without one. 7c reads broadband RMS off
+`getByteTimeDomainData` and splits it into two envelopes:
+
+- **energy** — the slow envelope (~3.3s), normalised. Sets the *character*:
+  cadence, wave size, current strength, how fast the emitters travel.
+- **punch** — fast (~50ms) over slow. A ratio, so it is independent of the
+  master's level and a quiet track's transients still count as transients.
+
+`ENERGY_REFERENCE_RMS` was measured rather than picked. The finished
+behaviour, one browser per track, reading the track title off the transport
+rather than trusting the query typed:
+
+| Preview clip | slow env | energy | splat radius | force | cadence | field ≥25% |
+|---|---|---|---|---|---|---|
+| *Enter Sandman* (clean intro) | 0.021 | **0.30** (floor) | 3.17 | 453 | 310ms | 0.34 |
+| *Don't Know Why* | 0.078 | **0.71** | 3.09 | 983 | 181ms | 0.47 |
+| *One More Time* | 0.094 | **0.86** | 2.47 | 717 | 129ms | 0.50 |
+
+(Single 5-second samples of a field that breathes — the *directions* are the
+result, not the third decimal.) Radius falls as energy rises (3.17 → 2.47),
+cadence tightens (310ms → 129ms),
+and force follows punch rather than loudness — which is why *Don't Know Why*,
+a quiet master with real transients, throws the hardest splats of the three.
+That is the model doing what it was built to do.
+
+7b's bass band is gone from this path entirely. It survived the first 7c
+rewrite still being computed every frame while feeding nothing but the debug
+object, which was deleted before shipping — a signal with no consumer reads,
+on the next pass through the file, as something load-bearing. Treble still
+earns its place: it tightens cadence and widens scatter.
+
+The first value tried was 0.17, off the top of my head, and it collapsed the
+whole range into "quiet".
+
+**A measurement of my own that was simply wrong, and how it was caught.** An
+earlier pass reported *Enter Sandman* as the loudest of the set at 0.134 and
+*Don't Know Why* as the quietest at 0.021 — the exact inverse of the table
+above. That harness looped several queries through one page, pressed the
+transport after each selection, and labelled each result with **the query it
+had typed** rather than the track actually loaded. Selecting a record in the
+crate already drops the needle (Stage 1's own choreography), so pressing the
+transport *paused* it, and the retry logic sometimes left the previous track
+playing. The numbers were real; the labels were not. `ENERGY_REFERENCE_RMS`
+happens to be well-calibrated at 0.11 either way, which is luck, not method.
+
+It also surfaces something worth knowing about this feature generally: **the
+model responds to the 30-second preview clip, not to the song's reputation.**
+*Enter Sandman*'s preview is its clean guitar intro, and it correctly reads as
+low-energy. That is right, not a bug — the fluid should match what is
+audible.
+
+Soft tracks get **bigger, slower, gentler** waves and punchy ones get tighter,
+harder, more frequent ones. The inverse radius relationship is the point: a
+gentle track rendered as small weak blobs looks broken, and rendered as slow
+wide swells looks calm.
+
+**Three fixes the measurement forced:**
+
+- **Envelope priming.** Starting the slow envelope at 0 meant it needed ~5s to
+  reach the track's real level, so `energy` sat at its floor and `punch` read
+  **3.7** on ordinary material for the whole opening — every track began
+  looking like a quiet track having a seizure. Both envelopes are now primed
+  from the first real sample. Same class as B55 one level up: not the wrong
+  time constant, the wrong starting point.
+- **`PUNCH_TRIGGER` 1.16 → 1.45.** At 1.16 the "transient detector" fired on
+  **57–85%** of frames across the four tracks — a detector that says yes most
+  of the time is a metronome, and the cadence gate behind it was doing all the
+  work. RMS over a 5ms window is heavily skewed, so the fast envelope rides
+  the peaks and sits well above the mean even on steady material.
+- **The forced-gap fallback is now a multiple of the cadence** rather than a
+  fixed 620ms. A fixed floor is wrong at both ends: on a driving track (110ms
+  cadence) it drops five sixths of the beats; on a ballad (420ms) it fires
+  between beats that were already sparse.
+
+`turntable-audio.js`'s `analyser.smoothingTimeConstant` also dropped **0.8 →
+0.55**. 0.8 is tuned for a spectrum *display*, where the goal is a steady
+readable bar graph; it averages each bin over roughly a quarter of a second,
+which is longer than a kick drum. The fluid reads that data to decide what
+counts as a transient, so the smoothing was erasing exactly the events it was
+being asked to detect. Nothing else reads the analyser. (Time-domain data,
+which the RMS uses, is unaffected by this constant.)
+
+#### 5. Roaming — the field crosses the whole hero
+
+Three emitters wander the full canvas on a sum of two sine pairs per axis at
+incommensurate frequencies, so the path never resolves into the obvious
+figure-eight a single Lissajous traces. Splats fire wherever the chosen
+emitter is, thrown along its **direction of travel** — which is what turns
+discrete injections into something that reads as a moving wave rather than a
+sequence of blots. The emitters travel on *energy-scaled* time, so the flow
+follows the song rather than running at a fixed speed underneath it, and the
+pitch fader drags it along too.
+
+7b anchored every splat at the deck on the grounds that the deck is the source
+of the sound. That is right, and the whole hero being in play is also right,
+so `DECK_SPLAT_SHARE = 0.34` splits the difference. **The burst stays entirely
+deck-anchored** — it is the needle-contact moment and has to come from the
+needle.
+
+New in the solver: **velocity-only splats** (`{ velocityOnly: true }`). Wide,
+dye-free pushes fired every ~1.5s that drag whatever colour is already in the
+field across the hero. Injecting dye as well would defeat the point — the
+current's job is to *move* colour, and a wide low-dye splat on top of that
+just fogs the canvas evenly.
+
+`DENSITY_DISSIPATION` 0.85 → **0.7** and `VELOCITY_DISSIPATION` 0.2 → **0.09**.
+Not a re-litigation of B53 — a change in what the field is asked to do. A
+parcel of colour now has to survive long enough to cross a 1200px hero, and a
+current that dies in half a second cannot carry it.
+
+**A measurement trap worth recording.** 0.42 was the first landing, and the
+sweeps that produced it were meaningless: they sampled at ten seconds, and at
+that dissipation the field was still *filling* thirty seconds in. Every combo
+was measured mid-transient and the results looked random — one row showing
+peak 0.30 and the next, at 1.4× the amplitude, showing 0.97. **Equilibrium
+level, not decay rate, is what a sweep of a continuously-injected field has to
+measure**, and reaching it takes several time constants. Re-run at 22s of
+settled playback, the ordering was monotonic and obvious.
+
+#### 6. The legibility trade — and where it was resolved
+
+This is the one place two things the feedback asked for could not both be had,
+so it is worth being explicit rather than quietly picking one.
+
+At the amplitude that makes the hero look alive, measured over 16 seconds of a
+track at its worst moment:
+
+| | worst contrast, unmasked |
+|---|---|
+| nav links | **1.1 : 1** |
+| headline | **2.4 : 1** |
+| tagline | 6.7 : 1 |
+
+That is a recruiter landing on an unreadable page — the one failure this site
+cannot have. The obvious fix, dimming the whole field until the worst case is
+safe, is what makes a background like this look timid: text occupies maybe a
+fifth of the hero and would have set the ceiling for all of it.
+
+So the fluid runs bright everywhere and is held back only over the two boxes
+that carry text, in the display shader (`uCalmA`/`uCalmB`, separable
+smoothsteps, 0.075 feather). Both boxes are **measured from the live DOM**,
+not hardcoded — the navbar strip, and the union of `.hero-content` and
+`.record-crate` — so the stacked mobile layout masks its own boxes rather than
+a desktop guess.
+
+The retained fractions come from compositing arithmetic, not taste: near-white
+text over dye at alpha *a* sits at 5.2:1 for a = 0.4 and 3.9:1 at 0.5, so 0.4
+is the last value clearing 4.5:1 for small text. Navbar keeps 0.34; the text
+column keeps 0.44, since the headline is 4.5rem and only needs 3:1.
+
+Measured after, same track, same 16-second window:
+
+| | unmasked | masked |
+|---|---|---|
+| nav links | 1.1 : 1 | **16.9 : 1** |
+| headline | 2.4 : 1 | **16.8 : 1** |
+| tagline | 6.7 : 1 | **6.5 : 1** |
+| crate input | — | **16.2 : 1** |
+
+What a visitor sees is waves thinning as they cross behind the headline, which
+is how you would compose it by hand anyway.
+
+#### 7. Amplitude, and the two themes landing in opposite directions
+
+`FIELD_SCALE` is the single scalar setting the field's absolute amplitude,
+separate from the per-colour solve that sets *ratios* between colours. The
+first 7c build omitted it entirely and the field filled the whole viewport
+with white-cored dye. Tuned by sweep against measured coverage at steady
+state: **0.34**, landing at peak 0.92 with 36% of the hero above quarter alpha
+and 16% above half — marbled light rather than either haze or wallpaper.
+
+The per-theme response landed opposite to the guess. Light theme was expected
+to need *more* alpha gain to be seen at all; at 1.9 it covered **93%** of the
+hero above quarter alpha (dark's 36%) and stopped being a background. On a
+white page the dye is *lighter* than the ground, so it composites toward the
+page rather than away from it and reads as present at far lower alpha — the
+intuition carried over from dark theme is exactly inverted. Final:
+
+| | bloom | alpha gain | coverage ≥25% / ≥50% |
+|---|---|---|---|
+| dark | 1.6 | 1.4 | 36% / 16% |
+| light | 0.6 | 0.85 | 58% / 29% |
+
+#### 8. What did not change
+
+The 7a/7b machinery underneath is untouched and re-verified rather than
+assumed: four independent gates, the synchronous burst off `applyDeckState`,
+the settle window's measured exit, `visibilitychange`, the IntersectionObserver
+on the hero section, context-loss handling, and reduced motion's
+one-static-frame-per-PLAYING behaviour. `SETTLE_MAX_MS` rose 4s → 7s only
+because 7c's dye deliberately persists longer, and the old ceiling would have
+become the routine exit rather than the safety net — cutting the tail off
+visibly mid-fade.
+
+#### 9. Mobile — a bug that only exists in portrait
+
+Splat radii are expressed in units of canvas *height*, and the splat shader
+corrects for aspect so a splat is circular on screen. On a landscape hero that
+is exactly right. In portrait it is a trap: a splat sized as a sensible
+fraction of a 900px-tall desktop hero, kept circular on a 390×844 phone, spans
+about two thirds of the width. Measured at 390px, **coverage 1.00** — the
+entire hero washed out, no background left anywhere, in both themes.
+
+Fixed by scaling every splat radius by `min(1, width / height)`, which holds a
+splat's share of the canvas *area* constant instead of its shape. Landscape is
+a no-op. After: 0.30 (dark) / 0.48 (light) at 390×844, against desktop's
+0.44 / 0.43 — `stage7c-mobile-{theme}.png`.
+
+Worth noting how it was found: only because the mobile check measured the
+field rather than looking at a screenshot. A washed-out phone hero photographs
+as "a colourful background", which is what was asked for.
+
+#### 10. Performance — and why the obvious measurement said nothing
+
+Real GPU, headed, `ANGLE (Apple, ANGLE Metal Renderer: Apple M2)`.
+
+The rAF-interval method that 7a and 7b used reported **33.33ms, p95 35.3ms**
+with the bloom running. That looks like a 2× regression against 7b's 16.68ms
+and is not a measurement of this code at all: the same page with the fluid
+loop **completely stopped** reported 33.33ms as well. It is the display's
+refresh interval. rAF timing can only ever say "did you miss a frame", and the
+answer here is no — but it cannot say by how much.
+
+`gl.finish()` was the next attempt and is worse: it reported **0.02ms per
+step**, i.e. fifty thousand steps a second, because on this stack finish()
+does not actually drain the queue.
+
+The measurement that works is a `readPixels` — it has to round-trip to return
+bytes, so it cannot be deferred. Against a full field:
+
+| | GPU ms per step |
+|---|---|
+| full field, bloom chain running | **1.94ms** (median of 5×200 steps; 1.92–2.00) |
+
+**1.94ms against a 16.67ms budget at 60Hz** — about 12% of a frame, on a
+canvas covering the entire viewport. `benchmark()` is dev-only and stripped
+from the production bundle.
+
+(The run with `bloomIntensity: 0` measures identically at 1.94ms, which is
+expected and is *not* evidence that bloom is free: the uniform scales the
+chain's contribution, it does not skip the chain.)
+
+#### 11. Everything re-verified, with numbers
+
+| Check | Result |
+|---|---|
+| Burst vs. audio start | **0.10ms apart, same frame** (7b measured 0.2ms; the async path Stage 1 measured was 551ms) |
+| Frames rendered before any play | **0** |
+| Frames rendered after settle completes | **0**, field peak exactly 0 |
+| Settle exit | **6108ms**, on the dye threshold, under the 7000ms ceiling — peak trace 0.961 → 0.678 → 0.251 → 0.122 → 0.071 → 0.039 |
+| Reduced motion, idle | **0 frames**, `static-idle` |
+| Reduced motion, playing | **exactly 1 frame**, unchanged over the next 3s, `static-playing` |
+| Reduced motion, stopped | cleared, `static-idle`, no further frames |
+| One colour per track | `violet → magenta → coral → gold`, and `gold` on returning to the first record |
+| Text contrast, dark, worst frame of 16s | nav **17.0:1**, headline 16.9:1, tagline 7.6:1, crate 15.8:1 |
+| Text contrast, light, worst frame of 16s | nav **15.4:1**, headline 16.0:1, tagline 5.9:1, crate 14.7:1 |
+| Field at steady state, dark | peak 1.00, 44% ≥ quarter alpha, 20% ≥ half |
+| Field at steady state, light | peak 0.96, 43% / 23% |
+| Colour × theme combinations rendered | **14 of 14** |
+| Lint | 7 errors / 2 warnings — unchanged baseline |
+
+#### 12. Found on the way, not fixed here — `FINDINGS.md` B56
+
+Running the light-theme sweeps kept killing the whole React tree, and it is
+not the fluid: `my-taste.jsx` hands `kickerRef` to GSAP `SplitText`, which
+rewrites that element's contents, while React still renders `<AvatarSlot>` into
+the same element. When the Spotify profile fetch resolves, React inserts into a
+DOM it no longer has an accurate record of and throws `insertBefore`. There is
+no error boundary, so **the page goes blank**.
+
+It is a race, so it looks intermittent and theme-specific. It reproduces in the
+**production build**, not only in dev — load dark and toggle to light, or load
+light and scroll to `#my-taste`. Live `diegodamian.com` does not currently
+reproduce, which is not evidence of safety: those two rows are the bundle that
+deploys next.
+
+Left unfixed on purpose — different section, and the fix is a real call about
+who owns that subtree — but it is a total-page failure on a job-search site,
+so it should not wait. The full repro table and the one-line fix shape are in
+`FINDINGS.md` B56. Stage 7c's own test harness blocks `/api/spotify/profile` to
+work around it; that block should be removed once B56 is fixed.
+
+---
+
+## 3. Current measurements *(refreshed 2026-08-24, Stage 7c)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **548.79 kB / 194.58 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`)* |
-| CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
+| JS bundle | 407 KB / 147 KB gz | **556.47 kB / 197.33 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`; Stage 7c added **+7.68 kB / +2.75 kB gz** for the bloom chain's two extra GLSL sources, the HSL colour solve, the energy model and the DOM-measured calm zones — the three dev diagnostics (`fieldStats`, `benchmark`, `setSolver`) are spread into the returned object behind `import.meta.env.DEV` so they collapse away at build time, which was worth doing explicitly: returned unconditionally they shipped, since a property of an object literal is not something a bundler can tree-shake)* |
+| CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules; Stage 7c added **nothing** — every 7c change lives in the shader or the component, and the canvas rule was already correct. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6; unchanged by Stage 6 Phase 9)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |
 
