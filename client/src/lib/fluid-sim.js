@@ -19,11 +19,18 @@
 // 512. Velocity/pressure/divergence/curl all live on the 128 grid — they are
 // what the Jacobi iterations hammer, 20 passes per frame, so their cost is
 // what actually matters. Dye is advected once per frame and only needs to be
-// sharp, so it gets 4× the linear resolution for 16× the texels at 1/20th
-// the pass count. Rendering to the canvas is a single upscaled quad.
+// sharp, so it gets the linear resolution for far more texels at 1/20th the
+// pass count. Rendering to the canvas is a single upscaled quad.
+//
+// Stage 7d doubled the dye grid 512 -> 1024. Through 7c the dye was clouds,
+// and a cloud does not care about resolution. 7d draws thin filaments, and a
+// filament is destroyed by exactly one thing: the bilinear interpolation
+// inside semi-Lagrangian advection, which smears any feature approaching a
+// texel's width a little more every frame. Doubling the grid halves how fast
+// that happens. Cost measured, not assumed — see STATUS.md.
 
 const SIM_RESOLUTION = 128;
-const DYE_RESOLUTION = 512;
+const DYE_RESOLUTION = 1024;
 const PRESSURE_ITERATIONS = 20;
 
 // ---- bloom (Stage 7c) -------------------------------------------------------
@@ -37,8 +44,12 @@ const PRESSURE_ITERATIONS = 20;
 // extra blits per frame, but every one of them is on a texture at most a
 // quarter the dye grid's area, and the whole chain measured well inside the
 // frame budget on real hardware (numbers in STATUS.md).
-const BLOOM_RESOLUTION = 256;
-const BLOOM_ITERATIONS = 6;
+// Stage 7d halves the bloom's reach: 512 rather than 256 on the short edge
+// (a finer grid means a tighter glow for the same iteration count) and four
+// levels rather than six. A wide bloom is what a cloud wants; on filaments it
+// merges neighbouring lines back into the gas this stage removed.
+const BLOOM_RESOLUTION = 512;
+const BLOOM_ITERATIONS = 4;
 // Soft-knee threshold: brightness below THRESHOLD contributes nothing, above
 // it contributes fully, and KNEE is the width of the quadratic ramp between.
 // A hard threshold makes the glow pop in and out as dye crosses the cutoff.
@@ -54,7 +65,13 @@ const PRESSURE_DECAY = 0.8;
 // Vorticity confinement strength — re-injects the small-scale swirl that a
 // semi-Lagrangian advection step numerically dissipates away. This is the
 // knob that makes the difference between "smoke" and "soup".
-const CURL_STRENGTH = 30;
+// Raised for Stage 7d. Vorticity confinement re-injects small-scale swirl
+// that advection numerically dissipates, and that swirl is what SHEARS a
+// filament into the wisps and hooks that read as liquid rather than as a
+// drawn stroke. 7c measured 55 as making its clouds thinner and patchier and
+// rejected it on that basis; 7d wants thinner, and the same knob now reads as
+// structure instead of loss.
+const CURL_STRENGTH = 42;
 
 // Exponential decay rates, per second, applied inside the advection shader.
 //
@@ -97,11 +114,29 @@ const CURL_STRENGTH = 30;
 // The saturation B53 warned about is handled elsewhere now: the display pass
 // normalises hue by the field's own peak (see DISPLAY_SHADER), so an
 // over-full field goes more opaque rather than clipping to white.
-const DENSITY_DISSIPATION = 0.7;
-// Lower than 7a/7b for the same reason: velocity IS the flow the dye follows,
-// and a current that dies in half a second cannot carry anything across a
-// 1200px hero.
-const VELOCITY_DISSIPATION = 0.09;
+// 7d RAISES it sharply, and the reasoning inverted twice on the way, so it is
+// worth stating plainly. A ribbon's visible length is travel speed multiplied
+// by dye lifetime, and its brightness is deposit rate. Three combinations give
+// the same length:
+//
+//   slow travel + long life  -> measured mean alpha 0.34 spread over 60% of
+//     the hero: a dark olive murk with no bright anything. Old dye never
+//     leaves, so the strokes smear into each other and fill the gaps that are
+//     what make a line read as a line.
+//   fast travel + short life -> mean 0.27 over 35%, with 11% above 80% alpha.
+//     Bright cores, thin, and genuinely dark between. This one.
+//
+// So the lifetime is short (~0.6s) and the deposit rate is nearly 12x what it
+// was, which sounds like more ink and measures as less. What actually matters
+// for "slim" is not how much dye goes in but how quickly the old dye leaves.
+const DENSITY_DISSIPATION = 1.7;
+// RAISED for Stage 7d, reversing 7c's direction. In 7c the flow had to carry
+// dye across the hero, so velocity had to persist. In 7d the ribbon's path is
+// drawn by its emitter and the fluid only has to bend it, so a long-lived
+// velocity field is no longer doing useful work — it is churning, which is
+// precisely the "too aggressive" the flow was. Higher dissipation lets the
+// injected motion settle instead of accumulating.
+const VELOCITY_DISSIPATION = 0.42;
 
 const MAX_DT = 1 / 60;
 

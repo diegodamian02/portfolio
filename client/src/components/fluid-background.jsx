@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createNoise3D } from "simplex-noise";
 import { createFluidSim } from "../lib/fluid-sim.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import { DECK, onDeckState, getDeckState } from "../lib/deck-state.js";
@@ -159,20 +160,51 @@ const THEME_RESPONSE = {
 
 // ---- burst ------------------------------------------------------------------
 const BURST_SPLATS = 9;
-const BURST_FORCE = 900;
-const BURST_RADIUS = 1.9;
+const BURST_FORCE = 420;
+const BURST_RADIUS = 0.7;
 // Radius of the ring the burst's splats sit on, in normalised canvas units.
 const BURST_RING = 0.11;
 const BURST_DYE_SCALE = 0.5;
 
-// ---- audio-driven splats ----------------------------------------------------
-const SPLAT_BASE_FORCE = 520;
-const SPLAT_BASE_RADIUS = 2.4;
+// ---- ribbons (Stage 7d) ------------------------------------------------------
+//
+// 7c injected discrete splats on the beat, at radius 2.4 — about a tenth of
+// the hero across each. That is a *cloud* generator: a big soft Gaussian is
+// gas by construction, and no amount of tuning force or cadence turns a
+// sequence of them into a line.
+//
+// 7d draws instead. Each emitter lays down a thin deposit every frame, and
+// because it is moving, those deposits overlap into a continuous filament
+// along its path. The fluid then does what it is good at — shearing, curling
+// and stretching that filament — rather than being asked to mix clouds into
+// something that looks structured.
+//
+// Radius is a VARIANCE in the splat shader (see fluid-sim.js), so the visible
+// half-width is sqrt(r/200) of the canvas height: 0.16 is ~2.8%, roughly a
+// 25px ribbon on a 900px hero, against 7c's ~100px blobs.
+const TRAIL_RADIUS = 0.16;
 
-// Cadence bounds. Which end a track sits at is set by its ENERGY, not by its
-// treble — see the frame loop.
-const SPLAT_MIN_INTERVAL_MS = 110;
-const SPLAT_MAX_INTERVAL_MS = 420;
+// Dye laid per SECOND, not per frame — multiplied by dt at the call site so a
+// 120Hz display does not get twice the density of a 60Hz one.
+// Landed by profiling 40-second windows, not single frames — the field's
+// spread between instants is wider than the difference between any two
+// candidate values, and a one-shot sample compares noise. At 3.8 the
+// coverage median is 0.19 with only 2 samples in 38 below 0.10, and peak
+// alpha is 1.00 at every single sample: slim, with bright cores, and never
+// empty. (7c's clouds measured a 0.44 median for comparison.)
+const TRAIL_DYE_PER_SECOND = 3.8;
+
+// Gentle push along the direction of travel, which keeps a ribbon coherent
+// instead of letting it immediately diffuse. Far lower than 7c's 520: the
+// line's SHAPE now comes from the emitter's path, so the flow only has to
+// add drift and curl, not carry dye across the hero.
+const TRAIL_FORCE = 60;
+
+// A beat modulates the ribbon rather than adding anything of its own.
+const BEAT_PULSE_MS = 280;
+const BEAT_DYE_BOOST = 2.1;
+const BEAT_RADIUS_BOOST = 1.45;
+const BEAT_FORCE = 150;
 
 // A track with no sharp transients — a pad, a fade-in, a heavily compressed
 // master — must still show presence, so once this long has passed since the
@@ -183,7 +215,6 @@ const SPLAT_MAX_INTERVAL_MS = 420;
 // on a driving track (110ms cadence) a 620ms floor drops five sixths of the
 // beats, and on a ballad (420ms cadence) it fires between beats that were
 // already sparse. As a multiple it adapts with everything else.
-const SPLAT_FORCED_GAP_RATIO = 2.2;
 
 // Punch is the ratio of the fast envelope to the slow one, so it sits near
 // 1.0 on steady material and rises on a transient.
@@ -220,39 +251,58 @@ const ENVELOPE_SLOW_SMOOTHING = 0.995;  // ~3.3s
 const ENERGY_REFERENCE_RMS = 0.11;
 const ENERGY_FLOOR = 0.3;
 
-// FFT bin range. fftSize is 256 (turntable-audio.js), so there are 128 bins
-// spanning 0..Nyquist — about 187Hz per bin at 48kHz.
+// ---- the spectrum (Stage 7d) ------------------------------------------------
 //
-// Only TREBLE is read now. 7b also tracked a bass band and drove force and
-// radius from it; the energy/punch model replaced that entirely, and the bass
-// read survived the rewrite feeding nothing but the debug object. Deleted
-// rather than left in — a signal computed every frame with no consumer reads,
-// on the next pass through this file, as something load-bearing.
-const TREBLE_BIN_LO = 32;
-const TREBLE_BIN_HI = 96; // ~6-18kHz: hats, air, transient sparkle
-
-// ---- roaming ----------------------------------------------------------------
+// Each ribbon is bound to a FREQUENCY BAND, and the ribbons are stacked by
+// pitch — bass low in the frame, air high. That is the "spectrum display"
+// idea applied to a fluid rather than to bars: you can see the kick in the
+// bottom ribbon and the hats in the top one, and the hero as a whole reads as
+// the shape of the track rather than as its volume.
 //
-// Emitters wander the full canvas on a sum of two sine pairs (per axis), so
-// the path never resolves into the obvious figure-eight a single Lissajous
-// traces. Splats fire wherever the chosen emitter currently is, thrown along
-// its direction of travel — which is what turns discrete injections into
-// something that reads as a moving wave rather than a sequence of blots.
-const EMITTER_COUNT = 3;
+// fftSize is 256 (turntable-audio.js), so there are 128 bins spanning
+// 0..Nyquist — about 187Hz per bin at 48kHz. Edges are log-spaced because
+// pitch is: a linear split puts six sevenths of the bins above 3kHz, where
+// almost no musical energy lives, and the low ribbon would carry the whole
+// track on its own.
+//
+// `home` is where the ribbon is pulled to vertically, in GL coords (0 is the
+// bottom). `weight` trims the naturally louder low bands so the bass ribbon
+// does not simply dominate.
+const BANDS = [
+    { name: "low", lo: 1, hi: 4, home: 0.16, weight: 0.85, radius: 1.35, speed: 0.72 },
+    { name: "low-mid", lo: 4, hi: 10, home: 0.34, weight: 0.95, radius: 1.10, speed: 0.88 },
+    { name: "mid", lo: 10, hi: 26, home: 0.52, weight: 1.05, radius: 0.90, speed: 1.06 },
+    { name: "high", lo: 26, hi: 60, home: 0.70, weight: 1.15, radius: 0.72, speed: 1.26 },
+    { name: "air", lo: 60, hi: 118, home: 0.86, weight: 1.25, radius: 0.58, speed: 1.48 },
+];
 
-// Fraction of splats that originate at the deck instead of at a roaming
-// emitter. 7b anchored everything there on the grounds that the deck is the
-// source of the sound, which is right, and the whole hero is now in play,
-// which is also right — this is the split between the two. The burst is
-// separate and always deck-anchored: it is the needle-contact moment, and it
-// has to come from the needle.
-const DECK_SPLAT_SHARE = 0.34;
+// Per-band auto-gain, the way a spectrum analyser's own scaling works: each
+// band is shown relative to its OWN recent peak, so the air band is visible
+// on a track that has one without the bass band swamping everything.
+//
+// Fast attack, slow release. A symmetric smoothing would be B55's mistake
+// again — a reference that chases the signal is not a reference. The release
+// constant is per-frame, so ~0.9993 is roughly a 25-second memory.
+const BAND_REFERENCE_RELEASE = 0.9993;
+// Below this a band counts as silent and its ribbon fades out rather than
+// being auto-gained up into showing noise as if it were music.
+const BAND_SILENCE_FLOOR = 0.035;
+
+// ---- roaming ---// ---- roaming ----------------------------------------------------------------
+//
+// One ribbon per band (BANDS, above), so the count is the spectrum's, not a
+// number chosen here. 7c's three generic roaming emitters and its
+// DECK_SPLAT_SHARE are both gone: with a ribbon per band there are no generic
+// emitters left to apportion between the deck and the rest of the hero, and
+// the deck's claim to being the source is now made where it is strongest —
+// the ribbons are RELEASED from the platter on the first frame of playback
+// (see the deck subscription) and drift out to their own bands from there.
 
 // Slow, wide, dye-free pushes that drag whatever colour is already in the
 // field across the hero. Without them the dye expands from where it was
 // injected and stops; the currents are what make it travel.
-const CURRENT_INTERVAL_MS = 1500;
-const CURRENT_FORCE = 340;
+const CURRENT_INTERVAL_MS = 1900;
+const CURRENT_FORCE = 130;
 const CURRENT_RADIUS = 9;
 
 // ---- settle -----------------------------------------------------------------
@@ -423,48 +473,139 @@ function rmsLevel(samples) {
     return Math.sqrt(sum / samples.length);
 }
 
+// ---- curl-noise flow -------------------------------------------------------
+//
+// The ribbons no longer travel on Lissajous figures. Two sine pairs per axis
+// is cheap and it looks it: the path is periodic, and once you have seen a
+// figure-eight you keep seeing it.
+//
+// This advects each ribbon through a CURL-NOISE field instead — the 2D curl
+// of a simplex noise potential. Two properties make it the right tool rather
+// than just a fancier one:
+//
+//   - It is DIVERGENCE-FREE by construction (the curl of any field is), so
+//     the ribbons never pile into a sink or stream out of a source. They
+//     circulate. That is what reads as liquid rather than as wind.
+//   - It is smooth and never repeats, so the motion has no visible period.
+//
+// `simplex-noise` is the one dependency added for this — 18.7kB of ESM, a few
+// kB in the bundle, and it is the only piece here that would have been
+// genuinely tedious to hand-roll well (a good gradient-noise implementation
+// is a permutation table and a lot of care about artefacts). Meyda was the
+// other candidate, for the audio half; it is ~7x the size and the band
+// splitting it would have done is fifteen lines against an analyser this
+// already owns.
+const noise3D = createNoise3D();
+
+// Spatial frequency of the flow field. Lower is broader, calmer motion —
+// fewer, larger eddies across the hero.
+const FLOW_NOISE_SCALE = 1.35;
+// Finite-difference step for the curl. Small enough to be a derivative,
+// large enough not to be dominated by floating-point noise.
+const FLOW_EPSILON = 0.0022;
+// How fast the field itself evolves, independent of the ribbons moving
+// through it. Slow: this is the difference between a current that shifts over
+// half a minute and one that boils.
+const FLOW_EVOLUTION = 0.055;
+// Ribbon travel speed, in canvas heights per second, before the band's own
+// multiplier and the track's energy.
+const RIBBON_SPEED = 0.42;
+// How firmly a ribbon is pulled back toward its band's home row, per second.
+//
+// Applied as a POSITIONAL spring rather than as a bend in the heading, which
+// is what the first attempt did. Bending the direction is speed-dependent —
+// a slow ribbon barely turns — and measured, the bands did not stratify at
+// all: the "high" ribbon settled at y 0.34 against a home of 0.74, i.e. below
+// the "low-mid" one. A spring acts the same at any speed, and the ordering is
+// the whole point of laying the spectrum out vertically.
+//
+// 1.1/s is a ~0.6s half-life. 0.5 was the first value and it lost the stack
+// at the top: traced over 45 seconds, the mean heights came out low 0.28,
+// low-mid 0.43, mid 0.71, high 0.69, air 0.64 — the top three inverted,
+// because at RIBBON_SPEED a ribbon simply outruns a soft spring. Firm enough
+// to hold the order, loose enough that each still crosses the full width.
+const RIBBON_HOME_PULL = 1.1;
+// Distance from the edge at which a ribbon starts being turned back inward.
+const RIBBON_MARGIN = 0.08;
+
 /**
- * A roaming emitter's path: two sine pairs per axis, at incommensurate
- * frequencies, so the trajectory does not close on itself within any
- * listening session.
+ * Unit direction of the curl of a simplex potential at (x, y, t).
+ *
+ * Normalised rather than left at its natural magnitude: a ribbon that speeds
+ * up and stalls as it crosses the field looks like it is being tugged, and
+ * the point of this stage is smoothness. Direction varies smoothly; speed is
+ * set deliberately elsewhere.
  */
-function createEmitter(index, count) {
-    // Base phases are SEPARATED rather than random. With three independent
-    // random phases the emitters periodically cluster in the same corner, and
-    // when they do the whole field localises there — measured, that is a lull
-    // where the hero shows almost nothing (coverage 6% against a typical 33%)
-    // while a track is playing at full energy. Offsetting each emitter by an
-    // equal share of the cycle makes the clustering case unreachable; the
-    // jitter on top keeps the paths from looking like a rotating formation.
-    const spread = (index / count) * Math.PI * 2;
-    const axis = (quarter) => ({
-        a1: randomBetween(0.17, 0.24),
-        a2: randomBetween(0.1, 0.17),
-        w1: randomBetween(0.05, 0.09) * Math.PI * 2,
-        w2: randomBetween(0.11, 0.19) * Math.PI * 2,
-        p1: spread + quarter + randomBetween(-0.4, 0.4),
-        p2: Math.random() * Math.PI * 2,
-    });
-    // A quarter-cycle between the axes turns each path from a diagonal
-    // line into an orbit, so one emitter alone already covers area.
-    return { x: axis(0), y: axis(Math.PI / 2) };
+function curlDirection(x, y, t) {
+    const s = FLOW_NOISE_SCALE;
+    const e = FLOW_EPSILON;
+    const dy = noise3D(x * s, (y + e) * s, t) - noise3D(x * s, (y - e) * s, t);
+    const dx = noise3D((x + e) * s, y * s, t) - noise3D((x - e) * s, y * s, t);
+    // curl of a 2D potential: (d/dy, -d/dx)
+    let vx = dy;
+    let vy = -dx;
+    const length = Math.hypot(vx, vy);
+    if (length < 1e-6) return { x: 1, y: 0 };
+    vx /= length;
+    vy /= length;
+    return { x: vx, y: vy };
 }
 
-function emitterAt(emitter, t) {
-    const value = (a) => a.a1 * Math.sin(a.w1 * t + a.p1) + a.a2 * Math.sin(a.w2 * t + a.p2);
-    const slope = (a) => a.a1 * a.w1 * Math.cos(a.w1 * t + a.p1)
-        + a.a2 * a.w2 * Math.cos(a.w2 * t + a.p2);
-    const dx = slope(emitter.x);
-    const dy = slope(emitter.y);
-    const length = Math.hypot(dx, dy) || 1;
+/** One ribbon: a position, a heading, and the band it draws. */
+function createRibbon(band, index) {
     return {
-        x: clamp(0.5 + value(emitter.x), 0.04, 0.96),
-        y: clamp(0.5 + value(emitter.y), 0.04, 0.96),
-        // Unit tangent — the direction the emitter is travelling, which is
-        // the direction its dye gets thrown.
-        ux: dx / length,
-        uy: dy / length,
+        band,
+        // Each ribbon reads the noise field at its own depth, so they are
+        // driven by the same kind of motion without moving in formation.
+        seed: index * 37.4,
+        x: 0.5 + (index - 2) * 0.16,
+        y: band.home,
+        // Heading is carried between frames and eased toward the field's
+        // direction rather than snapped to it — see advanceRibbon.
+        hx: 1,
+        hy: 0,
+        reference: BAND_SILENCE_FLOOR,
     };
+}
+
+/**
+ * Moves a ribbon one frame along the flow field.
+ *
+ * The heading is EASED toward the curl direction rather than set to it. The
+ * field is smooth in space, but a ribbon crossing it still meets a new
+ * direction every frame, and following that exactly produces a visible
+ * jitter along the ribbon's edge. Easing gives the line the momentum that
+ * makes it read as something with mass moving through a fluid.
+ */
+function advanceRibbon(ribbon, dt, speed, flowTime) {
+    const dir = curlDirection(ribbon.x, ribbon.y, flowTime + ribbon.seed);
+
+    // Steer back toward the band's home row and away from the edges. Both are
+    // added to the DIRECTION before it is normalised, so they bend the path
+    // rather than teleporting the ribbon.
+    let tx = dir.x;
+    let ty = dir.y;
+    if (ribbon.x < RIBBON_MARGIN) tx += (RIBBON_MARGIN - ribbon.x) * 6;
+    if (ribbon.x > 1 - RIBBON_MARGIN) tx -= (ribbon.x - (1 - RIBBON_MARGIN)) * 6;
+    if (ribbon.y < RIBBON_MARGIN) ty += (RIBBON_MARGIN - ribbon.y) * 6;
+    if (ribbon.y > 1 - RIBBON_MARGIN) ty -= (ribbon.y - (1 - RIBBON_MARGIN)) * 6;
+
+    const len = Math.hypot(tx, ty) || 1;
+    tx /= len;
+    ty /= len;
+
+    // Exponential ease, framed in dt so it behaves the same at any frame rate.
+    const k = 1 - Math.exp(-dt * 3.2);
+    ribbon.hx += (tx - ribbon.hx) * k;
+    ribbon.hy += (ty - ribbon.hy) * k;
+    const hl = Math.hypot(ribbon.hx, ribbon.hy) || 1;
+    ribbon.hx /= hl;
+    ribbon.hy /= hl;
+
+    ribbon.x = clamp(ribbon.x + ribbon.hx * speed * dt, 0.02, 0.98);
+    ribbon.y = clamp(ribbon.y + ribbon.hy * speed * dt, 0.02, 0.98);
+    // The band's own row, as a spring rather than a rail.
+    ribbon.y += (ribbon.band.home - ribbon.y) * RIBBON_HOME_PULL * dt;
 }
 
 export default function FluidBackground() {
@@ -704,7 +845,7 @@ export default function FluidBackground() {
             sim.setCalmZones(zones, CALM_FEATHER);
         };
 
-        const emitters = Array.from({ length: EMITTER_COUNT }, (_, i) => createEmitter(i, EMITTER_COUNT));
+        const ribbons = BANDS.map(createRibbon);
 
         // ---- the burst -------------------------------------------------------
         //
@@ -801,11 +942,9 @@ export default function FluidBackground() {
 
         let rafId = null;
         let lastTime = performance.now();
-        let nextSplatAt = 0;
         let nextCurrentAt = 0;
         let lastProbeAt = 0;
         let lastBurstAt = 0;
-        let lastSplatAt = 0;
         // Seconds of energy-scaled time. This — not wall time — is what the
         // emitters travel along, so a driving track moves them faster than a
         // ballad and the pitch fader drags them with it.
@@ -813,10 +952,15 @@ export default function FluidBackground() {
         let envelopeFast = 0;
         let envelopeSlow = 0;
         let envelopesPrimed = false;
+        let beatUntil = 0;
+        let beatStrength = 0;
+        let lastBandLevels = [];
+        // Dev sweep handles; shipped values are the constants above.
+        const trail = { dye: TRAIL_DYE_PER_SECOND, radius: TRAIL_RADIUS, force: TRAIL_FORCE, speed: RIBBON_SPEED };
         // Dev-only telemetry, written unconditionally (assigning a few numbers
         // per frame is not worth branching on) but only ever READ through the
         // import.meta.env.DEV block below, which Vite drops in production.
-        let lastBands = { rms: 0, energy: 0, punch: 1, treble: 0, rate: 1 };
+        let lastBands = { rms: 0, energy: 0, punch: 1, rate: 1 };
         let lastSplat = null;
 
         const analyserBins = new Uint8Array(128);
@@ -837,12 +981,10 @@ export default function FluidBackground() {
                 const rate = audio.getRate();
                 const analyser = audio.getAnalyser();
 
-                let treble = 0;
                 let rms = 0;
                 if (analyser) {
                     analyser.getByteFrequencyData(analyserBins);
                     analyser.getByteTimeDomainData(analyserWave);
-                    treble = bandLevel(analyserBins, TREBLE_BIN_LO, TREBLE_BIN_HI);
                     // Broadband RMS off the WAVEFORM, not a bass band off the
                     // spectrum. 7b drove everything from bass, which is a
                     // statement about arrangement rather than about energy: a
@@ -884,73 +1026,125 @@ export default function FluidBackground() {
                 const punch = envelopeSlow > 1e-4 ? envelopeFast / envelopeSlow : 1;
                 const punchExcess = clamp(punch - 1, 0, 1.4);
 
-                lastBands = { rms, energy, punch, treble, rate, envelopeFast, envelopeSlow };
+                lastBands = { rms, energy, punch, rate, envelopeFast, envelopeSlow };
 
                 // Emitters travel on energy-scaled time, so the flow itself
                 // follows the song rather than running at a fixed speed
                 // underneath it.
-                flowClock += dt * lerp(0.45, 1.5, energy) * rate;
+                flowClock += dt * lerp(0.22, 0.62, energy) * rate;
 
-                const interval = lerp(SPLAT_MAX_INTERVAL_MS, SPLAT_MIN_INTERVAL_MS, energy)
-                    * (1 - treble * 0.3) / Math.max(rate, 0.2);
-                const overdue = now - lastSplatAt >= interval * SPLAT_FORCED_GAP_RATIO;
-
-                if (now >= nextSplatAt && (punch > PUNCH_TRIGGER || overdue)) {
-                    const { dye: base } = currentColour();
-                    // Dye scales with energy too, but over a narrow range and
-                    // off a high floor: a soft track should read as softer,
-                    // not as absent.
-                    const dyeScale = lerp(0.8, 1.15, energy);
-                    const dye = base.map((c) => c * dyeScale);
-
-                    // Deck or roaming emitter. The deck share keeps the
-                    // platter reading as the source; the emitters are what put
-                    // colour on the other side of the hero.
-                    let x;
-                    let y;
-                    let ux;
-                    let uy;
-                    if (Math.random() < DECK_SPLAT_SHARE) {
-                        if (!anchor) measureAnchor();
-                        const angle = Math.random() * Math.PI * 2;
-                        const spread = 0.05 + treble * 0.12;
-                        x = clamp(anchor.cx + Math.cos(angle) * spread, 0.04, 0.96);
-                        y = clamp(anchor.cy + Math.sin(angle) * spread, 0.04, 0.96);
-                        ux = Math.cos(angle);
-                        uy = Math.sin(angle);
-                    } else {
-                        const point = emitterAt(
-                            emitters[Math.floor(Math.random() * emitters.length)],
-                            flowClock,
-                        );
-                        x = point.x;
-                        y = point.y;
-                        ux = point.ux;
-                        uy = point.uy;
-                    }
-
-                    // Soft tracks get BIGGER, slower waves and punchy ones get
-                    // tighter, harder ones — the inverse relationship is the
-                    // point. A gentle track rendered as small weak blobs looks
-                    // broken; rendered as slow wide swells it looks calm.
-                    const radius = SPLAT_BASE_RADIUS
-                        * lerp(1.45, 0.85, energy)
-                        * (0.85 + punchExcess * 0.45);
-                    const force = SPLAT_BASE_FORCE
-                        * lerp(0.55, 1, energy)
-                        * (0.6 + punchExcess * 1.6)
-                        * rate;
-
-                    sim.splat(x, y, ux * force, uy * force, dye, radius * radiusScale);
-                    lastSplat = { at: now, energy, punch, rms, treble, rate, force, radius, interval, x, y };
-                    lastSplatAt = now;
-                    nextSplatAt = now + interval;
+                // A beat no longer ADDS anything of its own. It brightens
+                // and briefly widens the ribbons that are already being
+                // drawn, and decays back over BEAT_PULSE_MS. That is the
+                // difference between "the music makes blobs appear" and "the
+                // music runs through the line".
+                if (punch > PUNCH_TRIGGER && now >= beatUntil - BEAT_PULSE_MS * 0.55) {
+                    beatUntil = now + BEAT_PULSE_MS;
+                    beatStrength = clamp(punchExcess / 0.8, 0.25, 1);
                 }
+                const beat = now < beatUntil
+                    ? ((beatUntil - now) / BEAT_PULSE_MS) * beatStrength
+                    : 0;
 
-                // Currents: wide, dye-free pushes that carry existing colour
-                // across the hero. Aimed along the drift of a slowly rotating
-                // global direction so the field has a prevailing flow rather
-                // than churning in place.
+                // The flow field evolves on its own slow clock, and the
+                // ribbons travel through it on the track's energy. Two
+                // separate timescales on purpose: the field is the room, the
+                // ribbons are what is moving in it.
+                flowClock += dt * FLOW_EVOLUTION * lerp(0.6, 1.25, energy) * rate;
+
+                // ---- the ribbons -------------------------------------------
+                //
+                // One per frequency band. Each deposits dye at its CURRENT
+                // position every frame; because it is moving, consecutive
+                // deposits overlap into a continuous filament along its path
+                // — a line being drawn, not a sequence of dots.
+                //
+                // Everything is scaled by dt so the ribbon has the same
+                // density and the same travel speed whether the browser runs
+                // at 30, 60 or 120fps.
+                const { dye: base } = currentColour();
+                if (!anchor) measureAnchor();
+
+                for (let i = 0; i < ribbons.length; i++) {
+                    const ribbon = ribbons[i];
+                    const band = ribbon.band;
+                    const raw = bandLevel(analyserBins, band.lo, band.hi) * band.weight;
+
+                    // Per-band auto-gain: fast attack, slow release, so each
+                    // ribbon is drawn relative to its own recent peak the way
+                    // a spectrum analyser scales its own columns.
+                    ribbon.reference = Math.max(raw, ribbon.reference * BAND_REFERENCE_RELEASE);
+                    const level = raw < BAND_SILENCE_FLOOR
+                        ? 0
+                        : clamp(raw / Math.max(ribbon.reference, BAND_SILENCE_FLOOR), 0, 1);
+
+                    const speed = trail.speed * band.speed
+                        * lerp(0.55, 1.15, energy) * (0.6 + level * 0.7) * rate;
+                    advanceRibbon(ribbon, dt, speed, flowClock);
+
+                    // A band with nothing in it draws nothing. That is the
+                    // spectrum being honest — a track with no top end should
+                    // leave the air ribbon dark rather than auto-gaining
+                    // noise up into looking like content.
+                    if (level <= 0.02) continue;
+
+                    // radiusScale appears here as well as on the radius. A
+                    // portrait hero packs the same five stratified ribbons
+                    // into a much narrower canvas, so their strokes cross each
+                    // other far more often and the field measured 0.69
+                    // coverage against desktop's 0.29 — visibly a wash rather
+                    // than filaments. Scaling the deposit by the same aspect
+                    // factor keeps the density comparable; on landscape it is
+                    // a no-op.
+                    //
+                    // SQRT of it, not the factor itself — measured, not
+                    // assumed. The full factor (0.46 on a 390x844 phone) took
+                    // coverage from 0.69 to 0.12, well under desktop's 0.29;
+                    // the excess was about 2.4x, not the ~2.2x the linear
+                    // correction removes, and the two do not cancel because
+                    // coverage is a threshold on an accumulating field rather
+                    // than a linear function of deposit. Over a 40-second
+                    // window sqrt lands at a 0.22 coverage median against
+                    // desktop's 0.19 — matched. (Single-instant samples were
+                    // useless for this: two runs of the same build measured
+                    // 0.58 and 0.12.)
+                    const amount = trail.dye * Math.sqrt(radiusScale) * dt * band.weight
+                        * (0.25 + level * 0.9)
+                        * (1 + beat * (BEAT_DYE_BOOST - 1) * (i < 2 ? 1 : 0.5));
+                    const dye = base.map((c) => c * amount);
+                    const radius = trail.radius * band.radius
+                        * (0.8 + level * 0.5)
+                        * (1 + beat * (BEAT_RADIUS_BOOST - 1))
+                        * radiusScale;
+                    const force = (trail.force * (0.5 + level * 0.8)
+                        + BEAT_FORCE * beat * (i < 2 ? 1 : 0.4)) * rate;
+
+                    sim.splat(
+                        ribbon.x, ribbon.y,
+                        ribbon.hx * force, ribbon.hy * force,
+                        dye,
+                        radius,
+                    );
+
+                    if (i === 0) {
+                        lastSplat = {
+                            at: now, energy, punch, beat, band: band.name,
+                            level, reference: ribbon.reference,
+                            force, radius, dye: amount, x: ribbon.x, y: ribbon.y,
+                        };
+                    }
+                }
+                lastBandLevels = ribbons.map((r) => ({
+                    band: r.band.name,
+                    level: r.reference > 0 ? clamp(bandLevel(analyserBins, r.band.lo, r.band.hi) * r.band.weight / Math.max(r.reference, BAND_SILENCE_FLOOR), 0, 1) : 0,
+                    x: r.x, y: r.y,
+                }));
+
+                // Currents: wide, dye-free pushes that bend the ribbons as
+                // they are drawn. Deliberately weak — their job is to make a
+                // line drift and curl, not to blow it apart. The heading
+                // rotates slowly so the field has a prevailing direction
+                // rather than churning in place.
                 if (now >= nextCurrentAt) {
                     const heading = flowClock * 0.21;
                     const push = CURRENT_FORCE * lerp(0.5, 1, energy) * rate;
@@ -993,8 +1187,7 @@ export default function FluidBackground() {
                 // still fire a burst of catch-up splats at once.
                 lastTime = performance.now();
                 lastProbeAt = lastTime;
-                lastSplatAt = lastTime;
-                nextCurrentAt = lastTime + CURRENT_INTERVAL_MS;
+                    nextCurrentAt = lastTime + CURRENT_INTERVAL_MS;
                 rafId = requestAnimationFrame(frame);
             } else if (!run && rafId !== null) {
                 cancelAnimationFrame(rafId);
@@ -1027,6 +1220,24 @@ export default function FluidBackground() {
                 envelopeFast = 0;
                 envelopeSlow = 0;
                 envelopesPrimed = false;
+                // Release every ribbon FROM THE PLATTER, then let each drift
+                // out to its own band's row. This is where the deck keeps its
+                // claim to being the source of all this: 7c made a third of
+                // its discrete splats originate at the deck, which a ribbon
+                // model has no equivalent of, so the origin is expressed as a
+                // starting position instead of as a quota. The first seconds
+                // after the needle lands read as colour streaming off the
+                // record.
+                if (!anchor) measureAnchor();
+                if (anchor) {
+                    ribbons.forEach((r, i) => {
+                        const angle = (i / ribbons.length) * Math.PI * 2;
+                        r.x = clamp(anchor.cx + Math.cos(angle) * 0.06, 0.04, 0.96);
+                        r.y = clamp(anchor.cy + Math.sin(angle) * 0.06, 0.04, 0.96);
+                        r.hx = Math.cos(angle);
+                        r.hy = Math.sin(angle);
+                    });
+                }
                 // Deliberately NOT clearing first on a quick pause→resume.
                 // Checked live rather than assumed: residual dye from the
                 // previous stop is still drifting on a velocity field the new
@@ -1057,12 +1268,16 @@ export default function FluidBackground() {
                 get paletteTrackId() { return paletteTrackId; },
                 setPalette: (i) => { paletteOverride = i; colourCache = null; },
                 get bands() { return lastBands; },
+                get spectrum() { return lastBandLevels; },
+                get ribbons() { return ribbons.map((r) => ({ band: r.band.name, x: r.x, y: r.y, hx: r.hx, hy: r.hy, reference: r.reference })); },
                 get lastSplat() { return lastSplat; },
                 get simResolution() { return sim.simResolution; },
                 get dyeResolution() { return sim.dyeResolution; },
                 get display() { return sim.displayOptions; },
                 get solver() { return sim.solverOptions; },
                 setDisplay: (next) => sim.setDisplay(next),
+                setTrail: (next) => { Object.assign(trail, next); },
+                get trail() { return { ...trail }; },
                 setSolver: (next) => sim.setSolver?.(next),
                 get fieldScale() { return fieldScale; },
                 setFieldScale: (v) => { fieldScale = v; colourCache = null; },

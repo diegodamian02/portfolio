@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-24, Stage 7c — fluid vibrancy, energy, roaming)*
+## 0. Current state — quick summary *(updated 2026-08-25, Stage 7d — fluid ribbons, spectrum-bound)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -444,7 +444,7 @@ ones (measured: energy 0.30/0.79/0.95 across three previews, radius 2.81 →
 "current" splats, so the field crosses the whole hero instead of pooling at the
 deck.
 
-The one place two goals genuinely conflicted is recorded as `FINDINGS.md` D15:
+The one place two goals genuinely conflicted is recorded as `FINDINGS.md` D20:
 at the amplitude that makes the hero look alive, the nav links measured
 **1.1:1**. Resolved by holding the dye back only over the boxes that carry
 text, measured from the live DOM — nav is **17.0:1** after, with the field
@@ -465,6 +465,42 @@ display's refresh rate and `gl.finish()` reported 0.02ms. Full writeup:
 > light → scroll to `#my-taste`). Live does not currently reproduce, which is
 > timing, not safety. One-line fix shape is in the finding.
 
+**Also 2026-08-25 (Stage 7d) — the fluid draws lines instead of clouds, and
+the spectrum drives them.** Feedback on 7c: the flow was too aggressive, the
+liquid should read as lines rather than gas, slimmer and smoother; plus "think
+about a spectrum display", and a direct ask to research and use a library.
+
+7c injected discrete splats at radius 2.4 — a Gaussian a tenth of the hero
+across, which is a *cloud generator by construction*. 7d **draws** instead:
+each emitter lays a thin deposit every frame, and because it is moving those
+deposits overlap along its path into a continuous ribbon. There are five
+ribbons, one per log-spaced FREQUENCY BAND, stacked by pitch — bass low in the
+frame, air high, each with its own spectrum-analyser-style auto-gain, so the
+hero reads as the shape of the track rather than its volume. Traced over 45
+seconds the band heights are monotonic (0.23 / 0.29 / 0.48 / 0.61 / 0.70) while
+every ribbon still crosses the full width.
+
+**One dependency added — `simplex-noise` 4.0.3**, for a curl-noise flow field
+(the 2D curl of a noise potential, divergence-free by construction, so the
+ribbons circulate rather than piling into sinks — that is what reads as liquid
+rather than wind). Meyda was researched and declined for the audio half: 115kB
+of tarball against 15.9kB, for band splitting that is fifteen lines against an
+`AnalyserNode` the component already owns. Flagged as the right choice if the
+`#my-taste` visualizer later wants real timbral features.
+
+The counterintuitive result, now `FINDINGS.md` **D21**: "less dense" is
+governed by how fast dye LEAVES, not by how much goes in. The shipped build
+deposits nearly 12x the dye of the first slim attempt and clears it 5x faster,
+and measures as *less* coverage while looking dramatically thinner. Also
+**D22** (a single frame of an advecting field spans 0.07–0.50 around a 0.19
+median, so screenshots cannot be tuned against — this cost real time across
+two stages) and **B60** (the band stacking silently inverted because the
+restoring force was a heading bend rather than a position spring).
+
+Coverage median 0.19 desktop / 0.22 mobile, text contrast 16.7:1 or better in
+both themes, GPU 1.89ms per step against a 16.67ms budget. Full writeup:
+`STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -476,8 +512,8 @@ display's refresh rate and `gl.finish()` reported 0.02ms. Full writeup:
 | **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
 | **6 (Phase 9)** | ~~Pitch fader~~ — **done, above.** | — |
 | **6 (Phases 8, 10)** | Turntable delight remainder — scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
-| **7 (a, b, c)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy/roaming pass~~ — **done, above.** | — |
-| **7 (d+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done; 7a/7b — done |
+| **7 (a–d)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy pass, spectrum-bound ribbons~~ — **done, above.** | — |
+| **7 (e+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done; 7a/7b — done |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
 
 **Standing manual tasks (not code — need dashboard access), highest priority first:**

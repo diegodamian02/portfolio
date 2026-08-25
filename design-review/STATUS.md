@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-24 (Stage 7c — fluid vibrancy, energy model, roaming, one
-colour per track) · **HEAD:** `c89478b`+ · **Live:** https://diegodamian.com
+**Updated:** 2026-08-25 (Stage 7d — fluid ribbons, spectrum-bound, curl-noise
+flow) · **HEAD:** `544637f`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -5292,13 +5292,215 @@ work around it; that block should be removed once B56 is fixed.
 
 ---
 
-## 3. Current measurements *(refreshed 2026-08-24, Stage 7c)*
+### Stage 7d — fluid: ribbons instead of clouds, and the spectrum drives them *(2026-08-25)*
+
+Feedback on 7c, in two parts:
+
+> *"the flow can be a bit too agressive. Remember that the liquid has to to
+> flow, also make the liquid a bit more like lines instead of gas. Is that
+> possible? I don't want it to be too dense, instead a little slimmer and
+> smoother when we play a track."*
+
+> *"Think about a spectrum display when we are trying to move the liquid or the
+> animation. Second, please do some research and use any library available to
+> make this possible It has to be smooth and fluid."*
+
+Both are answered by the same structural change, so this is one stage rather
+than two.
+
+---
+
+#### 1. Why 7c could not have produced lines
+
+7c injected discrete splats on the beat at radius 2.4 — a Gaussian about a
+tenth of the hero across. **That is a cloud generator by construction.** A big
+soft Gaussian is gas, and no amount of tuning force, cadence or dissipation
+turns a sequence of them into a filament. The request was not a parameter
+change.
+
+7d **draws** instead. Each emitter lays a thin deposit every frame, and
+because it is moving, consecutive deposits overlap along its path into a
+continuous ribbon. The fluid then does what a fluid is good at — shearing,
+curling and stretching that line — rather than being asked to mix clouds into
+something that looks structured.
+
+Radius is a variance in the splat shader, so the visible half-width is
+`sqrt(r / 200)` of the canvas height: 7d's 0.16 is ~2.8%, roughly a 25px
+ribbon on a 900px hero, against 7c's ~100px blobs.
+
+#### 2. The spectrum IS the layout
+
+There are five ribbons and they are not generic. Each is bound to a frequency
+band, and they are **stacked by pitch** — bass low in the frame, air high:
+
+| ribbon | bins | ≈ Hz | home row | width | speed |
+|---|---|---|---|---|---|
+| low | 1–4 | 190–750 | 0.16 | 1.35× | 0.72× |
+| low-mid | 4–10 | 750–1.9k | 0.34 | 1.10× | 0.88× |
+| mid | 10–26 | 1.9k–4.9k | 0.52 | 0.90× | 1.06× |
+| high | 26–60 | 4.9k–11k | 0.70 | 0.72× | 1.26× |
+| air | 60–118 | 11k–22k | 0.86 | 0.58× | 1.48× |
+
+Edges are log-spaced because pitch is. A linear split puts six sevenths of the
+bins above 3kHz, where almost no musical energy lives, and the low ribbon
+would carry the whole track by itself.
+
+Each band gets **its own auto-gain**, which is how a spectrum analyser's own
+scaling works: a fast-attack, slow-release peak follower (~25s memory), so the
+air ribbon is visible on a track that has any air without the bass ribbon
+swamping it. A symmetric smoothing would have been B55's mistake a third time
+— a reference that chases its own signal is not a reference. Below a silence
+floor a band draws **nothing**, deliberately: a track with no top end should
+leave the air ribbon dark rather than auto-gaining noise up into looking like
+content.
+
+The result is that the hero reads as the *shape* of the track rather than its
+volume — you can watch the kick in the bottom ribbon and the hats in the top
+one.
+
+Traced over 45 seconds, mean heights come out **0.23 / 0.29 / 0.48 / 0.61 /
+0.70** — monotonic — while every ribbon still ranges the full width 0.02–0.98.
+Stacked, and still roaming.
+
+#### 3. The library — what I looked at and what I used
+
+Asked to research and use one, so: **`simplex-noise` (4.0.3)**, and it is the
+only one added.
+
+The ribbons no longer travel on Lissajous figures. Two sine pairs per axis is
+cheap and it looks it — the path is periodic, and once you have seen the
+figure-eight you keep seeing it. They are now advected through a **curl-noise
+field**: the 2D curl of a simplex noise potential. Two properties make it the
+right tool rather than a fancier one:
+
+- It is **divergence-free by construction** (the curl of any field is), so
+  ribbons never pile into a sink or stream out of a source. They circulate.
+  That is what reads as *liquid* rather than as wind.
+- It is smooth and never repeats, so the motion has no visible period.
+
+Cost: 18.7kB of ESM, and it is the one piece here that would have been
+genuinely tedious to hand-roll well — a good gradient-noise implementation is
+a permutation table and a great deal of care about directional artefacts.
+
+**Considered and not used: `meyda`** (real-time audio feature extraction), for
+the spectrum half. Its tarball is 115kB against simplex-noise's 15.9kB, and
+what it would have contributed here is band splitting — fifteen lines against
+an `AnalyserNode` this component already owns. Its genuinely hard features
+(spectral flux, centroid, chroma) are not things this visual needs. Flagging
+it as the obvious candidate if the `#my-taste` visualizer later wants real
+timbral analysis, where it would earn the weight.
+
+`three.js` and `ogl` were rejected on the same grounds 7c rejected them: they
+would replace the working solver's boilerplate, not add a capability.
+
+#### 4. "Slimmer" turned out to be about lifetime, not deposit
+
+This is the part that inverted twice and is worth stating plainly, because the
+intuitive lever is the wrong one.
+
+A ribbon's visible **length** is travel speed × dye lifetime. Its
+**brightness** is deposit rate. Three combinations give the same length, and
+they do not look remotely alike:
+
+| | mean alpha | ≥25% | ≥80% | reads as |
+|---|---|---|---|---|
+| slow travel + long life (dye 0.22, dissipation 0.34) | 0.34 | 60% | 0% | dark olive murk, no bright anything |
+| fast travel + short life (dye 2.6, dissipation 1.7) | 0.27 | 35% | 11% | bright cores, thin, dark between |
+
+The first is what "make it less dense" suggests — put in less dye. It produces
+a *murk*: old dye never leaves, so strokes smear into each other and fill the
+gaps that are exactly what make a line read as a line.
+
+So 7d's deposit rate is nearly **12× higher** than the first attempt's and its
+dye lifetime about **5× shorter**, and the result measures as *less* coverage
+and looks dramatically slimmer. **What matters for "slim" is not how much dye
+goes in but how fast the old dye leaves.**
+
+Final: `DENSITY_DISSIPATION` 0.7 → **1.7**, `TRAIL_DYE_PER_SECOND` **3.8**,
+`RIBBON_SPEED` **0.42**.
+
+#### 5. "Less aggressive" — where the churn actually was
+
+The aggression was the *velocity* field, not the dye. 7c pushed 520-unit
+splat forces into a field with `VELOCITY_DISSIPATION` 0.09, so the motion
+accumulated and the whole hero churned.
+
+7d reverses that direction deliberately. In 7c the flow had to carry dye
+across the hero, so velocity had to persist. In 7d the ribbon's path is drawn
+by its emitter and the fluid only has to bend it — a long-lived velocity field
+is no longer doing useful work, it is just churning:
+
+| | 7c | 7d |
+|---|---|---|
+| `VELOCITY_DISSIPATION` | 0.09 | **0.42** |
+| trail/splat force | 520 | **60** |
+| current force | 340 | **130** |
+| current interval | 1500ms | **1900ms** |
+| emitter travel (energy-scaled) | 0.45–1.5 | flow field evolves at 0.055 |
+
+`CURL_STRENGTH` went the other way, 30 → **42**. Vorticity confinement
+re-injects the small-scale swirl advection dissipates, and that swirl is what
+shears a filament into the wisps and hooks that read as liquid rather than as
+a drawn stroke. 7c measured 55 as making its clouds thinner and patchier and
+rejected it on that basis — 7d *wants* thinner, so the same knob now reads as
+structure instead of loss.
+
+#### 6. Solver changes for filaments
+
+`DYE_RESOLUTION` 512 → **1024**. Through 7c the dye was clouds, and a cloud
+does not care about resolution. A filament is destroyed by exactly one thing:
+the bilinear interpolation inside semi-Lagrangian advection, which smears any
+feature approaching a texel's width a little more every frame. Doubling the
+grid halves how fast that happens.
+
+Bloom tightened: `BLOOM_RESOLUTION` 256 → **512** (a finer grid is a tighter
+glow at the same iteration count) and `BLOOM_ITERATIONS` 6 → **4**. A wide
+bloom is what a cloud wants; on filaments it merges neighbouring lines back
+into the gas this stage removed.
+
+#### 7. Where the deck went
+
+7c kept the platter reading as the source by giving a third of its discrete
+splats a deck origin (`DECK_SPLAT_SHARE`). A ribbon model has no discrete
+splats to apportion, so the origin is expressed as a **starting position**
+instead of a quota: every ribbon is released from the platter on the first
+frame of playback and drifts out to its own band's row from there. The first
+seconds after the needle lands read as colour streaming off the record. The
+burst is unchanged and still entirely deck-anchored.
+
+#### 8. Measurements
+
+| Check | Result |
+|---|---|
+| Coverage, desktop dark (40s window) | median **0.19**, 2 of 38 samples below 0.10, peak alpha 1.00 at every sample |
+| Coverage, 390×844 (40s window) | median **0.22** — matched to desktop |
+| Field at a steady instant, dark | peak 1.00, 29% ≥ quarter alpha, 16% ≥ half |
+| Field at a steady instant, light | peak 1.00, 28% / 13% |
+| Band stratification (45s means) | 0.23 → 0.29 → 0.48 → 0.61 → 0.70, monotonic |
+| Horizontal range, every ribbon | 0.02–0.98 |
+| Text contrast, dark, worst frame of 16s | nav **16.9:1**, headline 16.7:1, tagline 7.7:1, crate 11.9:1 |
+| Text contrast, light, worst frame of 16s | nav **17.3:1**, headline 17.3:1, tagline 7.6:1, crate 16.7:1 |
+| GPU cost per step, full field, M2 | **1.89ms** against a 16.67ms 60Hz budget (7c: 1.94ms — the doubled dye grid is paid for by bloom dropping two levels) |
+| Reduced motion | 0 frames idle, exactly 1 while playing, cleared on stop |
+| Bundle | 556.47 → **558.96 kB** (+2.49 kB), gz 197.33 → **198.65 kB** (+1.32 kB) — including `simplex-noise` |
+| Lint | 7 errors / 2 warnings — unchanged baseline |
+
+**A measurement caveat that matters for reading any screenshot here.** The
+field's instantaneous coverage spans roughly 0.07 to 0.50 around a 0.19–0.22
+median, so a single frame is one sample of a wide distribution — two runs of
+the *same build* measured 0.58 and 0.12 on mobile. Every number above that
+says "median" is a 40-second window; every screenshot is one draw from that
+distribution and should be read as such.
+
+---
+
+## 3. Current measurements *(refreshed 2026-08-25, Stage 7d)*
 
 | Metric | Before | Now |
 |---|---|---|
 | Deploy size | 152 MB | **9.6 MB** |
 | Images | 11 MB | **1.7 MB** |
-| JS bundle | 407 KB / 147 KB gz | **556.47 kB / 197.33 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`; Stage 7c added **+7.68 kB / +2.75 kB gz** for the bloom chain's two extra GLSL sources, the HSL colour solve, the energy model and the DOM-measured calm zones — the three dev diagnostics (`fieldStats`, `benchmark`, `setSolver`) are spread into the returned object behind `import.meta.env.DEV` so they collapse away at build time, which was worth doing explicitly: returned unconditionally they shipped, since a property of an object literal is not something a bundler can tree-shake)* |
+| JS bundle | 407 KB / 147 KB gz | **558.96 kB / 198.65 kB gz** *(+21 kB / +7.5 kB gz vs. pre-Stage-3-Task-10 baseline — GSAP `Flip`, first use; Tasks 10.1/11/10.2/11.2/12/12.1/12.2/12.3/12.4 added +7.71 kB / +2.37 kB gz combined on top, almost all of it Task 12's own walkman sequence — 12.4 alone added just +0.16 kB / +0.10 kB gz, since resequencing the timeline mostly replaced relative position strings with named constants rather than adding code; Stage 6 Phase 9's pitch fader added +5.01 kB / +1.30 kB gz on top of that — `Draggable`'s own code was already in the bundle, registered-but-unused since Stage 0, so this is purely the fader's own logic/markup; Stage 7a's fluid background added +14.11 kB / +4.41 kB gz on top — the whole WebGL2 solver plus nine GLSL shader sources, which are shipped as strings and so barely compress; Stage 7b added +3.19 kB / +1.37 kB gz for the presence gating, palette, contrast adaptation and analyser routing — the dev-only debug hooks are stripped from the production bundle, confirmed by grepping `dist`; Stage 7c added **+7.68 kB / +2.75 kB gz** for the bloom chain's two extra GLSL sources, the HSL colour solve, the energy model and the DOM-measured calm zones — the three dev diagnostics (`fieldStats`, `benchmark`, `setSolver`) are spread into the returned object behind `import.meta.env.DEV` so they collapse away at build time, which was worth doing explicitly: returned unconditionally they shipped, since a property of an object literal is not something a bundler can tree-shake); Stage 7d added **+2.49 kB / +1.32 kB gz**, which includes the one dependency this project has added since GSAP — `simplex-noise` 4.0.3, for the curl-noise flow field. Meyda was the other candidate and was declined: 115kB of tarball against 15.9kB, for band splitting that is fifteen lines against an `AnalyserNode` the component already owns)* |
 | CSS bundle | 26.96 kB / 5.99 kB gz | **54.82 kB / 11.19 kB gz** *(Task 12 added +4.05 kB / +0.90 kB gz for the cassette/walkman rules; 12.1 added +0.08 kB / +0.02 kB gz; 12.2 removed the two now-dead `.contact-description` rules, a net -0.09 kB; 12.3 added +0.64 kB / +0.06 kB gz for `.walkman-visualizer`/`.walkman-visualizer-bar`/`.walkman-stage`/`.walkman-reset-button`; 12.4 added +0.37 kB / +0.08 kB gz for the `--viz-neon-1..5` token family, the two bar rows' glow/panel treatment and three `box-sizing` fixes; Stage 6 Phase 9 added +3.59 kB / +0.50 kB gz for the fader input overlay and its `:has()` focus ring; Stage 7a is net +0.14 kB — the fluid canvas's own rule minus the two deleted `.hero-vu-slot` rules; Stage 7c added **nothing** — every 7c change lives in the shader or the component, and the canvas rule was already correct. The two self-hosted DSEG7 font files, ~9.6 kB combined woff2+woff, are separate font assets, not counted in this CSS number)* |
 | ESLint errors | 21 | **7** *(+2 warnings, both `vinyl-record.jsx` — expected, see Stage 4 Tasks 1 and 3.6; unchanged by Stage 6 Phase 9)* |
 | `.git` size | 91 MB | **177 MB** *(grew, not unchanged — re-measured, not assumed stale. This session alone added many commits with binary screenshot diffs, each one a new object in history regardless of the PNG file's own current size. Strengthens, not just restates, the case for the Stage 8 history rewrite — see ROADMAP.md §0/§3, now also motivated by the resume PDF's privacy removal, not size alone)* |

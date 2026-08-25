@@ -1768,6 +1768,14 @@ fallback and a plain `<img onError={...}>` — a classic shape for a lost-race
 between an async image event and an unrelated re-render, but this session didn't
 chase it further; that's a separate investigation, not this task's own scope.
 
+> **ROOT-CAUSED IN STAGE 7c — see `B56`.** It is not the `onError`/`useState`
+> race guessed at below. `my-taste.jsx` hands `kickerRef` to GSAP `SplitText`,
+> which rewrites that element's children, while React still renders
+> `<AvatarSlot>` into the same element; the Spotify profile fetch resolving is
+> simply what triggers the next React update into a DOM it no longer has an
+> accurate record of. B56 has a deterministic production-build repro and the
+> one-line fix shape. The error-boundary recommendation below stands anyway.
+
 Not fixed — flagged for whoever next touches `#my-taste`, since a real (if
 statistically rare) visitor scrolling normally could plausibly still trigger it,
 just far less often than the aggressive test pace that found it. A prerequisite
@@ -2520,7 +2528,7 @@ between beats on a 420ms one.
 that ratio actually does on real input. The value 1.16 is defensible from the
 model and indefensible from the data, and only one of those was checked.
 
-### D15 — a full-bleed animated background and readable hero text are in direct tension, and dimming the whole field is the wrong resolution — **RESOLVED, Stage 7c**
+### D20 — a full-bleed animated background and readable hero text are in direct tension, and dimming the whole field is the wrong resolution — **RESOLVED, Stage 7c**
 
 Recorded because it will recur: `#my-taste`'s visualizer and `#projects`' record-crate
 scrub (ROADMAP Stage 7c+) put moving colour behind text the same way.
@@ -2556,11 +2564,107 @@ rectangle would mask empty space while leaving the text exposed.
 background where the foreground is, not everywhere. And derive the mask's
 geometry from the layout that actually shipped.
 
+### D21 — "less dense" is governed by how fast dye LEAVES, not by how much goes in — **RESOLVED, Stage 7d**
+
+Asked to make the fluid slimmer and more line-like, the intuitive lever is
+the deposit rate: put in less dye. Measured, that produces the opposite of
+slim.
+
+A ribbon's visible LENGTH is travel speed x dye lifetime; its BRIGHTNESS is
+deposit rate. Several combinations give the same length and look nothing
+alike. Two, measured at the same moment in the same track:
+
+| | mean alpha | coverage >=25% | coverage >=80% | reads as |
+|---|---|---|---|---|
+| slow travel + long life (deposit 0.22/s, dissipation 0.34) | 0.34 | 60% | 0% | dark olive murk |
+| fast travel + short life (deposit 2.6/s, dissipation 1.7) | 0.27 | 35% | 11% | bright thin lines |
+
+The first has SEVEN TIMES less dye going in and covers nearly twice as much of
+the hero, with nothing bright anywhere. Old dye never leaves, so strokes smear
+into each other and fill the gaps — and the gaps are exactly what make a line
+read as a line rather than as a region.
+
+**Resolution.** The shipped values put in nearly 12x the dye of the first
+attempt and clear it about 5x faster. What "slim" actually asks for is
+contrast between the stroke and the space around it, and that is a function
+of the decay rate.
+
+**Generalisable:** for any accumulating field — dye, trails, particle
+histories, heatmaps — density is the ratio of injection to removal, and the
+removal term is the one that controls structure. Reducing injection alone
+lowers brightness while leaving the same area covered, which is the worst of
+both.
+
+### D22 — a single frame of an advecting field is one sample of a very wide distribution, and cannot be tuned against — **PROCESS NOTE, Stages 7c/7d**
+
+Recorded because it wasted real time across two stages and will recur for any
+future work on this background.
+
+Instantaneous coverage of the hero's field ranges roughly **0.07 to 0.50**
+around a median of 0.19–0.22. Consequences that actually bit:
+
+- Two runs of the **same build** at 390x844 measured coverage 0.58 and 0.12.
+  A parameter change was nearly adopted on that difference.
+- A 7c sweep of dissipation x amplitude produced non-monotonic nonsense — one
+  row at peak 0.30, the next at 1.4x the amplitude reading 0.97 — because
+  every row was sampled at ten seconds while the field was still filling. A
+  continuously-injected field has to be measured at EQUILIBRIUM, several time
+  constants in.
+- A palette screenshot of `lime` looked nearly empty and prompted an emitter
+  change; the windowed profile afterwards showed lime's median coverage was
+  0.57, and the screenshot had caught the tail.
+
+**What works:** 40-second windows, report the median and the fraction below a
+floor, and treat any single screenshot as an illustration rather than as
+evidence. Two of the constants shipped in 7c/7d were chosen off single
+samples and had to be re-derived.
+
+### B60 — the ribbons' band ordering silently inverted, because the restoring force was applied as a heading bend rather than a position spring — **FOUND AND FIXED, Stage 7d**
+
+Stage 7d lays the spectrum out vertically: five ribbons, one per frequency
+band, bass low in the frame and air high. Each is pulled toward its band's
+home row.
+
+The pull was first applied by adding an offset to the DIRECTION vector before
+normalising it. That is speed-dependent — a fast ribbon travels further per
+frame than the bend can correct — and at the shipped travel speed the ribbons
+simply outran it. Traced over 45 seconds, mean heights came out:
+
+| band | home | measured mean |
+|---|---|---|
+| low | 0.20 | 0.28 |
+| low-mid | 0.40 | 0.43 |
+| mid | 0.58 | **0.71** |
+| high | 0.74 | **0.69** |
+| air | 0.88 | **0.64** |
+
+The top three inverted — "air" sat *below* "mid". The whole point of stacking
+by pitch was gone, and a still frame does not show it: the ribbons are in
+plausible-looking places, just the wrong ones relative to each other.
+
+**Fix.** Apply it as a positional spring (`y += (home - y) * k * dt`), which
+acts the same at any speed, and raise k to 1.1/s. After: 0.23 / 0.29 / 0.48 /
+0.61 / 0.70 — monotonic, with every ribbon still ranging the full width.
+
+**Generalisable:** a restoring force added to a normalised direction is not a
+restoring force, it is a bias whose strength depends on how fast the thing is
+already moving. If the invariant is about POSITION, correct position.
+
 ### B56 — `SplitText` rewrites the `#my-taste` kicker's DOM while React still renders a child into it, and the next React update takes the whole page down — **FOUND, NOT FIXED (outside Stage 7c's scope), reproduces in the production build**
 
-Found incidentally while running Stage 7c's light-theme fluid sweeps: the
-entire React tree unmounted mid-run and the hero canvas disappeared with it.
-Not a fluid bug — the fluid was the thing that noticed.
+**This is the root cause of `D17`**, which recorded the same crash during
+Stage 3 Task 11.2, confirmed it pre-existing, and stopped at *"likely
+mechanism, not yet root-caused: a classic shape for a lost-race between an
+async image event and an unrelated re-render."* That guess was close — it is a
+race involving the image fetch — but the other party to the race is not an
+unrelated re-render, it is GSAP rewriting the DOM out from under React, which
+is why it never reproduced reliably enough to pin down. D17's recommendation
+to add an error boundary still stands on its own merits; it would turn this
+from a blank page into a broken section, which is worth having regardless.
+
+Found again while running Stage 7c's light-theme fluid sweeps: the entire
+React tree unmounted mid-run and the hero canvas disappeared with it. Not a
+fluid bug — the fluid was the thing that noticed.
 
 `my-taste.jsx` renders the section kicker as:
 
