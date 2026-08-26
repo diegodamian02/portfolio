@@ -6448,6 +6448,124 @@ rebuild, unchanged and deliberately not started.
 
 ---
 
+### Stage 9 — minimal Postgres logging: plays, search clicks, contact messages *(2026-08-25)*
+
+Requested off live feedback that recommended tracking who's using the turntable
+and the crate. Scoped down in the same conversation to exactly three things,
+each confirmed rather than assumed: **plays** (record selected from the crate,
+not pause/resume), **search clicks** (the term that led to a pick, not every
+debounced keystroke), and **contact messages** (durable copy, independent of
+whether Resend delivers). Owner-only — no public panel, no UI. A public "what's
+been played" panel was raised and deliberately deferred, not built; see §8
+below for what it would need if picked up later.
+
+**Infrastructure.** A Postgres service already existed in the Railway project
+(`Postgres`, alongside `client` and `server`). Wired with the Railway CLI:
+
+```
+railway variable set 'DATABASE_URL=${{Postgres.DATABASE_URL}}' --service server --skip-deploys
+```
+
+This is a *reference* variable, not a copied value — it resolves to
+`postgres.railway.internal`, Railway's private network address, so the
+connection never leaves their infrastructure and carries no egress cost. `pg`
+8.23 is the one new dependency (`server/package.json`).
+
+**The guarantee everything else depends on.** `server/db.js` exports three
+functions (`recordPlay`, `recordSearchClick`, `recordMessage`), and every one
+of them is a no-op if `DATABASE_URL` is unset — checked once, at the top of
+`safeWrite()`. `npm run dev` has never required Postgres and still doesn't;
+verified by hitting `/api/events/play` and `/api/events/search-click` locally
+with no `DATABASE_URL` set at all: both returned `204` with nothing in the
+server log. Schema creation is lazy (first write, not server start) and
+memoized, so a server that gets zero visitor actions never opens a connection.
+
+**No raw IP is ever stored.** `server/visitor.js` hashes
+`sha256(ip + User-Agent + day)`, truncated to 16 hex chars — the cookieless
+model Plausible/Fathom use. It groups one visitor's actions together and lets
+you count distinct visitors without keeping anything reversible to an address,
+and the daily rotation means rows from different days can't be joined into a
+longer history. Country comes from Cloudflare's `CF-IPCountry` header, already
+sent on every request for free. Device (`mobile`/`tablet`/`desktop`) and
+browser (`Chrome`/`Safari`/`Firefox`/`Edge`/`Opera`/`Other`) are both a
+handful of regexes against the User-Agent — no new dependency, no
+`ua-parser-js`. iPad is checked before the mobile regex, since recent iPadOS
+UAs contain "Mobile" and would otherwise misclassify.
+
+**The play/resume distinction reuses machinery that already exists.** The
+naive hook point is `record-crate.jsx`'s selection handler — but that fires
+the instant a result is clicked, before the audio has even started decoding,
+so a dead preview URL would log a play that never played. The accurate signal
+is the `deck-state.js` edge to `PLAYING`, and specifically the
+`previous !== DECK.PAUSED` condition `skyline-background.jsx` already uses (to
+decide whether to reset ballistics for a genuinely new track vs. a resume).
+`home.jsx` now subscribes to that same edge for the play beacon — a resume
+from pause is excluded by construction, not by a special case:
+
+```js
+useEffect(() => onDeckState((next, previous) => {
+    if (next === DECK.PLAYING && previous !== DECK.PAUSED) {
+        reportPlay(nowPlayingRef.current);
+    }
+}), []);
+```
+
+A ref rather than reading `nowPlaying` directly: the listener is registered
+once, so a closure over the state variable would freeze on whatever was
+current at mount, not the track actually loaded when the edge later fires.
+
+**Search clicks** log from the one place that already has both the term and
+the picked result in scope — `record-crate.jsx`'s `selectTrack`, one line
+added right where it already calls `onSelect?.(track)`. Every keystroke of the
+400ms-debounced search is deliberately NOT logged; only the click/Enter that
+picks a result is.
+
+**Contact messages** are recorded in both branches of `/api/contact` — a
+successful Resend send and a rejected one — because the point is "who tried to
+reach the owner," not only "who reached them successfully." Fire-and-forget in
+both cases, after the response-determining logic has already run, so a slow or
+failing insert can never delay or fail the response the visitor is waiting on.
+
+**Schema:**
+
+```sql
+plays         (id, at, track_id, title, artist, visitor, country, device, browser)
+search_clicks (id, at, term, track_id, title, artist, visitor, country, device, browser)
+messages      (id, at, name, email, message, resend_id, delivered, visitor, country, device, browser)
+```
+
+**Verification.** Lint 7 errors / 2 warnings — unchanged baseline (the one
+`record-crate.jsx` error, `onSelect` missing prop-types, predates this change —
+confirmed by linting the pre-change file directly). Build clean; bundle
+545.23 → **545.85 kB** (+0.62 kB) for `telemetry.js` and its two call sites.
+Both new endpoints return `204` locally with `DATABASE_URL` unset, no server
+log output. Live-endpoint and row-level verification against the deployed
+Railway Postgres instance is in the commit that follows this entry.
+
+**Read access:** Railway's own dashboard query console against the `Postgres`
+service — no code, no route, no UI. `railway connect Postgres` works too, from
+a machine with an SSH key already registered.
+
+---
+
+#### 8. If a public "what's been played" panel is ever built
+
+Raised in the same conversation and deliberately not built now. Two things
+would need deciding first, not just a new route:
+
+- **Plays are safe to show** — track/artist come from Apple's own catalog data,
+  already public. **Raw search terms are not** — an unmoderated text field
+  rendered back to every visitor of a live job-search site is a different risk
+  than an owner-only table, and someone will eventually type something not
+  meant for a recruiter to read. Keep `search_clicks` private-side only; a
+  public panel would read from `plays` alone.
+- A public read needs its own endpoint (`GET /api/plays/recent` or similar)
+  with its own response shape — the `plays` table's own columns are not
+  something to expose as-is (`visitor` is a hash, not for public display, and
+  serving it teaches nothing but wastes a column).
+
+---
+
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |

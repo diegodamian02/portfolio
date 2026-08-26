@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import querystring from 'querystring';
 import crypto from 'crypto';
 import { Resend } from 'resend';
+import { recordPlay, recordSearchClick, recordMessage } from './db.js';
+import { visitorContext } from './visitor.js';
 
 // Initialize express app
 const app = express();  // <-- Here you initialize the app
@@ -482,12 +484,19 @@ app.post('/api/contact', async (req, res) => {
         // the failure this endpoint exists to eliminate.
         if (sendError) {
             console.error(`🚨 [contact] Resend rejected the send: ${sendError.name} — ${sendError.message}`);
+            // Recorded even on a rejected send — this is the owner's own
+            // record of who tried to reach them, independent of whether
+            // Resend's sandbox restriction (or anything else) blocked delivery.
+            recordMessage({ ...value, resendId: null, delivered: false, ...visitorContext(req) });
             return res.status(502).json({ error: "That didn't go through — please try again, or email me directly." });
         }
 
         // The Resend id is what you search on at resend.com/emails to see
         // delivery/bounce status for a specific message.
         console.log(`✉️  [contact] message relayed from ${value.email} (resend id ${data?.id})`);
+        // Fire-and-forget, same as every other db.js call — a slow or failing
+        // insert must never delay or fail the response the visitor is waiting on.
+        recordMessage({ ...value, resendId: data?.id ?? null, delivered: true, ...visitorContext(req) });
         res.json({ ok: true });
     } catch (err) {
         // Network-level failure reaching Resend at all.
@@ -626,6 +635,54 @@ app.get('/api/itunes/preview-proxy', async (req, res) => {
         console.error('🚨 [preview-proxy] error:', error.message);
         res.status(502).json({ error: 'Upstream fetch failed' });
     }
+});
+
+// === Play / search-click telemetry ===
+// Owner-only records — see db.js's header. Both endpoints share the same
+// shape: validate just enough to keep garbage out, record visitor context via
+// visitor.js (no raw IP ever reaches a table), and respond immediately without
+// waiting on the insert. A slow or dead database must never be something a
+// visitor's turntable or search box can feel.
+//
+// Deliberately NOT rate-limited or gated behind CORS beyond the existing
+// ALLOWED_ORIGINS check — a fake flood of these only pollutes the owner's own
+// table, it can't spend a shared budget the way the iTunes/contact routes'
+// upstream calls can, and no data leaves this server as a result.
+const EVENT_MAX = { term: 200, trackId: 100, title: 300, artist: 300 };
+
+function readEventField(body, key, max) {
+    const value = body?.[key];
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed ? trimmed.slice(0, max) : null;
+}
+
+// A play is logged only for the fresh-drop edge (LOADING/EMPTY -> PLAYING),
+// never a resume from PAUSED — that distinction is made client-side, in
+// home.jsx's deck-state subscription, using the same edge condition
+// skyline-background.jsx already relies on for its own reset logic. This
+// route trusts that the client only calls it on that edge; it has no way to
+// verify deck state itself, and doesn't need to — the worst a misbehaving
+// client can do is add rows to the owner's own table.
+app.post('/api/events/play', (req, res) => {
+    const trackId = readEventField(req.body, 'trackId', EVENT_MAX.trackId);
+    const title = readEventField(req.body, 'title', EVENT_MAX.title);
+    const artist = readEventField(req.body, 'artist', EVENT_MAX.artist);
+    res.status(204).end(); // acknowledge before the insert even starts
+    if (trackId) recordPlay({ trackId, title, artist, ...visitorContext(req) });
+});
+
+// A search-click is logged only when a visitor picks a result — never per
+// keystroke of the debounced search — so this fires from record-crate.jsx's
+// selection handler, carrying the term that was actually searched alongside
+// the track it led to.
+app.post('/api/events/search-click', (req, res) => {
+    const term = readEventField(req.body, 'term', EVENT_MAX.term);
+    const trackId = readEventField(req.body, 'trackId', EVENT_MAX.trackId);
+    const title = readEventField(req.body, 'title', EVENT_MAX.title);
+    const artist = readEventField(req.body, 'artist', EVENT_MAX.artist);
+    res.status(204).end();
+    if (term) recordSearchClick({ term, trackId, title, artist, ...visitorContext(req) });
 });
 
 // Start the server

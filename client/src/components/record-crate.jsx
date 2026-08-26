@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { init as audioInit } from "../lib/turntable-audio.js";
+import { reportSearchClick } from "../lib/telemetry.js";
 import { createPortal } from "react-dom";
 import { gsap } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
@@ -171,6 +172,11 @@ export default function RecordCrate({ onSelect }) {
         //
         // init() is idempotent: one AudioContext, created lazily, reused forever.
         audioInit();
+
+        // Owner-only record of what a search actually led to — never per
+        // keystroke, only on the click/Enter that picks a result. See
+        // telemetry.js; this never touches what the visitor sees or waits on.
+        reportSearchClick(query, track);
 
         onSelect?.(track);
         setOpen(false);

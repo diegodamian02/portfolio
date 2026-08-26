@@ -1975,6 +1975,33 @@ if the privacy concern outweighs waiting for the size cleanup to be worth doing 
 
 ---
 
+### Stage 9 — minimal Postgres logging *(2026-08-25, built same day, out of sequence)*
+
+Not part of the original stage order — raised by live feedback mid-Stage-8 and
+built immediately on explicit instruction, rather than queued behind the rest
+of Stage 8's polish items. Noted here so the sequence isn't misread as having
+been planned in advance.
+
+Three tables, owner-only, no public UI: `plays` (record selected from the
+crate — resume-from-pause explicitly excluded), `search_clicks` (only the
+click that picks a result, never a debounced keystroke), `messages` (every
+contact-form attempt, delivered or not). No raw IP stored anywhere — a
+cookieless visitor hash (`sha256(ip+UA+day)`, truncated), Cloudflare's own
+`CF-IPCountry` header, and a UA-regex device/browser guess. `DATABASE_URL` is
+a Railway reference variable to the `Postgres` service already in this
+project, resolving to its private network address — no code path requires it
+to exist, so local dev is unaffected either way. Full writeup, including why
+the play/resume distinction reuses `skyline-background.jsx`'s own edge
+condition rather than hooking the crate's click handler:
+`STATUS.md`'s own dated entry.
+
+A public "what's been played" panel was discussed and deliberately **not**
+built — flagged for later, with the one real constraint already written down:
+raw search terms must never be the thing rendered back to visitors of a live
+job-search site; a public view would read from `plays` alone.
+
+---
+
 ## 4. Standing manual tasks
 
 Not code. See `STATUS.md` §4 for the full list. Highest priority:
