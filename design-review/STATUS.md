@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-25 (Stage 7.2 — light theme reads as colour, the banding
-was the mask, smooth tips) · **HEAD:** `8b7acbc`+ · **Live:**
+**Updated:** 2026-08-25 (Stage 9 — minimal Postgres logging: plays, search
+clicks, contact messages) · **HEAD:** `80d2e7a`+ · **Live:**
 https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and

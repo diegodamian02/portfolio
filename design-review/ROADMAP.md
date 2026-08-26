@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-25, Stage 7.2 — light theme reads as colour, the banding was the mask, smooth tips)*
+## 0. Current state — quick summary *(updated 2026-08-25, Stage 9 — minimal Postgres logging: plays, search clicks, contact messages)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
