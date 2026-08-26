@@ -6660,6 +6660,79 @@ Lint 7 errors / 2 warnings — unchanged baseline. Build clean, +0.62 kB.
 
 ---
 
+#### Same-day addendum — the actual "constrains scrolling down" cause was pin LENGTH, not gesture axis
+
+Live feedback right after the fix above shipped: *"when I scroll down it still
+displays to the right, whenever I scroll down I want to go down to the other
+section."* The horizontal-gesture fix was working correctly — this was the
+same complaint from a different, bigger cause underneath it that the gesture
+fix never touched.
+
+**Measured, not assumed, and the number explains the whole complaint.** The
+pin's `end` was `"+=" + (scrollDistance + ENTRY_BUFFER)`, where `scrollDistance`
+is `trackW - viewportW` — the exact pixel width six photo cards happen to
+occupy. That variable was doing two unrelated jobs at once: how FAR the track
+travels visually, and (via `duration: () => scrollDistance` on all three
+scrubbed tweens) how much REAL scroll it costs to get there — a literal 1:1
+pixel mapping. Measured on a 1440×900 window: `scrollDistance` was 2568px, the
+pin-spacer this section inserts was 3544px tall, against an 8105px document —
+**this one six-card section was consuming 43.7% of the site's entire
+scrollable height.** One generous natural scroll gesture (~720px of wheel
+input) advanced the filmstrip only 18.5%; clearing the section took roughly
+**six** such gestures. That is "when I scroll down it still displays to the
+right" exactly: ordinary scrolling wasn't broken, it was just being asked to
+do six times more work than any other section on the page ever asks for.
+
+**Fix: decouple real-scroll-cost from visual-travel-distance.** The track
+still travels the full `scrollDistance` — every card is still reachable,
+nothing about the visual layout or the snap-to-nearest-card behavior changes.
+A new `pinScrollLength`, tied to **viewport height** rather than to how wide
+six photos happen to be, now drives `end` and all three tweens' `duration`
+instead. `scrollDistance` is a fact about the *content* (a seventh entry
+grows it); `pinScrollLength` is a fact about how much scrolling feels
+reasonable to ask for, which is a property of the viewport, not the
+filmstrip.
+
+The snap function needed rewriting alongside it, not just repointing at a new
+variable — its old pixel-space math (`px = value * total; cardIndex =
+Math.round(cardPx / (scrollDistance / (entries.length - 1)))`) relied on the
+1:1 mapping that no longer holds once `pinScrollLength` and `scrollDistance`
+diverge. Rewritten in **progress-fraction space** instead, which needs no
+pixel measurement at all: cards are evenly spaced (fixed width/gap), so
+they're evenly spaced across the scrub's progress fraction too, and "which
+card is nearest this progress" is answered directly.
+
+**The multiplier, tried at two values before landing:**
+
+| `PIN_LENGTH_VH_MULTIPLIER` | pin-spacer height | % of page scroll | natural swipes to clear |
+|---|---|---|---|
+| 1.4 (tried first) | 2236px | 32.9% | ~3 |
+| **1.0 (shipped)** | **1876px** | **29.1%** | **~2** |
+
+1.0 was picked over the more conservative 1.4 because it's independently
+checkable on its own terms — "scrolling past this section costs about as much
+as scrolling past one screen of content" is a real claim, not just a ratio
+that happened to score better than the original. Down from 43.7% to 29.1% of
+the entire site's scroll length, and from ~6 gestures to ~2.
+
+**Verified against everything the previous fix already established, not just
+the new number in isolation:**
+
+| Check | Result |
+|---|---|
+| Snap still lands correctly, progressing through cards | index 0 → 3 → 5 (last) across three wheel bursts, held at 5 (fully scrolled) on further input — no misalignment |
+| Horizontal wheel still works against the shorter pin | reaches full traversal (`track.x` = `-scrollDistance` exactly) |
+| Horizontal touch still works against the shorter pin | moved the track 1601px (mobile) |
+| `#my-taste`'s snap rows, still unaffected | `scrollLeft` 20 → 371 natively; `window.scrollY` **unchanged**, exactly |
+
+Lint 7/2 unchanged baseline. Build clean, +2.0 kB JS / +2.0 kB CSS — larger
+than the previous entry's own delta because this local dev build also
+included in-progress, uncommitted work on `connect.jsx`/`main.scss` from a
+concurrent editing session; that work is untouched by and unrelated to this
+fix, and was deliberately left out of the commit that ships this change.
+
+---
+
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |

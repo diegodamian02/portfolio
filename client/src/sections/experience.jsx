@@ -149,6 +149,25 @@ const MIN_SCALE = 0.8;
 const MAX_SCALE = 1.08;
 const MIN_OPACITY = 0.4;
 
+// How much real scroll the pin costs, as a multiple of viewport height — see
+// the long comment on `pinScrollLength` inside measure() below for why this
+// exists as its own number rather than reusing scrollDistance (the track's
+// own visual travel distance). Measured before this existed: a 1:1 mapping
+// between the two put THIS ONE SECTION at 43.7% of the entire site's
+// scrollable height, and a single natural scroll gesture (~720px of wheel
+// input) only cleared 18.5% of it — roughly six such gestures just to get
+// through six cards.
+//
+// 1.0 (one viewport height) took that to ~2 gestures and 29.1% of the page.
+// Tried 1.4 first — a more conservative cut, ~3 gestures / 32.9% — and it
+// still read as too close to the original problem to be worth the smaller
+// number. One viewport height is also easier to reason about on its own
+// terms than a decimal tuned against one specific measurement: "scrolling
+// past this section costs about as much as scrolling past one screen of
+// content" is a real, checkable claim, not just a ratio that happened to
+// score well.
+const PIN_LENGTH_VH_MULTIPLIER = 1.0;
+
 function ExperienceFilmstrip({ entries }) {
     const rootRef = useRef(null);
     const viewportRef = useRef(null);
@@ -174,6 +193,7 @@ function ExperienceFilmstrip({ entries }) {
         let activeIndex = -1;
         let centers = [];
         let scrollDistance = 0;
+        let pinScrollLength = 0;
 
         // Card width/gap are fixed (CSS clamp, not content-dependent like
         // Task 7/8's variable-height rows), so unlike that build this can
@@ -209,6 +229,34 @@ function ExperienceFilmstrip({ entries }) {
             // drawSVG value gets applied on top of it afterward.
             gsap.set(railPathRef.current, { drawSVG: "0%" });
             scrollDistance = Math.max(0, trackW - viewportW);
+            // How much REAL scroll this pin costs — deliberately NOT the same
+            // number as scrollDistance above.
+            //
+            // Before this, scrollDistance served both roles: how far the
+            // track travels visually, AND (via `duration: () => scrollDistance`
+            // below) how much real scroll it takes to get there — a literal
+            // 1:1 pixel mapping. For six cards at their current width that
+            // measured 2568px on a 1440x900 window, and the pin's own
+            // ENTRY_BUFFER on top of it: the pin-spacer this section inserts
+            // was 3544px tall against an 8105px document — this ONE section
+            // was consuming 43.7% of the site's entire scrollable height.
+            // Reported live, and the numbers explain exactly why: "when I
+            // scroll down it still displays to the right, I want to go down
+            // to the other section" — one full natural swipe (~720px of wheel
+            // input, generous) advanced the filmstrip only 18.5%. It would
+            // have taken roughly SIX such swipes just to clear this section,
+            // which reads exactly like it never ends, on ordinary scrolling
+            // alone — this was never about which gesture axis wins.
+            //
+            // Tied to viewport HEIGHT instead of to how wide six photos
+            // happen to be, because that is what actually scales sensibly:
+            // scrollDistance is a fact about the CONTENT (add a seventh entry
+            // and it grows), pinScrollLength is a fact about how much
+            // scrolling feels reasonable to ask for, which is a property of
+            // the viewport, not the filmstrip. See PIN_LENGTH_VH_MULTIPLIER's
+            // own comment for the two values this was actually measured
+            // against before landing on 1.0.
+            pinScrollLength = Math.max(1, window.innerHeight * PIN_LENGTH_VH_MULTIPLIER);
             return { viewportW, trackW };
         }
 
@@ -341,26 +389,41 @@ function ExperienceFilmstrip({ entries }) {
                 // engage the pin at a DIFFERENT scroll position than where
                 // a nav click lands, desyncing the two.
                 start: () => "top top+=" + navbarHeight(),
-                end: () => "+=" + (scrollDistance + ENTRY_BUFFER),
+                end: () => "+=" + (pinScrollLength + ENTRY_BUFFER),
                 pin: true,
                 scrub: 0.3,
                 invalidateOnRefresh: true,
                 snap: entries.length > 1 ? {
                     snapTo: (value) => {
-                        // Custom function, not a plain snapTo fraction —
-                        // the entry buffer means progress:0 now spans a
-                        // whole dead-zone segment, not one instantaneous
-                        // point, so evenly-spaced fractions of the WHOLE
-                        // 0-1 range would land snap targets past where
-                        // each card's own segment actually sits. Maps
-                        // progress back into buffer-adjusted card-index
-                        // space, snaps to the nearest whole card, then back.
-                        const total = scrollDistance + ENTRY_BUFFER;
-                        const px = value * total;
-                        const cardPx = Math.max(0, px - ENTRY_BUFFER);
-                        const cardIndex = Math.round(cardPx / (scrollDistance / (entries.length - 1)));
-                        const snappedPx = ENTRY_BUFFER + cardIndex * (scrollDistance / (entries.length - 1));
-                        return snappedPx / total;
+                        // Custom function, not a plain snapTo fraction — same
+                        // reason as before pinScrollLength existed: the entry
+                        // buffer means progress:0 spans a whole dead-zone
+                        // segment, not one instantaneous point, so evenly-
+                        // spaced fractions of the WHOLE 0-1 range would land
+                        // snap targets past where each card's own segment
+                        // actually sits.
+                        //
+                        // Works in PROGRESS FRACTION now, not pixels — it no
+                        // longer needs scrollDistance at all. Before
+                        // pinScrollLength decoupled real-scroll-cost from
+                        // visual-travel-distance, one real pixel of the
+                        // trigger's scroll WAS one visual pixel of track
+                        // movement (duration: scrollDistance), so converting
+                        // progress to "pixels into the scrub" and dividing by
+                        // px-per-card was just another way of asking "which
+                        // card is nearest". That equivalence no longer holds —
+                        // pinScrollLength pixels of real scroll now produce
+                        // scrollDistance pixels of track movement — but cards
+                        // are evenly spaced (fixed width/gap, see measure()'s
+                        // own comment), so they are ALSO evenly spaced across
+                        // the scrub's progress fraction, and asking "which
+                        // card is nearest THIS progress" needs no pixel
+                        // measurement in between.
+                        const total = pinScrollLength + ENTRY_BUFFER;
+                        const entryFraction = ENTRY_BUFFER / total;
+                        const scrubFraction = gsap.utils.clamp(0, 1, (value - entryFraction) / (1 - entryFraction));
+                        const cardIndex = Math.round(scrubFraction * (entries.length - 1));
+                        return entryFraction + (cardIndex / (entries.length - 1)) * (1 - entryFraction);
                     },
                     // Live feedback: "I get in between years and then it
                     // locks... doesn't feel that natural." Was
@@ -407,12 +470,18 @@ function ExperienceFilmstrip({ entries }) {
         const st = tl.scrollTrigger;
         // Function-based end values (x here, "end" above) re-evaluate on
         // ScrollTrigger's own invalidate — required for this to survive a
-        // window resize, since scrollDistance is measured, not constant.
-        tl.to(trackRef.current, { x: () => -scrollDistance, duration: () => scrollDistance, ease: "none" }, ENTRY_BUFFER);
-        tl.to(railPathRef.current, { drawSVG: "100%", duration: () => scrollDistance, ease: "none" }, ENTRY_BUFFER);
+        // window resize, since both scrollDistance and pinScrollLength are
+        // measured, not constant.
+        //
+        // `x` still travels the full visual scrollDistance — nothing about
+        // where the track ENDS UP changes. Only `duration` (how much real
+        // scroll that costs) now reads pinScrollLength instead of reusing
+        // the same number, for all three tweens that share this scrub.
+        tl.to(trackRef.current, { x: () => -scrollDistance, duration: () => pinScrollLength, ease: "none" }, ENTRY_BUFFER);
+        tl.to(railPathRef.current, { drawSVG: "100%", duration: () => pinScrollLength, ease: "none" }, ENTRY_BUFFER);
         tl.to(railDotRef.current, {
             motionPath: { path: railPathRef.current, autoRotate: false },
-            duration: () => scrollDistance,
+            duration: () => pinScrollLength,
             ease: "none",
         }, ENTRY_BUFFER);
 

@@ -2025,6 +2025,20 @@ horizontal-scroll UI) needed `data-lenis-prevent-horizontal` so a trackpad
 swipe over them doesn't also try to move the whole page. Full writeup and
 verification numbers: `STATUS.md`'s own dated entry.
 
+**Same-day addendum — the real cause of "constrains scrolling down" was pin
+LENGTH, not gesture axis.** The gesture fix above was correct and stayed;
+live feedback right after showed the actual complaint was bigger: the pin's
+real-scroll cost was tied 1:1 to `scrollDistance` (the raw pixel width six
+photo cards happen to occupy), which measured at **43.7% of the entire site's
+scrollable height** for this one section — roughly six full scroll gestures
+just to clear it. `pinScrollLength`, a new value tied to viewport height
+instead of card width, decouples "how far the track travels" from "how much
+scroll that costs." Landed at 1.0× viewport height (tried 1.4× first) after
+comparing both against the measured numbers: **29.1%** of the page, ~2
+gestures to clear, snap-to-card and the horizontal-gesture fixes both
+re-verified against the shorter pin. Full numbers: `STATUS.md`'s own dated
+entry.
+
 ---
 
 ## 4. Standing manual tasks
