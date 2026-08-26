@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-25 (Stage 9 — minimal Postgres logging: plays, search
-clicks, contact messages) · **HEAD:** `80d2e7a`+ · **Live:**
+**Updated:** 2026-08-26 (Stage 3 Task 9 follow-up — horizontal scroll/swipe on
+the Experience filmstrip) · **HEAD:** `7f21fc5`+ · **Live:**
 https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
