@@ -42,6 +42,57 @@ export default function SmoothScroll({ children }) {
         // offset mechanism left, same as before this stage existed.
         mm.add("(prefers-reduced-motion: no-preference)", () => {
             const lenis = new Lenis({
+                // Live feedback on Experience's pinned horizontal filmstrip:
+                // a visitor's first instinct is to swipe/scroll SIDEWAYS
+                // through content presented sideways, and by default that
+                // gesture does nothing at all — Lenis's default
+                // gestureOrientation is "vertical", which reads only deltaY
+                // (checked in node_modules/lenis/dist/lenis.mjs's
+                // onVirtualScroll: `let delta = deltaY` is the fallthrough
+                // for anything other than "both"/"horizontal"). A horizontal
+                // trackpad swipe produces a large deltaX and a near-zero
+                // deltaY, so it contributed nothing to scroll — which is what
+                // actually made the section feel like a trap: the only way
+                // through it was persistent vertical scrolling, because the
+                // natural gesture was silently a no-op.
+                //
+                // "both" makes Lenis pick whichever axis dominates a given
+                // WHEEL event (`Math.abs(deltaY) > Math.abs(deltaX) ? deltaY
+                // : deltaX`, same file) and feed THAT into the one real
+                // scroll position every ScrollTrigger on the page already
+                // reads — Experience's pin/scrub needs no code of its own to
+                // pick this up, it's driven by the same
+                // `lenis.on("scroll", ScrollTrigger.update)` wiring below.
+                // Verified: a horizontal-wheel-only gesture moved the
+                // filmstrip as far as an equivalent vertical one.
+                //
+                // This is a WHEEL-only fix, on purpose, not a touch one —
+                // `syncTouch` (below) is left at its default `false`, so
+                // touch input never reaches this branch at all (onVirtualScroll
+                // gates the whole delta/gestureOrientation calculation behind
+                // `syncTouch && isTouch || smoothWheel && isWheel`; with
+                // syncTouch off, a touch event fails that check before
+                // gestureOrientation is even read, same file). That's
+                // deliberate: Lenis leaves touch scrolling NATIVE by default
+                // because OS touch-scroll physics already feel better than
+                // anything rebuilt on top of them, and turning that off
+                // globally to get this one section's benefit would change
+                // scroll FEEL on every mobile section, not just this one.
+                // Experience's own horizontal-touch-drag support is instead a
+                // few lines in experience.jsx that talk to this same Lenis
+                // instance directly (via lib/scroll.js's getActiveLenis()),
+                // scoped to that one viewport — see the comment there.
+                //
+                // The wheel path above DOES apply everywhere, though, which is
+                // why the two native horizontal scroll-snap rows in #my-taste
+                // (mobile only) carry `data-lenis-prevent-horizontal` — see
+                // my-taste.jsx. Without that, hovering one with a trackpad and
+                // swiping sideways would ALSO register as a horizontal-
+                // dominant wheel gesture and try to move the page. The
+                // turntable's pitch fader needs no equivalent opt-out — GSAP
+                // Draggable drives it via pointer events, a pathway Lenis's
+                // wheel/touch listeners never see either way.
+                gestureOrientation: "both",
                 // Live feedback: "the render when we scroll down is not that
                 // smooth." Measured first, not assumed — a CPU-throttled (4x)
                 // rAF-timing trace across a full top-to-bottom scroll showed

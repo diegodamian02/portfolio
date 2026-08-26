@@ -8,6 +8,7 @@ import { useGSAP } from "@gsap/react";
 import { gsap, SIGNATURE_EASE, FILMSTRIP_SETTLE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import WorkMotif from "../components/work-motif.jsx";
+import { getActiveLenis } from "../lib/scroll.js";
 
 // Experience — Stage 3 Task 9. REPLACES Task 7/8's vertical alternating-
 // spine layout entirely: a pinned, horizontally-scrubbed filmstrip instead
@@ -422,8 +423,60 @@ function ExperienceFilmstrip({ entries }) {
         gsap.set(viewportRef.current, { opacity: 1, scale: 1 });
         updateEmphasis();
 
+        // Mobile: a horizontal touch drag moves the filmstrip directly —
+        // the touch counterpart to the horizontal-wheel fix wired globally in
+        // smooth-scroll.jsx (gestureOrientation: "both"). Touch needs its OWN
+        // path rather than reusing that one: Lenis leaves touch scrolling
+        // NATIVE by default (`syncTouch: false`, deliberately unchanged) so
+        // real OS scroll physics keep driving every section's normal vertical
+        // drag, this one included — hijacking touch globally to get the
+        // wheel fix's benefit would also change scroll FEEL everywhere else
+        // on mobile, for sections that already work.
+        //
+        // So this talks to the live Lenis instance directly, and only acts
+        // when a gesture over THIS viewport is horizontally dominant — a
+        // vertical drag here is untouched and keeps using the same native
+        // scroll path it already does today.
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchLastX = 0;
+        let touchIsHorizontal = null; // decided once per gesture, on first move, not re-decided mid-drag
+
+        function onTouchStart(e) {
+            const t = e.touches[0];
+            touchStartX = touchLastX = t.clientX;
+            touchStartY = t.clientY;
+            touchIsHorizontal = null;
+        }
+        function onTouchMove(e) {
+            const t = e.touches[0];
+            if (touchIsHorizontal === null) {
+                touchIsHorizontal = Math.abs(t.clientX - touchStartX) > Math.abs(t.clientY - touchStartY);
+            }
+            if (!touchIsHorizontal) return; // vertical — leave the native scroll path alone
+            const lenis = getActiveLenis();
+            if (!lenis) return; // reduced motion never mounts this component at all, but guard anyway
+            if (e.cancelable) e.preventDefault();
+            // Same sign Lenis's own touch handling uses internally
+            // (lenis.mjs onTouchMove: deltaX = -(clientX - start)) — dragging
+            // the content LEFT is "forward", the same direction scrolling
+            // down already is everywhere else on the page.
+            const stepDx = -(t.clientX - touchLastX);
+            touchLastX = t.clientX;
+            lenis.scrollTo(lenis.scroll + stepDx, { immediate: true });
+        }
+        const viewportEl = viewportRef.current;
+        // touchstart stays passive — nothing to prevent there, the gesture's
+        // direction isn't known yet. touchmove cannot be passive: preventing
+        // the browser's own scroll interpretation only works from a
+        // non-passive listener.
+        viewportEl.addEventListener("touchstart", onTouchStart, { passive: true });
+        viewportEl.addEventListener("touchmove", onTouchMove, { passive: false });
+
         return () => {
             st.kill();
+            viewportEl.removeEventListener("touchstart", onTouchStart);
+            viewportEl.removeEventListener("touchmove", onTouchMove);
         };
     }, { scope: rootRef, dependencies: [] });
 

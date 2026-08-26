@@ -963,7 +963,14 @@ export default function MyTaste() {
                         the actual fix this task is for, not just a bigger label
                         on the same old hierarchy. Zone B ("secondary",
                         data[2..4]) is the clearly smaller tier below. */}
-                    <div className="my-taste-wall" ref={wallScrollRef}>
+                    {/* data-lenis-prevent-horizontal: this becomes a native
+                        horizontal scroll-snap row below 600px (main.scss).
+                        smooth-scroll.jsx turned on Lenis's gestureOrientation:
+                        "both" for Experience's filmstrip, which reads any
+                        horizontal-dominant wheel/touch gesture site-wide as
+                        page scroll — without this attribute a swipe through
+                        these cards would also try to move the whole page. */}
+                    <div className="my-taste-wall" ref={wallScrollRef} data-lenis-prevent-horizontal>
                     {featured.length > 0
                         ? featured.map((artist, i) => (
                             <TasteCard
@@ -1128,7 +1135,9 @@ export default function MyTaste() {
                         else in this section. */}
                     {tracks.status === "ready" && setlist.length > 0 && (
                         <>
-                            <div className="my-taste-track-scroll" ref={trackScrollRef}>
+                            {/* data-lenis-prevent-horizontal — see the same
+                                attribute on .my-taste-wall above. */}
+                            <div className="my-taste-track-scroll" ref={trackScrollRef} data-lenis-prevent-horizontal>
                                 {setlist.map((track) => (
                                     <a
                                         key={track.id}

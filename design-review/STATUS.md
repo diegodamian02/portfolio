@@ -6566,6 +6566,100 @@ would need deciding first, not just a new route:
 
 ---
 
+### Stage 3 Task 9 follow-up — horizontal scroll/swipe on the Experience filmstrip *(2026-08-26)*
+
+Live feedback: the pinned filmstrip only responded to vertical scroll input,
+and a visitor's natural instinct — swipe/scroll SIDEWAYS through content
+presented sideways — did nothing at all. That silent no-op is what actually
+made the section feel like it "constrains the user from scrolling down to the
+other sections": the only way through a pin whose full traversal is
+`scrollDistance + ENTRY_BUFFER` px was persistent vertical scrolling, because
+the shorter, more direct gesture wasn't wired to anything.
+
+**Root cause, confirmed by reading `lenis.mjs` rather than guessed at.**
+Lenis's default `gestureOrientation` is `"vertical"`, which reads only
+`deltaY` in its scroll-delta calculation — a horizontal trackpad swipe
+produces a large `deltaX` and a near-zero `deltaY`, so it contributed nothing.
+
+**Desktop/trackpad fix — one Lenis option, zero code in `experience.jsx`.**
+`gestureOrientation: "both"` (`smooth-scroll.jsx`) makes Lenis pick whichever
+axis dominates a given wheel event and feed it into the same real scroll
+position every `ScrollTrigger` already reads. Experience's pin/scrub needed no
+changes at all — it's driven by the existing
+`lenis.on("scroll", ScrollTrigger.update)` wiring. Verified: a
+horizontal-only wheel gesture moved the filmstrip track **1754px**, comparable
+to (in this case further than) an equivalent vertical gesture's **1254px**.
+
+**This is a WHEEL-only fix, and that was a deliberate boundary, not an
+oversight.** `syncTouch` stays at its default `false`, so touch events never
+reach the `gestureOrientation` branch at all (gated behind
+`syncTouch && isTouch || smoothWheel && isWheel` in the same file) — meaning
+Lenis's own touch handling is completely unaffected by this change. That
+matters because Lenis leaves touch scrolling **native** by default
+specifically because OS touch-scroll physics already feel better than
+anything rebuilt on top of them; turning that off globally (`syncTouch: true`)
+to get the wheel fix's benefit on touch too would have changed scroll FEEL on
+every mobile section, not just this one — confirmed by reading what
+`syncTouch: true` actually changes (1:1 tracked touch-driven `scrollTo()`
+instead of the browser's own momentum/rubber-banding) before ruling it out,
+not assumed.
+
+**Mobile fix — a few lines scoped to exactly one viewport.** `experience.jsx`
+now talks to the live Lenis instance directly (`lib/scroll.js`'s
+`getActiveLenis()`, already exported for exactly this kind of cross-module
+access) via a `touchstart`/`touchmove` listener on `.experience-viewport`.
+The gesture's axis is decided once, on the first move of each touch (not
+re-decided mid-drag, matching how native gesture recognizers behave): if
+horizontally dominant, it computes a per-step delta with the same sign
+convention Lenis's own touch code uses internally
+(`deltaX = -(clientX - start)`, so dragging left is "forward", matching what
+scrolling down already means everywhere else on the page) and calls
+`lenis.scrollTo(lenis.scroll + stepDx, { immediate: true })`. A
+vertical-dominant drag over the same element does nothing extra and falls
+through to the untouched native path. Verified: a horizontal touch swipe moved
+the track **1280px**; a vertical touch drag over the same viewport still moved
+`window.scrollY` normally (**1608 → 2482**), confirming the native path is
+unaffected.
+
+**The "constrains from scrolling down" complaint, directly verified.** 40
+horizontal swipes over the mobile filmstrip released the pin and continued
+scrolling into `#my-taste` (measured: `window.scrollY` reached 3671, with
+`#my-taste`'s own top edge already inside the viewport) — a fast, intuitive
+way past the section now exists, not just the one path that made it feel like
+a trap.
+
+**No-regression check on `#my-taste`'s two native horizontal
+scroll-snap rows** (`.my-taste-wall`, `.my-taste-track-scroll`, mobile-only —
+the site's ONLY other horizontal-scroll UI, confirmed by grepping for every
+`scroll-snap-type: x` in `main.scss`). `gestureOrientation: "both"` applies to
+wheel input everywhere, not just Experience, so without an opt-out a trackpad
+hover-swipe over either row would also register as a horizontal-dominant wheel
+gesture and try to move the whole page. Both now carry
+`data-lenis-prevent-horizontal`, Lenis's own documented mechanism for exactly
+this — checked per-event, so it only excludes horizontally-dominant gestures
+over that element and leaves the row's own vertical-scroll-passthrough (if
+any) untouched. Verified: 4 horizontal touch swipes over `.my-taste-wall`
+moved its own `scrollLeft` (20 → 371) while `window.scrollY` did not move at
+all (4165 → 4165, exactly).
+
+**Verification method, worth recording because it caught two false starts.**
+Testing this required real gesture simulation, not `element.scrollIntoView()`
+— that call bypasses Lenis's virtual scroll entirely, so `ScrollTrigger` never
+sees the position change and the pin never engages (same class of pitfall
+`harness.mjs`'s own comments already document for `window.scrollTo` under
+Lenis). Navigating via the app's own nav links, exactly like a real visitor,
+fixed it. Touch simulation had its own trap: a hand-rolled
+`new TouchEvent(..., { touches: [new Touch({...})] })` dispatched via
+`element.dispatchEvent()` threw inside the app's own code (destructuring
+`clientX` off what the browser treated as an empty touch list) — Chromium's
+gesture layer doesn't treat a bare `dispatchEvent` as a genuine touch stream.
+Switching to CDP's `Input.dispatchTouchEvent` (what Playwright's own touch
+support is built on) fixed it.
+
+Lint 7 errors / 2 warnings — unchanged baseline. Build clean, +0.62 kB.
+
+---
+
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |

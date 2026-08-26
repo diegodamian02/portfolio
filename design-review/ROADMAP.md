@@ -2002,6 +2002,31 @@ job-search site; a public view would read from `plays` alone.
 
 ---
 
+### Stage 3 Task 9 follow-up — horizontal scroll/swipe on Experience *(2026-08-26)*
+
+Live feedback: the pinned filmstrip only responded to vertical scroll, so a
+visitor's natural instinct to swipe/scroll SIDEWAYS through content presented
+sideways did nothing — the silent no-op that made the section feel like it
+"constrains the user from scrolling down to the other sections."
+
+`gestureOrientation: "both"` on the site's one Lenis instance
+(`smooth-scroll.jsx`) fixes it for wheel/trackpad input, sitewide, with zero
+changes to `experience.jsx` — Lenis's default `"vertical"` reads only
+`deltaY`, so a horizontal trackpad swipe contributed nothing. Deliberately
+scoped to WHEEL only (`syncTouch` stays `false`, its default) rather than also
+flipping touch scrolling to Lenis-driven site-wide, which would change scroll
+FEEL on every mobile section, not just this one. Mobile's horizontal-swipe
+support is instead a small, scoped touch handler in `experience.jsx` itself,
+talking to the existing Lenis instance directly.
+
+The one thing this touches outside Experience: `#my-taste`'s two native
+horizontal scroll-snap rows (mobile only, the site's only other
+horizontal-scroll UI) needed `data-lenis-prevent-horizontal` so a trackpad
+swipe over them doesn't also try to move the whole page. Full writeup and
+verification numbers: `STATUS.md`'s own dated entry.
+
+---
+
 ## 4. Standing manual tasks
 
 Not code. See `STATUS.md` §4 for the full list. Highest priority:
