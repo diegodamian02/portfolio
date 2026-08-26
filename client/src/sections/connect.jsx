@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import '../styles/main.scss';
 import axios from 'axios';
 import { useGSAP } from '@gsap/react';
-import { gsap, ScrollTrigger, SplitText, SIGNATURE_EASE, Flip, WALKMAN_POP_EASE } from '../lib/gsap.js';
+import { gsap, ScrollTrigger, SplitText, SIGNATURE_EASE, Flip, WALKMAN_POP_EASE, PIN_SNAP_EASE } from '../lib/gsap.js';
 import { getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange } from '../lib/scroll.js';
 import useReducedMotion from '../hooks/use-reduced-motion.js';
 import Walkman, { WALKMAN_LCD_TEXT } from '../components/walkman.jsx';
@@ -36,7 +36,9 @@ import Walkman, { WALKMAN_LCD_TEXT } from '../components/walkman.jsx';
 // all to draw (checked the tree before assuming one should exist); About's
 // own entrance is the same shape (SplitText cascades, no DrawSVGPlugin —
 // that plugin is scoped to Experience's rail path, a real line that needs
-// tracing, which nothing here has).
+// tracing, which nothing here has). DrawSVGPlugin gets its actual first use
+// in this file below the Task 1 revision comment (the J-card's name-field
+// underline) — still no SVG here worth tracing for the entry reveal itself.
 //
 // Asset-load gating ("fonts, images... per the existing pin-not-engaging-
 // after-reload fix from #my-taste") is NOT re-implemented here. Re-read
@@ -67,6 +69,65 @@ import Walkman, { WALKMAN_LCD_TEXT } from '../components/walkman.jsx';
 // `flightSlot` below) keeps React the sole owner of every node in the tree,
 // GSAP only ever touches style/transform on nodes React already placed.
 const CASSETTE_FLIP_ID = 'connect-cassette-flight';
+
+// ---- Task 1 revision (2026-08-26) — cassette J-card guestbook note ----
+//
+// Re-read this whole file fresh per the revision brief's own explicit
+// instruction before touching anything, rather than assuming the brief's
+// own framing ("styled as a cassette J-card... not the cassette body")
+// described a from-scratch build. It doesn't: Task 12's compose box
+// already existed as a cassette-styled textarea (`.message-cassette`), it
+// just wasn't the WHOLE card — name/email sat above it as a separate boxed
+// 2-column row, and a plain `.submit-button` sat below. This revision
+// unifies all three into one tall/narrow `.jcard` (below), drops email
+// entirely (this is a one-way guestbook note now, not a two-way contact
+// form — server.js's own validateContact/Resend call changed to match,
+// flagged there too), and makes the send fire optimistically.
+//
+// "Optimistic" here means `runSendSequence` — the walkman takeover — now
+// starts the instant client-side validation passes, in the SAME tick as
+// the click, not after `await axios.post(...)` resolves like Task 12
+// originally had it. The network request is fired separately below and
+// handled entirely out of band (`sendFailed`/`sendFailedMessage`): a
+// failure can only ever surface AFTER the takeover has already played in
+// full, never instead of it and never reversing it, per the brief's own
+// explicit requirement. This collapses the send-level state machine from
+// `idle | sending | sent | error` down to effectively `idle | sent` —
+// there's no longer a "waiting on the network" state worth showing, since
+// nothing on screen waits for the network anymore. `status` keeps its name
+// and its `data-state` hookup (still mirrors turntable.jsx's own
+// `data-deck-state` precedent) but only ever takes those two values now.
+const EMPTY = { name: '', message: '', website: '' };
+
+// Auto-grow cap for the message textarea (below) — JS drives the smooth
+// height tween up to this, `.jcard-textarea`'s own `max-height` (main.scss)
+// takes over with `overflow-y: auto` beyond it so an unusually long message
+// still has a hard ceiling rather than growing the card indefinitely.
+const MESSAGE_MAX_HEIGHT = 420;
+
+// Same trailing-slash guard as my-taste.jsx: a trailing slash on the env var
+// would produce "//api/contact", which Express treats as an unregistered path.
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050').replace(/\/+$/, '');
+
+// The heading itself IS the confirmation message on a successful send — a
+// genuine text transformation of the existing element (ScrambleTextPlugin,
+// runSendSequence below), not a second block of copy stacked underneath
+// it. Per the brief's own explicit requirement: exactly one message on
+// screen after a send, not the original heading left sitting above a
+// separate success paragraph (the previous shape, now removed).
+const HEADLINE_IDLE = "Let's Connect!";
+const HEADLINE_SENT = 'Thank you for reaching out!';
+
+// Reintroduced by direct request after Task 12.2 removed the old
+// mailto-fallback description entirely ("i dont need any description box
+// under that — its very straightforward"). This is a different paragraph
+// with a different job: not an email fallback (there's no email path at
+// all anymore, Task 1 revision), just a friendly note before the compose
+// box. Shown only alongside the form (see the JSX below) — hidden the
+// instant `status === 'sent'`, same as the form itself, so Task 12.3's own
+// requirement still holds: exactly one message on screen after a send.
+const CONTACT_DESCRIPTION =
+    "Thank you for taking the time to view my portfolio, I hope you had fun playing your favorite tunes! Feel free to leave a message.";
 
 // EQ bars + cord — a small, self-contained looping timeline, started once
 // Phase 1 begins and left running through settle into indefinite idle
@@ -126,38 +187,22 @@ function startIdleLoop(walkmanEl) {
     return loop;
 }
 
-// Same trailing-slash guard as my-taste.jsx: a trailing slash on the env var
-// would produce "//api/contact", which Express treats as an unregistered path.
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050').replace(/\/+$/, '');
-
-const EMPTY = { name: '', email: '', message: '', website: '' };
-
-// The heading itself IS the confirmation message on a successful send — a
-// genuine text transformation of the existing element (ScrambleTextPlugin,
-// runSendSequence below), not a second block of copy stacked underneath
-// it. Per the brief's own explicit requirement: exactly one message on
-// screen after a send, not the original heading left sitting above a
-// separate success paragraph (the previous shape, now removed).
-const HEADLINE_IDLE = "Let's Connect!";
-const HEADLINE_SENT = 'Thank you for reaching out!';
-
-// Reintroduced by direct request after Task 12.2 removed the old
-// mailto-fallback description entirely ("i dont need any description box
-// under that — its very straightforward"). This is a different paragraph
-// with a different job: not an email fallback (the form is the only
-// contact path now, unchanged), just a friendly note before the compose
-// box. Shown only alongside the form (see the JSX below) — hidden the
-// instant `status === 'sent'`, same as the form itself, so Task 12.3's own
-// requirement still holds: exactly one message on screen after a send.
-const CONTACT_DESCRIPTION =
-    "Thank you for taking the time to view my portfolio, I hope you had fun playing your favorite tunes! Feel free to leave a message.";
-
 export default function Connect() {
     const rootRef = useRef(null);
     const containerRef = useRef(null);
     const titleRef = useRef(null);
     const descriptionRef = useRef(null);
+    // The J-card root — Flip flight source (data-flip-id below) AND the
+    // thing runSendSequence measures. Was scoped to just `.message-cassette`
+    // (the message field alone) before this revision; now the whole card
+    // flies, per the brief's own framing ("the card becoming a cassette").
     const cassetteRef = useRef(null);
+    const nameInputRef = useRef(null);
+    const nameStripRef = useRef(null);
+    const nameUnderlineRef = useRef(null);
+    const messageRef = useRef(null);
+    const messageBodyRef = useRef(null);
+    const submitRef = useRef(null);
     const flightRef = useRef(null);
     const walkmanRootRef = useRef(null);
     const scrimRef = useRef(null);
@@ -178,17 +223,21 @@ export default function Connect() {
     const sequenceTlRef = useRef(null);
 
     const [formData, setFormData] = useState(EMPTY);
-    // idle | sending | sent | error — the previous version had no notion of
-    // this at all: it alert()ed a thank-you before the request was even sent,
-    // so a failure was invisible to the visitor and the message was lost.
+    // idle | sent — see the Task 1 revision comment above for why this no
+    // longer carries a "sending" or "error" value. Still gates form-vs-
+    // walkman visibility and `data-state`, same as before.
     const [status, setStatus] = useState('idle');
-    const [errorMessage, setErrorMessage] = useState('');
-    // Separate from the send-level errorMessage above: this is a client-side
-    // validation error (never sent, not the server's opinion), shown under
-    // the one field the brief calls out — message. Cleared on any edit to
-    // that field, mirroring how `status === 'error'` already resets on any
-    // edit below.
+    // Client-side validation errors — never sent, the server's opinion is a
+    // separate thing (sendFailed, below). Cleared on any edit to the field
+    // it belongs to.
+    const [nameError, setNameError] = useState('');
     const [messageError, setMessageError] = useState('');
+    // Set from the fire-and-forget request in handleSubmit's own .catch —
+    // entirely separate from the optimistic animation, which has already
+    // started (or finished) by the time this can ever become true. Never
+    // read by runSendSequence or anything animation-related.
+    const [sendFailed, setSendFailed] = useState(false);
+    const [sendFailedMessage, setSendFailedMessage] = useState('');
     // Persists once true for the rest of the session — the walkman, once it
     // has appeared, stays in the document (settled, idle-looping) even
     // after the visitor clicks "send another message" and the form
@@ -229,12 +278,26 @@ export default function Connect() {
             // fallback description this replaced), so there's no risk here,
             // just consistency with titleSplit/formTargets' own granularity.
             const descriptionSplit = new SplitText(descriptionRef.current, { type: 'words' });
-            // The compose box, batched as one stagger group rather than
-            // individually SplitText'd — these are form CONTROLS, not text
-            // to fragment. `.contact-hp` (the honeypot) is deliberately
-            // excluded: it's already invisible (off-screen, aria-hidden),
-            // so animating it would just be wasted work.
-            const formTargets = gsap.utils.toArray('.contact-form .form-group, .contact-form .submit-button', rootRef.current);
+            // The J-card enters as ONE unit, not a per-field stagger — Task
+            // 1's revision made it read as a single physical object (one
+            // card, torn edge and all), so animating its three internal
+            // pieces in one after another would read as the card
+            // assembling itself rather than arriving. `.contact-hp` (the
+            // honeypot) is excluded same as before: already invisible
+            // (off-screen, aria-hidden), animating it is wasted work.
+            const formTargets = gsap.utils.toArray('.contact-form .jcard', rootRef.current);
+
+            // The name underline's rest state — undrawn — has to be set
+            // explicitly before anything else touches it (DrawSVGPlugin's
+            // own requirement: without an initial gsap.set, the path just
+            // renders fully stroked and "draws in on focus" has nothing to
+            // draw from). Scoped to this same reduced-motion branch: with
+            // no-preference reduced motion, skipping this entirely leaves
+            // the underline visibly drawn at rest, which is the correct,
+            // simpler result for that visitor (no motion needed either way).
+            if (nameUnderlineRef.current) {
+                gsap.set(nameUnderlineRef.current, { drawSVG: '0%' });
+            }
 
             if (formTargets.length === 0) return undefined;
 
@@ -281,7 +344,7 @@ export default function Connect() {
             // site already shares.
             tl.from(titleSplit.words, { opacity: 0, y: 16, duration: 0.5, ease: SIGNATURE_EASE, stagger: 0.06 }, 0);
             tl.from(descriptionSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.02 }, '>+=0.2');
-            tl.from(formTargets, { opacity: 0, y: 14, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.08 }, '>+=0.25');
+            tl.from(formTargets, { opacity: 0, y: 14, duration: 0.4, ease: SIGNATURE_EASE }, '>+=0.25');
 
             const navbarHeight = () =>
                 parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 0;
@@ -336,7 +399,11 @@ export default function Connect() {
                     // centered inside a navbar-aware min-height floor, see
                     // main.scss), so measuring the shell itself would
                     // compare the wrong two numbers and could skip the hold
-                    // even when the real content fits comfortably.
+                    // even when the real content fits comfortably. Re-
+                    // verified after the J-card grew this content taller
+                    // (Task 1 revision) — this branch is exactly the safety
+                    // net that's supposed to catch that, not a place that
+                    // needed new code.
                     const available = window.innerHeight - navbarHeight();
                     const contentHeight = containerRef.current.getBoundingClientRect().height;
                     if (contentHeight > available) {
@@ -446,9 +513,14 @@ export default function Connect() {
     }
 
     // The walkman send-success takeover itself. `cassetteFlipState` is
-    // `Flip.getState(...)` captured on the REAL textarea-cassette a moment
-    // ago in handleSubmit, while it was still mounted — real DOM rects, not
-    // a hardcoded offset, per the brief's own explicit instruction.
+    // `Flip.getState(...)` captured on the REAL J-card a moment ago in
+    // handleSubmit, while it was still mounted — real DOM rects, not a
+    // hardcoded offset, per the brief's own explicit instruction. Unchanged
+    // by the Task 1 revision beyond that: this function doesn't care
+    // whether the caller awaited a network response first or not, only
+    // that it's handed a real Flip state and called at the right moment —
+    // handleSubmit now calls it synchronously, immediately after
+    // validation passes, instead of inside a resolved promise.
     function runSendSequence(cassetteFlipState) {
         const walkmanEl = walkmanRootRef.current;
         const sectionEl = rootRef.current;
@@ -515,7 +587,7 @@ export default function Connect() {
         // breakpoint number.
         //
         // 1.35, down from 2.3. That 2.3 was tuned against a walkman whose rest
-        // width was min(260px, 78%); Task 12.3 nearly doubled that rest size to
+        // width was min(260px, 78%); Task 12.3 nearly doubled that to
         // min(460px, 92%) to make the device the confirmation state's
         // centerpiece, and the old multiplier came along unchanged — so the
         // takeover was scaling a 460px device to 1058px, filling the viewport
@@ -597,7 +669,7 @@ export default function Connect() {
         // 2. The cassette flies into the bay. Flip.from morphs the OLD,
         //    already-captured cassette state onto `flightRef.current` — a
         //    DIFFERENT element than the one `cassetteFlipState` was captured
-        //    from (the real cassette unmounted with the form the instant
+        //    from (the real J-card unmounted with the form the instant
         //    status flipped to "sent"), matched purely by the shared
         //    data-flip-id both carry. Confirmed against
         //    node_modules/gsap/Flip.js directly before relying on it: Flip
@@ -606,7 +678,11 @@ export default function Connect() {
         //    element became that one" rather than "this element moved."
         //    Re-styled to the bay's own rect immediately beforehand so
         //    Flip's own internal getState(targets) call reads THAT as the
-        //    target/end position.
+        //    target/end position. Flip handles the aspect-ratio change on
+        //    its own (Task 1 revision: the source is now the whole tall/
+        //    narrow J-card, not the old roughly-square message-only box) —
+        //    it's a plain rect morph, nothing here assumes a particular
+        //    source shape.
         if (canFly) {
             const flight = flightRef.current;
             flight.style.left = `${bayRect.left - sectionRect.left}px`;
@@ -715,72 +791,177 @@ export default function Connect() {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
-        if (status === 'error') setStatus('idle');
+        if (name === 'name' && nameError) setNameError('');
         if (name === 'message' && messageError) setMessageError('');
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (status === 'sending') return;
+    // Focus/blur on the name strip — a small lift (translateY), and the
+    // underline's own DrawSVGPlugin draw-in/out. overwrite: "auto" on every
+    // tween here (single-writer rule): tabbing in and immediately back out
+    // fires focus then blur in rapid succession, and without it the two
+    // tweens would race on the same y/drawSVG properties instead of the
+    // second cleanly cutting off the first.
+    const handleNameFocus = () => {
+        if (prefersReducedMotion) return;
+        gsap.to(nameStripRef.current, { y: -2, duration: 0.25, ease: SIGNATURE_EASE, overwrite: 'auto' });
+        gsap.to(nameUnderlineRef.current, { drawSVG: '100%', duration: 0.35, ease: SIGNATURE_EASE, overwrite: 'auto' });
+    };
+    const handleNameBlur = () => {
+        if (prefersReducedMotion) return;
+        gsap.to(nameStripRef.current, { y: 0, duration: 0.25, ease: SIGNATURE_EASE, overwrite: 'auto' });
+        // Only draws back out if the field is still empty — a filled name
+        // keeps its line drawn, which doubles as free "this field has
+        // content" feedback with no extra state to track.
+        if (!formData.name.trim()) {
+            gsap.to(nameUnderlineRef.current, { drawSVG: '0%', duration: 0.3, ease: SIGNATURE_EASE, overwrite: 'auto' });
+        }
+    };
 
-        // Client-side validation, scoped to the message field per the brief
-        // — name/email's required-ness is still enforced by the existing
-        // server round-trip (`validateContact` in server.js), surfaced
-        // through the same generic contact-error banner as any other send
-        // failure. `noValidate` on the <form> means the browser won't catch
-        // this on its own; nothing did before this check existed.
-        if (!formData.message.trim()) {
-            setMessageError('Please write a message before sending.');
+    const handleMessageFocus = () => {
+        if (prefersReducedMotion) return;
+        gsap.to(messageBodyRef.current, { y: -2, duration: 0.25, ease: SIGNATURE_EASE, overwrite: 'auto' });
+    };
+    const handleMessageBlur = () => {
+        if (prefersReducedMotion) return;
+        gsap.to(messageBodyRef.current, { y: 0, duration: 0.25, ease: SIGNATURE_EASE, overwrite: 'auto' });
+    };
+
+    // Auto-grow, not the browser's native snap-resize — the brief's own
+    // explicit ask ("subtle micro-motion... so it doesn't just snap-
+    // resize"). The measure-then-tween dance below (shrink to `auto` for
+    // one synchronous read, then immediately hand back the PREVIOUS
+    // explicit height as the tween's own "from") is what keeps this from
+    // visibly flashing: everything up to the gsap.to call happens in one
+    // JS tick, before the browser paints anything, so the only height the
+    // visitor ever sees rendered is the one already on screen and the one
+    // the tween eases into — never the momentary `auto` in between.
+    // overwrite: "auto" is load-bearing here specifically: fast typing
+    // fires this on every keystroke, and without it each keystroke would
+    // stack a new tween on top of the last one instead of redirecting it.
+    // resize: none in CSS (main.scss) — deliberately dropped the manual
+    // drag-resize handle this field used to have (Task 12's own version):
+    // it would fight this auto-grow the next time the visitor typed,
+    // shrinking a manually-enlarged box back down against their own choice.
+    const handleMessageChange = (e) => {
+        handleChange(e);
+        const el = messageRef.current;
+        if (!el) return;
+        const previousHeight = el.style.height || `${el.getBoundingClientRect().height}px`;
+        el.style.height = 'auto';
+        const targetHeight = Math.min(el.scrollHeight, MESSAGE_MAX_HEIGHT);
+        el.style.height = previousHeight;
+        if (prefersReducedMotion) {
+            el.style.height = `${targetHeight}px`;
+        } else {
+            gsap.to(el, { height: targetHeight, duration: 0.25, ease: SIGNATURE_EASE, overwrite: 'auto' });
+        }
+    };
+
+    // Tactile press/release on the submit tab — onPointerDown compresses it
+    // (a real weight, not a hover color-swap), onPointerUp/onPointerLeave
+    // springs it back out using WALKMAN_POP_EASE (lib/gsap.js) rather than a
+    // new ease: that's already this file's own "one clear decisive contact"
+    // shape (the walkman's pop-in, the lid snapping shut), and reusing it
+    // here ties the compose card's own submit motion to the device it's
+    // about to feed into — a deliberate continuity choice, not a
+    // coincidence. onPointerLeave covers a press that drags off the button
+    // before release, so it can never get stuck compressed.
+    const handleSubmitPress = () => {
+        if (prefersReducedMotion) return;
+        gsap.to(submitRef.current, { scale: 0.92, y: 2, duration: 0.12, ease: 'power2.out', overwrite: 'auto' });
+    };
+    const handleSubmitRelease = () => {
+        if (prefersReducedMotion) return;
+        gsap.to(submitRef.current, { scale: 1, y: 0, duration: 0.35, ease: WALKMAN_POP_EASE, overwrite: 'auto' });
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+
+        const nameValue = formData.name.trim();
+        const messageValue = formData.message.trim();
+        const nameEmpty = !nameValue;
+        const messageEmpty = !messageValue;
+
+        // Both fields validated client-side now (Task 1 revision — the
+        // message alone used to be the only one checked here; name/email
+        // were left to the server round trip). Shake/highlight whichever
+        // field(s) are empty rather than showing red text alone, per the
+        // brief's own explicit requirement, and move focus to the first
+        // invalid field so a keyboard/screen-reader visitor lands somewhere
+        // meaningful rather than nowhere.
+        if (nameEmpty || messageEmpty) {
+            if (nameEmpty) setNameError('Please add your name.');
+            if (messageEmpty) setMessageError('Please write a message before sending.');
+            if (!prefersReducedMotion) {
+                // CustomWiggle's "pinSnap" (lib/gsap.js) — built exactly for
+                // a relative, net-zero shake (its own comment: the ease
+                // returns to precisely 0, safe to drive with "+=N"), the
+                // same ease My Taste's own tape-snap already uses. A plain
+                // color flash covers the reduced-motion case instead (CSS,
+                // driven by aria-invalid below), so nothing here needs a
+                // parallel non-motion branch of its own.
+                if (nameEmpty) gsap.to(nameStripRef.current, { x: '+=8', duration: 0.4, ease: PIN_SNAP_EASE, overwrite: 'auto' });
+                if (messageEmpty) gsap.to(messageBodyRef.current, { x: '+=8', duration: 0.4, ease: PIN_SNAP_EASE, overwrite: 'auto' });
+            }
+            (nameEmpty ? nameInputRef : messageRef).current?.focus();
             return;
         }
+        setNameError('');
         setMessageError('');
+        // A fresh attempt clears any banner left over from a PRIOR failed
+        // send — the brief's own requirement that a new success doesn't
+        // leave a stale failure notice sitting on screen.
+        setSendFailed(false);
 
-        setStatus('sending');
-        setErrorMessage('');
-
-        try {
-            await axios.post(`${apiBaseUrl}/api/contact`, formData);
-
-            // Real DOM rect + Flip state, captured on the ACTUAL cassette
-            // element while it's still mounted — this has to happen before
-            // the flushSync below, which unmounts the form (and the
-            // cassette with it) in the same tick.
-            let cassetteFlipState = null;
-            let nextFlightSlot = null;
-            if (cassetteRef.current && rootRef.current) {
-                const rect = cassetteRef.current.getBoundingClientRect();
-                const sectionRect = rootRef.current.getBoundingClientRect();
-                nextFlightSlot = {
-                    left: rect.left - sectionRect.left,
-                    top: rect.top - sectionRect.top,
-                    width: rect.width,
-                    height: rect.height,
-                };
-                cassetteRef.current.setAttribute('data-flip-id', CASSETTE_FLIP_ID);
-                cassetteFlipState = Flip.getState(cassetteRef.current);
-            }
-
-            setFormData(EMPTY);
-            flushSync(() => {
-                setWalkmanVisible(true);
-                setFlightSlot(nextFlightSlot);
-                setStatus('sent');
-            });
-            runSendSequence(cassetteFlipState);
-        } catch (error) {
-            // The server sends a visitor-safe string for the cases it can
-            // anticipate (validation, rate limit, SMTP down); anything else
-            // falls back to a generic line rather than surfacing an axios dump.
-            setErrorMessage(
-                error.response?.data?.error ||
-                "Something went wrong sending that. Please try again, or email me directly at diegodamiango02@gmail.com."
-            );
-            setStatus('error');
-            // Nothing about the walkman/sequence is touched on failure —
-            // the brief's own requirement: it stays hidden (a first-ever
-            // failure) or exactly as it was, settled and idle-looping (a
-            // failure after an earlier successful send).
+        // Real DOM rect + Flip state, captured on the ACTUAL J-card while
+        // it's still mounted — this has to happen before setFormData(EMPTY)
+        // below, which unmounts the form (and the card with it) in the same
+        // tick via flushSync. Same ordering constraint FINDINGS.md's B45
+        // documents for why every measurement here has to run before
+        // anything transforms.
+        let cassetteFlipState = null;
+        let nextFlightSlot = null;
+        if (cassetteRef.current && rootRef.current) {
+            const rect = cassetteRef.current.getBoundingClientRect();
+            const sectionRect = rootRef.current.getBoundingClientRect();
+            nextFlightSlot = {
+                left: rect.left - sectionRect.left,
+                top: rect.top - sectionRect.top,
+                width: rect.width,
+                height: rect.height,
+            };
+            cassetteRef.current.setAttribute('data-flip-id', CASSETTE_FLIP_ID);
+            cassetteFlipState = Flip.getState(cassetteRef.current);
         }
+
+        // Snapshot the payload before formData resets below.
+        const payload = { name: nameValue, message: messageValue, website: formData.website };
+
+        setFormData(EMPTY);
+        flushSync(() => {
+            setWalkmanVisible(true);
+            setFlightSlot(nextFlightSlot);
+            setStatus('sent');
+        });
+        // Fires immediately, synchronously, in the same click — does NOT
+        // wait on the request below. The whole point of Task 1's revision:
+        // the visitor sees the card become a cassette and the walkman take
+        // over the instant they submit, not after a round trip. A failure
+        // (caught below) is handled entirely out of band, after the fact —
+        // this call is never delayed, reversed, or interrupted by it.
+        runSendSequence(cassetteFlipState);
+
+        axios.post(`${apiBaseUrl}/api/contact`, payload).catch((error) => {
+            // Nothing about the walkman/sequence is touched here — it has
+            // already played, in full, by the time this can even run. Only
+            // the out-of-band banner (JSX below) reacts to this.
+            setSendFailed(true);
+            setSendFailedMessage(
+                error.response?.data?.error ||
+                "That didn't go through — please try again, or email me directly at diegodamiango02@gmail.com."
+            );
+        });
     };
 
     // "Send another message" — a FULL reset, not just re-showing the
@@ -814,9 +995,9 @@ export default function Connect() {
         setSettled(false);
         setWalkmanVisible(false);
         setStatus('idle');
+        setSendFailed(false);
+        setSendFailedMessage('');
     };
-
-    const isSending = status === 'sending';
 
     return (
         <section className="contact-section" ref={rootRef}>
@@ -827,10 +1008,10 @@ export default function Connect() {
             <div className="connect-scrim" ref={scrimRef} aria-hidden="true" />
 
             {/* data-state mirrors turntable.jsx's own data-deck-state precedent
-                — the full idle/sending/sent/error machine, not just a single
-                hardcoded "sent" flag. The entry pin/reveal above doesn't
-                read it — that's a one-time scroll-entry transition, unrelated
-                to send state. */}
+                — idle | sent only now (Task 1 revision collapsed the old
+                sending/error values, see the module comment above). The
+                entry pin/reveal above doesn't read it — that's a one-time
+                scroll-entry transition, unrelated to send state. */}
             <div className="contact-container" data-state={status} ref={containerRef}>
                 {/* role="status" only once this IS the confirmation message
                     — .contact-success (the old separate two-paragraph
@@ -856,76 +1037,108 @@ export default function Connect() {
                     <p className="contact-description" ref={descriptionRef}>{CONTACT_DESCRIPTION}</p>
                 )}
 
+                {/* Send failure — Task 1 revision. Entirely out of band from
+                    the optimistic success animation: by the time a real
+                    network failure can arrive here, the takeover has
+                    already played in full (or is still playing), never the
+                    other way around. Sits above .walkman-stage rather than
+                    back inside a form that's already gone by the time this
+                    could ever show. */}
+                {sendFailed && (
+                    <p className="contact-error contact-error-toast" role="alert">
+                        {sendFailedMessage}
+                        <button
+                            type="button"
+                            className="contact-error-dismiss"
+                            onClick={() => setSendFailed(false)}
+                            aria-label="Dismiss"
+                        >
+                            ×
+                        </button>
+                    </p>
+                )}
+
                 {status !== 'sent' && (
                     <form className="contact-form" onSubmit={handleSubmit} noValidate>
-                        {/* Name + email side by side — was two full-width stacked
-                            fields, the largest single chunk of vertical space in
-                            the form for two short values. A 2-col grid (below,
-                            .contact-form-row) halves that footprint; each input's
-                            OWN padding also shrank (.form-group input, below) —
-                            font-size stays 1rem so this doesn't trip iOS Safari's
-                            zoom-on-focus-under-16px behavior. */}
-                        <div className="contact-form-row">
-                            <div className="form-group">
+                        {/* The J-card — Task 1's revision. One tall/narrow
+                            physical object (name strip on top, message
+                            dominating the body, submit tab at the bottom),
+                            not three stacked form elements the way Task 12's
+                            version had it (a boxed name/email row, a
+                            separate message-cassette box, a plain button
+                            below). This is also the Flip flight source now
+                            (cassetteRef/data-flip-id, runSendSequence) — the
+                            WHOLE card becomes the cassette that flies into
+                            the walkman's bay, not just the message panel
+                            like before. */}
+                        <div className="jcard" ref={cassetteRef}>
+                            <span className="jcard-tape" aria-hidden="true" />
+
+                            <div className="jcard-name-strip" ref={nameStripRef}>
                                 <label htmlFor="name">Name</label>
                                 <input
                                     type="text"
                                     name="name"
                                     id="name"
+                                    ref={nameInputRef}
+                                    className="jcard-name-input"
                                     maxLength={100}
+                                    placeholder="Your name"
                                     value={formData.name}
                                     onChange={handleChange}
-                                    disabled={isSending}
+                                    onFocus={handleNameFocus}
+                                    onBlur={handleNameBlur}
                                     required
+                                    aria-invalid={Boolean(nameError)}
+                                    aria-describedby={nameError ? 'name-error' : undefined}
                                 />
+                                {/* Hand-drawn-style underline instead of a
+                                    boxed input — DrawSVGPlugin draws it in on
+                                    focus (handleNameFocus above), out again
+                                    on blur only if the field is still empty.
+                                    viewBox is intentionally non-square (100 x
+                                    4) so the dash pattern stretches evenly
+                                    across the strip's real width regardless
+                                    of the card's own responsive size. */}
+                                <svg className="jcard-name-underline" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                                    {/* A gentle wobble (quadratic curve), not a
+                                        straight line — "hand-drawn-style," per
+                                        the brief. vector-effect keeps the
+                                        stroke a constant on-screen thickness
+                                        despite preserveAspectRatio="none"
+                                        stretching this non-uniformly. */}
+                                    <path ref={nameUnderlineRef} d="M0 2.5 Q 25 0.5 50 2.5 T 100 2" vectorEffect="non-scaling-stroke" />
+                                </svg>
                             </div>
-                            <div className="form-group">
-                                <label htmlFor="email">Email</label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    id="email"
-                                    maxLength={254}
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    disabled={isSending}
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="message">Message</label>
-                            {/* Cassette-shaped compose box — a tape label (paper
-                                card + two reel windows, main.scss) around the
-                                real textarea, not a second control. The reels
-                                are decorative (pointer-events: none) so they
-                                never sit between the visitor's pointer and the
-                                textarea itself. Sized down and dimmed in
-                                main.scss so they read as quiet shell chrome,
-                                not something competing with the text below
-                                them while the visitor is actively typing.
-                                rows="4" — was 5 originally, cut to 3 in Task
-                                12.1 to shrink a box that read as bulky, then
-                                nudged back up one row here: at 3 the field
-                                had gone slightly too far the other way, short
-                                enough against the cassette shell's own reel
-                                strip that the label looked taller than the
-                                writing area it was wrapping. resize: vertical
-                                (unchanged) still lets a visitor drag it
-                                taller for a long message. */}
-                            <div className="message-cassette" ref={cassetteRef}>
-                                <div className="message-cassette-reels" aria-hidden="true">
-                                    <span className="message-cassette-reel" />
-                                    <span className="message-cassette-reel" />
+                            {nameError && (
+                                <p className="field-error" id="name-error" role="alert">{nameError}</p>
+                            )}
+
+                            {/* Main body — dominates the card's own vertical
+                                space, the way a tracklist panel dominates a
+                                real J-card. The reel-window decoration is the
+                                same markup/logic Task 12's .message-cassette
+                                already had, just relocated/renamed
+                                (.jcard-reels/.jcard-reel, main.scss) — this
+                                part isn't new. */}
+                            <div className="jcard-message-body" ref={messageBodyRef}>
+                                <div className="jcard-reels" aria-hidden="true">
+                                    <span className="jcard-reel" />
+                                    <span className="jcard-reel" />
                                 </div>
+                                <label htmlFor="message" className="jcard-message-label">Message</label>
                                 <textarea
                                     name="message"
                                     id="message"
-                                    rows="4"
+                                    ref={messageRef}
+                                    className="jcard-textarea"
+                                    rows="6"
                                     maxLength={5000}
+                                    placeholder="Write something…"
                                     value={formData.message}
-                                    onChange={handleChange}
-                                    disabled={isSending}
+                                    onChange={handleMessageChange}
+                                    onFocus={handleMessageFocus}
+                                    onBlur={handleMessageBlur}
                                     required
                                     aria-invalid={Boolean(messageError)}
                                     aria-describedby={messageError ? 'message-error' : undefined}
@@ -934,6 +1147,34 @@ export default function Connect() {
                             {messageError && (
                                 <p className="field-error" id="message-error" role="alert">{messageError}</p>
                             )}
+
+                            {/* Submit — a cassette-tab/record-button, not a
+                                generic rectangle (.jcard-submit, main.scss,
+                                reuses .turntable-start-button's own inset-
+                                shadow "recessed physical control"
+                                convention). Press/release handled by GSAP
+                                above (handleSubmitPress/Release), not a CSS
+                                hover swap — a real pressed/released feel per
+                                the brief's own explicit ask. Text is
+                                unconditional now ("Send Message") — the old
+                                "Sending…" branch depended on a waiting state
+                                that no longer exists (the form unmounts
+                                synchronously the instant a valid submit
+                                clears validation, so there's nothing left to
+                                show a mid-flight label for). */}
+                            <div className="jcard-tab-row">
+                                <button
+                                    type="submit"
+                                    className="jcard-submit"
+                                    ref={submitRef}
+                                    onPointerDown={handleSubmitPress}
+                                    onPointerUp={handleSubmitRelease}
+                                    onPointerLeave={handleSubmitRelease}
+                                >
+                                    <span className="jcard-submit-dot" aria-hidden="true" />
+                                    Send Message
+                                </button>
+                            </div>
                         </div>
 
                         {/* Honeypot — hidden from humans, irresistible to bots.
@@ -952,22 +1193,18 @@ export default function Connect() {
                                 onChange={handleChange}
                             />
                         </div>
-
-                        {status === 'error' && (
-                            <p className="contact-error" role="alert">{errorMessage}</p>
-                        )}
-
-                        <button type="submit" className="submit-button" disabled={isSending}>
-                            {isSending ? 'Sending…' : 'Send Message'}
-                        </button>
                     </form>
                 )}
 
                 {/* The flying cassette clone (Phase 1 step 2) — React-owned
                     (see the module comment above for why), positioned by JS
                     right before Flip.from runs. Purely decorative: never the
-                    real, functional textarea, which already unmounted with
-                    the form the instant status flipped to "sent" (1a). */}
+                    real, functional J-card, which already unmounted with
+                    the form the instant status flipped to "sent" (1a). Kept
+                    as a plain rounded-rect paper card (not a full torn-edge/
+                    tape replica of the real card) — it's a functional
+                    geometry proxy for the Flip morph, not a visual replica;
+                    the morph itself is what sells the shape change. */}
                 {flightSlot && (
                     <div
                         className="cassette-flight"

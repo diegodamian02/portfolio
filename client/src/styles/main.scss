@@ -3842,88 +3842,12 @@ html {
   gap: 1.5rem;
 }
 
-// Name + email, side by side instead of stacked full-width — the two
-// fields that used to be the tallest part of the form for the least
-// content. Equal columns, same row gap .contact-form already uses between
-// its other rows, so this reads as one consistent rhythm rather than a
-// one-off. No narrower-viewport override yet — this is pre-mobile-pass
-// (Stage 3), and two short text inputs fit this row down to the 390px
-// width already used as this project's narrowest currently-supported
-// target (verified live).
-.contact-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-group label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-color);
-}
-
-.form-group input,
-.form-group textarea {
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  border: 1px solid grey;
-  // Was 0.75rem all around (~44px tall). font-size stays 1rem — dropping
-  // below 16px on an input triggers iOS Safari's zoom-on-focus, a worse
-  // regression than the height this saves — so the compaction comes from
-  // padding alone. In practice this only visibly resizes the name/email
-  // inputs: .message-cassette textarea (below) is more specific and
-  // declared later, so it always wins on padding regardless of this value.
-  padding: var(--space-2) var(--space-3);
-  font-size: 1rem;
-  border-radius: 8px;
-  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
-}
-
-.form-group input:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-  transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
-}
-
-// Client-side validation border cue — a plain color swap, not an animation
-// (Task 2's own scope). `aria-invalid` already has to be set for a11y, so
-// styling off it costs nothing extra.
-.form-group textarea[aria-invalid="true"] {
-  border-color: #ff6b6b;
-}
-
-.submit-button {
-  background-color: var(--bg-color);
-  color: var(--accent);
-  padding: 0.75rem 2rem;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.3s;
-  border-radius: 8px;
-
-}
-
-.submit-button:hover {
-  transform: scale(1.05);
-}
-
-.submit-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-// Don't animate a button the visitor can't press.
-.submit-button:disabled:hover {
-  transform: none;
-}
+// Task 1 revision — .contact-form-row/.form-group/.submit-button (the boxed
+// name/email row, the plain input/textarea styling, the plain rectangular
+// button) are gone. All replaced by the .jcard rules below (grouped with
+// the rest of the compose box's own styling, further down this file, same
+// spot the old .message-cassette rules used to live) — one unified card
+// now, not three separately-styled form elements.
 
 // Honeypot. Visually gone but still a real, fillable field in the DOM —
 // display:none is avoided on purpose, since some bots skip those.
@@ -3943,9 +3867,50 @@ html {
   text-align: center;
 }
 
-// Field-level validation error (currently just the message field) — under
-// the field it belongs to, left-aligned, distinct from .contact-error's
-// centered banner (a failed *send*, not a failed *validation*).
+// Task 1 revision — the send-failure banner. A DIFFERENT situation from the
+// plain .contact-error above (that one used to live INSIDE the form, tied
+// to a "sending" state that no longer exists): the optimistic submit means
+// the form has already unmounted and the walkman takeover has already
+// played by the time a real network failure can arrive, so this renders
+// between the heading/description and .walkman-stage instead (connect.jsx)
+// — never inside a form that isn't there anymore. Reuses .contact-error's
+// own color/type as a base (added via the JSX's own second className, not
+// duplicated here) rather than a whole separate palette.
+.contact-error-toast {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  max-width: 500px;
+  margin: 0 auto var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, #ff6b6b 45%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, #ff6b6b 10%, transparent);
+}
+
+.contact-error-dismiss {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--theme-transition);
+
+  &:hover {
+    background: color-mix(in srgb, #ff6b6b 20%, transparent);
+  }
+}
+
+// Field-level validation error (name or message) — under the field it
+// belongs to, left-aligned, distinct from .contact-error's centered banner
+// (a failed *send*, not a failed *validation*). Both jcard fields are
+// validated client-side now (Task 1 revision — only the message used to be).
 .field-error {
   color: #ff6b6b;
   font-size: 0.85rem;
@@ -3981,49 +3946,197 @@ html {
   font-display: swap;
 }
 
-// Cassette-shaped compose box — the message textarea restyled as a tape
-// label (paper card + two reel windows), not the whole .contact-form. Label
-// colours are FIXED (--cassette-*, declared once in :root) — the same
-// "physical object, not a page surface" reasoning as --lcd-*/--vinyl-N.
-.message-cassette {
+// ---- The J-card (Task 1 revision) ----
+//
+// The whole compose form restyled as one cassette J-card — the paper insert
+// that slides into a cassette case, not the cassette body itself. Tall and
+// narrow BY CONSTRUCTION (max-width well under .contact-container's own
+// 700px reading column, below), which is the point: this should read as a
+// vertical object sitting in the column, not a wide form-shaped box.
+// Replaces Task 12's own three separately-styled pieces (a boxed name/email
+// row, a squarer .message-cassette box, a plain .submit-button below) with
+// one physical object. Colours are FIXED (--cassette-*, declared once in
+// :root) — the same "physical object, not a page surface" reasoning as
+// --lcd-*/--vinyl-N — regardless of theme, same as the old .message-cassette
+// this replaces.
+//
+// The torn edge reuses one of #my-taste's own four hand-torn clip-path
+// point sets (.my-taste-card--tear-N, above) rather than inventing a fifth
+// — same "hand-torn paper," not a repeating stamp, reasoning, just applied
+// to a single fixed card instead of a per-instance random pick (there's
+// only one of these on the page). Percentages, so it holds up on this
+// card's much taller aspect ratio without redrawing the points, though the
+// tall left/right edges read a little more stretched than the original
+// square-ish card it was drawn for — checked live, acceptable.
+.jcard {
   position: relative;
-  border-radius: 10px;
-  border: 2px solid var(--cassette-label-line);
+  // width: 100% + align-self: center, NOT margin: 0 auto — .contact-form is
+  // a column flex container, and an `auto` cross-axis margin on a flex item
+  // cancels align-items: stretch outright (the item falls back to shrink-
+  // to-fit sizing instead, per spec — found live: without this, the card
+  // rendered at its own fit-content width, ~190px, ignoring max-width
+  // entirely). width: 100% gives it a definite width to clamp; max-width
+  // does the actual clamping; align-self: center positions the clamped
+  // result, since a stretched-then-clamped item doesn't self-center.
+  width: 100%;
+  // 320px, not 400 — measured live once the stretch bug above was fixed:
+  // at 400px-wide with a 200px-min-height textarea the card rendered WIDER
+  // than tall (436x352, h/w 0.81), the opposite of "reads as a vertical
+  // object." Narrower is the right lever, not a taller textarea — inflating
+  // the textarea's own resting height to compensate would make the empty
+  // field look oversized before anyone's typed anything.
+  max-width: min(320px, 90%);
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4) var(--space-4);
   background: var(--cassette-label);
-  padding: var(--space-2);
-  // Task 2's own validation cue used to live on the textarea's own border
-  // (main.scss, [aria-invalid="true"]); that border is gone now that the
-  // cassette label supplies the visible edge instead, so the cue moves up
-  // to the label itself via :has() rather than being silently dropped.
-  transition: border-color var(--theme-transition);
+  border: 2px solid var(--cassette-label-line);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  clip-path: polygon(
+    0% 0%, 12% 2%, 25% 0%, 38% 3%, 52% 0%, 65% 2%, 78% 0%, 90% 3%, 100% 0%,
+    98% 14%, 100% 28%, 97% 42%, 100% 56%, 98% 70%, 100% 84%, 97% 100%,
+    85% 98%, 72% 100%, 58% 97%, 45% 100%, 32% 98%, 18% 100%, 5% 97%, 0% 100%,
+    2% 86%, 0% 72%, 3% 58%, 0% 44%, 2% 30%, 0% 16%
+  );
+}
 
-  &:has(textarea[aria-invalid="true"]) {
-    border-color: #ff6b6b;
+// A small piece of "tape" laid across the top of the card — same accent-
+// tint-at-low-opacity technique as .my-taste-card-tape (above), one fixed
+// tilt rather than a per-card random one (only one card exists here). Sits
+// INSIDE the card's own top edge (not poking above it, unlike the wall
+// card's version) specifically so it can never be cut by .jcard's own
+// clip-path above — clip-path clips descendants that overflow the box, not
+// just the box itself, so a tape strip pinned from ABOVE the edge the way
+// the wall card does it would risk getting sliced by the torn-edge cut.
+.jcard-tape {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 64px;
+  height: 20px;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  opacity: 0.6;
+  transform: translateX(-50%) rotate(-3deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
+// Top strip — name. Small, understated, secondary to the message below:
+// no boxed input, a hand-drawn-style underline instead (DrawSVGPlugin
+// draw-in on focus, connect.jsx).
+.jcard-name-strip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  // Invalid cue lives on the underline itself, not the whole card — name
+  // and message can each be invalid independently (Task 1 revision: both
+  // fields are validated client-side now), so each gets its own local cue
+  // rather than one shared border flash the way the old .message-cassette
+  // (single-field) version had it.
+  &:has(.jcard-name-input[aria-invalid="true"]) .jcard-name-underline path {
+    stroke: #ff6b6b;
   }
+}
+
+.jcard-name-strip label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cassette-label-text) 65%, transparent);
+}
+
+.jcard-name-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  // The always-visible rest-state affordance — "a dashed... underline
+  // rather than a boxed input" (the brief's own words), literally. Found
+  // live: without this, the SVG underline below (undrawn at rest by
+  // design, drawSVG: "0%") left the whole field reading as a blank void
+  // with nothing to signal "type here" until the visitor happened to focus
+  // it. The SVG draw-in on focus (DrawSVGPlugin, connect.jsx) still does
+  // its own separate job on top of this — a solid confident line arriving
+  // OVER this dashed guideline, not replacing it.
+  border-bottom: 1px dashed color-mix(in srgb, var(--cassette-label-text) 35%, transparent);
+  color: var(--cassette-label-text);
+  font-family: inherit;
+  font-size: 1.1rem;
+  padding: var(--space-1) 0 var(--space-2);
+
+  &:focus {
+    // The underline itself is the focus indicator (drawn in via
+    // DrawSVGPlugin, connect.jsx) — a native focus ring here would double
+    // up on that same signal.
+    outline: none;
+  }
+
+  &::placeholder {
+    color: color-mix(in srgb, var(--cassette-label-text) 45%, transparent);
+  }
+}
+
+// Undrawn at rest (drawSVG: "0%", set once on mount — connect.jsx), drawn
+// in on focus, drawn back out on blur only if the field is still empty.
+// preserveAspectRatio="none" on the <svg> (connect.jsx) stretches the path
+// non-uniformly to fill the strip's real width; stroke-width is set via the
+// `vector-effect="non-scaling-stroke"` SVG attribute (connect.jsx, not
+// here) so the line still reads as a constant on-screen thickness despite
+// that stretch.
+.jcard-name-underline {
+  // Absolutely positioned over the input's own dashed border-bottom
+  // (above) rather than stacked below it in normal flow — this is the
+  // SAME line, in two states: dashed and static at rest, replaced by a
+  // solid hand-drawn stroke arriving on top of it when focused. Stacking
+  // them in flow instead (two separate lines, one above the other) read as
+  // a doubled/duplicate underline when checked live.
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: visible;
+  pointer-events: none;
+
+  path {
+    fill: none;
+    stroke: var(--cassette-label-text);
+    stroke-width: 1.5;
+    transition: stroke var(--theme-transition);
+  }
+}
+
+// Main body — dominates the card's own vertical space, the way a tracklist
+// panel dominates a real J-card.
+.jcard-message-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-2);
 }
 
 // The reel row reads as the cassette's own resting-state shell chrome —
 // it should never compete with the text underneath while someone is
-// actually typing. Shrunk from 30px/3px-border and dimmed via opacity
-// (rather than touching --cassette-reel-window/--cassette-label-line
-// themselves, which are shared, deliberately-fixed "physical object"
-// tokens used elsewhere) — this rule is the one place that gets to decide
-// how loud its OWN decoration is. margin-bottom grew from --space-1 to
-// --space-3 so the row reads as a distinct strip above the writing area,
-// not something crowding straight into it.
-.message-cassette-reels {
+// actually typing. Unchanged from Task 12's own .message-cassette-reels,
+// just relocated/renamed alongside the rest of this card.
+.jcard-reels {
   display: flex;
   justify-content: space-between;
   padding: 0 var(--space-6);
-  margin-bottom: var(--space-3);
   opacity: 0.55;
-  // Decorative only — must never sit between the visitor's pointer and the
-  // textarea underneath (the brief's own "tape-label textarea," not a
-  // separate clickable part).
   pointer-events: none;
 }
 
-.message-cassette-reel {
+.jcard-reel {
   position: relative;
   width: 18px;
   height: 18px;
@@ -4047,34 +4160,51 @@ html {
   }
 }
 
-.message-cassette textarea {
+.jcard-message-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cassette-label-text) 65%, transparent);
+}
+
+.jcard-textarea {
   display: block;
   width: 100%;
   // No global box-sizing reset exists in this file (opt-in per rule — see
   // .portfolio-section's own comment on the same pattern). Without this,
-  // `width: 100%` resolves against the cassette's own content-box width,
-  // and this element's OWN padding (below) is added ON TOP of that —
-  // measured live: the textarea rendered 24px wider than `.message-
-  // cassette` itself (exactly 2x its own horizontal padding), visibly
-  // overflowing the cassette's right edge, worse still once the focus
-  // outline added its own few px on top of that.
+  // `width: 100%` resolves against the card's own content-box width, and
+  // this element's OWN padding (below) is added ON TOP of that — the exact
+  // overflow FINDINGS.md's B42 already documents for this field's previous
+  // shape, carried forward here so it can't reappear on the new one.
   box-sizing: border-box;
   background: transparent;
   color: var(--cassette-label-text);
   border: none;
   border-radius: 6px;
-  // Grew from var(--space-2) (8px) — more room for typed text to breathe,
-  // paired with the line-height below. font-family stays "inherit": this
-  // was already the body font (Avenir Next), never font-mono — DSEG7/Space
-  // Mono are scoped to the walkman's own LCD screen only (.walkman-screen-*
-  // below), not this label.
   padding: var(--space-3);
   font-family: inherit;
   font-size: 1rem;
   // 1.6, not a new value invented for this field — the same line-height
   // .about-me-bio already uses for its own readable body copy.
   line-height: 1.6;
-  resize: vertical;
+  // Generous starting height — this field is the card's dominant element,
+  // not an afterthought. Grows with content up to max-height (connect.jsx's
+  // own MESSAGE_MAX_HEIGHT, kept in sync with this number), then scrolls
+  // internally rather than growing the card indefinitely.
+  // 280px, not 200 — paired with .jcard's own narrower max-width (above),
+  // measured live: this is what actually makes the message body read as
+  // the card's dominant element the way a tracklist panel dominates a real
+  // J-card, rather than the card coming out roughly square.
+  min-height: 280px;
+  max-height: 420px;
+  overflow-y: auto;
+  // resize: none — was `resize: vertical` (Task 12's version, a manual drag
+  // handle). Dropped now that connect.jsx auto-grows this field with
+  // content: a manual drag would just get fought the next keystroke, the
+  // auto-grow tween pulling a manually-enlarged box back down against the
+  // visitor's own choice.
+  resize: none;
 
   &::placeholder {
     color: color-mix(in srgb, var(--cassette-label-text) 55%, transparent);
@@ -4084,11 +4214,77 @@ html {
     outline: 2px solid var(--cassette-label-text);
     outline-offset: 2px;
   }
+
+  // Own invalid cue, direct attribute selector (this element IS the
+  // invalid one, unlike the name field's underline above) — independent of
+  // the name field's own cue, per the brief's own "independently or
+  // together" requirement.
+  &[aria-invalid="true"] {
+    outline: 2px solid #ff6b6b;
+    outline-offset: 2px;
+  }
 }
 
-// A decorative clone of .message-cassette, Flip-animated from the real
-// textarea's own measured rect into the walkman's bay (connect.jsx) —
-// exists only for the flight's own duration, then removed. Absolutely
+// Bottom — a cassette-tab/record-button, not a generic rectangle. Reuses
+// .turntable-start-button's own inset-shadow "recessed physical control"
+// convention (raised bevel at rest) rather than inventing a new button
+// language, recoloured onto the cassette family instead of the deck's
+// --text-color/--deck-ground (this card stays fixed-colour regardless of
+// theme, same as the rest of it). Deliberately carries NO :hover/:active
+// transform of its own — press/release is entirely GSAP's (connect.jsx,
+// handleSubmitPress/Release), so nothing here can compete with it on the
+// same transform property (this file's own single-writer rule).
+.jcard-tab-row {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-1);
+}
+
+.jcard-submit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-5);
+  border: none;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--cassette-label-text) 8%, var(--cassette-label));
+  color: var(--cassette-label-text);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow:
+    inset 0 2px 0 color-mix(in srgb, white 40%, transparent),
+    inset 0 -2px 3px color-mix(in srgb, black 18%, transparent),
+    0 3px 6px rgba(0, 0, 0, 0.25);
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+  }
+}
+
+// The "record" dot — a small fixed pop of the site's own live accent
+// colour, the one place on this fixed-palette card that's allowed to track
+// the theme, same as the walkman's own EQ/visualizer bars borrow --accent-
+// adjacent neons rather than the cassette family.
+.jcard-submit-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+// A decorative clone of .jcard (the whole card, Task 1 revision — was just
+// .message-cassette's own message panel before it), Flip-animated from the
+// real card's own measured rect into the walkman's bay (connect.jsx) —
+// exists only for the flight's own duration, then removed. Deliberately a
+// plain rounded-rect paper card, not a full torn-edge/tape replica of
+// .jcard: this is a functional geometry proxy for the Flip morph, not a
+// visual replica — the morph itself is what sells the shape change from
+// tall/narrow card to the bay's own landscape aspect ratio. Absolutely
 // positioned against .contact-section (position: relative, above), not the
 // viewport.
 .cassette-flight {

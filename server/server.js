@@ -374,7 +374,7 @@ const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'onboarding@resend.
 // verified this restriction lifts and it can be any address.
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'diegodamiango02@gmail.com';
 
-const CONTACT_MAX = { name: 100, email: 254, message: 5000 };
+const CONTACT_MAX = { name: 100, message: 5000 };
 const CONTACT_RATE_MAX = 5;
 const CONTACT_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const contactAttempts = new Map(); // ip -> timestamp[]
@@ -405,7 +405,7 @@ function clientIp(req) {
 }
 
 // Read-only check. Deliberately does NOT record the attempt: a visitor who
-// mistypes their email five times would otherwise be locked out for an hour
+// mistypes a field five times would otherwise be locked out for an hour
 // without ever having sent a message. Pruning expired hits here doubles as
 // the per-IP cleanup, and never creates an entry for an unseen IP.
 function isRateLimited(ip) {
@@ -425,24 +425,21 @@ function recordContactAttempt(ip) {
     contactAttempts.set(ip, hits);
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
+// Task 1 revision (guestbook note, not a two-way contact form) — email
+// dropped entirely, both the field and the validation. No EMAIL_RE, no
+// replyTo below: there is no address to reply to anymore, by design.
 function validateContact(body) {
     const read = (key) => (typeof body?.[key] === 'string' ? body[key].trim() : '');
-    // CR/LF stripped from the two fields that land in mail *headers* — a
+    // CR/LF stripped from the field that lands in a mail *header* — a
     // newline there is the classic header-injection vector.
     const name = read('name').replace(/[\r\n]/g, ' ');
-    const email = read('email').replace(/[\r\n]/g, '');
     const message = read('message');
 
-    if (!name || !email || !message) return { error: 'Name, email, and message are all required.' };
+    if (!name || !message) return { error: 'Name and message are both required.' };
     if (name.length > CONTACT_MAX.name) return { error: 'That name is too long.' };
-    if (email.length > CONTACT_MAX.email || !EMAIL_RE.test(email)) {
-        return { error: "That email address doesn't look right." };
-    }
     if (message.length > CONTACT_MAX.message) return { error: 'That message is too long.' };
 
-    return { value: { name, email, message } };
+    return { value: { name, message } };
 }
 
 app.post('/api/contact', async (req, res) => {
@@ -470,13 +467,14 @@ app.post('/api/contact', async (req, res) => {
 
     try {
         const { data, error: sendError } = await getResend().emails.send({
-            from: `Portfolio contact <${CONTACT_FROM_EMAIL}>`,
+            from: `Portfolio guestbook <${CONTACT_FROM_EMAIL}>`,
             to: CONTACT_TO_EMAIL,
-            replyTo: `${value.name} <${value.email}>`,
-            subject: `Portfolio contact from ${value.name}`,
+            // No replyTo — this is a one-way guestbook note now, not a
+            // two-way contact form; there's no visitor address to reply to.
+            subject: `Portfolio guestbook note from ${value.name}`,
             // Plain text only, deliberately: visitor input never gets
             // interpolated into HTML, so there's no escaping to get wrong.
-            text: `${value.name} <${value.email}> wrote:\n\n${value.message}\n`,
+            text: `${value.name} wrote:\n\n${value.message}\n`,
         });
 
         // The SDK resolves with { data, error } instead of throwing, so an
@@ -487,16 +485,19 @@ app.post('/api/contact', async (req, res) => {
             // Recorded even on a rejected send — this is the owner's own
             // record of who tried to reach them, independent of whether
             // Resend's sandbox restriction (or anything else) blocked delivery.
-            recordMessage({ ...value, resendId: null, delivered: false, ...visitorContext(req) });
+            // email: null — the column stays in the schema (db.js), just
+            // always null now that the field is gone; `pg` rejects a bare
+            // `undefined` param, so this has to be explicit, not just omitted.
+            recordMessage({ ...value, email: null, resendId: null, delivered: false, ...visitorContext(req) });
             return res.status(502).json({ error: "That didn't go through — please try again, or email me directly." });
         }
 
         // The Resend id is what you search on at resend.com/emails to see
         // delivery/bounce status for a specific message.
-        console.log(`✉️  [contact] message relayed from ${value.email} (resend id ${data?.id})`);
+        console.log(`✉️  [contact] message relayed from ${value.name} (resend id ${data?.id})`);
         // Fire-and-forget, same as every other db.js call — a slow or failing
         // insert must never delay or fail the response the visitor is waiting on.
-        recordMessage({ ...value, resendId: data?.id ?? null, delivered: true, ...visitorContext(req) });
+        recordMessage({ ...value, email: null, resendId: data?.id ?? null, delivered: true, ...visitorContext(req) });
         res.json({ ok: true });
     } catch (err) {
         // Network-level failure reaching Resend at all.

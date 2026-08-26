@@ -2948,6 +2948,60 @@ independently that barely overlap. Not a bug on its own (nothing visibly breaks)
 is the reason `--space-1..9` exists (`STATUS.md`, Stage 3 Task 1) rather than a smaller
 patch — there was no single existing system to extend.
 
+### B65 — `margin: 0 auto` on a flex item silently cancels `align-items: stretch`, so `.jcard` ignored its own `max-width` and rendered at ~190px — **FOUND AND FIXED, Stage 3 Task 1 revision**
+
+Built `#connect`'s new J-card (`.jcard`, `main.scss`) to stretch to fill its
+column-flex parent (`.contact-form`) and clamp at `max-width: min(320px,
+90%)`, centered via `margin: 0 auto` — the obvious, everyday way to center a
+block. Measured live instead of assumed correct: it rendered at a
+content-box width of **189px**, nowhere near the 320px cap, on every
+viewport tested.
+
+**Root cause.** Per the flexbox spec, an `auto` margin on a flex item's
+cross axis absorbs the alignment space itself — the browser hands the
+leftover room to the margin instead of stretching the box, which is exactly
+what makes `margin: 0 auto` work as a *main-axis* centering trick elsewhere
+on this site. Applied to a flex item's *cross*-axis margin instead (a
+column container, so cross-axis is horizontal), it silently opts the item
+out of `align-items: stretch` altogether, and the item falls back to
+shrink-to-fit/content-based sizing — its `max-width` never gets a chance to
+clamp anything, because stretch (the mechanism that would have grown it
+toward that cap) never ran.
+
+**Fix.** `width: 100%` (gives the item a definite size for `max-width` to
+actually clamp) + `align-self: center` (positions the clamped result — a
+stretched-then-clamped item doesn't self-center on its own) — no `margin:
+auto` anywhere on the element. Re-measured: 320px content-box at every
+breakpoint from 1440px down to 390px, matching the intended cap exactly.
+
+**Generalisable:** `margin: auto` and `align-items: stretch` compete for the
+same leftover space on a flex item's cross axis, and the margin wins
+unconditionally — reach for `align-self`/`justify-self` to center a
+flex/grid item, not auto margins, whenever that item also needs to stretch
+or clamp against the container.
+
+### B66 — the message textarea was missing its own class name, so its entire ruleset — including the `box-sizing: border-box` fix B42 already established — silently never applied — **FOUND AND FIXED, Stage 3 Task 1 revision**
+
+While rebuilding the compose card as `.jcard` (above), the `<textarea>`
+itself was never given `className="jcard-textarea"` — a plain omission,
+not a typo in the selector. Every rule scoped to `.jcard-textarea` in
+`main.scss` (background, padding, the auto-grow max-height, the focus/
+invalid outlines, and B42's own `box-sizing: border-box` overflow fix)
+consequently matched nothing, and the field rendered with the browser's
+bare default textarea styling.
+
+Caught by a direct DOM query (`document.querySelector('.jcard-textarea')`
+returning `null`) during the fit-ratio verification pass, not by eyeballing
+a screenshot — the field's fallback appearance was plausible enough at a
+glance (a plain box with a placeholder) that a visual pass alone likely
+would have missed it.
+
+**Fix:** added the missing `className`. **Generalisable:** when a styled
+element renders "plausibly but not quite right," query for the class
+itself before auditing the CSS rule — a class name typo'd on the JSX side
+produces a real, present, entirely unstyled DOM node that a screenshot
+alone can't distinguish from "the CSS is wrong."
+
 ---
 
 ## 5. Design problems — these need a direction decision
@@ -3373,6 +3427,37 @@ from the clock, and an uncontrolled contrast run therefore measures a different
 hue every time — enough to move the tagline by a whole ratio point and make a
 strength sweep read BACKWARDS, which it did. Every contrast number above is the
 worst case over all seven entries, stepped explicitly.)*
+
+---
+
+### D30 — a borderless, undrawn-at-rest field reads as a blank void, not "understated" — **FOUND AND FIXED, Stage 3 Task 1 revision**
+
+`#connect`'s new J-card (`.jcard`) deliberately dropped boxed inputs for the
+name field (a hand-drawn-style underline instead) and gave the message
+field no visible border of its own (a plain tape-label panel). Both
+decisions were individually correct — the brief explicitly asked for
+"understated," not boxed — but combined with the underline's own rest
+state (undrawn, `drawSVG: "0%"`, only appearing on focus per the DrawSVG
+plugin's own design) and no placeholder text on either field, the first
+screenshot of the card showed two labels ("NAME", "MESSAGE") sitting over
+**nothing** — no line, no box, no hint text, no cursor. A visitor would
+have had to already know a field was there to find it.
+
+"Understated" and "invisible until interacted with" are different
+properties, and only the first one was intended. A rest-state affordance
+still has to exist; it just doesn't have to be a full box.
+
+**Fix, two parts:** `placeholder` text on both fields (the field's presence
+is legible before any interaction), and a static CSS `border-bottom:
+dashed` under the name input specifically (literally "a dashed... underline,"
+the brief's own suggested alternative to a box) as the permanent rest-state
+line — DrawSVGPlugin's solid draw-in now arrives ON TOP of that dashed line
+on focus, an added flourish rather than the field's *only* visual cue.
+
+**Generalisable:** a focus-triggered reveal (a draw-in, a fade, an expand)
+is additive polish, not a substitute for a rest-state affordance — verify
+the REST state on its own screenshot, not just the focused/interacted one,
+before calling a field "understated" rather than "missing."
 
 
 ## 6. Accessibility

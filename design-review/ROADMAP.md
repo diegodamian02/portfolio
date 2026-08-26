@@ -343,6 +343,27 @@ visitor — `STATUS.md`'s own Stage 3 Task 12.5 entry has the full reasoning
 and a note to spot-check on a real device before `#connect`'s own
 design-system pass.
 
+**Also 2026-08-26 — `#connect`: Task 1 revised into a cassette J-card
+guestbook note, optimistic send.** A revision of the original Task 1 brief
+(form structure + Resend wiring), landing after Tasks 11/11.2/12/12.1–12.5
+above had already reshaped the section considerably — re-read the live code
+fresh per the revision's own instruction rather than trust the brief's
+"styled as a J-card... not the cassette body" framing, which described the
+compose box as if it didn't exist yet. It did: Task 12's `.message-cassette`
+just wasn't unified with the name/email row and the submit button the way a
+single J-card wants to be. Email dropped entirely (this is a one-way
+guestbook note now, not a two-way contact form — `server.js`'s
+`validateContact`/Resend call changed with it, a coupled backend change the
+brief's "front-end only" framing undersold) and the send-success walkman
+takeover now fires optimistically, before the Resend round trip resolves,
+collapsing the `idle|sending|sent|error` state machine to `idle|sent` — a
+real, flagged behavior change. Two real bugs found live during verification
+(`FINDINGS.md` B65, B66) and one design gap (`FINDINGS.md` D30, a blank-void
+rest state on both fields). `STATUS.md`'s own Stage 3 Task 1 revision entry
+has the full writeup. Does **not** touch the still-open "apply the design
+system to `#connect`" item (§3, below) — `.contact-title`/`.contact-container`
+keep their own hand-set sizing, unchanged by this task.
+
 **Also 2026-08-23 (Stage 5) — `#my-taste`'s own mobile layout: two horizontal scroll-snap
 rows.** Jumped ahead of this file's own stated Stage 5 dependency ("Stages 3/4 landing
 first, so mobile isn't built twice") — a deliberate reorder, noted per the working

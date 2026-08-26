@@ -6793,6 +6793,122 @@ same unrelated, concurrent `connect.jsx`/`main.scss` WIP noted above).
 
 ---
 
+### Stage 3 Task 1 revision — `#connect`: cassette J-card guestbook note, optimistic send *(2026-08-26)*
+
+A revision of the original Task 1 brief (form structure + Resend wiring),
+not a fresh build — re-read `connect.jsx`/`walkman.jsx`/`server.js` fresh
+per the revision's own explicit instruction before touching anything, since
+Stage 3's actual Tasks 11/11.2/12/12.1–12.5 (all landed since the original
+Task 1) meant the live code and the brief's own framing had drifted apart.
+
+**Discrepancies flagged before implementing, per the working agreement:**
+the brief described the compose box as if it didn't exist yet ("styled as a
+cassette J-card... not the cassette body") — it already existed as
+`.message-cassette`, just shaped as three separate stacked elements (a
+boxed name/email row, a squarer message box, a plain `.submit-button`)
+rather than one unified card. Email was a real, required field both sides
+(`formData.email`, `server.js`'s `validateContact`, used as the Resend
+`replyTo`) — dropping it to make this a one-way guestbook note is a coupled
+frontend+backend change, not the frontend-only field tweak the brief's own
+"only changes the front-end form design and field set" line implied. And
+the send was not optimistic — `handleSubmit` awaited the Resend round trip
+before the walkman takeover ever started.
+
+**What shipped:**
+- **The J-card** (`connect.jsx`/`main.scss`) — one tall/narrow card (name
+  strip on top, a dominant auto-growing message body, a record-tab submit
+  at the bottom) replacing the three old pieces. Reuses this section's own
+  fixed `--cassette-*` tokens (unchanged by theme, same reasoning as
+  `--lcd-*`/`--vinyl-N`) and one of `#my-taste`'s own torn-edge clip-path
+  point sets (`.my-taste-card--tear-1`) rather than a new shape language.
+  The whole card is now the Flip flight source (`cassetteRef`/
+  `data-flip-id` moved from the old message-only box to the card root, per
+  a direct decision during planning) — Flip morphs the tall/narrow card
+  rect straight into the walkman bay's landscape rect with no new code;
+  it's a plain rect morph regardless of source aspect ratio.
+- **Interaction polish, all GSAP, reusing established eases** — DrawSVGPlugin
+  draws the name field's hand-drawn underline in on focus (first use of
+  that plugin in this file); `CustomWiggle`'s existing `pinSnap` ease (My
+  Taste's own tape-snap) drives the invalid-field shake; the submit tab
+  gets a real press/release (`onPointerDown`/`Up`/`Leave`), releasing back
+  out via the walkman's own `WALKMAN_POP_EASE` — a deliberate continuity
+  choice tying the compose card's motion to the device it feeds into; the
+  message field auto-grows with content (measure-then-tween, `overwrite:
+  "auto"` so fast typing can't stack tweens) instead of snap-resizing.
+- **Optimistic submit** — `runSendSequence` now fires synchronously right
+  after client-side validation passes, not after `await axios.post(...)`
+  resolves. The network call runs separately; its `.catch()` sets a new
+  `sendFailed`/`sendFailedMessage` pair that renders a small dismissible
+  banner above `.walkman-stage` (reusing `.contact-error`'s own visual
+  language) — never touching the animation, which has already played by
+  the time a failure could arrive. This collapses the send-level state
+  machine from `idle | sending | sent | error` to effectively `idle |
+  sent` — flagged as a real behavior change, not silently dropped: nothing
+  on screen waits for the network anymore, so there's no "sending" state
+  left to show, and the button's old `disabled`/"Sending…" branch is gone.
+- **Both fields validate client-side now** (previously only the message
+  did; name/email were server-only). Empty submit shakes/highlights
+  whichever field(s) are invalid and moves focus to the first one.
+- **`server.js`** — `validateContact` drops `email` entirely (no `EMAIL_RE`,
+  no length cap); the Resend call drops `replyTo` (nothing to reply to);
+  `recordMessage` passes `email: null` explicitly at both call sites (the
+  `pg` driver rejects a bare `undefined` param; `messages.email` stays in
+  the schema, nullable, no migration needed).
+
+**Real bugs found live during verification, not assumed away:**
+1. **`.jcard` rendered ~190px wide, ignoring its own `max-width: min(320px,
+   90%)` entirely.** Root cause: `margin: 0 auto` on a flex item cancels
+   `align-items: stretch` outright (an `auto` cross-axis margin absorbs the
+   stretch space instead of the box growing) — the card fell back to
+   shrink-to-fit sizing. Fixed with `width: 100%` (gives it a definite size
+   to clamp) + `align-self: center` (positions the clamped result) instead
+   of the auto margins.
+2. **The message field was completely unstyled** — the `<textarea>` was
+   missing `className="jcard-textarea"` outright, so none of `.jcard-
+   textarea`'s rules (including the `box-sizing: border-box` fix carried
+   forward from `FINDINGS.md`'s B42) ever applied. Caught by a `taRect:
+   null` in a direct DOM query, not by eyeballing a screenshot.
+3. **First-pass proportions read wider than tall** (436×352, h/w 0.81) once
+   bug 1 was actually fixed — `max-width: 400px` paired with the textarea's
+   original 200px `min-height` came out landscape, the opposite of "reads
+   as a vertical object." Retuned together (max-width 320px, textarea
+   min-height 280px) to 356×529, h/w 1.49 — verified at all five
+   breakpoints down to 390px, all identical (the 320px cap wins over `90%`
+   at every currently-supported width).
+4. **Both fields were a blank void at rest** — the underline (undrawn by
+   design pre-focus, `drawSVG: "0%"`) and the borderless textarea gave no
+   visual signal a field existed there until it happened to be focused.
+   Fixed with `placeholder` text on both fields and a static CSS dashed
+   `border-bottom` under the name input as the always-visible rest-state
+   line — DrawSVGPlugin's solid draw-in now arrives ON TOP of that dashed
+   line on focus, rather than being the field's only affordance.
+
+**Verified — 40 Playwright checks, all passing:**
+fit-ratio + pin-not-stuck at 1440/1024/768/480/390px (real wheel-scroll,
+not nav-click, so the entry pin's actual engage/release is exercised, not
+bypassed); empty-submit validation independently and together, with focus
+landing on the first invalid field; a delayed-route interception proving
+the walkman takeover starts and the compose form unmounts within 300ms of
+the click, while the network response is still deliberately held open;
+sequence settles correctly once the (late) response arrives; a forced
+502 on a second send shows the takeover still plays in full and the
+failure banner appears afterward without touching it, dismisses cleanly,
+and doesn't linger after a subsequent successful send; full keyboard-only
+pass (name → message → submit, Enter submits); `prefers-reduced-motion`
+still short-circuits straight to the settled end state with no shake/
+press/draw-in motion.
+
+Lint unchanged, 7/2. Measured bundle (this build also includes the
+concurrent, now-committed Experience filmstrip fixes above, which are
+JS-only/no-CSS — the CSS delta below is attributable to this task alone):
+
+| | Stage 7.2 baseline | Now |
+|---|---|---|
+| CSS bundle | 54.82 kB / 11.19 kB gz | **56.99 kB / 11.50 kB gz** |
+| JS bundle | 545.23 kB / 194.56 kB gz | **548.88 kB / 195.66 kB gz** |
+
+---
+
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |
