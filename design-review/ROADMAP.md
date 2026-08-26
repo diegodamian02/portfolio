@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-26, Stage 3 Task 9 follow-up — horizontal scroll/swipe on the Experience filmstrip)*
+## 0. Current state — quick summary *(updated 2026-08-26, Stage 3 Task 9 follow-up — mobile scroll jank from the Experience touch listener fixed)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -2038,6 +2038,24 @@ comparing both against the measured numbers: **29.1%** of the page, ~2
 gestures to clear, snap-to-card and the horizontal-gesture fixes both
 re-verified against the shorter pin. Full numbers: `STATUS.md`'s own dated
 entry.
+
+**Second same-day addendum — "scroll on mobile devices looks extremely choppy
+and slow."** Caused by the horizontal-touch listener itself: it registered
+`touchmove` as `{ passive: false }` for a gesture's whole duration so it could
+conditionally `preventDefault()` once a drag proved horizontal — but `passive`
+is decided once, at registration, not per event. A non-passive listener makes
+the browser wait on it synchronously before committing every touchmove frame
+to the compositor, for the *entire* gesture, even the calls that turn out
+vertical and do nothing. Every visitor's finger crosses this viewport on the
+way past Experience, so ordinary vertical scrolling through the section was
+paying that tax on every touch sample. Fixed by not deciding passive-vs-not
+until the gesture is classified: `touchstart` arms a passive listener that
+only reads the first move to determine axis; a vertical gesture removes it
+and attaches nothing further (identical cost to before this feature existed);
+only a confirmed-horizontal gesture escalates to a real, scoped, non-passive
+listener. Verified via CDP touch injection: horizontal drag still moves the
+track (0 → −313.7px), vertical drag over the same viewport still scrolls the
+page natively (349px). Full numbers: `STATUS.md`'s own dated entry.
 
 ---
 

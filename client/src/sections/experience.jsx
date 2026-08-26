@@ -506,46 +506,87 @@ function ExperienceFilmstrip({ entries }) {
         // when a gesture over THIS viewport is horizontally dominant — a
         // vertical drag here is untouched and keeps using the same native
         // scroll path it already does today.
+        //
+        // Reported live: "scroll on mobile devices looks extremely choppy
+        // and slow." Root cause was THIS listener, not Lenis or the
+        // background — the first version registered touchmove as
+        // `{ passive: false }` up front, for the whole gesture, so it could
+        // call preventDefault() once a drag turned out horizontal. But
+        // passive-ness is a registration-time property, not a per-event
+        // choice: a non-passive touchmove listener forces the browser to
+        // run it synchronously and wait for the result before committing
+        // EVERY touchmove frame to the compositor, for the gesture's WHOLE
+        // duration — even the events that end up doing nothing (`return`,
+        // vertical). That's the tax on ordinary vertical scrolling that
+        // read as "choppy": every visitor's finger crosses this viewport on
+        // the way past Experience, and every one of those ordinary scrolls
+        // was paying a synchronous main-thread round-trip per touch sample
+        // it never needed.
+        //
+        // Fixed by not deciding passive-vs-not up front: start with a
+        // passive listener whose only job is reading the FIRST move sample
+        // to classify the gesture. A vertical gesture removes it and
+        // attaches nothing further — zero blocking listener for the rest of
+        // that drag, same as before this feature existed. Only a gesture
+        // that's actually horizontal escalates to a real, non-passive
+        // listener (scoped to that one gesture, torn down on touchend/
+        // touchcancel) to drive the filmstrip. The one trade-off: a
+        // horizontal drag's very first move sample can't be prevented
+        // (classification hasn't happened yet), so it's a passthrough —
+        // imperceptible in practice, and confined to the gesture this
+        // feature is actually for.
         let touchStartX = 0;
         let touchStartY = 0;
         let touchLastX = 0;
-        let touchIsHorizontal = null; // decided once per gesture, on first move, not re-decided mid-drag
 
-        function onTouchStart(e) {
-            const t = e.touches[0];
-            touchStartX = touchLastX = t.clientX;
-            touchStartY = t.clientY;
-            touchIsHorizontal = null;
-        }
-        function onTouchMove(e) {
-            const t = e.touches[0];
-            if (touchIsHorizontal === null) {
-                touchIsHorizontal = Math.abs(t.clientX - touchStartX) > Math.abs(t.clientY - touchStartY);
-            }
-            if (!touchIsHorizontal) return; // vertical — leave the native scroll path alone
+        function driveFilmstrip(clientX) {
             const lenis = getActiveLenis();
             if (!lenis) return; // reduced motion never mounts this component at all, but guard anyway
-            if (e.cancelable) e.preventDefault();
             // Same sign Lenis's own touch handling uses internally
             // (lenis.mjs onTouchMove: deltaX = -(clientX - start)) — dragging
             // the content LEFT is "forward", the same direction scrolling
             // down already is everywhere else on the page.
-            const stepDx = -(t.clientX - touchLastX);
-            touchLastX = t.clientX;
+            const stepDx = -(clientX - touchLastX);
+            touchLastX = clientX;
             lenis.scrollTo(lenis.scroll + stepDx, { immediate: true });
         }
+
+        function onHorizontalMove(e) {
+            if (e.cancelable) e.preventDefault();
+            driveFilmstrip(e.touches[0].clientX);
+        }
+        function endHorizontalGesture() {
+            viewportEl.removeEventListener("touchmove", onHorizontalMove, { passive: false });
+            viewportEl.removeEventListener("touchend", endHorizontalGesture);
+            viewportEl.removeEventListener("touchcancel", endHorizontalGesture);
+        }
+        function onFirstMove(e) {
+            viewportEl.removeEventListener("touchmove", onFirstMove, { passive: true });
+            const t = e.touches[0];
+            const isHorizontal = Math.abs(t.clientX - touchStartX) > Math.abs(t.clientY - touchStartY);
+            if (!isHorizontal) return; // vertical — native scroll already has it, nothing more to attach
+            viewportEl.addEventListener("touchmove", onHorizontalMove, { passive: false });
+            viewportEl.addEventListener("touchend", endHorizontalGesture);
+            viewportEl.addEventListener("touchcancel", endHorizontalGesture);
+            driveFilmstrip(t.clientX);
+        }
+        function onTouchStart(e) {
+            const t = e.touches[0];
+            touchStartX = touchLastX = t.clientX;
+            touchStartY = t.clientY;
+            // Passive: this listener only ever READS the first sample to
+            // classify the gesture, never prevents it — see the long
+            // comment above for why that matters.
+            viewportEl.addEventListener("touchmove", onFirstMove, { passive: true });
+        }
         const viewportEl = viewportRef.current;
-        // touchstart stays passive — nothing to prevent there, the gesture's
-        // direction isn't known yet. touchmove cannot be passive: preventing
-        // the browser's own scroll interpretation only works from a
-        // non-passive listener.
         viewportEl.addEventListener("touchstart", onTouchStart, { passive: true });
-        viewportEl.addEventListener("touchmove", onTouchMove, { passive: false });
 
         return () => {
             st.kill();
             viewportEl.removeEventListener("touchstart", onTouchStart);
-            viewportEl.removeEventListener("touchmove", onTouchMove);
+            viewportEl.removeEventListener("touchmove", onFirstMove, { passive: true });
+            endHorizontalGesture();
         };
     }, { scope: rootRef, dependencies: [] });
 

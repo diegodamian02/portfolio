@@ -1,7 +1,7 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-26 (Stage 3 Task 9 follow-up — horizontal scroll/swipe on
-the Experience filmstrip) · **HEAD:** `7f21fc5`+ · **Live:**
+**Updated:** 2026-08-26 (Stage 3 Task 9 follow-up — mobile scroll jank from the
+Experience touch listener fixed) · **HEAD:** `572604a`+ · **Live:**
 https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
@@ -6730,6 +6730,66 @@ than the previous entry's own delta because this local dev build also
 included in-progress, uncommitted work on `connect.jsx`/`main.scss` from a
 concurrent editing session; that work is untouched by and unrelated to this
 fix, and was deliberately left out of the commit that ships this change.
+
+---
+
+#### Second same-day addendum — "scroll on mobile devices looks extremely choppy and slow"
+
+Live feedback right after the pin-length fix above shipped. This one wasn't
+the pin or Lenis — it was the horizontal-touch listener itself, from the very
+first addendum in this entry.
+
+**Root cause: a registration-time property, not a per-event one.** The
+touch-drag code registered `touchmove` as `{ passive: false }` up front, for
+the entire gesture, so it could call `preventDefault()` once a drag turned
+out to be horizontal. But `passive` is decided once, when the listener is
+attached — not re-decided per event. A non-passive `touchmove` listener
+forces the browser to run it synchronously and wait for the result **before
+committing every touchmove frame to the compositor**, for the gesture's whole
+duration, even on the calls that end up doing nothing (`return`, vertical).
+Every visitor's finger crosses `.experience-viewport` on the way past
+Experience — now a full viewport-height of scroll thanks to the pin-length
+fix above — so every ordinary vertical scroll through the section was paying
+a synchronous main-thread round-trip per touch sample it never needed. That
+reads exactly as "choppy," and only near/through Experience, which lines up
+with the complaint landing right after the horizontal-swipe feature shipped.
+
+**Fix: don't decide passive-vs-not until the gesture is classified.** Now
+`touchstart` arms a **passive** listener whose only job is reading the first
+`touchmove` sample to classify the gesture's axis. A vertical gesture removes
+it and attaches nothing further — zero blocking listener for the rest of that
+drag, identical to how the section behaved before this feature existed. Only
+a gesture that's actually horizontal escalates to a real, non-passive
+listener, scoped to that one gesture and torn down on `touchend`/
+`touchcancel`. Trade-off: a horizontal drag's very first move sample can't be
+prevented (classification hasn't happened yet), so it passes through
+unprevented — a one-sample passthrough on the gesture this feature is
+actually for, not on the vertical scrolling everyone else does.
+
+**Verified, via CDP `Input.dispatchTouchEvent` (same method as the first
+addendum):**
+
+| Check | Result |
+|---|---|
+| Horizontal touch drag still drives the filmstrip | `track.x` moved 0 → −313.7px |
+| Vertical touch drag over the same viewport still scrolls the page | `window.scrollY` moved 1608 → 1957 (349px) |
+| Wheel-driven scrub (desktop path, untouched by this fix) | still scrubs correctly through the timeline |
+| Page errors during any of the above | none |
+
+A synthetic full-page touch-scroll trace (CPU-throttled 4×, longtask +
+`requestAnimationFrame`-delta instrumented) did **not** reproduce a measurable
+frame-time gap between Experience and any other section — expected, and
+recorded rather than hidden: CDP-injected touch events don't exercise the
+same compositor-thread passive-listener scheduling real hardware touch input
+does, so this class of jank doesn't show up in a headless harness regardless
+of which side of the fix is running. The mechanism itself (non-passive
+`touchmove` blocking compositor scroll commits for a gesture's full duration)
+is well-documented browser behavior, and matches the reported symptom and its
+timing exactly; the fix removes the hazard without changing the
+horizontal-swipe feature's behavior at all.
+
+Lint 7/2 unchanged baseline. Build clean (this local build also reflects the
+same unrelated, concurrent `connect.jsx`/`main.scss` WIP noted above).
 
 ---
 
