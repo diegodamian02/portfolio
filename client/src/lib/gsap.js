@@ -52,31 +52,17 @@ gsap.registerPlugin(
 CustomEase.create("signature", "M0,0 C0.16,1 0.3,1 1,1");
 export const SIGNATURE_EASE = "signature";
 
-// A second, gentler curve — Experience's filmstrip snap (experience.jsx)
-// used SIGNATURE_EASE at first and live feedback called it out: "I get in
-// between years and then it locks... doesn't feel that natural." That's the
-// signature curve doing exactly what its own comment above says it's FOR —
-// front-loading almost all motion into the first third — which reads as
-// confident/snappy for instant UI feedback (a hover reveal, an entrance
-// pop), but for a scrub SETTLING to rest after a drag, the honest physical
-// comparison is a carousel or a turntable easing to a stop: an even
-// deceleration, not a lunge-then-hold. cubic-bezier(0.215, 0.61, 0.355, 1) —
-// "easeOutCubic" in most naming conventions — is the standard, well-worn
-// choice for exactly that: still a clear, un-springy ease-out, just spread
-// across the whole duration instead of front-loaded into the start of it.
-CustomEase.create("filmstripSettle", "M0,0 C0.215,0.61 0.355,1 1,1");
-export const FILMSTRIP_SETTLE_EASE = "filmstripSettle";
+// (Removed 2026-08-27: `filmstripSettle` — a gentler easeOutCubic built for
+// Experience's GSAP filmstrip snap. The Stage 9 rebuild dropped that snap
+// for native CSS scroll-snap, so the ease had no remaining consumer.)
 
 // #my-taste's own pair (Stage 4 Task 4), deliberately NOT built from
-// SIGNATURE_EASE the way FILMSTRIP_SETTLE_EASE above still is (that one is
-// a variant CURVE SHAPE for the same "confident, no-overshoot" register
-// SIGNATURE_EASE itself occupies). These two are a different register
-// entirely — physical squash-and-stretch and an oscillating snap, the brief's
-// own framing being "pinning a flyer" is a distinct enough motion identity to
-// earn its own signature rather than borrowing one built for the calm-intro/
-// snappy-UI feeling SIGNATURE_EASE (About, Experience's viewport-settle) is
-// FOR. Scoped to my-taste.jsx only, same as FILMSTRIP_SETTLE_EASE is scoped
-// to experience.jsx only — not every section needs to share one curve.
+// SIGNATURE_EASE. These two are a different register entirely — physical
+// squash-and-stretch and an oscillating snap; the brief's own framing being
+// "pinning a flyer" is a distinct enough motion identity to earn its own
+// signature rather than borrowing one built for the calm-intro/snappy-UI
+// feeling SIGNATURE_EASE (About, Experience's viewport reveal) is FOR.
+// Scoped to my-taste.jsx only — not every section needs to share one curve.
 //
 // CustomBounce.create() registers TWO eases from one call, confirmed by
 // reading node_modules/gsap/CustomBounce.js directly rather than assumed
