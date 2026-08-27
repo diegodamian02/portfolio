@@ -3528,6 +3528,51 @@ is additive polish, not a substitute for a rest-state affordance — verify
 the REST state on its own screenshot, not just the focused/interacted one,
 before calling a field "understated" rather than "missing."
 
+### D31 — a `pin: true` + `scrub` section cannot "let vertical scroll pass"; only removing the pin does — **RESOLVED, Stage 3 Task 9 (2026-08-27)**
+
+Experience shipped (Stage 3 Task 9) as a pinned, horizontally-scrubbed
+filmstrip: the section holds `position: fixed` while vertical scroll input
+is remapped to sideways card travel. Live feedback hit the same complaint
+three separate times over two days — *"it constrains the user from
+scrolling down to the other sections"*, *"when I scroll down it still
+displays to the right"*, and finally *"I want to be able to skip the section
+if I scroll down."*
+
+Two rounds of fixes tried to make the pin less trap-like without removing
+it: routing horizontal wheel/touch gestures into the scrub so the "natural"
+sideways gesture also worked (2026-08-26), then decoupling the pin's
+real-scroll cost from the filmstrip's visual width so it consumed ~29% of
+the page's scroll length instead of 43.7% (same day). Both helped; neither
+could satisfy the ask, because **the pin doing the remapping is the thing
+being complained about.** While a scrubbed pin is engaged, every unit of
+vertical scroll is spent advancing the scrub — there is no "pass through"
+state to add.
+
+**Resolved by removing the pin entirely** (STATUS.md, 2026-08-27):
+`.experience-viewport` is a native `overflow-x: auto` scroller, the section
+is ordinary in-flow content, a vertical gesture scrolls the page past it and
+only a horizontal gesture moves the filmstrip.
+`data-lenis-prevent-horizontal` lets the native horizontal scroll through
+Lenis. The center-focus emphasis, the year scramble and the draw-in rail all
+survived — they just read `viewportEl.scrollLeft` now instead of
+ScrollTrigger progress.
+
+**Generalisable:** "pinned + scrubbed" and "the visitor can scroll past at
+will" are mutually exclusive by construction. If a section needs both a
+horizontal reveal *and* an unobstructed vertical path through it, build the
+horizontal part as a native scroll container from the start — not as a
+ScrollTrigger pin you later try to make escapable. `#my-taste`'s and
+`#connect`'s entry-pins are a different pattern (hold briefly, play a
+timeline once, release from `onComplete`) and are not affected by this.
+
+**Related, still open — the rail dot at rest.** With the rail drawn from
+0% at `scrollLeft: 0`, the accent progress dot sits alone at the far-left
+edge of the viewport, disconnected from card 0's date badge. This is
+unchanged from the pinned version (identical geometry at progress 0), not a
+regression from this change — but it's a small visual loose end worth a
+polish pass (e.g. a faint always-drawn rail with a brighter progress
+portion, or parking the dot under the active badge at rest).
+
 
 ## 6. Accessibility
 

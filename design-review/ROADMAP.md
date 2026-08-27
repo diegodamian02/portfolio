@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-26, Stage 3 Task 9 follow-up — mobile scroll jank from the Experience touch listener fixed)*
+## 0. Current state — quick summary *(updated 2026-08-27, Stage 3 Task 9 — Experience's scrub pin removed; the filmstrip is a native horizontal scroller now)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -397,6 +397,34 @@ from `.about-me-container`'s own similar-looking row, centered the two
 columns to DIFFERENT offsets because they're far more mismatched in
 height than About's own text/portrait pair — fixed to `align-items:
 flex-start`. `STATUS.md`'s own entry has the full writeup.
+
+**Also 2026-08-27 — Experience (Stage 3 Task 9): the scrub pin is gone.**
+Third round of the same live complaint — *"skip the section if I scroll
+down, only display it if I scroll horizontally."* The two 2026-08-26
+follow-ups (horizontal-gesture routing, then shrinking the pin from 43.7%
+to ~29% of the page's scroll length) treated symptoms; a `pin: true` +
+`scrub` section **is** the thing that remaps vertical scroll to sideways
+travel, so there was no "pass through" state to add while it existed.
+Removed the pin outright: `.experience-viewport` is a native
+`overflow-x: auto` scroller, the section is ordinary in-flow content, a
+vertical gesture scrolls the page past it and only a horizontal gesture
+(trackpad swipe, shift-wheel, touch pan) moves the filmstrip.
+`data-lenis-prevent-horizontal` on the viewport lets the native scroll
+through Lenis; `gestureOrientation` reverted from `"both"` to default
+(it existed only for the pin, and made every sideways swipe site-wide
+move the page). The center-focus emphasis, year scramble and draw-in
+rail all survived — driven by `viewportEl.scrollLeft` now, not
+ScrollTrigger progress. No CSS scroll-snap (Chromium re-snaps small wheel
+nudges back and reads as stuck). The old pin-spacer (~1876px against an
+~8100px document) is gone; the bespoke non-passive touch handler is gone
+(native overflow scroll gives touch drag + momentum for free — also
+retires `d9663bb`'s mobile-jank hazard). `FINDINGS.md` **D31** has the
+generalisable lesson; `STATUS.md`'s own dated entry has the full writeup
+and the Playwright verification table. **Process note:** the `main.scss`
+half of this shipped inside `9087bec` ("feat: #connect two-column
+layout…") — a concurrent session's `git commit -a` swept the uncommitted
+SCSS in before the `.jsx` half was committed (`7c53298`). Both halves are
+on `origin/main`; flagged so a later `git blame` isn't confusing.
 
 **Also 2026-08-23 (Stage 5) — `#my-taste`'s own mobile layout: two horizontal scroll-snap
 rows.** Jumped ahead of this file's own stated Stage 5 dependency ("Stages 3/4 landing
@@ -2111,6 +2139,42 @@ only a confirmed-horizontal gesture escalates to a real, scoped, non-passive
 listener. Verified via CDP touch injection: horizontal drag still moves the
 track (0 → −313.7px), vertical drag over the same viewport still scrolls the
 page natively (349px). Full numbers: `STATUS.md`'s own dated entry.
+
+---
+
+### Stage 3 Task 9 — Experience: the scrub pin removed entirely *(2026-08-27)*
+
+The 2026-08-26 follow-ups above were both correct and both shipped, and
+neither fixed the actual complaint, which came back a third time: *"skip the
+section if I scroll down, only display it if I scroll horizontally."* The
+reason nothing landed it is structural — `pin: true` + `scrub` **is** the
+mechanism that spends vertical scroll on sideways travel, so there is no
+"pass through" behavior to add while the pin exists (`FINDINGS.md` **D31**).
+
+Removed the pin. `.experience-viewport` is a native `overflow-x: auto`
+scroller now; the section is ordinary in-flow content ~1 screen tall (the
+~1876px pin-spacer is gone). A vertical gesture scrolls the page past it;
+only a horizontal gesture (trackpad swipe, shift-wheel, touch pan) moves the
+filmstrip. `data-lenis-prevent-horizontal` on the viewport routes the native
+horizontal scroll through Lenis; `gestureOrientation` reverted from `"both"`
+to Lenis's default — it existed only to feed the pinned scrub, and made
+every horizontal trackpad swipe *site-wide* move the page. `#my-taste`'s
+snap rows keep their opt-out (now belt-and-suspenders under `"vertical"`).
+
+Kept, all re-driven off `viewportEl.scrollLeft` instead of ScrollTrigger
+progress: the center-focus emphasis, the once-per-card year scramble, the
+draw-in rail + progress dot (a `paused` timeline scrubbed with `.progress()`).
+Entrance is now a plain `ScrollTrigger` reveal, matching `#projects`. Gone:
+`PIN_LENGTH_VH_MULTIPLIER`, `ENTRY_BUFFER`, the GSAP snap function, the
+bespoke non-passive touch handler (native overflow scroll gives touch drag
++ momentum for free — retires the mobile-jank hazard of the second addendum
+above), the now-dead `filmstripSettle` ease. **No CSS scroll-snap** —
+Chromium re-snaps small wheel nudges back to the nearest card and reads as
+stuck, the exact feeling this removes. JS net −299 lines. Playwright-verified
+(real wheel + CDP touch) across desktop/mobile; lint 7/2 unchanged. Full
+writeup + verification table: `STATUS.md`'s own dated entry. `.jsx`/`.js`
+half is commit `7c53298`; the `main.scss` half shipped inside `9087bec`
+(a concurrent session's `git commit -a` — flagged in both docs' own entries).
 
 ---
 

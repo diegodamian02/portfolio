@@ -7055,6 +7055,104 @@ across the full submit → takeover sequence.
 
 ---
 
+### Stage 3 Task 9 — Experience: the pin is gone, the filmstrip is a native horizontal scroller *(2026-08-27)*
+
+Direct feedback, third time on the same complaint: *"i want to be able to
+skip the section if i scroll down, and only being able to display it if i
+scroll horizontally."* The two prior follow-ups (2026-08-26, the entry two
+above) treated symptoms — horizontal-gesture routing, then shrinking the pin
+from 43.7% of the page's scroll length to ~29%. Neither could satisfy the
+ask, because a `pin: true` + `scrub` ScrollTrigger **is** the mechanism that
+converts vertical scroll into filmstrip travel. As long as the pin exists,
+scrolling down spends its input scrubbing cards. The fix was to remove it.
+
+**What changed.**
+
+- **No pin, no scrub, no ScrollTrigger driving the track.**
+  `.experience-viewport` is `overflow-x: auto; overflow-y: hidden` — the
+  browser scrolls it. A vertical gesture has nothing to scroll there and
+  passes straight through to the page; a horizontal one (trackpad swipe,
+  shift-wheel, touch pan) moves the filmstrip. The section is ordinary
+  in-flow content ~1 screen tall — the pin-spacer that made it **1876px**
+  against an ~8100px document is gone entirely.
+- **`data-lenis-prevent-horizontal`** on the viewport (the same opt-out
+  `#my-taste`'s mobile snap rows carry). Lenis checks it per-event against
+  the gesture's own dominant axis (`lenis.mjs` line 608, `Math.abs(deltaX)
+  >= Math.abs(deltaY)`), so a horizontal-dominant wheel over the viewport is
+  left to native `overflow-x` scroll while a vertical one still drives the
+  page. Works regardless of Lenis's `gestureOrientation` option.
+- **`gestureOrientation` reverted to Lenis's default (`"vertical"`).** It
+  was `"both"` solely so a sideways swipe could drive the *pinned* filmstrip
+  through the one window scroll position — with the pin gone, that
+  justification is gone, and `"both"` had a real global cost: **any**
+  horizontal trackpad swipe anywhere on the site moved the page vertically.
+  `#my-taste`'s two snap rows keep their `data-lenis-prevent-horizontal` —
+  under `"vertical"` a horizontal-dominant gesture is already ignored (or,
+  if pure, treated as an unknown gesture and passed through), so the
+  attribute is now belt-and-suspenders rather than load-bearing. Verified
+  live: the wall row still scrolls its own `scrollLeft` on a horizontal
+  swipe with `window.scrollY` unchanged.
+- **Emphasis, active card, year scramble, rail draw + progress dot** all now
+  read `viewportEl.scrollLeft` instead of ScrollTrigger progress, off a
+  plain `scroll` listener on the viewport. The rail is a `paused` GSAP
+  timeline (drawSVG + motionPath, unchanged) scrubbed by hand with
+  `.progress(scrollLeft / maxScroll)`. `measure()` re-runs from a
+  `ResizeObserver` on the track + viewport for the section-scoped webfont
+  swap-in and window resizes (was `onRefreshInit`).
+- **Entrance** is now a lightweight `ScrollTrigger.create` reveal (opacity +
+  scale, `once: true`, `start: "top 80%"`), matching `#projects` — replaces
+  the pin-engage flourish, which fired the instant the section snapped to
+  `position: fixed`, a moment that no longer exists. A deep-link straight to
+  `#experience` shows it outright (the trigger's start is already above the
+  viewport, so `onEnter` never fires).
+- **Removed:** `PIN_LENGTH_VH_MULTIPLIER`, `ENTRY_BUFFER`, the custom GSAP
+  snap function, the bespoke non-passive `touchmove` handler (native
+  overflow scroll gives touch drag + momentum for free — this also retires
+  the mobile-jank hazard `d9663bb` was chasing), and the now-dead
+  `filmstripSettle` ease in `lib/gsap.js`.
+
+**No CSS scroll-snap.** Tried `mandatory` and `proximity` both: Chromium
+re-snaps to the nearest card after *every* discrete scroll operation, so a
+small horizontal wheel notch that doesn't clear the halfway point to the
+next card springs straight back — the exact "fighting my scroll" feeling
+this rebuild exists to remove. Measured directly: `wheel(200,0)` × 20 with
+`proximity` stalled at `scrollLeft` 162; with snap off it went 0 → 800 →
+1600 → 2400 → 2568 cleanly. The center-focus emphasis still marks whichever
+card is nearest center as active, so a rest between two cards resolves to
+one clear focus without snap.
+
+**Verification** (Playwright, real `mouse.wheel` + CDP `Input.dispatchTouchEvent`,
+1440×900 and 390×844):
+
+| Check | Result |
+|---|---|
+| nav "Experience" still lands correctly | section top 168px below viewport top (= `--scroll-offset`) |
+| vertical wheel scrolls straight through | 1668 → 2448 in 2×400px gestures, into `#my-taste`'s own entry-hold (unrelated) — filmstrip `scrollLeft` stayed 0 |
+| horizontal wheel drives the filmstrip | `scrollLeft` 0 → 2568/2568, active card 0 → 5, `window.scrollY` unchanged |
+| small horizontal wheel deltas (160px) scroll freely | 0 → 960 → 1920 → 2568, no snap-back |
+| overscrolling the filmstrip end | page not dragged (`overscroll-behavior-x: contain`) |
+| touch horizontal drag | `scrollLeft` 0 → 860, page still |
+| touch vertical drag over the viewport | page scrolls past the section (1608 → 2463) |
+| `#my-taste` wall row (no-regression) | own `scrollLeft` moves, `window.scrollY` exactly unchanged |
+| reduced motion | `ExperienceStatic` list (6 items), filmstrip never mounted |
+| resize to 1000×700 | filmstrip still scrollable, rail viewBox re-measured |
+| title / viewport overlap (B29) | clear gap at 1440/1280×720/390 (no regression) |
+
+Lint 7 errors / 2 warnings — unchanged baseline. Build clean, JS
+**−453 / +154 lines** (net −299; the pin/scrub/snap/touch machinery was
+most of the file).
+
+> **Process note — the SCSS half of this change shipped in the wrong
+> commit.** `main.scss`'s `.experience-viewport` edits were sitting
+> uncommitted when a concurrent editing session ran `git commit -a` and
+> swept them into `9087bec` ("feat: #connect two-column layout…"), which was
+> then pushed. The `.jsx`/`.js` half is its own commit (`7c53298`) with the
+> full writeup. Nothing is lost or broken — the two halves are both on
+> `origin/main` — but `9087bec`'s message doesn't mention Experience. Worth
+> knowing if you `git blame` `.experience-viewport` later.
+
+---
+
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |
