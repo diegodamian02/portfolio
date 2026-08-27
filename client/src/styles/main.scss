@@ -3946,30 +3946,38 @@ html {
   font-display: swap;
 }
 
-// ---- The J-card (Task 1 revision) ----
+// ---- The J-card (Task 1 revision; restyled 2026-08-27) ----
 //
-// The whole compose form restyled as one cassette J-card — the paper insert
-// that slides into a cassette case, not the cassette body itself. Tall and
-// narrow BY CONSTRUCTION (max-width well under .contact-container's own
-// 700px reading column, below), which is the point: this should read as a
-// vertical object sitting in the column, not a wide form-shaped box.
-// Replaces Task 12's own three separately-styled pieces (a boxed name/email
-// row, a squarer .message-cassette box, a plain .submit-button below) with
-// one physical object. Colours are FIXED (--cassette-*, declared once in
-// :root) — the same "physical object, not a page surface" reasoning as
-// --lcd-*/--vinyl-N — regardless of theme, same as the old .message-cassette
-// this replaces.
+// The whole compose form as one cassette J-card — the paper insert that
+// slides into a cassette case. Tall and narrow BY CONSTRUCTION (max-width
+// well under .contact-container's own 700px reading column, below), which
+// is the point: this should read as a vertical object sitting in the
+// column, not a wide form-shaped box. Replaces Task 12's own three
+// separately-styled pieces (a boxed name/email row, a squarer
+// .message-cassette box, a plain .submit-button below) with one physical
+// object. Colours are FIXED (--cassette-*, declared once in :root) — the
+// same "physical object, not a page surface" reasoning as --lcd-*/--vinyl-N
+// — regardless of theme.
 //
-// The torn edge reuses one of #my-taste's own four hand-torn clip-path
-// point sets (.my-taste-card--tear-N, above) rather than inventing a fifth
-// — same "hand-torn paper," not a repeating stamp, reasoning, just applied
-// to a single fixed card instead of a per-instance random pick (there's
-// only one of these on the page). Percentages, so it holds up on this
-// card's much taller aspect ratio without redrawing the points, though the
-// tall left/right edges read a little more stretched than the original
-// square-ish card it was drawn for — checked live, acceptable.
+// Direct feedback on the first version of this card: it read as a
+// torn-paper flyer pinned to a corkboard, not a cassette insert — because
+// it borrowed #my-taste's own hand-torn clip-path and pinned-tape accent
+// (.my-taste-card--tear-N, .my-taste-card-tape, above), which is THAT
+// section's material language, not a J-card's. A real J-card slides into a
+// hard plastic case; it isn't torn or taped to anything. Replaced with what
+// actually reads as the object: clean, precisely-cut corners (a case's own
+// edge, not hand-torn paper), a spine-fold band near the top (.jcard-spine,
+// below — the real structural seam where a J-card wraps the cassette's
+// spine before flattening onto the front panel), and a soft diagonal sheen
+// (.jcard::after) suggesting the insert being viewed through the case's own
+// clear plastic window rather than sitting flat on a page.
 .jcard {
   position: relative;
+  // Clips .jcard-spine's negative-margin band (below) and .jcard::after's
+  // sheen to the card's own rounded corners — replaces the old clip-path's
+  // job of defining the card's outer silhouette, now that the silhouette
+  // is a plain rounded rect rather than a torn shape.
+  overflow: hidden;
   // width: 100% + align-self: center, NOT margin: 0 auto — .contact-form is
   // a column flex container, and an `auto` cross-axis margin on a flex item
   // cancels align-items: stretch outright (the item falls back to shrink-
@@ -3993,57 +4001,88 @@ html {
   padding: var(--space-6) var(--space-4) var(--space-4);
   background: var(--cassette-label);
   border: 2px solid var(--cassette-label-line);
-  border-radius: 10px;
+  // 6px, down from 10 — a case's own corner cut is precise, not the softer
+  // radius that read as "paper" before.
+  border-radius: 6px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-  clip-path: polygon(
-    0% 0%, 12% 2%, 25% 0%, 38% 3%, 52% 0%, 65% 2%, 78% 0%, 90% 3%, 100% 0%,
-    98% 14%, 100% 28%, 97% 42%, 100% 56%, 98% 70%, 100% 84%, 97% 100%,
-    85% 98%, 72% 100%, 58% 97%, 45% 100%, 32% 98%, 18% 100%, 5% 97%, 0% 100%,
-    2% 86%, 0% 72%, 3% 58%, 0% 44%, 2% 30%, 0% 16%
-  );
+
+  // The plastic case's own sheen — a static diagonal streak standing in
+  // for the torn-edge clip-path this replaced. Pure decoration: painted
+  // above the card's background, below every real control in DOM order,
+  // and pointer-events: none besides, so it can never intercept a click.
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 38%,
+      color-mix(in srgb, white 55%, transparent) 49%,
+      transparent 60%
+    );
+    opacity: 0.5;
+    pointer-events: none;
+  }
 }
 
-// A small piece of "tape" laid across the top of the card — same accent-
-// tint-at-low-opacity technique as .my-taste-card-tape (above), one fixed
-// tilt rather than a per-card random one (only one card exists here). Sits
-// INSIDE the card's own top edge (not poking above it, unlike the wall
-// card's version) specifically so it can never be cut by .jcard's own
-// clip-path above — clip-path clips descendants that overflow the box, not
-// just the box itself, so a tape strip pinned from ABOVE the edge the way
-// the wall card does it would risk getting sliced by the torn-edge cut.
-.jcard-tape {
-  position: absolute;
-  top: 4px;
-  left: 50%;
-  width: 64px;
-  height: 20px;
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
-  opacity: 0.6;
-  transform: translateX(-50%) rotate(-3deg);
+// The spine-fold band — a genuine J-card structural feature, not a
+// decorative add-on: the insert wraps around the cassette's own spine
+// before flattening onto the front panel, leaving a visible tonal seam a
+// short way down from the top edge. A flat, slightly darker band + one
+// crease line reads as that fold without needing to print sideways spine
+// text (this card has no artist/album name to put there). Negative margins
+// pull it out to the card's TRUE edges (ignoring .jcard's own padding) so
+// it spans corner to corner; .jcard's own overflow: hidden (above) clips
+// its square corners to the card's rounded silhouette for free, no radius
+// needed on this element itself. Replaces .jcard-tape (removed) — a pinned
+// piece of tape is #my-taste's corkboard language, not a cassette case's.
+.jcard-spine {
+  height: 22px;
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-4)) 0;
+  background: color-mix(in srgb, black 6%, var(--cassette-label));
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, black 18%, transparent);
   pointer-events: none;
-  z-index: 1;
 }
 
-// Top strip — name. Small, understated, secondary to the message below:
-// no boxed input, a hand-drawn-style underline instead (DrawSVGPlugin
-// draw-in on focus, connect.jsx).
-.jcard-name-strip {
+// Groups name + email as one compact header block with its own tighter
+// gap — .jcard's own gap (between spine/header/message-body/tab-row) is
+// tuned for separating this card's three DISTINCT sections, which reads
+// as too loose between two fields that belong together as one "from" line.
+.jcard-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+// Header strips — name (required) and email (optional, brought back by
+// direct request: "make sure users can be reached back," styled to match
+// this card rather than reintroduced as a boxed contact-form field). Both
+// share one visual treatment — small, understated, secondary to the
+// message below: no boxed input, a hand-drawn-style underline instead
+// (DrawSVGPlugin draw-in on focus, connect.jsx). One combined ruleset
+// rather than two near-duplicates, since the two fields are visually and
+// behaviourally identical except which element they wrap.
+.jcard-name-strip,
+.jcard-email-strip {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-
-  // Invalid cue lives on the underline itself, not the whole card — name
-  // and message can each be invalid independently (Task 1 revision: both
-  // fields are validated client-side now), so each gets its own local cue
-  // rather than one shared border flash the way the old .message-cassette
-  // (single-field) version had it.
-  &:has(.jcard-name-input[aria-invalid="true"]) .jcard-name-underline path {
-    stroke: #ff6b6b;
-  }
 }
 
-.jcard-name-strip label {
+// Invalid cue lives on each field's own underline, not the whole card —
+// name, email and message can each be invalid independently (Task 1
+// revision: all three are validated client-side, email only when
+// non-empty since it's optional), so each gets its own local cue rather
+// than one shared border flash the way the old .message-cassette
+// (single-field) version had it.
+.jcard-name-strip:has(.jcard-name-input[aria-invalid="true"]) .jcard-name-underline path,
+.jcard-email-strip:has(.jcard-email-input[aria-invalid="true"]) .jcard-email-underline path {
+  stroke: #ff6b6b;
+}
+
+.jcard-name-strip label,
+.jcard-email-strip label {
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -4051,7 +4090,19 @@ html {
   color: color-mix(in srgb, var(--cassette-label-text) 65%, transparent);
 }
 
-.jcard-name-input {
+// "(optional)" reads as ordinary lowercase prose next to the shouty
+// uppercase/letter-spaced label it sits beside — deliberately quieter, so
+// it registers as a small permission ("you don't have to fill this in")
+// rather than competing with the label for attention.
+.jcard-email-optional-tag {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.jcard-name-input,
+.jcard-email-input {
   width: 100%;
   box-sizing: border-box;
   background: transparent;
@@ -4089,7 +4140,8 @@ html {
 // `vector-effect="non-scaling-stroke"` SVG attribute (connect.jsx, not
 // here) so the line still reads as a constant on-screen thickness despite
 // that stretch.
-.jcard-name-underline {
+.jcard-name-underline,
+.jcard-email-underline {
   // Absolutely positioned over the input's own dashed border-bottom
   // (above) rather than stacked below it in normal flow — this is the
   // SAME line, in two states: dashed and static at rest, replaced by a
@@ -4241,6 +4293,16 @@ html {
 }
 
 .jcard-submit {
+  // Native OS/browser button chrome (appearance: auto is the default on
+  // <button>) draws its own pressed-state affordance UNDER/AROUND custom
+  // styles — confirmed live: getComputedStyle().backgroundColor never
+  // changed across pointerdown, yet the button visibly flashed on click,
+  // which is exactly what native appearance rendering independent of
+  // declared CSS looks like. Reported live as "the background color
+  // changes... doesn't look smooth" — this is the fix, not a background
+  // rule, since no background rule was ever actually changing.
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -4265,16 +4327,39 @@ html {
   }
 }
 
-// The "record" dot — a small fixed pop of the site's own live accent
-// colour, the one place on this fixed-palette card that's allowed to track
-// the theme, same as the walkman's own EQ/visualizer bars borrow --accent-
-// adjacent neons rather than the cassette family.
-.jcard-submit-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+// The submit icon — a small flat cassette glyph (body + two reels + tape
+// window), replacing the plain accent dot the first version used. Same
+// flat-shape-no-icon-library convention walkman.jsx's own SVG parts use,
+// not a font-icon or an imported icon set. Ties the compose card's own
+// submit control directly to "you're sending a tape" rather than a generic
+// record-button dot — the one deliberate visual echo of the walkman this
+// card is about to feed into.
+.jcard-submit-icon {
+  width: 20px;
+  height: 14px;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.jcard-submit-icon-body {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+}
+
+// The tape window — a dim bar between the two reels, same "you can see the
+// tape through the shell" idea as the walkman's own screen/bay windows.
+.jcard-submit-icon-window {
+  fill: currentColor;
+  opacity: 0.3;
+}
+
+// The reels — the one place on this fixed-palette icon allowed to track
+// the site's live --accent, same reasoning the first version's dot used
+// (the walkman's own EQ/visualizer bars borrow --accent-adjacent neons for
+// the identical reason).
+.jcard-submit-icon-reel {
+  fill: var(--accent);
 }
 
 // A decorative clone of .jcard (the whole card, Task 1 revision — was just

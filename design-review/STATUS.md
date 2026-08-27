@@ -6909,6 +6909,76 @@ JS-only/no-CSS — the CSS delta below is attributable to this task alone):
 
 ---
 
+### Stage 3 Task 1 revision, follow-up — `#connect`: J-card actually reads as a cassette, email back (optional), button press fix *(2026-08-27)*
+
+Direct feedback on the task above, same day: the J-card's torn-edge/pinned-
+tape treatment read as a corkboard flyer, not a cassette insert; email
+should come back but optional, styled to fit; the submit button's
+background visibly (and abruptly) changed on click; and the submit
+control should read more like a physical tape control than a plain dot.
+
+**J-card restyle.** Removed `.jcard`'s hand-torn `clip-path` (borrowed from
+`.my-taste-card--tear-1`) and `.jcard-tape` (the pinned-tape accent) —
+both are `#my-taste`'s own corkboard material language, not a cassette
+case's. Replaced with what an actual J-card has: clean 6px corners (a
+case's own precise cut, not a soft "paper" radius), a `.jcard-spine`
+band — a flat, slightly darker strip pulled to the card's true edges via
+negative margins, with one crease shadow — standing in for the real fold
+where a J-card wraps the cassette's spine before flattening onto the front
+panel, and a static diagonal sheen (`.jcard::after`, a `linear-gradient`
+at low opacity) suggesting the insert viewed through the case's own clear
+plastic window. `.jcard` gained `overflow: hidden` to clip both the
+spine's square corners and the sheen to the card's own rounded silhouette
+— free, no extra radius needed on either.
+
+**Email, back and optional.** `EMPTY`/`formData` regained `email`; a new
+`.jcard-email-strip` (identical treatment to name — dashed rest-state
+underline, DrawSVGPlugin draw-in on focus, own `emailError`/shake) sits
+directly under name, both grouped in a new `.jcard-header` wrapper with a
+tighter internal gap so they read as one "from" line rather than two of
+the card's three sections. Labelled "Email *(optional)*" — the tag styled
+quieter (normal case/weight) than the shouty uppercase label beside it, so
+it reads as permission, not a second requirement, per the explicit "don't
+make people hesitate to send" ask. Validated client-side only when
+non-empty (`EMAIL_RE`, new); a blank field is never an error. `server.js`'s
+`validateContact` mirrors this exactly — email optional, format-checked
+only if present — and the Resend call's `replyTo`/message body go
+conditional on `value.email` instead of being unconditionally absent.
+`recordMessage` now logs the real address when one was given (`value.email
+|| null`, still explicit for `pg`'s sake) instead of always `null`.
+
+**Submit — icon + the click flash.** Replaced the plain accent dot with a
+small flat SVG cassette glyph (body + two reels + a tape window,
+`.jcard-submit-icon*`) — same "no icon library, flat hand-drawn shapes"
+convention `walkman.jsx` already uses, and a more direct "you're sending a
+tape" cue than a generic record-button dot. Separately, reported live:
+clicking the button visibly changed its background color, abruptly, with
+no transition. Confirmed via `getComputedStyle` sampled at pointerdown that
+the declared `background-color` was never actually changing — the flash
+was native OS/browser button chrome (`appearance: auto`, the `<button>`
+default) painting its own pressed-state affordance independent of any CSS
+property GSAP or this stylesheet controls. Fixed with `appearance: none` +
+`-webkit-tap-highlight-color: transparent`; no background rule needed
+changing, since none was ever the actual cause.
+
+Lint unchanged, 7/2. Bundle, measured fresh (small, mostly cancels out —
+the removed `clip-path` polygon was substantial CSS text, the new spine/
+sheen/email/icon rules replace it roughly 1-for-1):
+
+| | Previous (this task's own first commit) | Now |
+|---|---|---|
+| CSS bundle | 56.99 kB / 11.50 kB gz | **57.60 kB / 11.69 kB gz** |
+| JS bundle | 548.88 kB / 195.66 kB gz | **550.77 kB / 196.07 kB gz** |
+
+Verified live: malformed email blocks send with a shake + error and clears
+once corrected or emptied; a blank email sends normally; fit-ratio holds
+at 390px after the redesign (356×604, h/w 1.70 — taller than the first
+version's 1.49, from the added email strip, still comfortably "tall and
+narrow"); light theme, rest and focus states, all checked by direct
+screenshot rather than assumed from the dark-theme pass alone.
+
+---
+
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |

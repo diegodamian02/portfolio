@@ -364,6 +364,21 @@ has the full writeup. Does **not** touch the still-open "apply the design
 system to `#connect`" item (§3, below) — `.contact-title`/`.contact-container`
 keep their own hand-set sizing, unchanged by this task.
 
+**Also 2026-08-27 — `#connect`: J-card restyled to actually read as a
+cassette, email brought back optional, submit button fixed.** Same-day
+direct feedback on the entry above. The first J-card version borrowed
+`#my-taste`'s own hand-torn `clip-path`/pinned-tape material — that read as
+a corkboard flyer, not a cassette insert, so it's gone: clean corners, a
+`.jcard-spine` fold band (a real J-card structural feature), and a static
+plastic-sheen overlay replace it. Email — dropped by the entry above —
+came back OPTIONAL by direct request, styled to match the name field
+exactly, grouped with it in a new `.jcard-header`. The submit control's
+plain accent dot became a small flat cassette-glyph icon. One more real
+bug (`FINDINGS.md` B67): the submit button's visible click-flash traced to
+native `appearance: auto` button chrome, not any declared CSS property —
+`appearance: none` fixed it. `STATUS.md`'s own follow-up entry has the
+full writeup.
+
 **Also 2026-08-23 (Stage 5) — `#my-taste`'s own mobile layout: two horizontal scroll-snap
 rows.** Jumped ahead of this file's own stated Stage 5 dependency ("Stages 3/4 landing
 first, so mobile isn't built twice") — a deliberate reorder, noted per the working

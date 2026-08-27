@@ -79,10 +79,8 @@ const CASSETTE_FLIP_ID = 'connect-cassette-flight';
 // already existed as a cassette-styled textarea (`.message-cassette`), it
 // just wasn't the WHOLE card — name/email sat above it as a separate boxed
 // 2-column row, and a plain `.submit-button` sat below. This revision
-// unifies all three into one tall/narrow `.jcard` (below), drops email
-// entirely (this is a one-way guestbook note now, not a two-way contact
-// form — server.js's own validateContact/Resend call changed to match,
-// flagged there too), and makes the send fire optimistically.
+// unifies all three into one tall/narrow `.jcard` (below), and makes the
+// send fire optimistically.
 //
 // "Optimistic" here means `runSendSequence` — the walkman takeover — now
 // starts the instant client-side validation passes, in the SAME tick as
@@ -97,7 +95,24 @@ const CASSETTE_FLIP_ID = 'connect-cassette-flight';
 // nothing on screen waits for the network anymore. `status` keeps its name
 // and its `data-state` hookup (still mirrors turntable.jsx's own
 // `data-deck-state` precedent) but only ever takes those two values now.
-const EMPTY = { name: '', message: '', website: '' };
+//
+// Email — dropped by the original revision (a one-way guestbook note, no
+// reply mechanism), brought BACK the next day by direct request: an
+// entirely anonymous message risks losing a real recruiter lead with no
+// way to follow up, which cuts against this whole site's actual purpose.
+// Re-added as OPTIONAL, not required — the guestbook's low-friction feel
+// stays intact for a visitor who just wants to leave a note, while anyone
+// who wants a reply can leave a way to reach them. Styled to match the
+// name field exactly (`.jcard-email-*`, main.scss) rather than reintroduced
+// as a boxed contact-form input, and validated client-side only when
+// non-empty (EMAIL_RE below) — an optional field should never block a send
+// for being blank, only for being genuinely malformed.
+const EMPTY = { name: '', email: '', message: '', website: '' };
+
+// Deliberately simpler than server.js's own EMAIL_RE — this only gates the
+// client-side "does this look malformed" shake, the server is still the
+// real authority and re-validates independently.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Auto-grow cap for the message textarea (below) — JS drives the smooth
 // height tween up to this, `.jcard-textarea`'s own `max-height` (main.scss)
@@ -200,6 +215,9 @@ export default function Connect() {
     const nameInputRef = useRef(null);
     const nameStripRef = useRef(null);
     const nameUnderlineRef = useRef(null);
+    const emailInputRef = useRef(null);
+    const emailStripRef = useRef(null);
+    const emailUnderlineRef = useRef(null);
     const messageRef = useRef(null);
     const messageBodyRef = useRef(null);
     const submitRef = useRef(null);
@@ -231,6 +249,9 @@ export default function Connect() {
     // separate thing (sendFailed, below). Cleared on any edit to the field
     // it belongs to.
     const [nameError, setNameError] = useState('');
+    // Only ever set for a genuinely malformed address (EMAIL_RE) — an
+    // EMPTY email is not an error, since the field is optional.
+    const [emailError, setEmailError] = useState('');
     const [messageError, setMessageError] = useState('');
     // Set from the fire-and-forget request in handleSubmit's own .catch —
     // entirely separate from the optimistic animation, which has already
@@ -287,8 +308,8 @@ export default function Connect() {
             // (off-screen, aria-hidden), animating it is wasted work.
             const formTargets = gsap.utils.toArray('.contact-form .jcard', rootRef.current);
 
-            // The name underline's rest state — undrawn — has to be set
-            // explicitly before anything else touches it (DrawSVGPlugin's
+            // The name/email underlines' rest state — undrawn — has to be
+            // set explicitly before anything else touches it (DrawSVGPlugin's
             // own requirement: without an initial gsap.set, the path just
             // renders fully stroked and "draws in on focus" has nothing to
             // draw from). Scoped to this same reduced-motion branch: with
@@ -297,6 +318,9 @@ export default function Connect() {
             // simpler result for that visitor (no motion needed either way).
             if (nameUnderlineRef.current) {
                 gsap.set(nameUnderlineRef.current, { drawSVG: '0%' });
+            }
+            if (emailUnderlineRef.current) {
+                gsap.set(emailUnderlineRef.current, { drawSVG: '0%' });
             }
 
             if (formTargets.length === 0) return undefined;
@@ -792,15 +816,16 @@ export default function Connect() {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (name === 'name' && nameError) setNameError('');
+        if (name === 'email' && emailError) setEmailError('');
         if (name === 'message' && messageError) setMessageError('');
     };
 
-    // Focus/blur on the name strip — a small lift (translateY), and the
-    // underline's own DrawSVGPlugin draw-in/out. overwrite: "auto" on every
-    // tween here (single-writer rule): tabbing in and immediately back out
-    // fires focus then blur in rapid succession, and without it the two
-    // tweens would race on the same y/drawSVG properties instead of the
-    // second cleanly cutting off the first.
+    // Focus/blur on the name/email strips — a small lift (translateY), and
+    // each field's own underline's DrawSVGPlugin draw-in/out. overwrite:
+    // "auto" on every tween here (single-writer rule): tabbing in and
+    // immediately back out fires focus then blur in rapid succession, and
+    // without it the two tweens would race on the same y/drawSVG properties
+    // instead of the second cleanly cutting off the first.
     const handleNameFocus = () => {
         if (prefersReducedMotion) return;
         gsap.to(nameStripRef.current, { y: -2, duration: 0.25, ease: SIGNATURE_EASE, overwrite: 'auto' });
@@ -814,6 +839,22 @@ export default function Connect() {
         // content" feedback with no extra state to track.
         if (!formData.name.trim()) {
             gsap.to(nameUnderlineRef.current, { drawSVG: '0%', duration: 0.3, ease: SIGNATURE_EASE, overwrite: 'auto' });
+        }
+    };
+
+    // Identical shape to handleNameFocus/Blur above (same field treatment,
+    // different element) — email being optional doesn't change how it
+    // behaves while focused, only whether it's required to have a value.
+    const handleEmailFocus = () => {
+        if (prefersReducedMotion) return;
+        gsap.to(emailStripRef.current, { y: -2, duration: 0.25, ease: SIGNATURE_EASE, overwrite: 'auto' });
+        gsap.to(emailUnderlineRef.current, { drawSVG: '100%', duration: 0.35, ease: SIGNATURE_EASE, overwrite: 'auto' });
+    };
+    const handleEmailBlur = () => {
+        if (prefersReducedMotion) return;
+        gsap.to(emailStripRef.current, { y: 0, duration: 0.25, ease: SIGNATURE_EASE, overwrite: 'auto' });
+        if (!formData.email.trim()) {
+            gsap.to(emailUnderlineRef.current, { drawSVG: '0%', duration: 0.3, ease: SIGNATURE_EASE, overwrite: 'auto' });
         }
     };
 
@@ -879,19 +920,23 @@ export default function Connect() {
         e.preventDefault();
 
         const nameValue = formData.name.trim();
+        const emailValue = formData.email.trim();
         const messageValue = formData.message.trim();
         const nameEmpty = !nameValue;
         const messageEmpty = !messageValue;
+        // Optional — only invalid when NON-empty and malformed. An empty
+        // email is never a validation failure, unlike name/message.
+        const emailInvalid = Boolean(emailValue) && !EMAIL_RE.test(emailValue);
 
-        // Both fields validated client-side now (Task 1 revision — the
-        // message alone used to be the only one checked here; name/email
-        // were left to the server round trip). Shake/highlight whichever
-        // field(s) are empty rather than showing red text alone, per the
-        // brief's own explicit requirement, and move focus to the first
-        // invalid field so a keyboard/screen-reader visitor lands somewhere
-        // meaningful rather than nowhere.
-        if (nameEmpty || messageEmpty) {
+        // Name/message/email(if given) all validated client-side now (Task
+        // 1 revision — the message alone used to be the only one checked
+        // here). Shake/highlight whichever field(s) are invalid rather than
+        // showing red text alone, per the brief's own explicit requirement,
+        // and move focus to the first invalid field so a keyboard/screen-
+        // reader visitor lands somewhere meaningful rather than nowhere.
+        if (nameEmpty || emailInvalid || messageEmpty) {
             if (nameEmpty) setNameError('Please add your name.');
+            if (emailInvalid) setEmailError("That email address doesn't look right.");
             if (messageEmpty) setMessageError('Please write a message before sending.');
             if (!prefersReducedMotion) {
                 // CustomWiggle's "pinSnap" (lib/gsap.js) — built exactly for
@@ -902,12 +947,15 @@ export default function Connect() {
                 // driven by aria-invalid below), so nothing here needs a
                 // parallel non-motion branch of its own.
                 if (nameEmpty) gsap.to(nameStripRef.current, { x: '+=8', duration: 0.4, ease: PIN_SNAP_EASE, overwrite: 'auto' });
+                if (emailInvalid) gsap.to(emailStripRef.current, { x: '+=8', duration: 0.4, ease: PIN_SNAP_EASE, overwrite: 'auto' });
                 if (messageEmpty) gsap.to(messageBodyRef.current, { x: '+=8', duration: 0.4, ease: PIN_SNAP_EASE, overwrite: 'auto' });
             }
-            (nameEmpty ? nameInputRef : messageRef).current?.focus();
+            const firstInvalidRef = nameEmpty ? nameInputRef : emailInvalid ? emailInputRef : messageRef;
+            firstInvalidRef.current?.focus();
             return;
         }
         setNameError('');
+        setEmailError('');
         setMessageError('');
         // A fresh attempt clears any banner left over from a PRIOR failed
         // send — the brief's own requirement that a new success doesn't
@@ -935,8 +983,10 @@ export default function Connect() {
             cassetteFlipState = Flip.getState(cassetteRef.current);
         }
 
-        // Snapshot the payload before formData resets below.
-        const payload = { name: nameValue, message: messageValue, website: formData.website };
+        // Snapshot the payload before formData resets below. email is sent
+        // as-is (possibly '') — server.js treats a blank string the same as
+        // absent.
+        const payload = { name: nameValue, email: emailValue, message: messageValue, website: formData.website };
 
         setFormData(EMPTY);
         flushSync(() => {
@@ -1060,9 +1110,12 @@ export default function Connect() {
 
                 {status !== 'sent' && (
                     <form className="contact-form" onSubmit={handleSubmit} noValidate>
-                        {/* The J-card — Task 1's revision. One tall/narrow
-                            physical object (name strip on top, message
-                            dominating the body, submit tab at the bottom),
+                        {/* The J-card — Task 1's revision, restyled
+                            2026-08-27 to read as an actual cassette insert
+                            (main.scss's own comment on .jcard has the full
+                            reasoning). One tall/narrow physical object — a
+                            spine-fold band, a name+email header, message
+                            dominating the body, submit tab at the bottom —
                             not three stacked form elements the way Task 12's
                             version had it (a boxed name/email row, a
                             separate message-cassette box, a plain button
@@ -1072,47 +1125,96 @@ export default function Connect() {
                             the walkman's bay, not just the message panel
                             like before. */}
                         <div className="jcard" ref={cassetteRef}>
-                            <span className="jcard-tape" aria-hidden="true" />
+                            {/* The spine-fold band — a real J-card structural
+                                feature (main.scss's own comment on
+                                .jcard-spine has the full reasoning), not a
+                                decorative pin — replaces the first version's
+                                .jcard-tape, which was #my-taste's corkboard
+                                language, not a cassette's. */}
+                            <div className="jcard-spine" aria-hidden="true" />
 
-                            <div className="jcard-name-strip" ref={nameStripRef}>
-                                <label htmlFor="name">Name</label>
-                                <input
-                                    type="text"
-                                    name="name"
-                                    id="name"
-                                    ref={nameInputRef}
-                                    className="jcard-name-input"
-                                    maxLength={100}
-                                    placeholder="Your name"
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    onFocus={handleNameFocus}
-                                    onBlur={handleNameBlur}
-                                    required
-                                    aria-invalid={Boolean(nameError)}
-                                    aria-describedby={nameError ? 'name-error' : undefined}
-                                />
-                                {/* Hand-drawn-style underline instead of a
-                                    boxed input — DrawSVGPlugin draws it in on
-                                    focus (handleNameFocus above), out again
-                                    on blur only if the field is still empty.
-                                    viewBox is intentionally non-square (100 x
-                                    4) so the dash pattern stretches evenly
-                                    across the strip's real width regardless
-                                    of the card's own responsive size. */}
-                                <svg className="jcard-name-underline" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                                    {/* A gentle wobble (quadratic curve), not a
-                                        straight line — "hand-drawn-style," per
-                                        the brief. vector-effect keeps the
-                                        stroke a constant on-screen thickness
-                                        despite preserveAspectRatio="none"
-                                        stretching this non-uniformly. */}
-                                    <path ref={nameUnderlineRef} d="M0 2.5 Q 25 0.5 50 2.5 T 100 2" vectorEffect="non-scaling-stroke" />
-                                </svg>
+                            {/* Name (required) + email (optional) — grouped
+                                as one header block (.jcard-header) so they
+                                read as a single "from" line, not two of the
+                                card's three sections. */}
+                            <div className="jcard-header">
+                                <div className="jcard-name-strip" ref={nameStripRef}>
+                                    <label htmlFor="name">Name</label>
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        id="name"
+                                        ref={nameInputRef}
+                                        className="jcard-name-input"
+                                        maxLength={100}
+                                        placeholder="Your name"
+                                        value={formData.name}
+                                        onChange={handleChange}
+                                        onFocus={handleNameFocus}
+                                        onBlur={handleNameBlur}
+                                        required
+                                        aria-invalid={Boolean(nameError)}
+                                        aria-describedby={nameError ? 'name-error' : undefined}
+                                    />
+                                    {/* Hand-drawn-style underline instead of a
+                                        boxed input — DrawSVGPlugin draws it in on
+                                        focus (handleNameFocus above), out again
+                                        on blur only if the field is still empty.
+                                        viewBox is intentionally non-square (100 x
+                                        4) so the dash pattern stretches evenly
+                                        across the strip's real width regardless
+                                        of the card's own responsive size. */}
+                                    <svg className="jcard-name-underline" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                                        {/* A gentle wobble (quadratic curve), not a
+                                            straight line — "hand-drawn-style," per
+                                            the brief. vector-effect keeps the
+                                            stroke a constant on-screen thickness
+                                            despite preserveAspectRatio="none"
+                                            stretching this non-uniformly. */}
+                                        <path ref={nameUnderlineRef} d="M0 2.5 Q 25 0.5 50 2.5 T 100 2" vectorEffect="non-scaling-stroke" />
+                                    </svg>
+                                </div>
+                                {nameError && (
+                                    <p className="field-error" id="name-error" role="alert">{nameError}</p>
+                                )}
+
+                                {/* Email — brought back optional, by direct
+                                    request, after the original revision
+                                    dropped it: an anonymous-only guestbook
+                                    risks losing a real lead with no way to
+                                    reply. "(optional)" sits right in the
+                                    label so nobody reads this as a second
+                                    required field and hesitates to send at
+                                    all — same visual treatment as name
+                                    (.jcard-email-*, main.scss), not a boxed
+                                    contact-form input. */}
+                                <div className="jcard-email-strip" ref={emailStripRef}>
+                                    <label htmlFor="email">
+                                        Email <span className="jcard-email-optional-tag">(optional)</span>
+                                    </label>
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        id="email"
+                                        ref={emailInputRef}
+                                        className="jcard-email-input"
+                                        maxLength={254}
+                                        placeholder="you@example.com"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        onFocus={handleEmailFocus}
+                                        onBlur={handleEmailBlur}
+                                        aria-invalid={Boolean(emailError)}
+                                        aria-describedby={emailError ? 'email-error' : undefined}
+                                    />
+                                    <svg className="jcard-email-underline" viewBox="0 0 100 4" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                                        <path ref={emailUnderlineRef} d="M0 2.5 Q 25 0.5 50 2.5 T 100 2" vectorEffect="non-scaling-stroke" />
+                                    </svg>
+                                </div>
+                                {emailError && (
+                                    <p className="field-error" id="email-error" role="alert">{emailError}</p>
+                                )}
                             </div>
-                            {nameError && (
-                                <p className="field-error" id="name-error" role="alert">{nameError}</p>
-                            )}
 
                             {/* Main body — dominates the card's own vertical
                                 space, the way a tracklist panel dominates a
@@ -1171,7 +1273,20 @@ export default function Connect() {
                                     onPointerUp={handleSubmitRelease}
                                     onPointerLeave={handleSubmitRelease}
                                 >
-                                    <span className="jcard-submit-dot" aria-hidden="true" />
+                                    {/* A small flat cassette glyph (body +
+                                        two reels + tape window) — replaces
+                                        the first version's plain accent dot,
+                                        by direct request to fit the design
+                                        rather than read as a generic record
+                                        button. Same flat-shape, no-icon-
+                                        library convention walkman.jsx's own
+                                        SVG parts use. */}
+                                    <svg className="jcard-submit-icon" viewBox="0 0 20 14" aria-hidden="true" focusable="false">
+                                        <rect className="jcard-submit-icon-body" x="1" y="1" width="18" height="12" rx="2" />
+                                        <rect className="jcard-submit-icon-window" x="8.6" y="6.2" width="2.8" height="1.6" />
+                                        <circle className="jcard-submit-icon-reel" cx="6.5" cy="7" r="2" />
+                                        <circle className="jcard-submit-icon-reel" cx="13.5" cy="7" r="2" />
+                                    </svg>
                                     Send Message
                                 </button>
                             </div>

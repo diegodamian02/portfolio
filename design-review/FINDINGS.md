@@ -3002,6 +3002,36 @@ itself before auditing the CSS rule — a class name typo'd on the JSX side
 produces a real, present, entirely unstyled DOM node that a screenshot
 alone can't distinguish from "the CSS is wrong."
 
+### B67 — `.jcard-submit`'s background visibly flashed on click even though no declared `background-color` rule was ever changing — **FOUND AND FIXED, Stage 3 Task 1 revision follow-up**
+
+Reported live: clicking the J-card's submit button changed its background
+color, abruptly, with no transition. Sampled `getComputedStyle(button)
+.backgroundColor` at `pointerdown` before assuming a CSS rule was at
+fault: it read identically before and during the press. The declared
+background was never the thing changing.
+
+**Root cause.** `.jcard-submit` is a plain `<button>` with no `appearance`
+reset, so it kept the browser's default `appearance: auto` — which lets
+the OS/browser paint its OWN native pressed-state affordance on top of (or
+interleaved with) custom styles, independent of any CSS property this
+stylesheet or GSAP's press/release tweens (`connect.jsx`) actually control.
+That native repaint is instant, with no transition of its own, which is
+exactly what read as "the background changes, and doesn't look smooth."
+
+**Fix:** `appearance: none` (plus `-webkit-tap-highlight-color:
+transparent` as a second, defensive fix for the same class of native-chrome
+flash on WebKit touch) — removes the native chrome entirely, leaving only
+the declared styles and GSAP's own press/release transform.
+
+**Generalisable:** a visual change on `:active`/click that doesn't match
+ANY declared CSS property is a strong signal to check `appearance` before
+anything else — native form-control chrome (`auto` is the default on
+`<button>`, `<input>`, `<select>`) paints independently of custom
+`background`/`box-shadow` rules, and `getComputedStyle` won't reveal it
+because it isn't a CSS property value at all. Confirm with a direct
+before/during sample rather than assuming which rule is "obviously"
+responsible.
+
 ---
 
 ## 5. Design problems — these need a direction decision

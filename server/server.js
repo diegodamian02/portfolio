@@ -374,7 +374,7 @@ const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'onboarding@resend.
 // verified this restriction lifts and it can be any address.
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'diegodamiango02@gmail.com';
 
-const CONTACT_MAX = { name: 100, message: 5000 };
+const CONTACT_MAX = { name: 100, email: 254, message: 5000 };
 const CONTACT_RATE_MAX = 5;
 const CONTACT_RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const contactAttempts = new Map(); // ip -> timestamp[]
@@ -425,21 +425,33 @@ function recordContactAttempt(ip) {
     contactAttempts.set(ip, hits);
 }
 
-// Task 1 revision (guestbook note, not a two-way contact form) — email
-// dropped entirely, both the field and the validation. No EMAIL_RE, no
-// replyTo below: there is no address to reply to anymore, by design.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Task 1 revision (guestbook note, not a two-way contact form) dropped
+// email entirely; brought back the next day, OPTIONAL, by direct request —
+// an anonymous-only note risks losing a real lead with no way to reply.
+// Absent/blank is valid (not an error); present-but-malformed is not —
+// mirrors connect.jsx's own client-side EMAIL_RE check, which is the first
+// line of defense, not the only one.
 function validateContact(body) {
     const read = (key) => (typeof body?.[key] === 'string' ? body[key].trim() : '');
-    // CR/LF stripped from the field that lands in a mail *header* — a
-    // newline there is the classic header-injection vector.
+    // CR/LF stripped from the two fields that can land in mail *headers* —
+    // a newline there is the classic header-injection vector.
     const name = read('name').replace(/[\r\n]/g, ' ');
+    const email = read('email').replace(/[\r\n]/g, '');
     const message = read('message');
 
     if (!name || !message) return { error: 'Name and message are both required.' };
     if (name.length > CONTACT_MAX.name) return { error: 'That name is too long.' };
+    if (email && (email.length > CONTACT_MAX.email || !EMAIL_RE.test(email))) {
+        return { error: "That email address doesn't look right." };
+    }
     if (message.length > CONTACT_MAX.message) return { error: 'That message is too long.' };
 
-    return { value: { name, message } };
+    // email is '' when omitted — normalised to null below (recordMessage,
+    // `pg` rejects a bare `undefined` param) rather than here, so `value`
+    // stays a plain set of the request's own fields.
+    return { value: { name, email, message } };
 }
 
 app.post('/api/contact', async (req, res) => {
@@ -469,12 +481,18 @@ app.post('/api/contact', async (req, res) => {
         const { data, error: sendError } = await getResend().emails.send({
             from: `Portfolio guestbook <${CONTACT_FROM_EMAIL}>`,
             to: CONTACT_TO_EMAIL,
-            // No replyTo — this is a one-way guestbook note now, not a
-            // two-way contact form; there's no visitor address to reply to.
+            // Conditional replyTo — this is still a guestbook note by
+            // default (no reply mechanism), but a visitor who chose to
+            // leave an email gets one: undefined when absent, which Resend
+            // (and the underlying mail headers) treat as "not set," not as
+            // an empty/invalid header value.
+            replyTo: value.email ? `${value.name} <${value.email}>` : undefined,
             subject: `Portfolio guestbook note from ${value.name}`,
             // Plain text only, deliberately: visitor input never gets
             // interpolated into HTML, so there's no escaping to get wrong.
-            text: `${value.name} wrote:\n\n${value.message}\n`,
+            text: value.email
+                ? `${value.name} <${value.email}> wrote:\n\n${value.message}\n`
+                : `${value.name} wrote:\n\n${value.message}\n`,
         });
 
         // The SDK resolves with { data, error } instead of throwing, so an
@@ -485,19 +503,19 @@ app.post('/api/contact', async (req, res) => {
             // Recorded even on a rejected send — this is the owner's own
             // record of who tried to reach them, independent of whether
             // Resend's sandbox restriction (or anything else) blocked delivery.
-            // email: null — the column stays in the schema (db.js), just
-            // always null now that the field is gone; `pg` rejects a bare
-            // `undefined` param, so this has to be explicit, not just omitted.
-            recordMessage({ ...value, email: null, resendId: null, delivered: false, ...visitorContext(req) });
+            // email: value.email || null — '' (the validated-but-absent
+            // case) normalised to null; `pg` rejects a bare `undefined` or
+            // empty-string-is-fine-but-let's-be-explicit param either way.
+            recordMessage({ ...value, email: value.email || null, resendId: null, delivered: false, ...visitorContext(req) });
             return res.status(502).json({ error: "That didn't go through — please try again, or email me directly." });
         }
 
         // The Resend id is what you search on at resend.com/emails to see
         // delivery/bounce status for a specific message.
-        console.log(`✉️  [contact] message relayed from ${value.name} (resend id ${data?.id})`);
+        console.log(`✉️  [contact] message relayed from ${value.name}${value.email ? ` <${value.email}>` : ''} (resend id ${data?.id})`);
         // Fire-and-forget, same as every other db.js call — a slow or failing
         // insert must never delay or fail the response the visitor is waiting on.
-        recordMessage({ ...value, email: null, resendId: data?.id ?? null, delivered: true, ...visitorContext(req) });
+        recordMessage({ ...value, email: value.email || null, resendId: data?.id ?? null, delivered: true, ...visitorContext(req) });
         res.json({ ok: true });
     } catch (err) {
         // Network-level failure reaching Resend at all.
