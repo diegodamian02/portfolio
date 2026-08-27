@@ -3034,6 +3034,45 @@ responsible.
 
 ---
 
+### B68 — `align-items: center` on an unevenly-tall two-column row centers each column to its OWN offset, not to a shared top edge — **FOUND AND FIXED, Stage 3 Task 1 revision, second follow-up**
+
+Built while turning `#connect`'s single stacked column into a text-left/
+card-right row (`.contact-container`, `main.scss`): copied
+`.about-me-container`'s own `align-items: center` on the theory that this
+was the same "text beside a visual object" case that rule already covers.
+Measured live before assuming it read fine: the heading's own top edge
+landed well BELOW the card's top edge, a real misalignment, not a
+deliberate stagger.
+
+**Root cause.** `.contact-section` (the parent) is itself a flex row with
+no `align-items` override, so its default `align-items: stretch` was
+already stretching `.contact-container` to the SECTION's own height —
+routinely 200-250px taller than the container's actual content, a
+pre-existing quirk `.contact-title`'s own `padding-top` comment already
+worked around for the single-column case. Once `.contact-container`
+became a flex row of its own with `align-items: center`, that leftover
+height got distributed by centering `.contact-copy` (short — a heading
+and two lines) and `.contact-visual` (tall — the ~604px card)
+INDEPENDENTLY within it. Two children of very different heights, each
+centered to its own offset inside the same box, do not share a top edge —
+the taller one's centered position sits higher than the shorter one's.
+
+**Fix:** `align-items: flex-start` instead of `center` on
+`.contact-container`. Pins both columns' top edges together, and is also
+a closer continuation of the column's pre-existing (top-aligned, plain
+block) behaviour than `center` ever was.
+
+**Generalisable:** `.about-me-container`'s own `align-items: center`
+isn't a template to copy by default for "text beside a visual object" —
+it works there specifically because the two children are closer in
+height. Before reusing an alignment rule from a similar-looking layout
+elsewhere on the page, check whether ITS OWN children's height ratio
+still holds for the new case; if the new pair is far more mismatched,
+measure the rendered top edges live rather than assuming the borrowed
+rule generalises.
+
+---
+
 ## 5. Design problems — these need a direction decision
 
 ### D1 — The hero is roughly half empty

@@ -2178,12 +2178,33 @@ html {
   width: 100%;
   height: var(--experience-vp-height);
   max-width: min(96vw, 1600px);
-  overflow: hidden;
+  // The filmstrip is a NATIVE horizontal scroller (Stage 9 rebuild, 2026-08-
+  // 27) — the browser scrolls this box, experience.jsx just reads scrollLeft.
+  // overflow-y stays hidden so a vertical gesture has nothing to scroll here
+  // and passes straight through to the page; overflow-x: auto is what carries
+  // trackpad swipe / shift-wheel / touch pan. See experience.jsx's header and
+  // the data-lenis-prevent-horizontal attribute for how the wheel path gets
+  // here past Lenis.
+  overflow-x: auto;
+  overflow-y: hidden;
+  // Don't chain a horizontal overscroll at the filmstrip ends into a page
+  // scroll or a browser back-nav gesture.
+  overscroll-behavior-x: contain;
+  // NO CSS scroll-snap. Tried both `mandatory` and `proximity` — Chromium
+  // re-snaps to the nearest card after every discrete scroll operation, so a
+  // small horizontal wheel notch that doesn't clear the halfway point to the
+  // next card springs straight back and the filmstrip reads as stuck. That's
+  // the exact "fighting my scroll" feeling this whole rebuild exists to
+  // remove, so free scrolling wins. The center-focus emphasis (experience.jsx)
+  // still marks whichever card is nearest center as active, so a rest
+  // between two cards still resolves to one clear focus.
+  scrollbar-width: none; // Firefox
+  &::-webkit-scrollbar { display: none; } // WebKit/Blink
   border-radius: 16px;
-  opacity: 0; // set to 1 by experience.jsx's pin-engage flourish; reduced-
-              // motion never reaches this component at all (ExperienceStatic
-              // instead), so there's no no-JS-fallback state to protect here
-              // the way .experience-caption needed one in Task 8.
+  opacity: 0; // revealed (opacity + scale) by experience.jsx's scroll-into-
+              // view trigger; reduced motion never reaches this component
+              // (ExperienceStatic instead), so there's no no-JS fallback
+              // state to protect here.
 
   @media (max-width: 768px) {
     --experience-card-w: clamp(240px, 78vw, 340px);
@@ -2195,14 +2216,14 @@ html {
   }
 }
 
-// Horizontally scrubbed via a direct x transform (experience.jsx) — width:
-// max-content so its scrollWidth (what the JS measures for both the pin's
-// scroll distance and the rail's real pixel span) reflects the SUM of
-// padding + every card + every gap, not an arbitrary intrinsic guess.
-// padding-left/right: calc(50% - card-w/2) is what centers card 0 in the
-// viewport at x:0 and the LAST card in the viewport at the scrub's end —
-// the percentage resolves against .experience-viewport's width (the
-// containing block for padding purposes is always the ancestor, regardless
+// Scrolled natively — it's the overflow content of .experience-viewport
+// (overflow-x: auto). width: max-content so its scrollWidth (which the JS
+// measures for the rail's real pixel span, and which the browser uses as the
+// scroll range) reflects the SUM of padding + every card + every gap, not an
+// arbitrary intrinsic guess. padding-left/right: calc(50% - card-w/2) is what
+// centers card 0 in the viewport at scrollLeft:0 and the LAST card at
+// scrollLeft:max — the percentage resolves against .experience-viewport's
+// width (the containing block for padding is always the ancestor, regardless
 // of this element's own width algorithm), not against this element's own
 // max-content width, so this stays correct without any JS-computed offset.
 .experience-track {
@@ -2225,9 +2246,9 @@ html {
   }
 }
 
-// Spans the full track width (a track-level child, not per-card — it moves
-// with the SAME x transform every card does, so it never needs its own
-// separate scrub wiring). d/viewBox are set from real measured pixels on
+// Spans the full track width (a track-level child, not per-card — it scrolls
+// with the track, and experience.jsx scrubs its draw + progress dot from the
+// viewport's scrollLeft). d/viewBox are set from real measured pixels on
 // BOTH axes (experience.jsx) — the exact distortion Task 7 avoided on the
 // vertical spine by the same means: a viewBox whose two axes don't scale
 // 1:1 against the real rendered box stretches the accent dot into an
@@ -3776,9 +3797,29 @@ html {
   position: relative;
 }
 
+// ---- Two-column layout (2026-08-27) ----
+//
+// Direct feedback on the single stacked column this used to be ("i think we
+// can organize it way better maybe we can put the text on the left side and
+// the J cassette on the right side... our goal is to fit the entire design
+// into one page"). Stacked, this section's total height was the SUM of the
+// text block's height and the card's — the card alone runs 550-650px tall
+// by construction (.jcard's own comment below), which is most of why the
+// entry pin's own "does this fit one viewport" safety check
+// (connect.jsx onEnter) was skipping the hold on so many ordinary window
+// heights. Side by side, a flex ROW's height is the TALLER of its two
+// children, not their sum, which is the actual mechanism that makes "fit
+// into one page" true rather than just a different-looking rearrangement.
+// content-width-wide (1100px), not the old hand-set 700px: this is now a
+// side-by-side row, not a single reading column, the same reasoning
+// .about-me-container/.timeline-container already use that token for
+// (comment on --content-width-wide, above) — reused rather than a third
+// hand-set width invented for this section alone. Still not the OPEN
+// "apply the design system to #connect" roadmap item, though: that item
+// covers section-title/type-scale (--text-xl etc.), which .contact-title
+// below still doesn't use — only the column WIDTH is unified here.
 .contact-container {
-  max-width: 700px;
-  width: 100%;
+  @include content-column($width: var(--content-width-wide));
   // Was 6rem. This sits on top of .contact-section's own 5em top padding,
   // so the heading started 176px below the section's top edge while the
   // section itself is a full navbar-adjusted viewport tall — measured live,
@@ -3788,6 +3829,71 @@ html {
   // letting the heading run into the fixed navbar (see .contact-title's own
   // z-index note below, and connect.jsx's ensureHeadlineVisible).
   padding-top: 2rem;
+  display: flex;
+  // flex-start, NOT center (which .about-me-container uses for its own
+  // text-beside-visual-object row) — found live why those two rows aren't
+  // actually the same case: .contact-section stretches .contact-container
+  // to the SECTION's own height (align-items: stretch is the flex default,
+  // inherited from .contact-section's own row/no-override rule above), so
+  // .contact-container is routinely 200-250px taller than its own content.
+  // center vertically centers .contact-copy (short — a heading and a couple
+  // lines) and .contact-visual (tall — the ~604px card) INDEPENDENTLY
+  // within that extra height, and because they're such different heights,
+  // each one centers to a different offset — measured live, the heading's
+  // own top edge landed BELOW the card's top edge by lots of visible
+  // vertical room, reading as misaligned rather than a deliberate stagger.
+  // flex-start pins both columns' top edges together instead, which is
+  // also the exact behaviour .contact-container already had before this
+  // column split (a plain block, not centered) — .contact-title's own
+  // z-index note and this rule's own padding-top were already tuned
+  // against that top-aligned baseline, so flex-start is the continuation
+  // of that tuning, not a new decision.
+  align-items: flex-start;
+  gap: var(--space-8);
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-6);
+  }
+}
+
+// The text column — heading, intro, failure banner. flex: 1 + min-width: 0
+// mirrors .about-me-text's own recipe exactly (same job: a text column
+// beside a fixed-ish-width visual object, sharing whatever room
+// .contact-visual's own clamp() doesn't claim).
+.contact-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+// The visual column — the J-card while composing, the walkman once sent.
+// clamp()'d rather than a flat px width for the same reason
+// .about-me-portrait-wrap's own width is clamp()'d (comment there): a fixed
+// number holds fine at wide desktop widths and then either overflows or
+// forces an early stack as the viewport narrows toward 768px. min(500px,
+// 42vw) shrinks continuously through that whole middle range instead —
+// 500px is deliberately not arbitrary: .walkman's own width
+// (min(460px, 92%), below) resolves against THIS column, and 92% of 500
+// is exactly 460, so the walkman still reaches its own intended rest size
+// at desktop widths without this column needing to know that number
+// itself. flex-shrink: 0 keeps it exactly at that computed width rather
+// than the row's flex algorithm squeezing it if the text column's own
+// content ever wants more room than is left.
+.contact-visual {
+  flex-shrink: 0;
+  width: min(500px, 42vw);
+  display: flex;
+  flex-direction: column;
+
+  @media (max-width: 768px) {
+    // Stacked below 768px — restores the original full-bleed behaviour
+    // (.jcard/.walkman clamp themselves narrower via their own max-width
+    // percentages against whatever width they're actually given, same as
+    // before this column existed) rather than carrying the desktop clamp's
+    // 500px ceiling into a context it was never tuned for.
+    width: 100%;
+  }
 }
 
 .contact-title {
@@ -3815,7 +3921,14 @@ html {
   // sentence introducing it (this is the exact value/reasoning the
   // original description-era heading used, before it was ever grown).
   margin-bottom: var(--space-4);
-  text-align: center;
+  // text-align: center REMOVED — was fine centered above a single stacked
+  // column, but reads oddly centered above a LEFT column sitting beside
+  // the card. Left-aligned by default now (no override, same as
+  // .contact-description's own long-standing "no override" convention
+  // just below), matching .contact-copy's own text-align at desktop;
+  // .contact-container's 768px breakpoint (above) sets text-align: center
+  // on the whole row once it stacks, which cascades down to this same as
+  // it always did.
 }
 
 // A different paragraph from the one this project carried before Task 12.2
@@ -3879,14 +3992,30 @@ html {
 .contact-error-toast {
   display: flex;
   align-items: center;
-  justify-content: center;
+  // Was centered with an auto-margin 500px cap — tuned for sitting
+  // centered under a single stacked column. Now that it lives in
+  // .contact-copy, a left-aligned text column, it hugs the same left edge
+  // as the heading/description above it instead of floating centered in
+  // its own narrower box; max-width: 100% lets it fill whatever width
+  // .contact-copy's own flex: 1 actually gives it rather than a number
+  // tuned for the old, wider single column.
+  justify-content: flex-start;
   gap: var(--space-3);
-  max-width: 500px;
-  margin: 0 auto var(--space-5);
+  max-width: 100%;
+  margin: 0 0 var(--space-5);
   padding: var(--space-3) var(--space-4);
   border: 1px solid color-mix(in srgb, #ff6b6b 45%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, #ff6b6b 10%, transparent);
+
+  // Stacked layout (.contact-container's own 768px breakpoint) re-centers
+  // everything in the column, including this banner — matches its
+  // pre-existing centered treatment at the one width this class actually
+  // shipped at before today.
+  @media (max-width: 768px) {
+    justify-content: center;
+    margin: 0 auto var(--space-5);
+  }
 }
 
 .contact-error-dismiss {

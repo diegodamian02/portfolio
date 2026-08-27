@@ -6979,6 +6979,82 @@ screenshot rather than assumed from the dark-theme pass alone.
 
 ---
 
+### Stage 3 Task 1 revision, second follow-up — `#connect`: text-left/card-right two-column layout *(2026-08-27)*
+
+Direct feedback on the stacked single-column shape the two entries above
+this one left in place: "put the text on the left side and the J cassette
+on the right side... our goal is to fit the entire design into one page."
+Stacked, this section's total content height was the SUM of the text
+block's height and the card's — the card alone runs ~604px tall by
+construction (`.jcard`'s own comment), which was most of why the entry
+pin's own "does this fit one viewport" safety check (`connect.jsx`
+`onEnter`) was skipping the hold on so many ordinary window heights. A
+flex ROW's height is the TALLER of its two children, not their sum — the
+actual mechanism, not just a different-looking rearrangement.
+
+**Markup.** `connect.jsx`'s JSX split into two new wrapper columns inside
+the existing `.contact-container`: `.contact-copy` (heading, intro, the
+out-of-band failure banner) and `.contact-visual` (the J-card while
+composing, the walkman takeover once a send succeeds — both in the SAME
+column, never both mounted at once, so the takeover doesn't shift the
+text column beside it). `.cassette-flight` (the flying clone) stays a
+direct child of `.contact-container`, sibling to both columns, not
+nested in either — it's positioned in absolute px against
+`.contact-section` regardless of where it sits in the DOM, so which
+column it happened to fly out of makes no visual difference to where it
+renders.
+
+**Layout.** `.contact-container` is now `@include content-column($width:
+var(--content-width-wide))` (1100px, was a hand-set 700px) as a flex row
+— reusing the same token/mixin `.about-me-container`/`.timeline-container`
+already use for their own side-by-side rows, not a third hand-set width
+invented for this section alone. This is a real, if partial, step toward
+the still-open "apply the design system to `#connect`" roadmap item
+(column WIDTH only — `.contact-title` still doesn't use `--text-xl`/
+`@include section-title`, so that item stays open). `.contact-copy` is
+`flex: 1; min-width: 0` (`.about-me-text`'s own recipe, verbatim).
+`.contact-visual` is `width: min(500px, 42vw)` — clamp-shrinks
+continuously through the medium-viewport range the same way
+`.about-me-portrait-wrap`'s own `clamp()` does, rather than holding a flat
+500px until an abrupt breakpoint; 500px specifically because `.walkman`'s
+own `min(460px, 92%)` resolves against this column, and 92% of 500 is
+exactly 460 — the walkman still reaches its intended rest size at desktop
+widths without needing to know that number itself. `.contact-title` lost
+its hardcoded `text-align: center` (reads oddly centered above a LEFT
+column now); `.contact-container`'s existing 768px breakpoint (stacked,
+centered) cascades the centering back down when it collapses to one
+column, same as `.about-me-container`'s own pattern. `align-items: center`
+was tried first (matching `.about-me-container`) and found live to
+misalign the two columns' top edges — logged as FINDINGS.md B68 — fixed
+to `align-items: flex-start`.
+
+Lint unchanged, 7/2 (the concurrent Experience work in progress elsewhere
+in the tree at time of writing is untouched by this task — measured with
+that work stashed out so the build below reflects only this change).
+Bundle:
+
+| | Previous (this task's own prior commit) | Now |
+|---|---|---|
+| CSS bundle | 57.60 kB / 11.69 kB gz | **58.25 kB / 11.80 kB gz** |
+| JS bundle | 550.77 kB / 196.07 kB gz | **550.87 kB / 196.08 kB gz** |
+
+Verified live at 1440/1024/768/390px, both themes: desktop/tablet widths
+(≥768px) render text and card side by side with shared top edges; ≤768px
+stacks back to the original centered single column; no horizontal
+overflow at any width (`document.documentElement.scrollWidth ===
+window.innerWidth`, both 1440 and 390 checked directly, not eyeballed).
+Submitted a real (route-intercepted, no live network/email) send at
+1440px: the confirmation state — heading left, walkman + reset button
+right — holds the same two-column shape and top alignment as the compose
+state, so the takeover doesn't visibly restructure the page. Also
+verified with the send intercepted to fail: the out-of-band failure
+banner renders left-aligned under the confirmation heading, in
+`.contact-copy`, reading naturally in the new column rather than
+centered under content that's no longer there. Zero console/page errors
+across the full submit → takeover sequence.
+
+---
+
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |

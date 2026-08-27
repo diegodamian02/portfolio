@@ -379,6 +379,25 @@ native `appearance: auto` button chrome, not any declared CSS property —
 `appearance: none` fixed it. `STATUS.md`'s own follow-up entry has the
 full writeup.
 
+**Also 2026-08-27 — `#connect`: text-left/card-right two-column layout.**
+Same-day direct feedback on the entry above: the section was still one
+stacked column (heading, intro, card, all top to bottom), and stacked,
+the card's own ~604px height added directly on top of the text block's —
+most of why the entry pin's own viewport-fit safety check kept skipping
+the hold. Split into `.contact-copy` (text) and `.contact-visual` (the
+J-card, then the walkman once sent) as a flex row, so the section's total
+height is the TALLER of the two columns rather than their sum. Reuses
+`--content-width-wide`/`@include content-column` — the same token the
+still-open "apply the design system to `#connect`" item (§3) would
+eventually bring to this section anyway — for the column's own width,
+which is genuine, if partial, progress on that item: only the width,
+not `.contact-title`'s own type scale, so the item stays open. One more
+real bug found live (`FINDINGS.md` B68): `align-items: center`, copied
+from `.about-me-container`'s own similar-looking row, centered the two
+columns to DIFFERENT offsets because they're far more mismatched in
+height than About's own text/portrait pair — fixed to `align-items:
+flex-start`. `STATUS.md`'s own entry has the full writeup.
+
 **Also 2026-08-23 (Stage 5) — `#my-taste`'s own mobile layout: two horizontal scroll-snap
 rows.** Jumped ahead of this file's own stated Stage 5 dependency ("Stages 3/4 landing
 first, so mobile isn't built twice") — a deliberate reorder, noted per the working

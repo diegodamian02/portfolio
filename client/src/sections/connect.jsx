@@ -1063,6 +1063,18 @@ export default function Connect() {
                 entry pin/reveal above doesn't read it — that's a one-time
                 scroll-entry transition, unrelated to send state. */}
             <div className="contact-container" data-state={status} ref={containerRef}>
+                {/* Left column — heading, intro copy, and (if a send fails)
+                    the out-of-band failure banner. Split into its own
+                    column by direct request ("put the text on the left
+                    side and the J cassette on the right side... fit the
+                    entire design into one page"): stacked, the card's own
+                    height used to add directly on top of the text's, which
+                    is why this section needed more than one viewport's
+                    worth of height to begin with. Side by side, the
+                    section's total height is the TALLER of the two
+                    columns, not their sum — the actual fix for "fit into
+                    one page," not just a rearrangement. */}
+                <div className="contact-copy">
                 {/* role="status" only once this IS the confirmation message
                     — .contact-success (the old separate two-paragraph
                     block) is gone, so this heading is now the only
@@ -1107,7 +1119,14 @@ export default function Connect() {
                         </button>
                     </p>
                 )}
+                </div>
 
+                {/* Right column — the J-card while composing, then the
+                    walkman takeover once a send succeeds. Both live in the
+                    SAME column (never both at once — status flips between
+                    them) so switching from one to the other never shifts
+                    the text column beside it. */}
+                <div className="contact-visual">
                 {status !== 'sent' && (
                     <form className="contact-form" onSubmit={handleSubmit} noValidate>
                         {/* The J-card — Task 1's revision, restyled
@@ -1311,24 +1330,6 @@ export default function Connect() {
                     </form>
                 )}
 
-                {/* The flying cassette clone (Phase 1 step 2) — React-owned
-                    (see the module comment above for why), positioned by JS
-                    right before Flip.from runs. Purely decorative: never the
-                    real, functional J-card, which already unmounted with
-                    the form the instant status flipped to "sent" (1a). Kept
-                    as a plain rounded-rect paper card (not a full torn-edge/
-                    tape replica of the real card) — it's a functional
-                    geometry proxy for the Flip morph, not a visual replica;
-                    the morph itself is what sells the shape change. */}
-                {flightSlot && (
-                    <div
-                        className="cassette-flight"
-                        ref={flightRef}
-                        data-flip-id={CASSETTE_FLIP_ID}
-                        style={{ left: flightSlot.left, top: flightSlot.top, width: flightSlot.width, height: flightSlot.height }}
-                    />
-                )}
-
                 {/* The walkman — mounted only while walkmanVisible, unlike
                     Task 12's own original design (which kept it mounted
                     permanently once shown). This brief explicitly asks for
@@ -1350,6 +1351,32 @@ export default function Connect() {
                             </button>
                         )}
                     </div>
+                )}
+                </div>
+
+                {/* The flying cassette clone (Phase 1 step 2) — React-owned
+                    (see the module comment above for why), positioned by JS
+                    right before Flip.from runs. Purely decorative: never the
+                    real, functional J-card, which already unmounted with
+                    the form the instant status flipped to "sent" (1a). Kept
+                    as a plain rounded-rect paper card (not a full torn-edge/
+                    tape replica of the real card) — it's a functional
+                    geometry proxy for the Flip morph, not a visual replica;
+                    the morph itself is what sells the shape change.
+                    Deliberately OUTSIDE .contact-visual, as a direct child
+                    of .contact-container instead: it's positioned in
+                    absolute px against .contact-section (main.scss), never
+                    relative to either column, so which column nests it in
+                    the DOM makes no visual difference — kept as a sibling
+                    of both rather than inside the one it happens to fly
+                    out of. */}
+                {flightSlot && (
+                    <div
+                        className="cassette-flight"
+                        ref={flightRef}
+                        data-flip-id={CASSETTE_FLIP_ID}
+                        style={{ left: flightSlot.left, top: flightSlot.top, width: flightSlot.width, height: flightSlot.height }}
+                    />
                 )}
             </div>
         </section>
