@@ -1,8 +1,8 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-26 (Stage 3 Task 9 follow-up — mobile scroll jank from the
-Experience touch listener fixed) · **HEAD:** `572604a`+ · **Live:**
-https://diegodamian.com
+**Updated:** 2026-08-28 (desktop one-screen fit pass — every section fits the
+viewport after a nav click; two pinned sections' revisit-landing bug fixed) ·
+**HEAD:** `e0208e4`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -7150,6 +7150,68 @@ most of the file).
 > full writeup. Nothing is lost or broken — the two halves are both on
 > `origin/main` — but `9087bec`'s message doesn't mention Experience. Worth
 > knowing if you `git blame` `.experience-viewport` later.
+
+---
+
+### Desktop one-screen fit pass — every section fits the viewport after a nav click *(2026-08-28)*
+
+Direct request: *"click on each of the sections and see where the page is
+landing... re-arrange so everything fits within one page."* Measured every
+section via its real nav link across six desktop sizes (1280×800 →
+1920×1080). Three sections overflowed one screen; two more had a landing
+bug where the content sat ~200px below the fold on a revisit.
+
+**Root pattern — no global `box-sizing: border-box`.** Every section that
+pairs a viewport-unit height with padding on the default `content-box`
+rendered that much too tall. Same class as B33/B34/B42 (`FINDINGS.md`).
+Fixed per-section, not with a global reset — a 5,400-line hand-tuned sheet
+has too many `content-box` assumptions (turntable percentage geometry,
+`.university-logo` padding) to flip safely; that stays a Stage 8 candidate.
+
+| Section | Before (1440×900) | After | Fix |
+|---|---|---|---|
+| `#home` | +180px over | exact 1 screen | `.home`: `box-sizing: border-box` (`height:100vh` + 180px padding was 100vh+180 on content-box); + `@media (max-height:760px)` padding trim (`FINDINGS.md` **B69**) |
+| `#connect` | +160px + card cut off | fits, Send button clear | `.contact-section`: `box-sizing: border-box`, `5em→3em` vertical padding, `min-height` retargeted `navbar → scroll-offset`; `.jcard` compacted — textarea `min-height 280→220`, header gap/padding trimmed, card ~604→~500px (`FINDINGS.md` **B70**) |
+| `#my-taste` | fits (fresh) / +75px (1366×768) | fits 1440+; ~27px at 1366×768 | `.my-taste-section` vertical padding `space-6→space-4`, `.my-taste-heading` bottom margin `space-6→space-4` — outer levers only, **not** the wall card / photo / gap sizes `my-taste.jsx`'s `cardTransform()` math depends on |
+| `#experience` | fits, +24px trailing box | exact | `.experience-section` `min-height` retargeted `navbar → scroll-offset` (no pin since 2026-08-27, nothing reads it in JS); `--experience-vp-height` headroom `2×space-7 → 2×space-6` |
+| `#about`, `#projects` | already fit | unchanged | out of scope per the request |
+
+**The revisit-landing bug — `FINDINGS.md` B71.** `#my-taste` and `#connect`
+each build a one-shot entrance `ScrollTrigger` with `pin: true, end: "+=200",
+once: true`. After that pin is scrolled through once, its pin-spacer keeps
+padding the layout by the `+=200` span *above* the inner section within the
+outer `#id` wrapper — so a later nav click back to the section scrolled
+`#id` to the offset but left the real content ~200px lower (bottom row of
+`#my-taste` cards cut off; `#connect`'s Send button below the fold). Fixed
+by retiring the ScrollTrigger (`st.kill()` + a deferred
+`ScrollTrigger.refresh()`) the moment the entrance has played *or* been
+skipped for a nav click — a one-shot pin has no reason to keep displacing
+layout after it fires. The freed 200px is all below the section's own
+bottom edge, off-screen as it releases, so there's no visible jump.
+Verified: `my-taste.jsx` / `connect.jsx` `retirePin()`, called from the
+timeline `onComplete`, the `isProgrammaticScrollActive` escape hatch, and
+the `onProgrammaticScrollChange` handler.
+
+**Verification** (Playwright, real nav-link clicks, 1280/1366/1440/1536/
+1920 wide). After the changes, in the realistic "scroll the whole site,
+then use the nav to jump back" flow: every section lands at exactly
+`--scroll-offset` (168px), 0 horizontal overflow, 0 page errors, both
+entrance cascades still play and land at opacity 1, both pins retire
+cleanly. Content overflow past the fold: **≤0 at every size 1440×900 and
+up**; at 1366×768 the worst is `#connect` ~32px / `#my-taste` ~27px (a few
+px of scroll, nothing cut off — the agreed target for that height).
+
+**Found, pre-existing, NOT fixed here — `FINDINGS.md` B72.** A *fresh cold
+load* → immediately clicking "My Taste" in the nav *before any scroll*:
+the entrance `onEnter` never fires, so the wall cards / setlist rows stay
+at their `gsap.set(opacity: 0)` initial state — invisible. Confirmed
+identical on the committed baseline via `git stash` (this pass did not
+cause or worsen it), and it only reproduces on that one first-action
+flow — any path that scrolls near the section first works. D17/B56 family;
+needs its own `useGSAP` re-run / `once`-trigger timing investigation.
+
+Lint unchanged at the 7-error / 2-warning baseline. Files: `main.scss`
+(five section rules), `my-taste.jsx` + `connect.jsx` (`retirePin`).
 
 ---
 

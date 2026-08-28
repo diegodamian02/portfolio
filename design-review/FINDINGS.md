@@ -3073,6 +3073,133 @@ rule generalises.
 
 ---
 
+### B69 — `.home` rendered 180px taller than one screen: `content-box` `height: 100vh` + padding — **FOUND AND FIXED, desktop one-screen fit pass (2026-08-28)**
+
+Measured every section against the viewport via its real nav link. `#home`
+overflowed one screen by exactly **180px** at every desktop size (box read
+1080px against a 900px window). `.home` sets `height: 100vh` and
+`padding: 120px 0 60px` with no `box-sizing` override, so on the default
+`content-box` the 180px of padding is drawn *outside* the 100vh — the
+rendered box is 100vh + 180. The turntable / name / crate themselves fit
+fine; this was pure dead space that pushed `#about` down and left a phantom
+scroll gap under the hero.
+
+**Fix.** `box-sizing: border-box` on `.home` (padding now inside the 100vh;
+`overflow: hidden` already guards anything that doesn't fit, and the deck
+is only ~493px tall at 1440px). Plus `@media (max-height: 760px) { padding:
+88px 0 40px }` so a real ~768px-tall browser window keeps the deck's
+clearance — the same short-viewport lever `.about-me-section` uses.
+
+**Same class as B33 / B34 / B42.** This file's fourth `content-box` +
+padding overflow. There is still no global `box-sizing: border-box` reset
+(deliberately — see B70); each offender is fixed in place.
+
+---
+
+### B70 — `.contact-section` rendered ~160px taller than one screen, same `content-box` cause — **FOUND AND FIXED, desktop one-screen fit pass (2026-08-28)**
+
+`#connect` overflowed by ~160px at 1440×900 (box 916px against a 756px
+`min-height`), and at 1366×768 the J-card's Send button was fully below the
+fold. `.contact-section` sets `min-height: calc(100dvh - navbar)` and
+`padding: 5em 2rem` on the default `content-box`, so — exactly as B69 —
+the 10em of vertical padding rendered outside the `min-height`. The J-card
+was also genuinely tall on its own (~604px: a 280px `min-height` textarea
+plus a 126px name/email header).
+
+**Fix.**
+- `box-sizing: border-box` on `.contact-section`; vertical padding `5em →
+  3em`; `min-height` retargeted `calc(100dvh - navbar)` → `calc(100dvh -
+  scroll-offset)` (the section lands 24px below the navbar via B3's
+  `scroll-margin-top`, so `- navbar` alone poked 24px past the fold —
+  `connect.jsx`'s own onEnter fit check computes its own JS figure and
+  doesn't read this value, verified).
+- `.jcard`: `padding-top space-6 → space-5` (and `.jcard-spine`'s matching
+  negative margin), `gap space-4 → space-3`, header `gap space-3 → space-2`,
+  name/email input `font-size 1.1rem → 1rem` + tighter padding,
+  `.jcard-textarea` `min-height 280px → 220px` (`max-height` and
+  `connect.jsx`'s `MESSAGE_MAX_HEIGHT = 420` unchanged — still ≥ the min).
+  Card ~604px → ~500px.
+
+**Why no global `box-sizing` reset**, asked again here: `main.scss` is
+~5,400 lines of hand-tuned rules, many assuming `content-box` (the
+turntable's percentage-inset geometry, `.university-logo`'s 150px + 50px
+padding pattern, B7). Flipping the box model globally would silently shift
+dozens of measured layouts. Stage 8 candidate, not a quick cleanup.
+
+---
+
+### B71 — a consumed one-shot entrance pin keeps displacing its section ~200px, so nav revisits land wrong — **FOUND AND FIXED, desktop one-screen fit pass (2026-08-28)**
+
+`#my-taste` and `#connect` each build a scroll-triggered entrance as a
+`ScrollTrigger.create({ pin: true, end: "+=200", once: true })` whose
+timeline plays on its own clock (held via `lenis.stop()`, not scrubbed).
+The `+=200` span is deliberate — B30's own note plus `my-taste.jsx`'s
+comment: a 1px span can be jumped clean over by one fast scroll tick, so
+`onEnter` needs real room to fire inside.
+
+**The bug.** Once that pin has been scrolled through once, ScrollTrigger's
+pin-spacer stays in the layout at `element height + 200`, and after the
+pin range is passed the pinned element sits at the *bottom* of that spacer
+— i.e. 200px below the top of the spacer, which is what the outer
+`#my-taste` / `#connect` wrapper (the element `scrollToSection` targets and
+`scroll-margin-top` is on) wraps. Net: a nav click back to the section
+after an earlier scroll-through scrolled the wrapper to the offset but left
+the real content **200px lower** — measured `.my-taste-section` top at
+368px where 168px was intended, its bottom row of cards cut off; the same
+for `#connect`'s Send button. A *fresh* nav click (pin not yet consumed)
+and organic scroll both landed correctly — only the revisit was wrong.
+
+**Fix — `retirePin()` in `my-taste.jsx` / `connect.jsx`.** A one-shot
+entrance pin has no reason to keep existing after it has fired. `st.kill()`
++ a deferred `ScrollTrigger.refresh()`, called the moment the entrance has
+played (`tl` `onComplete`) **or** been skipped for a nav click (the
+`isProgrammaticScrollActive` escape hatch and the `onProgrammaticScroll
+Change` handler). Killing collapses the spacer; the freed 200px is all
+below the section's own bottom edge, off-screen for anyone looking at the
+section as it releases, so there's no visible jump. Verified: after the
+fix all three of fresh-navclick / revisit / organic-scroll land
+`.my-taste-section` and `.contact-section` at exactly 168px, both cascades
+still play to opacity 1, no page errors, document is 200px shorter per
+retired pin (confirmed by the downstream sections' scroll positions
+dropping exactly 200/400px).
+
+**Generalisable.** A `pin: true` ScrollTrigger with `once: true` does NOT
+tear its pin-spacer down after firing — `once` only gates the callbacks.
+If the pinned element is (or is inside) a nav / hash target, the leftover
+spacer padding will offset every later scroll-to. Kill the trigger
+explicitly once its one-shot job is done.
+
+---
+
+### B72 — fresh cold load → immediate nav click to `#my-taste` (before any scroll): entrance never fires, cards stay invisible — **FOUND, PRE-EXISTING, NOT FIXED (2026-08-28)**
+
+Found while verifying B71. On a fresh page load, clicking "My Taste" in the
+nav as the *very first action* (no scroll first): the entrance
+`ScrollTrigger`'s `onEnter` never fires, so `.my-taste-wall` cards and
+`.my-taste-setlist-item` rows stay at their `gsap.set({ opacity: 0 })`
+initial state — the section renders with only the kicker visible (its
+avatar + "MY TASTE" text, which aren't part of the cascade). `once: true`
+means `onEnter` can't fire later either, so in this one flow the content
+stays invisible.
+
+**Confirmed pre-existing.** Reproduced identically on the committed
+baseline (`git stash` of the B69–B71 changes, same Playwright flow, same
+`[0,0,0,0,0]` opacities) — the fit pass did not cause or worsen it. Only
+this single first-action flow reproduces; any path that scrolls near the
+section first, or a nav click after any prior scrolling, plays the cascade
+normally.
+
+**Not fixed here** — out of scope for a layout pass, and it needs its own
+look at the `useGSAP({ dependencies: [artists.status, tracks.status] })`
+re-run timing vs. when the programmatic scroll crosses the trigger. Likely
+the same family as D17 (`AvatarSlot` bot-pace React crash) and B56 (the
+`SplitText` / `insertBefore` blank-page race). Suspect: the timeline is
+rebuilt by a `useGSAP` re-run *after* `onEnter` already fired-and-skipped
+via the escape hatch, leaving a fresh paused timeline a `once` trigger
+won't re-enter.
+
+---
+
 ## 5. Design problems — these need a direction decision
 
 ### D1 — The hero is roughly half empty

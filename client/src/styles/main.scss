@@ -492,6 +492,17 @@ html {
 // touching DOM/tab order (content -> crate input -> deck stays the tab
 // order at every size, even where the crate renders after the deck).
 .home {
+  // border-box is load-bearing (same gotcha as .navbar / .experience-section):
+  // without it, content-box `height: 100vh` EXCLUDES this element's own
+  // padding, so the rendered box came out to 100vh + 180px (the 120+60
+  // padding) — a full 180px taller than one screen, dead space that pushed
+  // #about down and left a phantom scroll gap under the hero. Measured: box
+  // read 1080px against a 900px window. With border-box the padding is drawn
+  // inside the 100vh and the hero is exactly one screen; `overflow: hidden`
+  // below already clips anything that somehow doesn't fit, and the deck +
+  // text + crate do fit (deck ~493px tall at 1440 inside the ~720px the
+  // padding leaves).
+  box-sizing: border-box;
   height: 100vh;
   display: grid;
   grid-template-columns: minmax(380px, 44%) 1fr;
@@ -506,6 +517,15 @@ html {
   background-color: var(--bg-color);
   padding: 120px 0 60px;
   transition: background-color var(--theme-transition);
+
+  // A real browser window is rarely the full screen height (tab strip,
+  // toolbar, bookmarks bar) — on a ~768px-tall window the 180px of padding
+  // above eats into the deck's own clearance. Claim less of it below this
+  // height so the turntable keeps its margins, same short-viewport lever
+  // .about-me-section uses (--about-vpad, @media max-height: 760px).
+  @media (max-height: 760px) {
+    padding: 88px 0 40px;
+  }
 }
 
 .hero-content {
@@ -2013,8 +2033,16 @@ html {
   // measuring, not assumed: computed height read 820px against a 756px
   // min-height, the gap exactly matching top+bottom padding.
   box-sizing: border-box;
-  min-height: calc(100vh - var(--navbar-height));
-  min-height: calc(100dvh - var(--navbar-height));
+  // Against --scroll-offset (navbar + 24px), not --navbar-height alone: a
+  // nav click lands this section's top 24px below the navbar (the B3
+  // scroll-margin-top rule), so a min-height of `100dvh - navbar` left the
+  // section's own bottom edge 24px past the fold on every desktop size —
+  // measured, harmless (content is flex-centered and fully visible) but it
+  // was the last thing keeping this section from reading as exactly one
+  // screen. Experience has no pin/hold since the 2026-08-27 rebuild, so
+  // nothing in experience.jsx reads this value (verified).
+  min-height: calc(100vh - var(--scroll-offset));
+  min-height: calc(100dvh - var(--scroll-offset));
   // Top/bottom padding asymmetric now (was var(--space-6) both sides) — live
   // feedback: "move it a bit higher, title and slideshow." The shell's own
   // ::before/::after bias (below) only moves the VIEWPORT relative to the
@@ -2150,11 +2178,13 @@ html {
   --experience-card-w: clamp(340px, 34vw, 620px);
   --experience-rail-h: 56px;
   --experience-media-aspect: 1.5; // 3:2, landscape — a photo, not a portrait crop
-  // card height = card-w / aspect; viewport height = rail + that + this
-  // task's own headroom (2 × space-7) so the active card's 1.08x center-
-  // focus scale-up (experience.jsx) never presses against this element's
-  // own overflow: hidden edge.
-  --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-7));
+  // card height = card-w / aspect; viewport height = rail + that + headroom
+  // so the active card's 1.08x center-focus scale-up (experience.jsx) never
+  // presses against this element's own overflow: hidden edge. Headroom is
+  // 2 × space-6 (was space-7) since the desktop one-screen-fit pass — 32px
+  // each side still clears an 8% scale-up on a ~400px card (~16px/side),
+  // and the 32px it frees is what lets this section fit a 768px window.
+  --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-6));
   // Centered by the flex SHELL around it (.experience-viewport-shell,
   // above) now, not by its own top/left math against the whole section —
   // see that rule's comment, and .experience-section's, for why. Still not
@@ -2650,13 +2680,14 @@ html {
   // than the true viewport and overflow too, even where their own wrap
   // logic was otherwise correct.
   box-sizing: border-box;
-  // Vertical: space-8 -> space-6, Task 2.5's fit pass (outer whitespace, the
-  // last lever after card/photo/gap sizes — see stage4-my-taste-concept.md's
-  // fit note) — space-6 also matches .experience-section's own vertical
-  // padding exactly, so this isn't a smaller number invented just for this
-  // section. Horizontal unchanged — still matches .contact-section's own
-  // fixed horizontal padding; content shouldn't touch the true edge.
-  padding: var(--space-6) var(--space-5);
+  // Vertical: space-8 -> space-6 (Task 2.5's fit pass) -> space-4 (desktop
+  // one-screen-fit pass). This is the section's own "last lever after card/
+  // photo/gap sizes" per stage4-my-taste-concept.md's fit note — trimmed
+  // rather than touching the wall card / photo / wall-gap sizes, which
+  // my-taste.jsx's cardTransform() margin-budget math is computed against.
+  // Horizontal unchanged — still matches .contact-section's own fixed
+  // horizontal padding; content shouldn't touch the true edge.
+  padding: var(--space-4) var(--space-5);
   color: var(--text-color);
   text-align: center;
 
@@ -2730,8 +2761,10 @@ html {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--secondary-text);
-  // space-7 -> space-6, Task 2.5's fit pass.
-  margin: 0 0 var(--space-6);
+  // space-7 -> space-6 (Task 2.5's fit pass) -> space-4 (desktop one-screen-
+  // fit pass) — the gap under the kicker before the two columns, one of the
+  // safe outer levers that doesn't touch the wall card math.
+  margin: 0 0 var(--space-4);
 
   @media (max-width: 600px) {
     // Stage 5 — part of the same 100dvh fit pass as .my-taste-section's
@@ -3769,24 +3802,33 @@ html {
 .contact-section {
   background-color: var(--bg-color);
   color: var(--text-color);
-  padding: 5em 2rem;
+  // 3em top/bottom, was 5em — with box-sizing: border-box (below) this
+  // padding is now drawn INSIDE the min-height rather than added on top of
+  // it, so 5em was 64px of dead space eating into the one screen this
+  // section is meant to fit. 2rem horizontal unchanged.
+  padding: 3em 2rem;
   display: flex;
   justify-content: center;
   transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
-  // Was plain `min-height: 100vh` — the same trap #about's own comment
-  // (above, .about-me-section) already documents: 100vh ignores the fixed
-  // navbar sitting on top of the viewport, so this section's rendered
-  // height always came out ~navbarHeight taller than the space actually
-  // available below the navbar. Harmless while nothing measured against it
-  // — became load-bearing with Stage 3 Task 12's entry pin, whose onEnter
-  // safety check (connect.jsx) compares this section's real height against
-  // that same navbar-adjusted "available" figure; left at plain 100vh, the
-  // check would read this section as taller than available on every normal
-  // viewport and silently skip the hold every time. calc()'d against
-  // --navbar-height, same dual vh/dvh declaration as .about-me-section
-  // (later dvh wins where supported, vh remains the fallback).
-  min-height: calc(100vh - var(--navbar-height));
-  min-height: calc(100dvh - var(--navbar-height));
+  // border-box is load-bearing (same gotcha as .home / .experience-section):
+  // on the default content-box, `min-height` EXCLUDES this element's own
+  // padding, so the rendered box came out to min-height + 10em of padding —
+  // ~160px taller than the navbar-cleared viewport it's meant to fill,
+  // pushing the J-card's Send button below the fold on every desktop size.
+  // Measured: box read 916px against a 756px min-height. With border-box the
+  // padding is inside the min-height and the section is exactly the space
+  // available below the navbar.
+  box-sizing: border-box;
+  // Against --scroll-offset (navbar + 24px), not --navbar-height alone, same
+  // reasoning as .experience-section: a nav click lands this section's top
+  // 24px below the navbar (B3's scroll-margin-top), so `100dvh - navbar`
+  // left the section's own bottom edge 24px past the fold. connect.jsx's
+  // entry-pin onEnter safety check computes its own `window.innerHeight -
+  // navbarHeight()` in JS and measures .contact-container (not this box), so
+  // it's unaffected by this value. Dual vh/dvh declaration as elsewhere
+  // (later dvh wins where supported, vh is the fallback).
+  min-height: calc(100vh - var(--scroll-offset));
+  min-height: calc(100dvh - var(--scroll-offset));
   overflow: hidden;
   // Positioning context for .connect-scrim and the walkman takeover's own
   // centering transform (walkman.jsx/connect.jsx) — both are section-scoped
@@ -3820,15 +3862,12 @@ html {
 // below still doesn't use — only the column WIDTH is unified here.
 .contact-container {
   @include content-column($width: var(--content-width-wide));
-  // Was 6rem. This sits on top of .contact-section's own 5em top padding,
-  // so the heading started 176px below the section's top edge while the
-  // section itself is a full navbar-adjusted viewport tall — measured live,
-  // the content ended well above the section's bottom with ~100px of unused
-  // room left over, i.e. the block was hanging low rather than sitting
-  // where the eye expects it. 2rem pulls the whole block up 64px without
-  // letting the heading run into the fixed navbar (see .contact-title's own
+  // 1rem, trimmed alongside .contact-section's own top padding (5em -> 3em)
+  // and the box-sizing fix as part of the desktop one-screen-fit pass. This
+  // sits on top of the section's own top padding; kept non-zero only so the
+  // heading clears the fixed navbar on a cold scroll (see .contact-title's
   // z-index note below, and connect.jsx's ensureHeadlineVisible).
-  padding-top: 2rem;
+  padding-top: 1rem;
   display: flex;
   // flex-start, NOT center (which .about-me-container uses for its own
   // text-beside-visual-object row) — found live why those two rows aren't
@@ -4126,8 +4165,12 @@ html {
   align-self: center;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-6) var(--space-4) var(--space-4);
+  // gap/top-padding each trimmed one step (space-4 -> space-3, space-6 ->
+  // space-5) in the desktop one-screen-fit pass — the card's three sections
+  // still read as distinct, but 604px was more than a navbar-cleared short
+  // window could hold once .contact-section's own padding bug was fixed.
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4) var(--space-4);
   background: var(--cassette-label);
   border: 2px solid var(--cassette-label-line);
   // 6px, down from 10 — a case's own corner cut is precise, not the softer
@@ -4167,7 +4210,10 @@ html {
 // piece of tape is #my-taste's corkboard language, not a cassette case's.
 .jcard-spine {
   height: 22px;
-  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-4)) 0;
+  // Negative top margin must match .jcard's own top padding (space-5 since
+  // the one-screen-fit pass, was space-6) so the band sits flush against
+  // the card's true top edge rather than overshooting it.
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-4)) 0;
   background: color-mix(in srgb, black 6%, var(--cassette-label));
   box-shadow: inset 0 -1px 0 color-mix(in srgb, black 18%, transparent);
   pointer-events: none;
@@ -4180,7 +4226,10 @@ html {
 .jcard-header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  // space-2, trimmed from space-3 in the one-screen-fit pass — the two
+  // fields still read as grouped, and the header block drops from ~126px
+  // to ~100px, room the card needed to clear a short window's fold.
+  gap: var(--space-2);
 }
 
 // Header strips — name (required) and email (optional, brought back by
@@ -4247,8 +4296,11 @@ html {
   border-bottom: 1px dashed color-mix(in srgb, var(--cassette-label-text) 35%, transparent);
   color: var(--cassette-label-text);
   font-family: inherit;
-  font-size: 1.1rem;
-  padding: var(--space-1) 0 var(--space-2);
+  // 1rem / tighter bottom padding, was 1.1rem / space-2 — trimmed in the
+  // one-screen-fit pass so the name+email header stays compact; the message
+  // textarea below is still the card's dominant element.
+  font-size: 1rem;
+  padding: var(--space-1) 0 var(--space-1);
 
   &:focus {
     // The underline itself is the focus indicator (drawn in via
@@ -4312,7 +4364,12 @@ html {
 .jcard-reels {
   display: flex;
   justify-content: space-between;
-  padding: 0 var(--space-6);
+  // space-4 inset (was space-6) and a small gap below — at the wider inset
+  // the two reels sat hard against the card edges reading as loose screws
+  // floating under the email field rather than the tape window's own reel
+  // holes. Pulled in and grouped tighter with the Message label beneath.
+  padding: 0 var(--space-4);
+  margin-bottom: var(--space-1);
   opacity: 0.55;
   pointer-events: none;
 }
@@ -4369,15 +4426,17 @@ html {
   // 1.6, not a new value invented for this field — the same line-height
   // .about-me-bio already uses for its own readable body copy.
   line-height: 1.6;
-  // Generous starting height — this field is the card's dominant element,
-  // not an afterthought. Grows with content up to max-height (connect.jsx's
-  // own MESSAGE_MAX_HEIGHT, kept in sync with this number), then scrolls
-  // internally rather than growing the card indefinitely.
-  // 280px, not 200 — paired with .jcard's own narrower max-width (above),
-  // measured live: this is what actually makes the message body read as
-  // the card's dominant element the way a tracklist panel dominates a real
-  // J-card, rather than the card coming out roughly square.
-  min-height: 280px;
+  // The card's dominant element — still clearly the biggest thing on the
+  // J-card the way a tracklist panel dominates a real one. Grows with
+  // content up to max-height (connect.jsx's MESSAGE_MAX_HEIGHT, kept in
+  // sync), then scrolls internally rather than growing the card forever.
+  // 220px, down from 280 in the desktop one-screen-fit pass: at 280 the
+  // whole card ran 604px, past what a navbar-cleared short window can hold
+  // once .contact-section's own padding bug was fixed. 220 keeps the field
+  // visually dominant against the ~100px header while bringing the card to
+  // ~500px. Still well above .jcard's own max-width, so it stays a vertical
+  // object, not a square.
+  min-height: 220px;
   max-height: 420px;
   overflow-y: auto;
   // resize: none — was `resize: vertical` (Task 12's version, a manual drag

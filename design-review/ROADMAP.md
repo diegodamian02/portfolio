@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-27, Stage 3 Task 9 — Experience's scrub pin removed; the filmstrip is a native horizontal scroller now)*
+## 0. Current state — quick summary *(updated 2026-08-28, desktop one-screen fit pass — every section fits the viewport after a nav click; two pinned sections' revisit-landing bug fixed)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -425,6 +425,35 @@ half of this shipped inside `9087bec` ("feat: #connect two-column
 layout…") — a concurrent session's `git commit -a` swept the uncommitted
 SCSS in before the `.jsx` half was committed (`7c53298`). Both halves are
 on `origin/main`; flagged so a later `git blame` isn't confusing.
+
+**Also 2026-08-28 — desktop one-screen fit pass: every section fits the
+viewport after a nav click.** Direct request — *"click on each section, see
+where the page lands, re-arrange so everything fits within one page."*
+Measured all six sections via their real nav links across 1280×800 →
+1920×1080. `#home` (+180px) and `#connect` (+160px) both overflowed for
+the same reason — `content-box` viewport-unit height plus padding renders
+that much too tall, the B33/B34/B42 pattern again (`FINDINGS.md` **B69**,
+**B70**); fixed with `box-sizing: border-box` + trimmed padding on each,
+plus a compacted J-card (`.jcard-textarea` `min-height 280→220`, tighter
+header). `#my-taste` trimmed ~40px via outer padding/margin only — **not**
+the wall card / photo / gap sizes that `my-taste.jsx`'s `cardTransform()`
+margin math depends on. `#experience` `min-height` retargeted `navbar →
+scroll-offset` (no pin since 2026-08-27, so nothing reads it). `#about` /
+`#projects` already fit, left alone. Separately, `#my-taste` and `#connect`
+had a **revisit-landing bug** (`FINDINGS.md` **B71**): their one-shot
+entrance `ScrollTrigger` (`pin: true`, `once: true`) never tears its
+pin-spacer down after firing, so a nav click back to the section after an
+earlier scroll-through landed the content ~200px below the offset — fixed
+with a `retirePin()` (`st.kill()` once the entrance has played or been
+skipped). Kept both entrance pins per the request ("keep the pins, just
+make them fit"). One pre-existing bug found and flagged not fixed
+(`FINDINGS.md` **B72**): a fresh cold load → immediate nav click to
+`#my-taste` before any scroll leaves the wall cards at opacity 0 (D17/B56
+family, confirmed identical on the committed baseline). Verified: at
+1440×900 and up every section lands at exactly `--scroll-offset` with 0
+overflow; at 1366×768 the worst residual is ~32px (a few px of scroll,
+nothing cut off). Lint unchanged (7 errors / 2 warnings). `STATUS.md`'s
+own dated entry has the full table.
 
 **Also 2026-08-23 (Stage 5) — `#my-taste`'s own mobile layout: two horizontal scroll-snap
 rows.** Jumped ahead of this file's own stated Stage 5 dependency ("Stages 3/4 landing

@@ -333,6 +333,25 @@ export default function Connect() {
                 window.removeEventListener('touchmove', blockTouchMove, { capture: true });
                 window.removeEventListener('keydown', blockScrollKeys, { capture: true });
             }
+
+            // The entry reveal is a one-shot (once: true). Once it has played
+            // OR been skipped for a nav click, this ScrollTrigger pin has done
+            // its whole job — but its pin-spacer keeps padding the layout by
+            // the `end` span (+=200) forever after, and that padding sits ABOVE
+            // .contact-section within #connect's box. Result: a nav click back
+            // to "Let's Connect" after the pin was consumed once landed
+            // #connect at the offset but the J-card ~200px lower, its Send
+            // button below the fold. Retiring the trigger collapses the spacer;
+            // the freed 200px is all below the section's bottom edge (off-
+            // screen as it releases) so there's no visible jump. Same fix and
+            // reasoning as my-taste.jsx's own retirePin().
+            let pinRetired = false;
+            function retirePin() {
+                if (pinRetired) return;
+                pinRetired = true;
+                st.kill();
+                requestAnimationFrame(() => ScrollTrigger.refresh());
+            }
             const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' ']);
             function blockScrollKeys(e) {
                 if (SCROLL_KEYS.has(e.key)) e.preventDefault();
@@ -358,6 +377,7 @@ export default function Connect() {
                 onComplete: () => {
                     titleSplit.revert();
                     releaseHold();
+                    retirePin();
                 },
             });
 
@@ -412,6 +432,7 @@ export default function Connect() {
                     // Taste's own holds use.
                     if (isProgrammaticScrollActive()) {
                         tl.progress(1);
+                        retirePin();
                         return;
                     }
 
@@ -475,6 +496,7 @@ export default function Connect() {
                 if (active && holding) {
                     tl.progress(1);
                     releaseHold();
+                    retirePin();
                 }
             });
 

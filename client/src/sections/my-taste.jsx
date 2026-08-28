@@ -624,6 +624,28 @@ export default function MyTaste() {
                 window.removeEventListener("touchmove", blockTouchMove, { capture: true });
                 window.removeEventListener("keydown", blockScrollKeys, { capture: true });
             }
+
+            // The entrance is a one-shot (once: true). The moment it has played
+            // OR been skipped for a nav click, the ScrollTrigger pin has done
+            // its whole job — but left alone, its pin-spacer keeps padding the
+            // layout by the `end` span (+=200) for the rest of the page's life,
+            // and that padding sits ABOVE .my-taste-section within #my-taste's
+            // box. Result: a later nav click back to "My Taste" (after the pin
+            // was consumed once by an earlier scroll-through) scrolled #my-taste
+            // to the offset but landed the actual content ~200px lower — the
+            // bottom row of artist cards cut off, a screenful of dead space on
+            // top. Retiring the trigger collapses that spacer; the freed 200px
+            // is all below the section's own bottom edge, off-screen for anyone
+            // looking at the section as it releases, so there's no visible
+            // jump. refresh() on the next frame lets #projects / #connect
+            // re-measure against the now-shorter document.
+            let pinRetired = false;
+            function retirePin() {
+                if (pinRetired) return;
+                pinRetired = true;
+                st.kill();
+                requestAnimationFrame(() => ScrollTrigger.refresh());
+            }
             const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "]);
             function blockScrollKeys(e) {
                 if (SCROLL_KEYS.has(e.key)) e.preventDefault();
@@ -632,7 +654,7 @@ export default function MyTaste() {
                 e.preventDefault();
             }
 
-            const tl = gsap.timeline({ paused: true, onComplete: releaseHold });
+            const tl = gsap.timeline({ paused: true, onComplete: () => { releaseHold(); retirePin(); } });
 
             // 1. Kicker — SplitText's own words, all animated together with
             //    NO stagger ("one unified pop, not a per-character reveal" —
@@ -796,6 +818,7 @@ export default function MyTaste() {
                     // they didn't ask to watch.
                     if (isProgrammaticScrollActive()) {
                         tl.progress(1);
+                        retirePin();
                         return;
                     }
 
@@ -858,6 +881,7 @@ export default function MyTaste() {
                 if (active && holding) {
                     tl.progress(1);
                     releaseHold();
+                    retirePin();
                 }
             });
 
