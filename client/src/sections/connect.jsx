@@ -208,8 +208,20 @@ function startIdleLoop(walkmanEl) {
 export default function Connect() {
     const rootRef = useRef(null);
     const containerRef = useRef(null);
+    // titleRef / descriptionRef stay on the OUTER <h2>/<p> (layout position,
+    // the role toggle). titleTextRef / descriptionTextRef are on an inner
+    // <span> that React only ever renders a constant string into — every
+    // DOM-rewriting op (SplitText's entrance surgery, ScrambleTextPlugin on
+    // send) points at the inner span so React never holds a stale child
+    // record of a node SplitText moved. Splitting the <h2> directly and then
+    // PLAYING that ~1.5s reveal on a nav click (rather than snapping it)
+    // reopened B56: a concurrent re-render during the play window threw
+    // `insertBefore` and blanked the page ~1/15. Same inner-span fix
+    // my-taste.jsx's kicker already uses.
     const titleRef = useRef(null);
+    const titleTextRef = useRef(null);
     const descriptionRef = useRef(null);
+    const descriptionTextRef = useRef(null);
     // The J-card root — Flip flight source (data-flip-id below) AND the
     // thing runSendSequence measures. Was scoped to just `.message-cassette`
     // (the message field alone) before this revision; now the whole card
@@ -296,12 +308,16 @@ export default function Connect() {
         const mm = gsap.matchMedia();
 
         mm.add('(prefers-reduced-motion: no-preference)', () => {
-            const titleSplit = new SplitText(titleRef.current, { type: 'words' });
+            // Split the inner text spans, never the <h2>/<p> themselves — see
+            // the titleTextRef comment where the refs are declared. Both spans
+            // hold nothing but a constant string, so React never reconciles a
+            // child of the node SplitText is rewriting.
+            const titleSplit = new SplitText(titleTextRef.current, { type: 'words' });
             // type: "words", not "lines" or "chars" — this is plain prose
             // with no inline element inside it (unlike the old mailto-
             // fallback description this replaced), so there's no risk here,
             // just consistency with titleSplit/formTargets' own granularity.
-            const descriptionSplit = new SplitText(descriptionRef.current, { type: 'words' });
+            const descriptionSplit = new SplitText(descriptionTextRef.current, { type: 'words' });
             // The J-card enters as ONE unit, not a per-field stagger — Task
             // 1's revision made it read as a single physical object (one
             // card, torn edge and all), so animating its three internal
@@ -346,8 +362,8 @@ export default function Connect() {
 
             // titleSplit.revert() runs HERE unconditionally, not only in this
             // effect's own cleanup (below) — a send can happen long after
-            // this reveal finished, and by then `.contact-title` needs to be
-            // plain text again so ScrambleTextPlugin (runSendSequence) has a
+            // this reveal finished, and by then the inner title span needs to
+            // be plain text again so ScrambleTextPlugin (runSendSequence) has a
             // real string to read/scramble rather than SplitText's own
             // leftover per-word wrapper spans. Wrapping `releaseHold` rather
             // than calling `.revert()` directly on `tl`'s `onComplete` keeps
@@ -365,13 +381,18 @@ export default function Connect() {
             });
 
             // Same cascade shape as About's own entrance (title -> body ->
-            // detail group, each waiting an explicit beat for the group
-            // before it rather than chaining off its duration) and the same
-            // SIGNATURE_EASE curve every calm, one-time entrance on this
-            // site already shares.
+            // visual) and the same SIGNATURE_EASE curve every calm, one-time
+            // entrance on this site shares. The J-card overlaps the tail of
+            // the description rather than waiting a clear beat after it: this
+            // is a TWO-COLUMN layout, so a strict title->desc->card sequence
+            // left the entire right half of the section empty for ~0.7s after
+            // the left column had fully resolved — reads as half-broken on a
+            // nav click, where the visitor lands on it all at once rather
+            // than scrolling it into view. Overlapping keeps both columns
+            // visibly filling in together.
             tl.from(titleSplit.words, { opacity: 0, y: 16, duration: 0.5, ease: SIGNATURE_EASE, stagger: 0.06 }, 0);
-            tl.from(descriptionSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.02 }, '>+=0.2');
-            tl.from(formTargets, { opacity: 0, y: 14, duration: 0.4, ease: SIGNATURE_EASE }, '>+=0.25');
+            tl.from(descriptionSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.02 }, '>+=0.15');
+            tl.from(formTargets, { opacity: 0, y: 14, duration: 0.4, ease: SIGNATURE_EASE }, '>-=0.4');
 
             const navbarHeight = () =>
                 parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 0;
@@ -417,19 +438,20 @@ export default function Connect() {
                 start: () => 'top top+=' + (navbarHeight() + 32),
                 once: true,
                 onEnter: () => {
-                    // Any programmatic scroll — landing here OR passing through
-                    // — resolves the reveal instantly, same as About's own
-                    // hold. Deliberately NOT animated on a nav click (unlike
-                    // #my-taste, where the animation IS the point): this
-                    // section's title/description are SplitText targets, and
-                    // playing that ~1.5s tween while a concurrent re-render
-                    // (a light-theme load, most reliably) reconciles the same
-                    // subtree hits the B56 insertBefore crash — measured, it
-                    // blanked the page 1-in-15 in a stress run. A snap closes
-                    // that window; the calm fade only ever plays on an organic
-                    // scroll, where nothing else is touching the DOM.
+                    // A nav click / deep link TO this section plays the reveal
+                    // (direct request, twice: it should animate in on click,
+                    // not just appear). Merely being scrolled through by a nav
+                    // aimed elsewhere still snaps — but #connect is the last
+                    // section, so in practice `lastNavTarget` is only ever
+                    // 'connect' here. The B56 insertBefore crash this play
+                    // window used to reopen is now closed structurally: title
+                    // and description are split on inner spans React never
+                    // reconciles (see the SplitText calls above), so a
+                    // concurrent re-render mid-play can't leave React holding a
+                    // stale child node. Verified with the b56 stress run.
                     if (isProgrammaticScrollActive()) {
-                        resolveEntrance();
+                        if (getLastNavTarget() === 'connect') beginEntrance({ hold: false });
+                        else resolveEntrance();
                         return;
                     }
 
@@ -457,10 +479,13 @@ export default function Connect() {
                 resolveEntrance();
             }
 
-            // A nav click that lands here after this effect mounts and onEnter
-            // somehow didn't catch — snap it visible.
+            // Fires on the nav scroll's own completion. If onEnter already
+            // started the reveal mid-scroll this no-ops (entranceStarted); it
+            // only does work when onEnter never fired — the section was already
+            // past the start line when the nav began — and there a play still
+            // reads as a clean arrival, so play rather than snap.
             const unsubNav = onSectionNavigated((id) => {
-                if (id === 'connect') resolveEntrance();
+                if (id === 'connect') beginEntrance({ hold: false });
             });
 
             // A nav click that starts WHILE the organic hold is running:
@@ -570,7 +595,7 @@ export default function Connect() {
             if (lidEl) gsap.set(lidEl, { scaleY: 1 });
             if (vizEl) gsap.set(vizEl, { opacity: 1 });
             if (litEl) litEl.textContent = WALKMAN_LCD_TEXT;
-            titleRef.current.textContent = HEADLINE_SENT;
+            titleTextRef.current.textContent = HEADLINE_SENT;
             setFlightSlot(null);
             setSettled(true);
             return;
@@ -668,7 +693,7 @@ export default function Connect() {
         // segment-friendly charset), so there's no established charset to
         // reuse here; the plugin's own default preset for prose is the
         // right fit.
-        tl.to(titleRef.current, {
+        tl.to(titleTextRef.current, {
             scrambleText: { text: HEADLINE_SENT, chars: 'upperAndLowerCase', speed: 0.3 },
             duration: 0.6,
         }, 0);
@@ -1029,9 +1054,9 @@ export default function Connect() {
         hasPoppedInRef.current = false;
 
         if (prefersReducedMotion) {
-            titleRef.current.textContent = HEADLINE_IDLE;
+            titleTextRef.current.textContent = HEADLINE_IDLE;
         } else {
-            gsap.to(titleRef.current, {
+            gsap.to(titleTextRef.current, {
                 scrambleText: { text: HEADLINE_IDLE, chars: 'upperAndLowerCase', speed: 0.3 },
                 duration: 0.5,
             });
@@ -1075,8 +1100,12 @@ export default function Connect() {
                     block) is gone, so this heading is now the only
                     accessible confirmation text there is. Not set at rest,
                     where it's a plain heading with no live-region reason. */}
+                {/* Inner span is the SplitText / ScrambleText target, never the
+                    <h2> itself — React only ever renders a constant string
+                    here, so it never reconciles a child of the node GSAP
+                    rewrites (B56). The <h2> keeps the ref for layout/role. */}
                 <h2 className="contact-title" ref={titleRef} role={status === 'sent' ? 'status' : undefined}>
-                    {HEADLINE_IDLE}
+                    <span className="contact-title-text" ref={titleTextRef}>{HEADLINE_IDLE}</span>
                 </h2>
 
                 {/* No separate success block here anymore (.contact-success,
@@ -1091,7 +1120,9 @@ export default function Connect() {
                     hidden the instant a send succeeds, so the "exactly one
                     message on screen" guarantee still holds. */}
                 {status !== 'sent' && (
-                    <p className="contact-description" ref={descriptionRef}>{CONTACT_DESCRIPTION}</p>
+                    <p className="contact-description" ref={descriptionRef}>
+                        <span className="contact-description-text" ref={descriptionTextRef}>{CONTACT_DESCRIPTION}</span>
+                    </p>
                 )}
 
                 {/* Send failure — Task 1 revision. Entirely out of band from

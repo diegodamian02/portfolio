@@ -2687,7 +2687,7 @@ acts the same at any speed, and raise k to 1.1/s. After: 0.23 / 0.29 / 0.48 /
 restoring force, it is a bias whose strength depends on how fast the thing is
 already moving. If the invariant is about POSITION, correct position.
 
-### B56 — `SplitText` rewrites the `#my-taste` kicker's DOM while React still renders a child into it, and the next React update takes the whole page down — **KICKER FIXED 2026-08-28; error boundary still owed**
+### B56 — `SplitText` rewrites an element's DOM while React still renders into it, and the next React update takes the whole page down — **`#my-taste` KICKER + `#connect` TITLE/DESCRIPTION FIXED 2026-08-28; error boundary still owed**
 
 > **The kicker instance is fixed (2026-08-28, desktop one-screen fit
 > follow-up).** Making `#my-taste`'s cascade *animate* on a nav click (per a
@@ -2696,12 +2696,23 @@ already moving. If the invariant is about POSITION, correct position.
 > recommended: `kickerRef` moved off the `<a>` onto an inner
 > `<span class="my-taste-heading-text">` (`display: contents`) that wraps the
 > text but NOT `<AvatarSlot>`, so SplitText no longer rewrites DOM React also
-> inserts into. Re-ran the stress: **0 / 30**. `#connect`'s own SplitText
-> title/description are handled by *not* animating them on a programmatic
-> scroll (snap instead — connect.jsx). **The missing error boundary is still
-> owed** — it is what turns any future instance of this class (or B64's) from
-> a white page into a degraded section, and this fix only closed the one
-> known trigger.
+> inserts into. Re-ran the stress: **0 / 30**.
+>
+> **`#connect` got the same fix, 2026-08-28 (second follow-up).** A direct
+> request — twice — to have `#connect` *animate* in on a nav click rather
+> than snap meant its `SplitText` title/description tween now plays for
+> ~1.5s on a programmatic scroll, the exact window the snap used to close.
+> Rather than keep snapping, closed it structurally: `.contact-title` /
+> `.contact-description` text is now wrapped in inner
+> `<span class="contact-title-text">` / `<span class="contact-description-text">`,
+> and every DOM-rewriting op (SplitText's entrance, ScrambleTextPlugin on
+> send) targets the inner span. React only ever renders a constant string
+> into those spans, so it never reconciles a child of the node GSAP
+> rewrites. Stress run with connect animating: **0 / 30**, then **0 / 50**.
+>
+> **The missing error boundary is still owed** — it is what turns any future
+> instance of this class (or B64's) from a white page into a degraded
+> section, and these fixes only closed the two known triggers.
 
 > **Was unfixed as of the Stage 7 rebuild (2026-08-25).** The Stage 7 work hit
 > the same *blast radius* from an unrelated cause — a temporal-dead-zone throw in
@@ -2947,8 +2958,9 @@ has taken the entire site down**, and the reason is unchanged from **B56** — t
 is no error boundary anywhere in the tree. A decorative background that fails
 should cost the background, not the portfolio.
 
-See **B56** for the same failure mode reached from `#my-taste`'s `SplitText`
-collision, which is still unfixed and still reproduces in the production build.
+See **B56** for the same failure mode reached from `SplitText` collisions in
+`#my-taste` and `#connect` — both specific triggers are now closed (inner
+split spans), but the underlying gap (no error boundary) is unchanged.
 
 **Generalisable:** function *declarations* hoist; `const` arrow functions do not.
 Inside a long `useEffect` body, ordering is load-bearing and the failure is a
@@ -3213,10 +3225,14 @@ by having fired `onEnter` already.
 - `onSectionNavigated(id)` — a new `scroll.js` signal fired from
   `scrollToSection`'s `onComplete`.
 
-`#my-taste` **animates** its cascade on a nav click (the direct request —
-"clicking My Taste should prompt the artist animation"); `#connect`
-**snaps** on any programmatic scroll (its `SplitText` title/description
-would otherwise race a concurrent re-render — B56).
+Both `#my-taste` and `#connect` **animate** their cascade on a nav click
+(the direct request — "clicking My Taste should prompt the artist
+animation"; then, for connect specifically, twice: "as soon as you click
+on #connect the animation should pop up"). `#connect` playing its
+`SplitText` title/description tween used to race a concurrent re-render
+(B56) — closed here by splitting inner text spans React never reconciles
+(see B56 below). A nav *through* a section still snaps, but both are late
+in the nav order so in practice `lastNavTarget` is the section itself.
 
 The organic hold snaps to `document.getElementById(id)` (which carries
 `scroll-margin-top`) so the held view rests at exactly `--scroll-offset`

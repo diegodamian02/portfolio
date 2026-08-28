@@ -3819,6 +3819,15 @@ html {
   padding: 2em 2rem;
   display: flex;
   justify-content: center;
+  // Vertically center the two-column block in whatever room is left below
+  // the navbar, instead of the default `stretch` pinning .contact-container
+  // to the section's full min-height and leaving a tall empty band under it
+  // (the left column is a heading + two lines; the right is a ~480px card,
+  // so top-aligned they leave ~250px of dead space at the bottom). `center`
+  // splits that slack above and below the block. min-height (not height)
+  // still lets the section grow past one screen when the content genuinely
+  // needs it — the stacked mobile layout, mainly — so nothing clips.
+  align-items: center;
   transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
   // border-box is load-bearing (same gotcha as .home / .experience-section):
   // on the default content-box, `min-height` EXCLUDES this element's own
@@ -3880,23 +3889,15 @@ html {
   padding-top: 0.25rem;
   display: flex;
   // flex-start, NOT center (which .about-me-container uses for its own
-  // text-beside-visual-object row) — found live why those two rows aren't
-  // actually the same case: .contact-section stretches .contact-container
-  // to the SECTION's own height (align-items: stretch is the flex default,
-  // inherited from .contact-section's own row/no-override rule above), so
-  // .contact-container is routinely 200-250px taller than its own content.
-  // center vertically centers .contact-copy (short — a heading and a couple
-  // lines) and .contact-visual (tall — the ~604px card) INDEPENDENTLY
-  // within that extra height, and because they're such different heights,
-  // each one centers to a different offset — measured live, the heading's
-  // own top edge landed BELOW the card's top edge by lots of visible
-  // vertical room, reading as misaligned rather than a deliberate stagger.
-  // flex-start pins both columns' top edges together instead, which is
-  // also the exact behaviour .contact-container already had before this
-  // column split (a plain block, not centered) — .contact-title's own
-  // z-index note and this rule's own padding-top were already tuned
-  // against that top-aligned baseline, so flex-start is the continuation
-  // of that tuning, not a new decision.
+  // text-beside-visual-object row): this pins the two columns' TOP edges
+  // together — .contact-copy (a heading + two lines) beside .contact-visual
+  // (the ~480px card). Centering each column independently made the
+  // heading's top edge land well below the card's, reading as misaligned
+  // rather than a deliberate stagger. The block as a WHOLE is vertically
+  // centered in the section by .contact-section's own `align-items: center`
+  // (above) — this rule only governs the two columns relative to each
+  // other. .contact-title's z-index note and this rule's padding-top were
+  // tuned against this top-aligned baseline.
   align-items: flex-start;
   gap: var(--space-8);
 

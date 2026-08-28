@@ -1,7 +1,8 @@
 # Project Status — diegodamian.com
 
 **Updated:** 2026-08-28 (desktop one-screen fit pass — every section fits the
-viewport after a nav click; two pinned sections' revisit-landing bug fixed) ·
+viewport after a nav click; entrance pins removed; both entrance cascades now
+animate on a nav click; `#connect` dead-space centered; B56 closed for both) ·
 **HEAD:** `e0208e4`+ · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
@@ -7199,36 +7200,47 @@ now one guarded starter (`beginEntrance` / `resolveEntrance`) fed by: a
 plain trigger whose `start` sits just below the nav-landing point so
 `onEnter` fires on *both* an organic scroll and a nav/deep-link landing; a
 setup-time catch-up for a nav that resolved before the effect mounted; and
-an `onSectionNavigated(id)` signal from `scroll.js` (new). `#my-taste`
-**animates** its cascade on a nav click (the visitor asked to come here —
-this was the direct request); `#connect` **snaps** on any programmatic
-scroll, same as About, because playing its `SplitText` title/description
-tween during a concurrent re-render hit **B56** (below).
+an `onSectionNavigated(id)` signal from `scroll.js` (new). Both
+`#my-taste` and `#connect` **animate** their cascade on a nav click (the
+direct request — for connect, twice: *"as soon as you click on #connect
+the animation should pop up without the need of any scrolling"*).
 
-**B56 — the `SplitText` / `insertBefore` blank-page crash — fixed for
-`#my-taste`.** `new SplitText(kickerRef.current)` was pointed at the `<a>`
-that also renders `<AvatarSlot>` (null → `<img>` on the profile fetch).
-Playing that cascade on a nav click widened the race enough to reproduce:
-1-in-15 in a light-theme stress run blanked the page. Applied the fix shape
-`FINDINGS.md` B56 always recommended — `kickerRef` moved onto an inner
-`<span class="my-taste-heading-text">` (`display: contents`) that wraps the
-text but **not** `AvatarSlot`, so SplitText never rewrites DOM React also
-inserts into. Re-ran the stress: **0 / 30**.
+**B56 — the `SplitText` / `insertBefore` blank-page crash — closed for both
+`#my-taste` and `#connect`.** `#my-taste`: `new SplitText(kickerRef.current)`
+was pointed at the `<a>` that also renders `<AvatarSlot>` (null → `<img>` on
+the profile fetch). Playing that cascade on a nav click widened the race
+enough to reproduce — 1-in-15 in a light-theme stress run blanked the page.
+`kickerRef` moved onto an inner `<span class="my-taste-heading-text">`
+(`display: contents`) that wraps the text but **not** `AvatarSlot`.
+`#connect`: making its title/description animate on a nav click (rather
+than snap) put its `SplitText` tween back in the 1.5s play window the snap
+used to close. Same fix — `.contact-title` / `.contact-description` text
+wrapped in inner `<span class="contact-title-text">` /
+`<span class="contact-description-text">`; SplitText and ScrambleTextPlugin
+both target the inner span, which React only ever renders a constant string
+into. Stress with both animating: **0 / 30**, then **0 / 50**.
+
+**`#connect` dead space (2026-08-27 two-column layout left a ~250px empty
+band).** `.contact-section` gets `align-items: center` — the two-column
+block now centers vertically in the room below the navbar instead of
+`stretch` pinning it to the top. `min-height` (not `height`) still lets the
+section grow when content needs it (stacked mobile), so nothing clips.
 
 **Verification** (Playwright, real nav-link clicks + organic scroll,
 1280×680 → 1920×1080). Every section lands at exactly `--scroll-offset`
 (168px) on a fresh nav click, a revisit, and an organic scroll; 0
-horizontal overflow; 0 page errors across 30 stress trials.
-`#my-taste`'s cascade animates in on a nav click (opacity 0 → 1 over
-~2s, staggered); the organic hold still snaps to 168 and plays. The
+horizontal overflow; 0 page errors across 50 stress trials.
+Both entrance cascades animate in on a nav click (opacity 0 → 1,
+staggered); the organic hold still snaps to 168 and plays. The
 J-card fits entirely — Send button and all — down to a 1280×680 window
 (`.jcard-textarea` `min-height` 280 → 140 across the fit passes; section
 padding 5em → 2em; `.contact-container` `padding-top` 6rem → 0.25rem).
 Content overflow past the fold: ≤0 at 1440×900 and up; ≤27px at 1366×768.
 
 Lint unchanged (7 errors / 2 warnings). Files: `main.scss` (six section
-rules), `scroll.js` (`getLastNavTarget` / `onSectionNavigated`),
-`my-taste.jsx` + `connect.jsx` (pins removed, entrance rework, B56 wrapper).
+rules + `.contact-section` centering), `scroll.js` (`getLastNavTarget` /
+`onSectionNavigated`), `my-taste.jsx` + `connect.jsx` (pins removed,
+entrance rework, B56 inner-span wrappers).
 
 ---
 

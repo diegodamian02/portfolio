@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-28, desktop one-screen fit pass — every section fits the viewport after a nav click; two pinned sections' revisit-landing bug fixed)*
+## 0. Current state — quick summary *(updated 2026-08-28, desktop one-screen fit pass — every section fits the viewport after a nav click; entrance pins removed; both entrance cascades animate on a nav click; `#connect` dead-space centered; B56 closed for `#my-taste` + `#connect`)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -452,15 +452,19 @@ fit, left alone.
 > made the connect overshoot worse. **Dropped both pins** (Experience
 > already dropped its own; About never used one). The entrance is now a
 > guarded starter fed by a matched-`start` trigger + a setup catch-up +
-> a new `onSectionNavigated` signal from `scroll.js`. `#my-taste`
-> **animates** its cascade on a nav click (the request); `#connect`
-> **snaps** on any programmatic scroll (its SplitText title/description
-> would race a re-render — **B56**, whose kicker instance is fixed here
-> too: `kickerRef` moved to an inner span that excludes `<AvatarSlot>`).
+> a new `onSectionNavigated` signal from `scroll.js`. **Both `#my-taste`
+> and `#connect` animate their cascade on a nav click** (the request —
+> for connect, twice: "as soon as you click on #connect the animation
+> should pop up"). Connect animating rather than snapping put its
+> SplitText tween back in a re-render race window (**B56**), closed for
+> both sections the same way: SplitText / ScrambleText now target inner
+> text spans React only renders a constant string into (`kickerRef` off
+> `<AvatarSlot>`; `.contact-title` / `.contact-description` inner spans).
 > J-card shrunk further (`.jcard-textarea` `min-height` 280 → 140,
 > section padding 5em → 2em) so it fits entirely down to a 1280×680
-> window. `STATUS.md`'s dated entry has the full writeup; 30-trial B56
-> stress run clean.
+> window; `.contact-section` `align-items: center` removes the ~250px
+> dead band the two-column layout left below the block. `STATUS.md`'s
+> dated entry has the full writeup; B56 stress run clean at 0 / 50.
 
 Verified: at 1440×900 and up every section lands at exactly
 `--scroll-offset` with 0 overflow; at 1366×768 the worst residual is
