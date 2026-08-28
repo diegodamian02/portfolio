@@ -48,6 +48,33 @@ function setProgrammaticScrollActive(active) {
     programmaticScrollListeners.forEach((fn) => fn(active));
 }
 
+// The id of the most recent scrollToSection() destination. Distinct from the
+// active/inactive flag above: a pinned-entrance section (#my-taste, #connect)
+// needs to know whether an in-flight nav scroll is HEADED FOR IT (play the
+// entrance animation) or just passing THROUGH toward another section (snap to
+// the finished state, no animation). Stays set after the scroll finishes —
+// it's "where the last nav went", read once by the destination section's own
+// entrance logic, overwritten by the next nav.
+let lastNavTarget = null;
+const sectionNavigatedListeners = new Set();
+
+export function getLastNavTarget() {
+    return lastNavTarget;
+}
+
+// Fires with the section id once a scrollToSection() to it has completed —
+// the reliable "a nav click just landed here" signal for a section whose
+// own ScrollTrigger onEnter never fires on that route (a nav landing stops
+// at --scroll-offset, above the trigger's start line; FINDINGS B72).
+export function onSectionNavigated(fn) {
+    sectionNavigatedListeners.add(fn);
+    return () => sectionNavigatedListeners.delete(fn);
+}
+
+function notifySectionNavigated(id) {
+    sectionNavigatedListeners.forEach((fn) => fn(id));
+}
+
 // The fixed-navbar offset deliberately lives in CSS, not here:
 // `.content > section { scroll-margin-top: var(--scroll-offset) }` in
 // main.scss. Both scroll paths below honour it natively — see the comments
@@ -56,6 +83,8 @@ function setProgrammaticScrollActive(active) {
 export function scrollToSection(id) {
     const target = document.getElementById(id);
     if (!target) return;
+
+    lastNavTarget = id;
 
     if (activeLenis) {
         // Lenis's own scrollTo reads getComputedStyle(target).scrollMarginTop
@@ -83,6 +112,7 @@ export function scrollToSection(id) {
             onComplete: () => {
                 programmaticScrollDepth = Math.max(0, programmaticScrollDepth - 1);
                 if (programmaticScrollDepth === 0) setProgrammaticScrollActive(false);
+                notifySectionNavigated(id);
             },
         });
         return;
@@ -97,4 +127,8 @@ export function scrollToSection(id) {
     // supply a default.
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target.scrollIntoView({ behavior: reduced ? "instant" : "smooth" });
+    // No onComplete to hang this off in the native path; a frame after the
+    // instant/smooth scroll is close enough for the destination section's
+    // entrance catch-up, and reduced motion sections don't animate anyway.
+    requestAnimationFrame(() => notifySectionNavigated(id));
 }

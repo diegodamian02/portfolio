@@ -2818,6 +2818,16 @@ html {
   }
 }
 
+// The SplitText target (kickerRef) — a wrapper that keeps AvatarSlot out of
+// the DOM SplitText rewrites (FINDINGS.md B56, my-taste.jsx). display:
+// contents so it generates no box of its own: its children ("my taste" +
+// the two tail variants, then SplitText's word spans) lay out as direct
+// flex items of .my-taste-heading-link exactly as they did before this
+// wrapper existed.
+.my-taste-heading-text {
+  display: contents;
+}
+
 // Quieter than the surrounding text, same idea as a typographic middot
 // separator anywhere else on the site — a divider, not a third word.
 .my-taste-heading-dot {
@@ -3802,11 +3812,11 @@ html {
 .contact-section {
   background-color: var(--bg-color);
   color: var(--text-color);
-  // 3em top/bottom, was 5em — with box-sizing: border-box (below) this
-  // padding is now drawn INSIDE the min-height rather than added on top of
-  // it, so 5em was 64px of dead space eating into the one screen this
-  // section is meant to fit. 2rem horizontal unchanged.
-  padding: 3em 2rem;
+  // 2em top/bottom, was 5em -> 3em -> 2em across the fit passes — with
+  // box-sizing: border-box (below) this padding is drawn INSIDE the
+  // min-height, so every em was eating directly into the one screen this
+  // section has to fit the whole J-card into. 2rem horizontal unchanged.
+  padding: 2em 2rem;
   display: flex;
   justify-content: center;
   transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
@@ -3862,12 +3872,12 @@ html {
 // below still doesn't use — only the column WIDTH is unified here.
 .contact-container {
   @include content-column($width: var(--content-width-wide));
-  // 1rem, trimmed alongside .contact-section's own top padding (5em -> 3em)
-  // and the box-sizing fix as part of the desktop one-screen-fit pass. This
-  // sits on top of the section's own top padding; kept non-zero only so the
-  // heading clears the fixed navbar on a cold scroll (see .contact-title's
-  // z-index note below, and connect.jsx's ensureHeadlineVisible).
-  padding-top: 1rem;
+  // 0.25rem — trimmed to nearly nothing across the fit passes (6rem -> 2rem
+  // -> 1rem -> 0.25rem). It sits on top of .contact-section's own top
+  // padding, which already clears the navbar; the J-card needs every px of
+  // the remaining budget to fit a short window. Kept just off zero so the
+  // heading has a hair of breathing room above it.
+  padding-top: 0.25rem;
   display: flex;
   // flex-start, NOT center (which .about-me-container uses for its own
   // text-beside-visual-object row) — found live why those two rows aren't
@@ -4427,16 +4437,15 @@ html {
   // .about-me-bio already uses for its own readable body copy.
   line-height: 1.6;
   // The card's dominant element — still clearly the biggest thing on the
-  // J-card the way a tracklist panel dominates a real one. Grows with
-  // content up to max-height (connect.jsx's MESSAGE_MAX_HEIGHT, kept in
-  // sync), then scrolls internally rather than growing the card forever.
-  // 220px, down from 280 in the desktop one-screen-fit pass: at 280 the
-  // whole card ran 604px, past what a navbar-cleared short window can hold
-  // once .contact-section's own padding bug was fixed. 220 keeps the field
-  // visually dominant against the ~100px header while bringing the card to
-  // ~500px. Still well above .jcard's own max-width, so it stays a vertical
-  // object, not a square.
-  min-height: 220px;
+  // J-card. Grows with content up to max-height (connect.jsx's
+  // MESSAGE_MAX_HEIGHT, kept in sync), then scrolls internally rather than
+  // growing the card forever. 140px at rest (280 -> 220 -> 140 across the
+  // fit passes): ~4 lines, plenty for a guestbook note, and it auto-grows
+  // the instant anyone types. This is what brings the whole card down to
+  // ~430px so it fits entirely — Send button and all — on a real
+  // (chrome-reduced, ~680px) laptop window after the nav offset, not just a
+  // full-height one.
+  min-height: 140px;
   max-height: 420px;
   overflow-y: auto;
   // resize: none — was `resize: vertical` (Task 12's version, a manual drag

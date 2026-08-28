@@ -2687,9 +2687,23 @@ acts the same at any speed, and raise k to 1.1/s. After: 0.23 / 0.29 / 0.48 /
 restoring force, it is a bias whose strength depends on how fast the thing is
 already moving. If the invariant is about POSITION, correct position.
 
-### B56 — `SplitText` rewrites the `#my-taste` kicker's DOM while React still renders a child into it, and the next React update takes the whole page down — **FOUND, NOT FIXED (outside Stage 7c's scope), reproduces in the production build**
+### B56 — `SplitText` rewrites the `#my-taste` kicker's DOM while React still renders a child into it, and the next React update takes the whole page down — **KICKER FIXED 2026-08-28; error boundary still owed**
 
-> **Still unfixed as of the Stage 7 rebuild (2026-08-25).** The Stage 7 work hit
+> **The kicker instance is fixed (2026-08-28, desktop one-screen fit
+> follow-up).** Making `#my-taste`'s cascade *animate* on a nav click (per a
+> direct request) widened the race enough to reproduce reliably — 1-in-15 in
+> a light-theme stress run. Applied the fix shape this finding always
+> recommended: `kickerRef` moved off the `<a>` onto an inner
+> `<span class="my-taste-heading-text">` (`display: contents`) that wraps the
+> text but NOT `<AvatarSlot>`, so SplitText no longer rewrites DOM React also
+> inserts into. Re-ran the stress: **0 / 30**. `#connect`'s own SplitText
+> title/description are handled by *not* animating them on a programmatic
+> scroll (snap instead — connect.jsx). **The missing error boundary is still
+> owed** — it is what turns any future instance of this class (or B64's) from
+> a white page into a degraded section, and this fix only closed the one
+> known trigger.
+
+> **Was unfixed as of the Stage 7 rebuild (2026-08-25).** The Stage 7 work hit
 > the same *blast radius* from an unrelated cause — a temporal-dead-zone throw in
 > the hero background's mount effect blanked the entire site (**B64**) — which is
 > the second independent demonstration that the missing piece is not either
@@ -3149,54 +3163,64 @@ the real content **200px lower** — measured `.my-taste-section` top at
 for `#connect`'s Send button. A *fresh* nav click (pin not yet consumed)
 and organic scroll both landed correctly — only the revisit was wrong.
 
-**Fix — `retirePin()` in `my-taste.jsx` / `connect.jsx`.** A one-shot
-entrance pin has no reason to keep existing after it has fired. `st.kill()`
-+ a deferred `ScrollTrigger.refresh()`, called the moment the entrance has
-played (`tl` `onComplete`) **or** been skipped for a nav click (the
-`isProgrammaticScrollActive` escape hatch and the `onProgrammaticScroll
-Change` handler). Killing collapses the spacer; the freed 200px is all
-below the section's own bottom edge, off-screen for anyone looking at the
-section as it releases, so there's no visible jump. Verified: after the
-fix all three of fresh-navclick / revisit / organic-scroll land
-`.my-taste-section` and `.contact-section` at exactly 168px, both cascades
-still play to opacity 1, no page errors, document is 200px shorter per
-retired pin (confirmed by the downstream sections' scroll positions
-dropping exactly 200/400px).
+**First fix, then reverted — `retirePin()`.** The first pass added an
+`st.kill()` + deferred `ScrollTrigger.refresh()` once the entrance had
+played or been skipped, on the theory that a one-shot pin has no reason to
+keep existing. It fixed the revisit case, but live testing showed it *made
+B72 worse*: killing the spacer mid-scroll (during the nav Lenis animation)
+collapsed the layout out from under Lenis's still-running target, so a
+fresh nav click to `#connect` OVERSHOT the whole section and dropped the
+visitor into the footer with the heading and card top scrolled behind the
+navbar.
+
+**Real fix — drop the pins entirely.** Experience already dropped its own
+(2026-08-27); About never used one — a `lenis.stop()` + input-blocker hold
+does not need a pin. No pin means no pin-spacer, so nothing to displace or
+collapse. The hold still works. Verified: fresh nav click / revisit /
+organic scroll all land `.my-taste-section` and `.contact-section` at
+exactly 168px.
 
 **Generalisable.** A `pin: true` ScrollTrigger with `once: true` does NOT
-tear its pin-spacer down after firing — `once` only gates the callbacks.
-If the pinned element is (or is inside) a nav / hash target, the leftover
-spacer padding will offset every later scroll-to. Kill the trigger
-explicitly once its one-shot job is done.
+tear its pin-spacer down after firing, and its `end` span keeps padding
+the layout for the page's whole life. If the pinned element is (or is
+inside) a nav / hash target, that spacer offsets every later scroll-to.
+And `st.kill()` to collapse it is only safe when nothing is mid-scroll
+toward the section. For a one-shot timed reveal, prefer no pin at all —
+`lenis.stop()` + a `touchmove`/`keydown` blocker is the whole hold.
 
 ---
 
-### B72 — fresh cold load → immediate nav click to `#my-taste` (before any scroll): entrance never fires, cards stay invisible — **FOUND, PRE-EXISTING, NOT FIXED (2026-08-28)**
+### B72 — a nav click to `#my-taste` never fired its entrance, so the artist cascade stayed invisible — **FOUND AND FIXED, desktop one-screen fit follow-up (2026-08-28)**
 
-Found while verifying B71. On a fresh page load, clicking "My Taste" in the
-nav as the *very first action* (no scroll first): the entrance
-`ScrollTrigger`'s `onEnter` never fires, so `.my-taste-wall` cards and
-`.my-taste-setlist-item` rows stay at their `gsap.set({ opacity: 0 })`
-initial state — the section renders with only the kicker visible (its
-avatar + "MY TASTE" text, which aren't part of the cascade). `once: true`
-means `onEnter` can't fire later either, so in this one flow the content
-stays invisible.
+The entrance ran entirely off the pinned `ScrollTrigger`'s `onEnter`, which
+fires only on a downward crossing of `start`. `start` was pinned to
+`navbarHeight` (144) — but a nav click / hash landing stops at
+`--scroll-offset` (168), which is *above* that line, so the crossing never
+happened. Result: clicking "My Taste" (the way most visitors reach it)
+left `.my-taste-wall` cards and `.my-taste-setlist-item` rows frozen at
+their `gsap.set({ opacity: 0 })` state. First mis-scoped as "only a fresh
+cold load, before any scroll" — the real trigger is *any* nav click to the
+section as the entry route; a prior organic scroll-through only masked it
+by having fired `onEnter` already.
 
-**Confirmed pre-existing.** Reproduced identically on the committed
-baseline (`git stash` of the B69–B71 changes, same Playwright flow, same
-`[0,0,0,0,0]` opacities) — the fit pass did not cause or worsen it. Only
-this single first-action flow reproduces; any path that scrolls near the
-section first, or a nav click after any prior scrolling, plays the cascade
-normally.
+**Fix.** The pin is gone (see B71). The entrance is now a guarded starter
+(`beginEntrance` / `resolveEntrance`) fed by three signals:
+- a plain trigger whose `start` sits at `navbarHeight + 32` — just *below*
+  the nav-landing point, so `onEnter` fires on an organic scroll AND on a
+  nav/deep-link landing that stops at the offset;
+- a setup-time check (`section.top < innerHeight * 0.9`) for a nav that
+  resolved before the effect mounted;
+- `onSectionNavigated(id)` — a new `scroll.js` signal fired from
+  `scrollToSection`'s `onComplete`.
 
-**Not fixed here** — out of scope for a layout pass, and it needs its own
-look at the `useGSAP({ dependencies: [artists.status, tracks.status] })`
-re-run timing vs. when the programmatic scroll crosses the trigger. Likely
-the same family as D17 (`AvatarSlot` bot-pace React crash) and B56 (the
-`SplitText` / `insertBefore` blank-page race). Suspect: the timeline is
-rebuilt by a `useGSAP` re-run *after* `onEnter` already fired-and-skipped
-via the escape hatch, leaving a fresh paused timeline a `once` trigger
-won't re-enter.
+`#my-taste` **animates** its cascade on a nav click (the direct request —
+"clicking My Taste should prompt the artist animation"); `#connect`
+**snaps** on any programmatic scroll (its `SplitText` title/description
+would otherwise race a concurrent re-render — B56).
+
+The organic hold snaps to `document.getElementById(id)` (which carries
+`scroll-margin-top`) so the held view rests at exactly `--scroll-offset`
+regardless of where the trigger line or scroll momentum put it.
 
 ---
 

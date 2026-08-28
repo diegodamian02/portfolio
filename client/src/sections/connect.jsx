@@ -4,7 +4,10 @@ import '../styles/main.scss';
 import axios from 'axios';
 import { useGSAP } from '@gsap/react';
 import { gsap, ScrollTrigger, SplitText, SIGNATURE_EASE, Flip, WALKMAN_POP_EASE, PIN_SNAP_EASE } from '../lib/gsap.js';
-import { getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange } from '../lib/scroll.js';
+import {
+    getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange,
+    getLastNavTarget, onSectionNavigated,
+} from '../lib/scroll.js';
 import useReducedMotion from '../hooks/use-reduced-motion.js';
 import Walkman, { WALKMAN_LCD_TEXT } from '../components/walkman.jsx';
 
@@ -333,25 +336,6 @@ export default function Connect() {
                 window.removeEventListener('touchmove', blockTouchMove, { capture: true });
                 window.removeEventListener('keydown', blockScrollKeys, { capture: true });
             }
-
-            // The entry reveal is a one-shot (once: true). Once it has played
-            // OR been skipped for a nav click, this ScrollTrigger pin has done
-            // its whole job — but its pin-spacer keeps padding the layout by
-            // the `end` span (+=200) forever after, and that padding sits ABOVE
-            // .contact-section within #connect's box. Result: a nav click back
-            // to "Let's Connect" after the pin was consumed once landed
-            // #connect at the offset but the J-card ~200px lower, its Send
-            // button below the fold. Retiring the trigger collapses the spacer;
-            // the freed 200px is all below the section's bottom edge (off-
-            // screen as it releases) so there's no visible jump. Same fix and
-            // reasoning as my-taste.jsx's own retirePin().
-            let pinRetired = false;
-            function retirePin() {
-                if (pinRetired) return;
-                pinRetired = true;
-                st.kill();
-                requestAnimationFrame(() => ScrollTrigger.refresh());
-            }
             const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' ']);
             function blockScrollKeys(e) {
                 if (SCROLL_KEYS.has(e.key)) e.preventDefault();
@@ -377,7 +361,6 @@ export default function Connect() {
                 onComplete: () => {
                     titleSplit.revert();
                     releaseHold();
-                    retirePin();
                 },
             });
 
@@ -393,115 +376,105 @@ export default function Connect() {
             const navbarHeight = () =>
                 parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 0;
 
-            const st = ScrollTrigger.create({
-                trigger: rootRef.current,
-                // navbarHeight-aware "top top", same reasoning as every
-                // other pinned section's own trigger (About/My
-                // Taste/Experience) — keeps a nav click landing on #connect
-                // and this pin's own engage point in sync.
-                start: () => 'top top+=' + navbarHeight(),
-                // Missing here originally — found live (measured: after the
-                // hold released, .contact-section stayed visually pinned for
-                // ~940px of further scroll before it would budge at all, the
-                // real cause of "all the space" between #projects and a
-                // usable #connect). Root cause: `pin: true` with no explicit
-                // `end` defaults to the trigger's own full height as the pin
-                // span, but nothing here scrubs against that span — the hold
-                // is timed via lenis.stop()/start() below, same as My
-                // Taste's own pin (my-taste.jsx). My Taste's own version
-                // already sets `end: "+=200"` for exactly this reason (its
-                // own comment: wide enough that a fast scroll can't jump the
-                // start-to-end span in one tick and skip onEnter entirely,
-                // not a hold-duration control) — this pin copied `pin: true`
-                // from that pattern but dropped the `end` that comes with
-                // it. Same fix, same value.
-                end: '+=200',
-                pin: true,
-                // Plays once per page view, same as About/My Taste's own
-                // hold — replaying a scroll-hold every time a visitor
-                // scrolls back down past this section (it's the LAST
-                // section — a revisit is a real, easy case here, not
-                // hypothetical) would read as an obstacle, not a flourish,
-                // on the second pass.
-                once: true,
-                onEnter: () => {
-                    // A nav click already carrying the visitor straight to
-                    // #connect (or through it) — resolve the reveal
-                    // instantly rather than holding scroll for an entrance
-                    // they didn't ask to watch. Same escape hatch About/My
-                    // Taste's own holds use.
-                    if (isProgrammaticScrollActive()) {
-                        tl.progress(1);
-                        retirePin();
-                        return;
-                    }
-
-                    // Same safety net About's own hold carries: measured
-                    // against the CONTAINER's real content height
-                    // (title + form, no description anymore), not the outer
-                    // .contact-section shell — that shell is deliberately
-                    // taller than its content on most viewports (flex-
-                    // centered inside a navbar-aware min-height floor, see
-                    // main.scss), so measuring the shell itself would
-                    // compare the wrong two numbers and could skip the hold
-                    // even when the real content fits comfortably. Re-
-                    // verified after the J-card grew this content taller
-                    // (Task 1 revision) — this branch is exactly the safety
-                    // net that's supposed to catch that, not a place that
-                    // needed new code.
-                    const available = window.innerHeight - navbarHeight();
-                    const contentHeight = containerRef.current.getBoundingClientRect().height;
-                    if (contentHeight > available) {
-                        tl.play();
-                        return;
-                    }
-
+            // One guarded starter, three entry points — same structure as
+            // my-taste.jsx (see its longer comment). The `pin: true` +
+            // `end: '+=200'` ScrollTrigger this replaced left a pin-spacer
+            // that (a) displaced the section ~200px on nav revisits and
+            // (b) — once a retirePin() tried to collapse it mid-scroll —
+            // made a fresh nav click OVERSHOOT the section entirely, dropping
+            // the visitor into the footer with the heading and the top of the
+            // J-card scrolled up behind the navbar. No pin now; the hold is
+            // lenis.stop() + input blockers, About's mechanism.
+            let entranceStarted = false;
+            function beginEntrance({ hold, snapTo } = {}) {
+                if (entranceStarted) return;
+                entranceStarted = true;
+                if (hold) {
                     holding = true;
                     const lenis = getActiveLenis();
                     if (lenis) {
-                        // NO overshoot correction here — unlike About/My
-                        // Taste, tested and found actively harmful rather
-                        // than copied on faith. Those two need it because
-                        // their entrances read something OTHER than plain
-                        // pinned/not-pinned state before freezing (About's
-                        // own centered `start` math, My Taste's tighter
-                        // engagement window) where landing scroll a little
-                        // past `start` visibly matters. This pin has no
-                        // scrub and nothing reads `self.progress` — GSAP had
-                        // already snapped the section to its pinned position
-                        // (top === navbarHeight, confirmed via live
-                        // instrumentation) by the time onEnter fires at all,
-                        // overshoot or not. Forcing scroll BACK to exactly
-                        // `self.start` landed it precisely on the pin's own
-                        // boundary and — confirmed live, traced frame by
-                        // frame — that boundary snap made ScrollTrigger
-                        // unpin the section on the spot, dropping it into
-                        // unpinned document flow ~200px away from the
-                        // pinned position for the ENTIRE reveal, a real
-                        // visible jump right as the hold engaged. Simply not
-                        // correcting anything and going straight to stop()
-                        // leaves the pin exactly where it already snapped.
+                        if (snapTo != null) lenis.scrollTo(snapTo, { immediate: true, force: true });
                         lenis.stop();
                     }
                     window.addEventListener('touchmove', blockTouchMove, { passive: false, capture: true });
                     window.addEventListener('keydown', blockScrollKeys, { capture: true });
-                    tl.play();
+                }
+                tl.play();
+            }
+            function resolveEntrance() {
+                if (entranceStarted) return;
+                entranceStarted = true;
+                tl.progress(1);
+            }
+
+            const st = ScrollTrigger.create({
+                trigger: rootRef.current,
+                // Start line just below where a nav click lands the section
+                // (--scroll-offset = navbar + 24), so onEnter fires on an
+                // organic downward scroll AND on a nav/deep-link landing that
+                // stops at the offset. The organic hold then snaps back to the
+                // exact offset, so +32 only needs to be >24.
+                start: () => 'top top+=' + (navbarHeight() + 32),
+                once: true,
+                onEnter: () => {
+                    // Any programmatic scroll — landing here OR passing through
+                    // — resolves the reveal instantly, same as About's own
+                    // hold. Deliberately NOT animated on a nav click (unlike
+                    // #my-taste, where the animation IS the point): this
+                    // section's title/description are SplitText targets, and
+                    // playing that ~1.5s tween while a concurrent re-render
+                    // (a light-theme load, most reliably) reconciles the same
+                    // subtree hits the B56 insertBefore crash — measured, it
+                    // blanked the page 1-in-15 in a stress run. A snap closes
+                    // that window; the calm fade only ever plays on an organic
+                    // scroll, where nothing else is touching the DOM.
+                    if (isProgrammaticScrollActive()) {
+                        resolveEntrance();
+                        return;
+                    }
+
+                    // Organic scroll. Safety net: measured against the
+                    // CONTAINER's real content height (title + form), not the
+                    // outer .contact-section shell, which is deliberately
+                    // taller than its content (flex-centered inside a
+                    // navbar-aware min-height floor). If the content itself is
+                    // taller than the window, play without freezing scroll.
+                    const available = window.innerHeight - navbarHeight();
+                    const contentHeight = containerRef.current.getBoundingClientRect().height;
+                    if (contentHeight > available) {
+                        beginEntrance({ hold: false });
+                        return;
+                    }
+                    beginEntrance({ hold: true, snapTo: document.getElementById('connect') });
                 },
             });
 
-            // Covers a nav click that starts WHILE already holding, not just
-            // one that arrives before entry — same reasoning and mechanism
-            // as About/My Taste's own subscription.
+            // onEnter only fires on a fresh downward crossing. A deep link /
+            // nav that resolved before this effect mounted lands the section
+            // already past the line — resolve it here (snap, same reasoning as
+            // the onEnter programmatic branch above).
+            if (rootRef.current.getBoundingClientRect().top < window.innerHeight * 0.9) {
+                resolveEntrance();
+            }
+
+            // A nav click that lands here after this effect mounts and onEnter
+            // somehow didn't catch — snap it visible.
+            const unsubNav = onSectionNavigated((id) => {
+                if (id === 'connect') resolveEntrance();
+            });
+
+            // A nav click that starts WHILE the organic hold is running:
+            // release it, snapping the timeline only if the visitor is leaving.
             const unsubscribe = onProgrammaticScrollChange((active) => {
                 if (active && holding) {
-                    tl.progress(1);
+                    if (getLastNavTarget() !== 'connect') tl.progress(1);
                     releaseHold();
-                    retirePin();
                 }
             });
 
             return () => {
                 unsubscribe();
+                unsubNav();
                 releaseHold();
                 st.kill();
                 tl.kill();

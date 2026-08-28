@@ -7176,42 +7176,59 @@ has too many `content-box` assumptions (turntable percentage geometry,
 | `#experience` | fits, +24px trailing box | exact | `.experience-section` `min-height` retargeted `navbar → scroll-offset` (no pin since 2026-08-27, nothing reads it in JS); `--experience-vp-height` headroom `2×space-7 → 2×space-6` |
 | `#about`, `#projects` | already fit | unchanged | out of scope per the request |
 
-**The revisit-landing bug — `FINDINGS.md` B71.** `#my-taste` and `#connect`
-each build a one-shot entrance `ScrollTrigger` with `pin: true, end: "+=200",
-once: true`. After that pin is scrolled through once, its pin-spacer keeps
-padding the layout by the `+=200` span *above* the inner section within the
-outer `#id` wrapper — so a later nav click back to the section scrolled
-`#id` to the offset but left the real content ~200px lower (bottom row of
-`#my-taste` cards cut off; `#connect`'s Send button below the fold). Fixed
-by retiring the ScrollTrigger (`st.kill()` + a deferred
-`ScrollTrigger.refresh()`) the moment the entrance has played *or* been
-skipped for a nav click — a one-shot pin has no reason to keep displacing
-layout after it fires. The freed 200px is all below the section's own
-bottom edge, off-screen as it releases, so there's no visible jump.
-Verified: `my-taste.jsx` / `connect.jsx` `retirePin()`, called from the
-timeline `onComplete`, the `isProgrammaticScrollActive` escape hatch, and
-the `onProgrammaticScrollChange` handler.
+**The entrance triggers — `FINDINGS.md` B71 + B72, both fixed.** `#my-taste`
+and `#connect` each hung their one-shot entrance entirely off a `pin: true,
+end: "+=200", once: true` ScrollTrigger. That produced two bugs:
 
-**Verification** (Playwright, real nav-link clicks, 1280/1366/1440/1536/
-1920 wide). After the changes, in the realistic "scroll the whole site,
-then use the nav to jump back" flow: every section lands at exactly
-`--scroll-offset` (168px), 0 horizontal overflow, 0 page errors, both
-entrance cascades still play and land at opacity 1, both pins retire
-cleanly. Content overflow past the fold: **≤0 at every size 1440×900 and
-up**; at 1366×768 the worst is `#connect` ~32px / `#my-taste` ~27px (a few
-px of scroll, nothing cut off — the agreed target for that height).
+- **B71** — after the pin was scrolled through once, its pin-spacer kept
+  padding the layout by `+=200` *above* the inner section, so a nav click
+  back to the section landed the real content ~200px too low (`#my-taste`'s
+  bottom card row cut off; `#connect`'s Send button below the fold).
+- **B72** — `onEnter` only fires on a downward crossing of `start`, and a
+  nav click stops at `--scroll-offset`, *above* a `start` line pinned to
+  `navbarHeight`. So clicking "My Taste" (or "Let's Connect") never fired
+  the entrance at all — the wall cards / form sat at their `gsap.set` /
+  `tl.from` opacity 0. First shipped a `retirePin()` (`st.kill()` on
+  completion) for B71 alone; live testing then showed it *made B72 worse* —
+  killing the spacer mid-scroll made a fresh nav click to `#connect`
+  overshoot the whole section into the footer.
 
-**Found, pre-existing, NOT fixed here — `FINDINGS.md` B72.** A *fresh cold
-load* → immediately clicking "My Taste" in the nav *before any scroll*:
-the entrance `onEnter` never fires, so the wall cards / setlist rows stay
-at their `gsap.set(opacity: 0)` initial state — invisible. Confirmed
-identical on the committed baseline via `git stash` (this pass did not
-cause or worsen it), and it only reproduces on that one first-action
-flow — any path that scrolls near the section first works. D17/B56 family;
-needs its own `useGSAP` re-run / `once`-trigger timing investigation.
+**Fix — drop both pins** (Experience already dropped its own 2026-08-27;
+About never used one — a `lenis.stop()` hold needs no pin). The entrance is
+now one guarded starter (`beginEntrance` / `resolveEntrance`) fed by: a
+plain trigger whose `start` sits just below the nav-landing point so
+`onEnter` fires on *both* an organic scroll and a nav/deep-link landing; a
+setup-time catch-up for a nav that resolved before the effect mounted; and
+an `onSectionNavigated(id)` signal from `scroll.js` (new). `#my-taste`
+**animates** its cascade on a nav click (the visitor asked to come here —
+this was the direct request); `#connect` **snaps** on any programmatic
+scroll, same as About, because playing its `SplitText` title/description
+tween during a concurrent re-render hit **B56** (below).
 
-Lint unchanged at the 7-error / 2-warning baseline. Files: `main.scss`
-(five section rules), `my-taste.jsx` + `connect.jsx` (`retirePin`).
+**B56 — the `SplitText` / `insertBefore` blank-page crash — fixed for
+`#my-taste`.** `new SplitText(kickerRef.current)` was pointed at the `<a>`
+that also renders `<AvatarSlot>` (null → `<img>` on the profile fetch).
+Playing that cascade on a nav click widened the race enough to reproduce:
+1-in-15 in a light-theme stress run blanked the page. Applied the fix shape
+`FINDINGS.md` B56 always recommended — `kickerRef` moved onto an inner
+`<span class="my-taste-heading-text">` (`display: contents`) that wraps the
+text but **not** `AvatarSlot`, so SplitText never rewrites DOM React also
+inserts into. Re-ran the stress: **0 / 30**.
+
+**Verification** (Playwright, real nav-link clicks + organic scroll,
+1280×680 → 1920×1080). Every section lands at exactly `--scroll-offset`
+(168px) on a fresh nav click, a revisit, and an organic scroll; 0
+horizontal overflow; 0 page errors across 30 stress trials.
+`#my-taste`'s cascade animates in on a nav click (opacity 0 → 1 over
+~2s, staggered); the organic hold still snaps to 168 and plays. The
+J-card fits entirely — Send button and all — down to a 1280×680 window
+(`.jcard-textarea` `min-height` 280 → 140 across the fit passes; section
+padding 5em → 2em; `.contact-container` `padding-top` 6rem → 0.25rem).
+Content overflow past the fold: ≤0 at 1440×900 and up; ≤27px at 1366×768.
+
+Lint unchanged (7 errors / 2 warnings). Files: `main.scss` (six section
+rules), `scroll.js` (`getLastNavTarget` / `onSectionNavigated`),
+`my-taste.jsx` + `connect.jsx` (pins removed, entrance rework, B56 wrapper).
 
 ---
 

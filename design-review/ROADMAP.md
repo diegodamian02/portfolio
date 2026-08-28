@@ -438,22 +438,34 @@ plus a compacted J-card (`.jcard-textarea` `min-height 280→220`, tighter
 header). `#my-taste` trimmed ~40px via outer padding/margin only — **not**
 the wall card / photo / gap sizes that `my-taste.jsx`'s `cardTransform()`
 margin math depends on. `#experience` `min-height` retargeted `navbar →
-scroll-offset` (no pin since 2026-08-27, so nothing reads it). `#about` /
-`#projects` already fit, left alone. Separately, `#my-taste` and `#connect`
-had a **revisit-landing bug** (`FINDINGS.md` **B71**): their one-shot
-entrance `ScrollTrigger` (`pin: true`, `once: true`) never tears its
-pin-spacer down after firing, so a nav click back to the section after an
-earlier scroll-through landed the content ~200px below the offset — fixed
-with a `retirePin()` (`st.kill()` once the entrance has played or been
-skipped). Kept both entrance pins per the request ("keep the pins, just
-make them fit"). One pre-existing bug found and flagged not fixed
-(`FINDINGS.md` **B72**): a fresh cold load → immediate nav click to
-`#my-taste` before any scroll leaves the wall cards at opacity 0 (D17/B56
-family, confirmed identical on the committed baseline). Verified: at
-1440×900 and up every section lands at exactly `--scroll-offset` with 0
-overflow; at 1366×768 the worst residual is ~32px (a few px of scroll,
-nothing cut off). Lint unchanged (7 errors / 2 warnings). `STATUS.md`'s
-own dated entry has the full table.
+scroll-offset` (no pin since 2026-08-27). `#about` / `#projects` already
+fit, left alone.
+>
+> **Follow-up, same day — the entrance pins are gone.** Direct feedback:
+> clicking "My Taste" left the artist cards invisible, and clicking
+> "Let's Connect" dropped the visitor into the middle of the page with the
+> J-card top behind the navbar. Root: both sections hung their one-shot
+> entrance entirely off a `pin: true` ScrollTrigger whose `onEnter` never
+> fires on a nav landing (it stops above the trigger's `start` line —
+> `FINDINGS.md` **B72**), and whose pin-spacer displaced the section
+> ~200px on a revisit (**B71**); a first `retirePin()` fix for B71 then
+> made the connect overshoot worse. **Dropped both pins** (Experience
+> already dropped its own; About never used one). The entrance is now a
+> guarded starter fed by a matched-`start` trigger + a setup catch-up +
+> a new `onSectionNavigated` signal from `scroll.js`. `#my-taste`
+> **animates** its cascade on a nav click (the request); `#connect`
+> **snaps** on any programmatic scroll (its SplitText title/description
+> would race a re-render — **B56**, whose kicker instance is fixed here
+> too: `kickerRef` moved to an inner span that excludes `<AvatarSlot>`).
+> J-card shrunk further (`.jcard-textarea` `min-height` 280 → 140,
+> section padding 5em → 2em) so it fits entirely down to a 1280×680
+> window. `STATUS.md`'s dated entry has the full writeup; 30-trial B56
+> stress run clean.
+
+Verified: at 1440×900 and up every section lands at exactly
+`--scroll-offset` with 0 overflow; at 1366×768 the worst residual is
+~27px (a few px of scroll, nothing cut off). Lint unchanged (7 errors /
+2 warnings). `STATUS.md`'s own dated entry has the full table.
 
 **Also 2026-08-23 (Stage 5) — `#my-taste`'s own mobile layout: two horizontal scroll-snap
 rows.** Jumped ahead of this file's own stated Stage 5 dependency ("Stages 3/4 landing

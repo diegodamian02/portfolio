@@ -5,7 +5,10 @@ import {
     gsap, ScrollTrigger, SplitText,
     CARD_LAND_EASE, CARD_LAND_SQUASH_EASE, PIN_SNAP_EASE,
 } from "../lib/gsap.js";
-import { getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
+import {
+    getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange,
+    getLastNavTarget, onSectionNavigated,
+} from "../lib/scroll.js";
 // Latin + latin-ext subsets specifically, not the package-default imports
 // (`@fontsource/oswald/400.css` etc.) — the default pulls EVERY unicode
 // subset the family ships (cyrillic, cyrillic-ext, vietnamese...), which
@@ -624,28 +627,6 @@ export default function MyTaste() {
                 window.removeEventListener("touchmove", blockTouchMove, { capture: true });
                 window.removeEventListener("keydown", blockScrollKeys, { capture: true });
             }
-
-            // The entrance is a one-shot (once: true). The moment it has played
-            // OR been skipped for a nav click, the ScrollTrigger pin has done
-            // its whole job — but left alone, its pin-spacer keeps padding the
-            // layout by the `end` span (+=200) for the rest of the page's life,
-            // and that padding sits ABOVE .my-taste-section within #my-taste's
-            // box. Result: a later nav click back to "My Taste" (after the pin
-            // was consumed once by an earlier scroll-through) scrolled #my-taste
-            // to the offset but landed the actual content ~200px lower — the
-            // bottom row of artist cards cut off, a screenful of dead space on
-            // top. Retiring the trigger collapses that spacer; the freed 200px
-            // is all below the section's own bottom edge, off-screen for anyone
-            // looking at the section as it releases, so there's no visible
-            // jump. refresh() on the next frame lets #projects / #connect
-            // re-measure against the now-shorter document.
-            let pinRetired = false;
-            function retirePin() {
-                if (pinRetired) return;
-                pinRetired = true;
-                st.kill();
-                requestAnimationFrame(() => ScrollTrigger.refresh());
-            }
             const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "]);
             function blockScrollKeys(e) {
                 if (SCROLL_KEYS.has(e.key)) e.preventDefault();
@@ -654,7 +635,47 @@ export default function MyTaste() {
                 e.preventDefault();
             }
 
-            const tl = gsap.timeline({ paused: true, onComplete: () => { releaseHold(); retirePin(); } });
+            const tl = gsap.timeline({ paused: true, onComplete: releaseHold });
+
+            // The entrance is a one-shot, and it must play on EVERY route into
+            // the section, not just an organic downward scroll. It used to hang
+            // entirely off a `pin: true` ScrollTrigger's onEnter — which never
+            // fired on a nav click (a nav landing stops at --scroll-offset,
+            // above the trigger's own start line) so clicking "My Taste" left
+            // the wall cards frozen at opacity 0 (FINDINGS B72). The pin is
+            // gone now (Experience dropped its own 2026-08-27; About never used
+            // one — a lenis.stop() hold does not need it), which also retires
+            // the pin-spacer displacement bug (B71). Three entry points now
+            // feed one guarded starter:
+            //   - beginEntrance({ hold }) — animate the cascade; optionally
+            //     freeze scroll for it (organic scroll only — a nav click asked
+            //     to come here, don't trap it).
+            //   - resolveEntrance() — snap to the finished state, no animation,
+            //     no hold (a nav click passing THROUGH toward another section).
+            let entranceStarted = false;
+            function beginEntrance({ hold, snapTo } = {}) {
+                if (entranceStarted) return;
+                entranceStarted = true;
+                if (hold) {
+                    holding = true;
+                    const lenis = getActiveLenis();
+                    if (lenis) {
+                        // Lenis's easing can carry a few px past the trigger
+                        // line before this runs — snap to a clean rest first,
+                        // same one-time correction About's own hold uses.
+                        if (snapTo != null) lenis.scrollTo(snapTo, { immediate: true, force: true });
+                        lenis.stop();
+                    }
+                    window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
+                    window.addEventListener("keydown", blockScrollKeys, { capture: true });
+                }
+                tl.play();
+            }
+            function resolveEntrance() {
+                if (entranceStarted) return;
+                entranceStarted = true;
+                tl.progress(1);
+            }
 
             // 1. Kicker — SplitText's own words, all animated together with
             //    NO stagger ("one unified pop, not a per-character reveal" —
@@ -773,120 +794,79 @@ export default function MyTaste() {
             const navbarHeight = () =>
                 parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navbar-height")) || 0;
 
+            // Plain trigger, no pin/scrub. Its start line sits just BELOW where
+            // a nav click lands the section (--scroll-offset = navbar + 24), so
+            // onEnter fires on both routes: an organic downward scroll crossing
+            // it, and a nav click / deep link whose landing at the offset is
+            // already past it. The organic hold then snaps back to the exact
+            // offset (beginEntrance's snapTo), so this +32 only needs to be
+            // >24, it doesn't set the resting position.
             const st = ScrollTrigger.create({
                 trigger: rootRef.current,
-                // navbarHeight-aware "top top", same reasoning Experience's
-                // own trigger uses — keeps a nav click landing on this
-                // section and the pin's own engage point in sync.
-                start: () => "top top+=" + navbarHeight(),
-                // Pin mechanism reused from Experience (pin: true) — but
-                // unlike Experience's scrub-driven filmstrip, this timeline
-                // is NOT scroll-scrubbed; it plays on its own clock once,
-                // and real scroll input is held via lenis.stop()/start()
-                // (About's own established mechanism for a timed hold)
-                // instead. `end` doesn't gate the hold's DURATION (scroll
-                // can't advance toward it at all while stopped, below, so
-                // the pin holds for exactly as long as the hold does
-                // regardless of this number) — it only has to be wide
-                // enough that onEnter reliably FIRES under real scroll
-                // momentum. First tried "+=1": found live (Playwright, a
-                // fast multi-tick scroll) that a big-enough single momentum
-                // jump can cross a 1px-wide start-to-end span within one
-                // ScrollTrigger update tick, so the pin never visually
-                // engaged at all — the exact overshoot class Experience's
-                // own ENTRY_BUFFER and About's own hold-correction comments
-                // already document, just fatal here instead of merely
-                // off-center, because the span was thin enough to jump
-                // clean over. 200 (same order of magnitude as Experience's
-                // own 220px ENTRY_BUFFER) gives real momentum room to be
-                // caught mid-span before `end`, without meaningfully
-                // lengthening the bit of extra scroll needed to fully clear
-                // the section after the hold releases.
-                end: "+=200",
-                pin: true,
-                // Plays once per page view, same as About's own hold — a
-                // 1.5-2s scroll-hold replaying every time a visitor
-                // scrolls back up and down past this section would read as
-                // an obstacle, not a flourish, on the second pass.
+                start: () => "top top+=" + (navbarHeight() + 32),
                 once: true,
-                onEnter: (self) => {
-                    // A nav click (or any programmatic scrollToSection())
-                    // already carrying the visitor straight through this
-                    // section toward another one — same escape hatch
-                    // About's own hold uses: resolve to the finished state
-                    // instantly rather than holding scroll for content
-                    // they didn't ask to watch.
+                onEnter: () => {
                     if (isProgrammaticScrollActive()) {
-                        tl.progress(1);
-                        retirePin();
+                        // A nav scroll is crossing this section. Heading HERE
+                        // -> animate the cascade (no hold, they asked to come).
+                        // Passing THROUGH toward another section -> snap.
+                        if (getLastNavTarget() === "my-taste") beginEntrance({ hold: false });
+                        else resolveEntrance();
                         return;
                     }
 
-                    // Same safety net About's own hold carries in shape, but
-                    // NOT in threshold (found live, B32 — FINDINGS.md): a
-                    // bare `sectionHeight > available` skipped the hold
-                    // entirely on completely ordinary desktop windows, not
-                    // just unusually squeezed ones. This section's own
-                    // content height is fixed (~630px, doesn't shrink with
-                    // the window) — measured live across a real range of
-                    // window heights at 1440px wide: available (viewport
-                    // minus navbar) comes out to 756px at 900px tall (fits,
-                    // holds), but only 516px at 660px and 456px at 600px —
-                    // both completely normal, non-maximized browser-window
-                    // heights (the same reference range `FINDINGS.md` B29
-                    // already used for Experience), and both failed the old
-                    // strict check despite the actual overflow being modest
-                    // (115px/175px, ~22%/38% over, not a section genuinely
-                    // several screens tall). The reported symptom — "the pin
-                    // isn't working" on an ordinary desktop window — was this,
-                    // not a re-occurrence of B30's stale-measurement bug.
-                    //
-                    // Widened to tolerate moderate overflow (the ORIGINAL
-                    // concern — a section genuinely too tall trapping a
-                    // visitor against content mostly cut off — still applies
-                    // at the extreme end, just not at 20-40% over) rather
-                    // than removed outright: SAFETY_NET_OVERFLOW_ALLOWANCE
-                    // (1.6, i.e. up to 60% taller than available) comfortably
-                    // covers the whole 600-900px real-window range measured
-                    // above while still bailing out on a genuinely pathological
-                    // short window (e.g. ~480px tall, ~88% over, still skips).
+                    // Organic scroll. Safety net (shape from About's hold, but
+                    // NOT its strict threshold — B32, FINDINGS.md): a section
+                    // taller than the window by more than
+                    // SAFETY_NET_OVERFLOW_ALLOWANCE (60%) plays its entrance
+                    // without freezing scroll, so a genuinely oversized view
+                    // can't trap the visitor. Ordinary desktop windows
+                    // (600-900px tall) are well inside that and still hold.
                     const available = window.innerHeight - navbarHeight();
                     const sectionHeight = rootRef.current.getBoundingClientRect().height;
                     if (sectionHeight > available * SAFETY_NET_OVERFLOW_ALLOWANCE) {
-                        tl.play();
+                        beginEntrance({ hold: false });
                         return;
                     }
-
-                    holding = true;
-                    const lenis = getActiveLenis();
-                    if (lenis) {
-                        // Correct overshoot before stopping — same fix
-                        // About's own hold needed for the identical reason
-                        // (Lenis's easing can carry scroll position past
-                        // `start` before ScrollTrigger's next tick notices
-                        // the threshold was crossed).
-                        lenis.scrollTo(self.start, { immediate: true, force: true });
-                        lenis.stop();
-                    }
-                    window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
-                    window.addEventListener("keydown", blockScrollKeys, { capture: true });
-                    tl.play();
+                    // Snap to #my-taste's own scroll-margin-top (Lenis reads it
+                    // off the element) so the held view rests at exactly
+                    // --scroll-offset, not wherever the trigger line happened
+                    // to be or wherever momentum carried past it.
+                    beginEntrance({ hold: true, snapTo: document.getElementById("my-taste") });
                 },
             });
 
-            // Covers a nav click that starts WHILE already holding, not
-            // just one that arrives before entry — same reasoning and same
-            // mechanism as About's own subscription.
+            // onEnter only fires on a fresh downward crossing of `start`. A
+            // nav click / deep link that RESOLVED BEFORE this effect mounted
+            // (its Spotify-data dependency wasn't ready yet) lands the section
+            // already past that line, so onEnter never runs. Catch it here on
+            // setup.
+            if (rootRef.current.getBoundingClientRect().top < window.innerHeight * 0.9) {
+                if (isProgrammaticScrollActive() && getLastNavTarget() !== "my-taste") resolveEntrance();
+                else beginEntrance({ hold: false });
+            }
+
+            // A nav click that fires AFTER this effect mounts and heads here:
+            // onEnter's start line now matches the landing point so it usually
+            // catches it, but this is the direct "a nav to us just landed"
+            // signal for a stop that falls a hair short of the line.
+            const unsubNav = onSectionNavigated((id) => {
+                if (id === "my-taste") beginEntrance({ hold: false });
+            });
+
+            // A nav click that starts WHILE the organic hold is running:
+            // release it, and snap the timeline only if the visitor is
+            // actually leaving (not re-triggering us).
             const unsubscribe = onProgrammaticScrollChange((active) => {
                 if (active && holding) {
-                    tl.progress(1);
+                    if (getLastNavTarget() !== "my-taste") tl.progress(1);
                     releaseHold();
-                    retirePin();
                 }
             });
 
             return () => {
                 unsubscribe();
+                unsubNav();
                 releaseHold();
                 st.kill();
                 tl.kill();
@@ -939,33 +919,38 @@ export default function MyTaste() {
                 section keeps exactly one real heading, same as before this
                 task — its accessible name is just the link's own text now. */}
             <h2 className="my-taste-heading">
-                <a className="my-taste-heading-link" href={SPOTIFY_PROFILE_URL} target="_blank" rel="noopener noreferrer" ref={kickerRef}>
+                <a className="my-taste-heading-link" href={SPOTIFY_PROFILE_URL} target="_blank" rel="noopener noreferrer">
                     {/* Task 3.9 — Diego's own Spotify profile photo, left of
-                        the text. Not part of kickerRef's SplitText pop (that
-                        only ever touched the surrounding TEXT nodes, same as
-                        the dot/icon already didn't) — renders immediately,
-                        same as those two, rather than joining Task 4's
-                        cascade (out of scope for this task). */}
+                        the text. Deliberately OUTSIDE kickerRef's span:
+                        AvatarSlot returns null until the profile fetch
+                        resolves, then swaps in an <img> — a React INSERT. If
+                        it sat inside the element SplitText rewrites, that
+                        insert races SplitText's own DOM surgery and throws
+                        `insertBefore`, taking the whole app down with no error
+                        boundary to catch it (FINDINGS.md B56). Keeping it a
+                        sibling of the split span is the fix: React only ever
+                        touches DOM it still has an accurate record of. */}
                     <AvatarSlot imageUrl={avatar.imageUrl} imageAlt="Diego's Spotify profile photo" />
-                    my taste
-                    {/* Stage 5 — the desktop tail ("· listen on spotify" +
-                        icon) and mobile's own condensed tail ("Spotify ↗")
-                        both render into the DOM; main.scss shows exactly one
-                        per breakpoint (same 600px cutoff every other mobile
-                        override in this section already uses), never both.
-                        Both live inside the one kicker <a> — this is still a
-                        single link, not a second nested one. */}
-                    <span className="my-taste-heading-tail-full">
-                        <span className="my-taste-heading-dot" aria-hidden="true">·</span>
-                        listen on spotify
-                        {/* alt="" (decorative), unlike footer.jsx's OWN copy of
-                            this same icon (alt="Spotify" there) — this icon
-                            rides alongside text that already says "listen on
-                            spotify," so announcing it a second time would be
-                            redundant, not helpful. */}
-                        <img className="my-taste-heading-icon" src={theme === "dark" ? spotifyWhite : spotifyBlack} alt="" />
+                    {/* kickerRef is on THIS span, not the <a> — SplitText owns
+                        everything inside it, and nothing React re-renders in
+                        place lives here (the tail <img>'s src flips on theme
+                        but that's an attribute update on a stable node, not an
+                        insert). */}
+                    <span className="my-taste-heading-text" ref={kickerRef}>
+                        my taste
+                        {/* Stage 5 — the desktop tail ("· listen on spotify" +
+                            icon) and mobile's own condensed tail ("Spotify ↗")
+                            both render into the DOM; main.scss shows exactly
+                            one per breakpoint, never both. */}
+                        <span className="my-taste-heading-tail-full">
+                            <span className="my-taste-heading-dot" aria-hidden="true">·</span>
+                            listen on spotify
+                            {/* alt="" (decorative) — rides alongside text that
+                                already says "listen on spotify". */}
+                            <img className="my-taste-heading-icon" src={theme === "dark" ? spotifyWhite : spotifyBlack} alt="" />
+                        </span>
+                        <span className="my-taste-heading-tail-short">Spotify ↗</span>
                     </span>
-                    <span className="my-taste-heading-tail-short">Spotify ↗</span>
                 </a>
             </h2>
 
