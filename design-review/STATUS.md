@@ -3,7 +3,7 @@
 **Updated:** 2026-08-28 (desktop one-screen fit pass — every section fits the
 viewport after a nav click; entrance pins removed; both entrance cascades now
 animate on a nav click; `#connect` dead-space centered; B56 closed for both) ·
-**HEAD:** `e0208e4`+ · **Live:** https://diegodamian.com
+**HEAD:** `7dbb011` (one-screen fit pass merged to `main` + deployed 2026-08-28) · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
