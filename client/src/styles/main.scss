@@ -3908,6 +3908,30 @@ html {
   }
 }
 
+// ---- Sent state — a centered confirmation, not the compose layout
+// (2026-08-29). Direct request: once the form is sent, the cassette player
+// should sit in the middle of the screen with the title directly above it —
+// not the player marooned in the right column with the heading alone in an
+// empty left one. Only [data-state="sent"] changes; the two-column compose
+// layout above is untouched, and mobile already stacked centered. The
+// walkman's scale-up takeover (connect.jsx runSendSequence) now grows in
+// place rather than translating to the section's geometric centre, since
+// this rule already puts it there.
+.contact-container[data-state="sent"] {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-5);
+
+  // In a column, .contact-copy's own `flex: 1` would grow it vertically and
+  // push the player off-centre — neutralise it so the group is title +
+  // player + reset button, sized to content and centred as one.
+  .contact-copy {
+    flex: 0 0 auto;
+  }
+}
+
 // The text column — heading, intro, failure banner. flex: 1 + min-width: 0
 // mirrors .about-me-text's own recipe exactly (same job: a text column
 // beside a fixed-ish-width visual object, sharing whatever room

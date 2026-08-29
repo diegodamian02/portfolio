@@ -645,8 +645,6 @@ export default function Connect() {
         const maxScaleW = (sectionRect.width * SAFE_FRACTION) / walkmanRect.width;
         const maxScaleH = (sectionRect.height * SAFE_FRACTION) / walkmanRect.height;
         const finalScale = Math.min(DESIRED_SCALE, maxScaleW, maxScaleH);
-        const deltaX = (sectionRect.left + sectionRect.width / 2) - (walkmanRect.left + walkmanRect.width / 2);
-        const deltaY = (sectionRect.top + sectionRect.height / 2) - (walkmanRect.top + walkmanRect.height / 2);
 
         const tl = gsap.timeline({ onComplete: () => setSettled(true) });
         sequenceTlRef.current = tl;
@@ -779,12 +777,14 @@ export default function Connect() {
         //    against .contact-section, never position: fixed).
         const stepForward = landed + 0.2;
         tl.to(scrimRef.current, { opacity: 1, duration: 0.3 }, stepForward);
-        //    A pure transform on a permanently position:static element
-        //    (main.scss's own comment on .walkman has the full reasoning) —
-        //    it never leaves normal flow, which is what makes "back to normal
-        //    in-flow content" later (step 9) as simple as animating the SAME
-        //    transform back to none.
-        tl.to(walkmanEl, { x: deltaX, y: deltaY, scale: finalScale, duration: 0.5, ease: SIGNATURE_EASE }, stepForward);
+        //    Scale in place — no translate. The sent-state layout
+        //    (`.contact-container[data-state="sent"]`, main.scss) already
+        //    centres the player under the title, so "step forward" is just a
+        //    grow-over-the-scrim for emphasis; translating to the section's
+        //    geometric centre from here would only shove it up into the
+        //    heading. Still a pure transform on a position:static element, so
+        //    settling back (step 9) is just `scale: 1`.
+        tl.to(walkmanEl, { scale: finalScale, duration: 0.5, ease: SIGNATURE_EASE }, stepForward);
 
         // 5b. Left window's bar visualizer fades in as the lid finishes
         //     sealing — before this, that same physical space was showing the
@@ -821,13 +821,13 @@ export default function Connect() {
         // 8. Scrim fades out.
         const settleStart = lcdStart + LCD_DUR + 0.3;
         tl.to(scrimRef.current, { opacity: 0, duration: 0.4 }, settleStart);
-        // 9. Walkman animates back down into its normal in-flow position —
-        //    clearProps once it lands so nothing about a future transform
-        //    on this element (a hover effect, say) inherits a stale inline
-        //    value, same discipline My Taste's own cascade uses for its
-        //    cards (Task 4).
+        // 9. Walkman scales back to its rest size in its already-centred
+        //    in-flow position — clearProps once it lands so nothing about a
+        //    future transform on this element (a hover effect, say) inherits
+        //    a stale inline value, same discipline My Taste's own cascade
+        //    uses for its cards (Task 4).
         tl.to(walkmanEl, {
-            x: 0, y: 0, scale: 1, duration: 0.5, ease: SIGNATURE_EASE,
+            scale: 1, duration: 0.5, ease: SIGNATURE_EASE,
             onComplete: () => gsap.set(walkmanEl, { clearProps: 'transform' }),
         }, settleStart);
     }
