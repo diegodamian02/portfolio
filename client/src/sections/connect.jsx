@@ -238,7 +238,6 @@ export default function Connect() {
     const submitRef = useRef(null);
     const flightRef = useRef(null);
     const walkmanRootRef = useRef(null);
-    const scrimRef = useRef(null);
     // Whether the walkman has EVER popped in this session — Phase 0 (the
     // pop-in itself) only plays once; every later successful send jumps
     // straight to Phase 1, per the brief's own explicit instruction. A
@@ -585,12 +584,12 @@ export default function Connect() {
         const vizEl = walkmanEl.querySelector('.walkman-visualizer');
 
         if (prefersReducedMotion) {
-            // Skip straight to the settled end state — no scrim, no
-            // scale-up, no scramble, no infinite loop (the brief's own
-            // wording). The flying-cassette clone, if one was mounted for
-            // this send, is dropped without ever animating it. The headline
-            // swap still happens (it's the confirmation message itself,
-            // not a motion flourish) but as a plain text swap, no scramble.
+            // Skip straight to the settled end state — no scale-up, no
+            // scramble, no infinite loop (the brief's own wording). The
+            // flying-cassette clone, if one was mounted for this send, is
+            // dropped without ever animating it. The headline swap still
+            // happens (it's the confirmation message itself, not a motion
+            // flourish) but as a plain text swap, no scramble.
             gsap.set(walkmanEl, { clearProps: 'transform', opacity: 1, scale: 1 });
             if (lidEl) gsap.set(lidEl, { scaleY: 1 });
             if (vizEl) gsap.set(vizEl, { opacity: 1 });
@@ -638,8 +637,8 @@ export default function Connect() {
         // edge to edge and then shrinking all the way back, the single largest
         // chunk of motion in the sequence and the one that read as least
         // purposeful. At the device's current rest size a gentler step forward
-        // (460 -> 621px), over the scrim, reads as emphasis without the
-        // balloon-and-deflate.
+        // (460 -> 621px) reads as emphasis without the balloon-and-deflate —
+        // and now without a scrim behind it (removed by direct request).
         const DESIRED_SCALE = 1.35;
         const SAFE_FRACTION = 0.86;
         const maxScaleW = (sectionRect.width * SAFE_FRACTION) / walkmanRect.width;
@@ -788,23 +787,24 @@ export default function Connect() {
             tl.to(lidEl, { scaleY: 1, duration: LID_DUR, ease: WALKMAN_POP_EASE }, landed);
         }
 
-        // 4. Scrim appears, and 5. the walkman steps forward — both held
-        //    until the clone is gone (landed + 0.2). The clone does NOT scale
-        //    with the walkman (it isn't a child of it), so starting the
-        //    scale-up while it was still visible pulled the bay out from
-        //    under a cassette that stayed exactly where it was — measured
-        //    live at the old timings, 150ms of the two visibly detaching.
-        //    Scrim is scoped to the section (main.scss: position absolute
-        //    against .contact-section, never position: fixed).
-        const stepForward = landed + 0.2;
-        tl.to(scrimRef.current, { opacity: 1, duration: 0.3 }, stepForward);
+        // 4. The walkman steps forward — held until the clone is gone
+        //    (landed + 0.2). The clone does NOT scale with the walkman (it
+        //    isn't a child of it), so starting the scale-up while it was
+        //    still visible pulled the bay out from under a cassette that
+        //    stayed exactly where it was — measured live at the old timings,
+        //    150ms of the two visibly detaching.
+        //
         //    Scale in place — no translate. The sent-state layout
         //    (`.contact-container[data-state="sent"]`, main.scss) already
         //    centres the player under the title, so "step forward" is just a
-        //    grow-over-the-scrim for emphasis; translating to the section's
-        //    geometric centre from here would only shove it up into the
-        //    heading. Still a pure transform on a position:static element, so
-        //    settling back (step 9) is just `scale: 1`.
+        //    small grow for emphasis; translating to the section's geometric
+        //    centre from here would only shove it up into the heading. There
+        //    used to be a dim scrim behind this beat — removed by direct
+        //    request ("why does the background change? can we remove that?");
+        //    the grow reads fine on its own against the section's real
+        //    background. Still a pure transform on a position:static element,
+        //    so settling back (step 9) is just `scale: 1`.
+        const stepForward = landed + 0.2;
         tl.to(walkmanEl, { scale: finalScale, duration: 0.5, ease: SIGNATURE_EASE }, stepForward);
 
         // 5b. Left window's bar visualizer fades in as the lid finishes
@@ -839,9 +839,7 @@ export default function Connect() {
         // reads as a moment arrived at, not a blur passed through. Measured
         // from the LAST thing to finish (the LCD resolving) rather than from
         // whatever happened to be at the end of the timeline.
-        // 8. Scrim fades out.
         const settleStart = lcdStart + LCD_DUR + 0.3;
-        tl.to(scrimRef.current, { opacity: 0, duration: 0.4 }, settleStart);
         // 9. Walkman scales back to its rest size in its already-centred
         //    in-flow position — clearProps once it lands so nothing about a
         //    future transform on this element (a hover effect, say) inherits
@@ -1102,12 +1100,6 @@ export default function Connect() {
 
     return (
         <section className="contact-section" ref={rootRef}>
-            {/* Section-scoped dim scrim (Phase 1 step 4) — position: absolute
-                against .contact-section (main.scss), never position: fixed,
-                so it can never cover anything outside #connect or follow
-                scroll past it. */}
-            <div className="connect-scrim" ref={scrimRef} aria-hidden="true" />
-
             {/* data-state mirrors turntable.jsx's own data-deck-state precedent
                 — idle | sent only now (Task 1 revision collapsed the old
                 sending/error values, see the module comment above). The

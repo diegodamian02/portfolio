@@ -3849,8 +3849,8 @@ html {
   min-height: calc(100vh - var(--scroll-offset));
   min-height: calc(100dvh - var(--scroll-offset));
   overflow: hidden;
-  // Positioning context for .connect-scrim and the walkman takeover's own
-  // centering transform (walkman.jsx/connect.jsx) — both are section-scoped
+  // Positioning context for the walkman takeover's own scale-up transform
+  // and the .cassette-flight clone (walkman.jsx/connect.jsx) — section-scoped
   // per the brief ("not viewport-wide fixed"), not viewport-fixed, so they
   // resolve against THIS box, not html/body. overflow: hidden above (Task 1,
   // unrelated) doubles as the takeover's own clip boundary for free — the
@@ -3974,14 +3974,11 @@ html {
   font-size: 2.5rem;
   // The heading IS the confirmation message after a successful send
   // (connect.jsx scrambles this same element to "Thank you for reaching
-  // out!"), and .connect-scrim — z-index 5, absolute over the whole
-  // section — was painting straight over it for the ~1.4s the takeover
-  // holds. Confirmed live before fixing: the heading measured opacity 1
-  // with correct text and correct colour the entire time, and was still
-  // invisible in the screenshot, because the scrim was on top of it. A
-  // z-index needs a positioned element to apply to, hence the
-  // position: relative; 8 puts it above .cassette-flight (7) too, so the
-  // flying cassette can never clip the message either.
+  // out!"). It has to stay above .cassette-flight (z-index 7) during the
+  // takeover so the flying cassette can never clip the message — a z-index
+  // needs a positioned element to apply to, hence position: relative + 8.
+  // (This also kept it clear of the dim send scrim, back when there was
+  // one — removed 2026-08-29.)
   position: relative;
   z-index: 8;
   // Was `60` — a typo for `600` already flagged in ROADMAP.md/STATUS.md
@@ -4603,32 +4600,11 @@ html {
   z-index: 7;
 }
 
-// Section-scoped dim scrim (Phase 1 step 4) — absolute against
-// .contact-section, NOT position: fixed, so it can never cover anything
-// outside #connect or follow scroll past it, per the brief's own explicit
-// constraint. Flat colour, no gradient, matching the rest of this site's
-// visual language.
-.connect-scrim {
-  position: absolute;
-  inset: 0;
-  // 40%, down from 55%, for two reasons that point the same way. The
-  // takeover it dims for is now a 1.35x step forward rather than the old
-  // 2.3x balloon (connect.jsx), so a near-blackout was doing far more work
-  // than the motion behind it asked for. And .contact-title now sits ABOVE
-  // this layer (z-index, above) as the send's only confirmation message —
-  // measured at 55%, that heading read 17.89:1 in dark theme but only
-  // 3.73:1 in light, because darkening a light page pushes the ground
-  // TOWARD the dark text instead of away from it. At 40% light measures
-  // 6.18:1 with dark essentially unchanged at 17.66:1. Both figures are
-  // computed from the rendered DOM (scrim alpha x element opacity composited
-  // over the section's real background), not read off a screenshot.
-  // Flat colour, no gradient,
-  // matching the rest of this site's visual language.
-  background: color-mix(in srgb, black 40%, transparent);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 5;
-}
+// The dim scrim that used to back the send takeover's step-forward was
+// removed 2026-08-29 by direct request ("why does the background change?
+// can we remove that?"). The 1.35x grow (connect.jsx) reads as emphasis on
+// its own against the section's real background; nothing else depended on
+// the scrim layer.
 
 // The walkman itself. Rest size/position is plain static in-flow content
 // (brief's own 9a — "no fixed positioning") the ENTIRE time; the takeover's
