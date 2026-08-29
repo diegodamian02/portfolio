@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-28, desktop one-screen fit pass — every section fits the viewport after a nav click; entrance pins removed; both entrance cascades animate on a nav click; `#connect` dead-space centered; B56 closed for `#my-taste` + `#connect`)*
+## 0. Current state — quick summary *(updated 2026-08-29, `#connect` send-state polish — sent layout centred [player middle, title above], heading glides in, takeover scrim removed, "send another" fades in. Prior 2026-08-28: desktop one-screen fit pass — every section fits after a nav click; entrance pins removed; both cascades animate on a nav click; B56 closed for `#my-taste` + `#connect`)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -465,6 +465,16 @@ fit, left alone.
 > window; `.contact-section` `align-items: center` removes the ~250px
 > dead band the two-column layout left below the block. `STATUS.md`'s
 > dated entry has the full writeup; B56 stress run clean at 0 / 50.
+>
+> **Follow-up, 2026-08-29 — `#connect` send-state polish (4 tweaks).**
+> Direct feedback on the send-success takeover: (1) the sent layout now
+> centres — title on top, cassette player in the middle, "send another"
+> below — instead of the player stuck in the compose layout's right column;
+> (2) the heading glides left→centre over 0.55s instead of teleporting when
+> the layout switches; (3) the dim takeover scrim is gone ("why does the
+> background change?"); (4) "send another message" fades + rises in instead
+> of popping. All on `main` + deployed (`8c40909`); `STATUS.md` has the
+> full writeup. Compose layout and every other section untouched.
 
 Verified: at 1440×900 and up every section lands at exactly
 `--scroll-offset` with 0 overflow; at 1366×768 the worst residual is

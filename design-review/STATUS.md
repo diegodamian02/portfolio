@@ -1,9 +1,11 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-28 (desktop one-screen fit pass — every section fits the
-viewport after a nav click; entrance pins removed; both entrance cascades now
-animate on a nav click; `#connect` dead-space centered; B56 closed for both) ·
-**HEAD:** `7dbb011` (one-screen fit pass merged to `main` + deployed 2026-08-28) · **Live:** https://diegodamian.com
+**Updated:** 2026-08-29 (`#connect` send-state polish — sent layout centred
+[player middle, title above], heading glides in instead of teleporting, dim
+takeover scrim removed, "send another message" fades in). Prior: 2026-08-28
+desktop one-screen fit pass — every section fits after a nav click; entrance
+pins removed; both entrance cascades animate on a nav click; B56 closed for both. ·
+**HEAD:** `8c40909` (all of the above merged to `main` + deployed) · **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -7241,6 +7243,44 @@ Lint unchanged (7 errors / 2 warnings). Files: `main.scss` (six section
 rules + `.contact-section` centering), `scroll.js` (`getLastNavTarget` /
 `onSectionNavigated`), `my-taste.jsx` + `connect.jsx` (pins removed,
 entrance rework, B56 inner-span wrappers).
+
+---
+
+### `#connect` send-state polish *(2026-08-29 — merged to `main` + deployed, `8c40909`)*
+
+Four direct-feedback tweaks to the send-success takeover, in order:
+
+1. **Sent layout is centred.** `.contact-container[data-state="sent"]`
+   becomes a single centred column — title on top, cassette player in the
+   middle, "send another message" below — instead of the player marooned in
+   the compose layout's right column with the heading alone in an empty left
+   one. `runSendSequence`'s step-forward now *scales the player in place*
+   (it's already centred) rather than translating to the section's geometric
+   centre; `deltaX`/`deltaY` gone. Compose layout untouched; mobile already
+   stacked centred.
+2. **Heading glides in.** The layout switch used to teleport the heading
+   left→centre in the frame the form unmounts. `handleSubmit` now captures
+   the heading's rendered-text box (inner span, tight to the glyphs)
+   pre-reflow; `runSendSequence` offsets the `<h2>` back by the delta and
+   rides it to zero over 0.55s on `SIGNATURE_EASE`, alongside the scramble
+   and the cassette flight.
+3. **Dim scrim removed.** The step-forward faded a 40%-black section-scoped
+   overlay in and out around the player's scale-up. `.connect-scrim` element,
+   SCSS rule, and both opacity tweens deleted — the 1.35× grow reads as
+   emphasis on its own. `.contact-title` keeps `z-index: 8` (for
+   `.cassette-flight`, z 7).
+4. **"Send another message" fades in.** It mounted abruptly on
+   `settled`; now a `useEffect` fades + rises it (`opacity 0→1`, `y 8→0`,
+   0.45s `SIGNATURE_EASE`) on a plain wrapper div so the button's own
+   `:hover` scale transition is untouched. Reduced motion skips it.
+
+Verified (Playwright, 1366×768 / 1440×900): title + player centred to the
+exact viewport centre-x; "send another" bottom clears the fold (790px @
+1440, 724px @ 1366); cassette flight still lands in the bay; heading glide
+samples 8px→0 over ~0.4s; 6× and 12× send/reset runs settle at ~2.7s with
+0 errors and the `<h2>` transform clearing to `none` each time; reduced
+motion lands the same centred layout with no transitions. Build clean,
+lint 7/2. Files: `connect.jsx`, `main.scss`.
 
 ---
 
