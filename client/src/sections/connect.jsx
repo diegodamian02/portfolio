@@ -565,7 +565,7 @@ export default function Connect() {
     // that it's handed a real Flip state and called at the right moment —
     // handleSubmit now calls it synchronously, immediately after
     // validation passes, instead of inside a resolved promise.
-    function runSendSequence(cassetteFlipState) {
+    function runSendSequence(cassetteFlipState, titleTextBefore) {
         const walkmanEl = walkmanRootRef.current;
         const sectionEl = rootRef.current;
         if (!walkmanEl || !sectionEl) return;
@@ -695,6 +695,27 @@ export default function Connect() {
             scrambleText: { text: HEADLINE_SENT, chars: 'upperAndLowerCase', speed: 0.3 },
             duration: 0.6,
         }, 0);
+
+        // Heading glide — the sent-state layout (main.scss) moves the heading
+        // from the compose column to screen centre; without this it teleports
+        // there in the same frame the form unmounts. Compare the text box
+        // captured pre-reflow (handleSubmit) against where it landed, offset
+        // the <h2> back by that delta, and ride it to zero over the takeover's
+        // opening beat — measured on the inner span both times so the
+        // left→centre align switch doesn't skew the delta. clearProps so no
+        // stale transform lingers on an element the scramble/settle also
+        // touch. Runs at 0, alongside the scramble and the walkman's arrival.
+        if (titleTextBefore && titleRef.current && titleTextRef.current) {
+            const after = titleTextRef.current.getBoundingClientRect();
+            const dx = (titleTextBefore.left + titleTextBefore.width / 2) - (after.left + after.width / 2);
+            const dy = (titleTextBefore.top + titleTextBefore.height / 2) - (after.top + after.height / 2);
+            if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+                tl.from(titleRef.current, {
+                    x: dx, y: dy, duration: 0.55, ease: SIGNATURE_EASE,
+                    clearProps: 'transform',
+                }, 0);
+            }
+        }
 
         // Phase 0 — reveal. Skipped on any send after the first: the
         // walkman is already visible/settled from a prior send in this
@@ -1003,6 +1024,16 @@ export default function Connect() {
             cassetteFlipState = Flip.getState(cassetteRef.current);
         }
 
+        // The heading's rendered-text box in the CURRENT (compose) layout —
+        // measured on the inner span so it's tight to the glyphs, immune to
+        // the left-align → centre-align switch the sent layout brings.
+        // runSendSequence rides it from here to its new centred home instead
+        // of letting the reflow below teleport it. Same before-flushSync
+        // ordering rule as the Flip state above.
+        const titleTextBefore = titleTextRef.current
+            ? titleTextRef.current.getBoundingClientRect()
+            : null;
+
         // Snapshot the payload before formData resets below. email is sent
         // as-is (possibly '') — server.js treats a blank string the same as
         // absent.
@@ -1020,7 +1051,7 @@ export default function Connect() {
         // over the instant they submit, not after a round trip. A failure
         // (caught below) is handled entirely out of band, after the fact —
         // this call is never delayed, reversed, or interrupted by it.
-        runSendSequence(cassetteFlipState);
+        runSendSequence(cassetteFlipState, titleTextBefore);
 
         axios.post(`${apiBaseUrl}/api/contact`, payload).catch((error) => {
             // Nothing about the walkman/sequence is touched here — it has
