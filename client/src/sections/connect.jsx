@@ -238,6 +238,11 @@ export default function Connect() {
     const submitRef = useRef(null);
     const flightRef = useRef(null);
     const walkmanRootRef = useRef(null);
+    // Wraps the "send another message" button so its entrance fade+rise
+    // (the effect below) animates a plain div's transform — the button's
+    // own transform is left free for its :hover scale, and the div carries
+    // no CSS transition to fight GSAP's per-frame writes.
+    const resetWrapRef = useRef(null);
     // Whether the walkman has EVER popped in this session — Phase 0 (the
     // pop-in itself) only plays once; every later successful send jumps
     // straight to Phase 1, per the brief's own explicit instruction. A
@@ -527,6 +532,19 @@ export default function Connect() {
             sequenceTlRef.current?.kill();
         };
     }, []);
+
+    // "Send another message" mounts abruptly the moment the takeover settles
+    // (`status === 'sent' && settled`). Fade + rise it in over the takeover's
+    // own SIGNATURE_EASE beat so it arrives rather than pops. Runs on the
+    // wrapper (see resetWrapRef) so the button's :hover scale stays intact;
+    // clearProps so nothing lingers for the next send.
+    useEffect(() => {
+        if (status !== 'sent' || !settled || prefersReducedMotion) return;
+        if (!resetWrapRef.current) return;
+        gsap.from(resetWrapRef.current, {
+            opacity: 0, y: 8, duration: 0.45, ease: SIGNATURE_EASE, clearProps: 'all',
+        });
+    }, [status, settled, prefersReducedMotion]);
 
     // Found empirically, not assumed: with the compose form comfortably
     // centered in view (scrollIntoView({block:'center'}) on the submit
@@ -1395,9 +1413,11 @@ export default function Connect() {
                     <div className="walkman-stage">
                         <Walkman rootRef={walkmanRootRef} />
                         {status === 'sent' && settled && (
-                            <button type="button" className="walkman-reset-button" onClick={handleSendAnother}>
-                                Send another message
-                            </button>
+                            <div className="walkman-reset-wrap" ref={resetWrapRef}>
+                                <button type="button" className="walkman-reset-button" onClick={handleSendAnother}>
+                                    Send another message
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}

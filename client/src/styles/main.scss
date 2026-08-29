@@ -4861,6 +4861,14 @@ html {
   gap: var(--space-4);
 }
 
+// Plain wrapper around "send another message" — hugs the button so
+// .walkman-stage's align-items: center keeps it centred, and gives
+// connect.jsx a transition-free element to run the button's entrance
+// fade+rise on without fighting the button's own :hover transform.
+.walkman-reset-wrap {
+  display: flex;
+}
+
 // "Send another message" — was .submit-button (the same ghost/ text-only
 // treatment as the real Send button, which reads fine as a link WITHIN a
 // form but not as a standalone action following a confirmation). This
