@@ -818,9 +818,33 @@ A "the snap isn't happening" report immediately after this landed traced to
 **production not having the change yet**, not to a defect — confirmed by
 probing local and live side by side (`window.lenis.snap` true/false, and a
 ±180px park on `#projects`, the only hold-free section). `STATUS.md`'s own
-dated entry has that writeup, the tuning knobs, and the reusable lesson:
-**test snap on a hold-free section**, because an entrance hold lands on the
-same line a snap would and masks its absence.
+dated entry has that writeup and the reusable lesson: **test snap on a
+hold-free section**, because an entrance hold lands on the same line a snap
+would and masks its absence.
+
+**Also 2026-08-30 — `lenis/snap` is gone; the snap is hand-rolled.** Live
+feedback on the deployed build: still reads as no snap, you can rest between
+sections, and scrolling got worse. Measured: **1116ms** from the last input to
+the page coming to rest — long enough that it reads as absent while scrolling
+and as the page lurching on its own when it does fire — plus a 26px dead band
+mid-gap from a threshold set at almost exactly half a section gap.
+
+Both `lenis/snap` modes were then tried and **both failed, in opposite ways**:
+`proximity` lands correctly (6/6) but drags the visitor back onto the line they
+just left, so a mouse wheel turned slower than the debounce was **permanently
+trapped** — 8 notches, net 0px (a flaw present in the first shipped version
+too); `lock` never does that but strands you *between* sections on a hard flick
+(4/6). Replaced by `client/src/lib/section-snap.js` (~90 lines), which adds the
+one rule neither can express: nearest line, except when it is the line you are
+docked at and you have already been pulled back once — then carry you forward
+instead, gated on whether the gap fits one screen so a tall section
+(`#projects` expanded, 1.33×) keeps a freely scrollable middle.
+
+Verified across 1280×680 → 1920×1080: **60/60** rest positions land on a line,
+**0** dead bands, slow mouse progresses at every notch interval, latency
+**1116ms → 600ms**, holds/nav/deep-links/filmstrip/reduced-motion all
+unchanged, 0 page errors, lint 7/2, bundle **−5.35 kB**. Full writeup:
+`STATUS.md`'s own dated entry.
 
 **Not started yet, in the order the roadmap currently has them:**
 

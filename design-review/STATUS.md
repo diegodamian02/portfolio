@@ -7361,9 +7361,9 @@ unmoved.
   (baseline). `npm run build` clean; JS bundle **551.09 → 558.03 kB**
   (**+6.94 kB raw / +1.89 kB gz**, all `lenis/snap`), no `package.json` change.
 
-**Tuning knobs if it reads as too grabby on the live site:**
-`distanceThreshold` (`'40%'`), `debounce` (`500`), `duration` (`0.8`) — all in
-the `new Snap(...)` call in `smooth-scroll.jsx`.
+**Tuning knobs:** `THRESHOLD_RATIO`, `DEBOUNCE_MS`, `DURATION_S` — all named
+constants at the top of `lib/section-snap.js`. (Superseded below: the
+`lenis/snap` options this paragraph originally listed no longer exist.)
 
 **Post-ship note — "the snap isn't happening" was a deployment gap, not a
 bug.** Reported live right after the local verification above: *"so far we
@@ -7384,6 +7384,71 @@ line a snap would — the hold masks a missing snap perfectly. **(2)** this is
 the third time a "still broken" report has traced to unpushed/undeployed work
 (see the working agreement's own "Push after every commit" note); the
 side-by-side origin probe above is the cheap way to settle it in one run.
+
+---
+
+### Scroll-snap, second pass — `lenis/snap` replaced by `lib/section-snap.js` *(2026-08-30)*
+
+Live feedback on the deployed build above, and both halves were real:
+*"there is not snap, i can still scroll in between section… experience doesn't
+snap at any point"* and *"the scrolling quality has worse."*
+
+**Measured first.** Latency from the last input event to the page coming to
+rest was **1116ms** (median, six trackpad flicks with a realistic momentum
+tail). That single number explains both complaints: during ordinary scrolling
+the visitor has already moved on before it fires, so it reads as absent — and
+when it does fire, the page sits still and then lurches 110–134px on its own,
+which reads as the scroll fighting them. Separately, `distanceThreshold: 40%`
+was almost exactly half a section gap, leaving a **26px dead band** in the
+middle of `about→experience` (1/25 sampled rest positions never snapped).
+
+**Both `lenis/snap` modes were tried and both failed, in opposite ways:**
+
+| mode | lands on a line | slow mouse wheel |
+|---|---|---|
+| `proximity` (debounce 250) | **6/6** | **trapped** — 8 notches × 100px = net **0px**, permanently |
+| `lock` (debounce 500) | **4/6** — stranded at 782 and 2170 on hard flicks | progressed |
+
+`proximity` always snaps to the *nearest* line, so it drags the visitor back
+onto the one they just left; with a wheel turned slower than the debounce every
+notch was undone and a section could not be left at all. **That trap is in the
+first shipped version too** (debounce 500 → trapped at ≥500ms between notches),
+which is why this was fixed rather than retuned. `lock` always advances one
+section, fixing that, but a hard flick overshoots and its internal guard blocks
+the correction, coming to rest *between* sections — the exact reported symptom.
+
+**Replaced with a ~90-line hand-rolled snap** (`client/src/lib/section-snap.js`),
+because the missing behaviour is one rule neither mode can express: snap to the
+nearest line, **except when it is the line the visitor is docked at and we have
+already pulled them back once** — then carry them to the next line in their
+direction instead. Two refinements were needed, both found by measurement, not
+reasoning:
+
+- Keying the rule on *where the gesture started* only worked for a single
+  notch; the second notch begins off-line, so the rule stopped applying and the
+  page snapped back again. It has to track the line the visitor is **docked
+  at**, persisting across the whole departure.
+- Allowing the *first* pull-back is what keeps "stopped mid-gap" settling onto
+  a line. Refusing every backward snap re-opened the dead bands (2/25 stuck).
+- Reaching the next line means travelling nearly a whole gap, further than the
+  threshold — so the forward hop is gated on whether the gap **fits one
+  screen** instead. A gap larger than ~1.05× viewport means the section is
+  genuinely taller than the screen (`#projects` with a row expanded is 1133px,
+  1.33×) and its middle stays freely scrollable.
+
+Constants: `DEBOUNCE_MS 250`, `DURATION_S 0.45`, `THRESHOLD_RATIO 0.55`,
+`AT_LINE_PX 8`. The `stop()`/`start()` shape is unchanged, so the three
+entrance holds (`about.jsx`, `my-taste.jsx`, `connect.jsx`) needed no edits.
+
+**Verified** at 1920×1080 / 1440×850 / 1366×768 / 1280×680: **60/60** rest
+positions land on a line; **0/25** dead bands (was 1/25); slow mouse wheel
+progresses at 200/350/500/700/1000ms between notches (was net 0px at ≥500ms);
+settle latency **1116ms → 600ms**; `#projects` expanded still fully readable;
+`#about` hold still blocks input for its whole cascade then releases; nav
+clicks and `/#hash` land at 168 ± 0.3px; filmstrip still horizontal-only;
+reduced motion still has no snap; 0 page errors throughout. Lint 7/2
+(baseline). Bundle **558.03 → 552.68 kB** (−5.35 kB raw, −1.27 kB gz) —
+dropping `lenis/snap` costs more than the replacement adds.
 
 **Files:** `smooth-scroll.jsx` (construct `Snap`, `rebuildSnapPoints()` on the
 existing refresh debounce, destroy in cleanup), `scroll.js`
