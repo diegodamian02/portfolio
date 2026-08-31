@@ -3,7 +3,7 @@ import "../styles/main.scss";
 import diego from "../assets/diego.jpg";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger, SplitText, SIGNATURE_EASE } from "../lib/gsap.js";
-import { getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
+import { getActiveLenis, getActiveSnap, isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
 
 // About Me — the calm intro card, Stage 3 Task 4. Replaces the old
 // .bio-section entirely (photo + two paragraphs + Rutgers logo + flag
@@ -185,6 +185,9 @@ export default function About() {
                 if (!holding) return;
                 holding = false;
                 getActiveLenis()?.start();
+                // Resume the site-wide section snap, paused on hold engage
+                // below so it doesn't fire on top of the entrance cascade.
+                getActiveSnap()?.start();
                 window.removeEventListener("touchmove", blockTouchMove, { capture: true });
                 window.removeEventListener("keydown", blockScrollKeys, { capture: true });
             }
@@ -324,6 +327,7 @@ export default function About() {
                         lenis.scrollTo(self.start, { immediate: true, force: true });
                         lenis.stop();
                     }
+                    getActiveSnap()?.stop();
                     window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
                     window.addEventListener("keydown", blockScrollKeys, { capture: true });
                     tl.play();

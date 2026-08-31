@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-29, `#connect` send-state polish — sent layout centred [player middle, title above], heading glides in, takeover scrim removed, "send another" fades in. Prior 2026-08-28: desktop one-screen fit pass — every section fits after a nav click; entrance pins removed; both cascades animate on a nav click; B56 closed for `#my-taste` + `#connect`)*
+## 0. Current state — quick summary *(updated 2026-08-30, **site-wide vertical scroll-snap** — every section settles to `--scroll-offset` when a wheel/trackpad gesture rests near it, both directions [`proximity` via `lenis/snap`, no CSS scroll-snap]; the three entrance holds pause it while they play. Prior 2026-08-29: `#connect` send-state polish — sent layout centred, heading glides in, takeover scrim removed, "send another" fades in. Prior 2026-08-28: desktop one-screen fit pass — every section fits after a nav click; entrance pins removed; both cascades animate on a nav click; B56 closed for `#my-taste` + `#connect`)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -770,6 +770,57 @@ two themes' columns close on it from opposite sides.
 Contrast, worst case over all seven palette entries: **12.28 / 5.87 / 12.11 /
 17.03** dark and **11.75 / 5.15 / 8.02 / 17.44** light. GPU **0.363 ms/frame**
 (2.2% of a 60Hz budget). Full writeup: `STATUS.md`'s own dated entry.
+
+**Also 2026-08-29 — site-wide vertical scroll-snap (a new scroll model, not
+part of any numbered stage).** Direct request: hold/pin every section briefly
+on scroll for "a nice flow … something that wouldn't be annoying." Resolved
+with the owner to **scroll-snap to section tops** on all six sections rather
+than a timed hold — a deliberate trajectory choice, noted here per the working
+agreement on scroll-model changes. **No new entrance holds:** `#about` /
+`#my-taste` / `#connect` keep the `lenis.stop()` cascade holds they already
+have ("if it's for the animations, only hold the sections that have animations
+integrated"); `#home` / `#experience` / `#projects` get snap only.
+
+Mechanism: **`lenis/snap`**, which ships inside the installed `lenis@1.3.26`
+(no new dependency). `type: 'proximity'` — it only glides to the nearest
+section line when a wheel/trackpad gesture *comes to rest* within
+`distanceThreshold` (`'40%'` of viewport height); it never interrupts a moving
+gesture, and a section taller than the viewport stays freely scrollable in its
+middle. **No CSS `scroll-snap`** — already documented as fighting
+Lenis/Chromium here (`main.scss`, the `.experience-viewport` note). The
+snap engine is constructed alongside Lenis in `smooth-scroll.jsx`, exposed via
+a new `getActiveSnap()` singleton in `scroll.js`, and paused (`snap.stop()`)
+for the duration of each entrance hold. Nav clicks and `/#hash` deep links go
+through `lenis.scrollTo()` (no `virtual-scroll` event) so they are immune by
+construction. Snap points are computed pixel values (`section top −
+scroll-margin-top`, i.e. `--scroll-offset`) rebuilt on the existing
+`ScrollTrigger.refresh()` debounce, because `lenis/snap`'s own `addElement()`
+has no navbar-offset hook.
+
+**`#experience`:** this is *not* a return of the pin removed 2026-08-27 — no
+scroll remap, no hold, no scrub. The horizontal filmstrip is untouched and
+verified still working (horizontal wheel drives `scrollLeft`, page `scrollY`
+unmoved).
+
+**Deliberate limitations:** touch never snaps (`Snap.onSnap` returns on
+`touchmove` — mobile is Stage 5's pass), keyboard scroll never snaps (Lenis
+doesn't route it through `virtual-scroll`), reduced motion has no snap at all
+(no Lenis instance → no `Snap`).
+
+Playwright-verified at 1440×850 with real wheel events: every section settles
+at `top = 168 ± 2px` scrolling both directions; continuous fast scroll stays
+strictly monotonic (no yank-back); nav clicks and a `/#projects` deep link
+land at 168; the `#about` hold still blocks input for its whole cascade then
+releases; 0 page errors throughout. Lint 7/2 (baseline), JS bundle +6.94 kB
+raw / +1.89 kB gz (all `lenis/snap`).
+
+A "the snap isn't happening" report immediately after this landed traced to
+**production not having the change yet**, not to a defect — confirmed by
+probing local and live side by side (`window.lenis.snap` true/false, and a
+±180px park on `#projects`, the only hold-free section). `STATUS.md`'s own
+dated entry has that writeup, the tuning knobs, and the reusable lesson:
+**test snap on a hold-free section**, because an entrance hold lands on the
+same line a snap would and masks its absence.
 
 **Not started yet, in the order the roadmap currently has them:**
 

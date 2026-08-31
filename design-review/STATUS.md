@@ -1,11 +1,12 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-29 (`#connect` send-state polish — sent layout centred
-[player middle, title above], heading glides in instead of teleporting, dim
-takeover scrim removed, "send another message" fades in). Prior: 2026-08-28
-desktop one-screen fit pass — every section fits after a nav click; entrance
-pins removed; both entrance cascades animate on a nav click; B56 closed for both. ·
-**HEAD:** `8c40909` (all of the above merged to `main` + deployed) · **Live:** https://diegodamian.com
+**Updated:** 2026-08-30 (**site-wide vertical scroll-snap** — every section
+settles to `--scroll-offset` when a wheel/trackpad gesture comes to rest near
+it, both directions; `proximity` via `lenis/snap`, no CSS scroll-snap; the
+three entrance holds pause it while they play). Prior: 2026-08-29 `#connect`
+send-state polish — sent layout centred, heading glides in, takeover scrim
+removed, "send another message" fades in. ·
+**Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
 [`ROADMAP.md`](./ROADMAP.md) (order of work). This file covers **where the project
@@ -7281,6 +7282,113 @@ samples 8px→0 over ~0.4s; 6× and 12× send/reset runs settle at ~2.7s with
 0 errors and the `<h2>` transform clearing to `none` each time; reduced
 motion lands the same centred layout with no transitions. Build clean,
 lint 7/2. Files: `connect.jsx`, `main.scss`.
+
+---
+
+### Site-wide vertical scroll-snap *(2026-08-29/30)*
+
+Direct request: pin/hold every section briefly as you scroll for "a nice flow …
+something that wouldn't be annoying." After discussion the chosen mechanism is
+**scroll-snap to section tops** (not a timed hold), on all six sections — a
+deliberate trajectory choice by the owner. **No new entrance holds:** the three
+sections that already freeze scroll for their entrance cascade (`#about`,
+`#my-taste`, `#connect`) keep those unchanged; `#home` / `#experience` /
+`#projects` get snap only.
+
+**Mechanism — `lenis/snap`.** The `Snap` class ships *inside* the
+already-installed `lenis@1.3.26` (`lenis/snap` export) — **no new dependency**.
+It listens to Lenis's `virtual-scroll` event (raw wheel/trackpad only), debounces
+500ms, and once input settles glides (`lenis.scrollTo`, 0.8s) to the nearest
+registered snap value **iff** within `distanceThreshold: '40%'` of viewport
+height. `type: 'proximity'` — never interrupts an in-progress gesture, and a
+section taller than the viewport stays freely scrollable through its middle.
+**No CSS `scroll-snap`** anywhere — it's already documented as fighting
+Lenis/Chromium here (`main.scss`, the `.experience-viewport` note).
+
+**Navbar offset.** `lenis/snap`'s `addElement()` snaps an element's raw document
+top to scroll 0 — every section would land *under* the 144px fixed navbar, and
+the module has no offset hook. So snap points are registered as computed pixel
+values instead — each section's absolute top minus its own resolved
+`scroll-margin-top` (= `--scroll-offset`, 168px), the same
+`getComputedStyle(el).scrollMarginTop` read Lenis itself does for
+`scrollTo(element)`. Rebuilt on every layout shift, hung off the **existing**
+`scheduleRefresh()` debounce in `smooth-scroll.jsx` that already re-measures
+ScrollTrigger for the identical stale-measurement reason (fonts, async content,
+sibling reflow).
+
+**Interaction with the three entrance holds.** Each section's existing
+`beginEntrance()` hold branch now calls `getActiveSnap()?.stop()` next to its
+`lenis.stop()`, and `releaseHold()` calls `getActiveSnap()?.start()` next to
+`lenis.start()` — so the section snap can't fire on top of a cascade. Snap
+instance exposed via a new `getActiveSnap()` / `setActiveSnap()` singleton in
+`scroll.js`, mirroring `getActiveLenis()`.
+
+**Nav clicks & deep links are immune by construction** — they go through
+`lenis.scrollTo()`, which emits no `virtual-scroll`.
+
+**Deliberate limitations (not oversights):**
+- **Touch devices never snap** — `Snap.onSnap` hard-returns on `touchmove`.
+  Acceptable v1; mobile gets its own tuned pass (Stage 5).
+- **Keyboard scroll (arrows / PageDn) never snaps** — Lenis doesn't route
+  keyboard through `virtual-scroll`. Nav/deep-link keyboard landings are
+  unchanged (`scroll-margin-top`).
+- **Reduced motion: no snap at all** — no Lenis instance, so no `Snap`
+  constructed. Consistent with "smooth scroll disabled entirely."
+
+**`#experience` reversal, flagged per the working agreement.** Its pin was
+removed 2026-08-27 after three rounds of "skip the section" feedback. Vertical
+scroll-snap is *not* that pin — it does not remap vertical scroll to horizontal
+travel, does not hold, and does not scrub. The horizontal filmstrip
+(`overflow-x` + `data-lenis-prevent-horizontal`) is untouched: verified below
+that a horizontal wheel still drives `scrollLeft` with the page `scrollY`
+unmoved.
+
+**Verification (Playwright, 1440×850, real wheel events):**
+- Wheel down the whole page in bursts, pausing after each: `#about` (hold),
+  `#experience`, `#my-taste`, `#projects`, `#connect` each settle at
+  `top = 168 ± 2px`. Wheel back up: snaps at `#about`, lands `#home` at 0.
+- Continuous 14-tick fast scroll: `scrollY` strictly monotonic — no
+  mid-gesture yank-back. Snap only after the gesture ends.
+- Nav-click all six sections: land at 168 ± 0.3px, snap does not re-fire.
+- Deep link `/#projects`: lands at 168.
+- Organic scroll into `#about`: hammering wheel input during the ~2.9s hold
+  moves 0px; after the cascade, chip opacity 1 and scroll resumes freely.
+- `#experience` filmstrip: horizontal wheel → `scrollLeft` 0→1400, page
+  `scrollY` Δ0.
+- `prefers-reduced-motion: reduce`: `lenis/snap` not loaded, native scroll
+  holds where left.
+- **0 page errors** across every scenario. `npm run lint` 7 errors / 2 warnings
+  (baseline). `npm run build` clean; JS bundle **551.09 → 558.03 kB**
+  (**+6.94 kB raw / +1.89 kB gz**, all `lenis/snap`), no `package.json` change.
+
+**Tuning knobs if it reads as too grabby on the live site:**
+`distanceThreshold` (`'40%'`), `debounce` (`500`), `duration` (`0.8`) — all in
+the `new Snap(...)` call in `smooth-scroll.jsx`.
+
+**Post-ship note — "the snap isn't happening" was a deployment gap, not a
+bug.** Reported live right after the local verification above: *"so far we
+don't have any of that behavior, just the hold for about, my taste and lets
+connect."* That is an exact description of production at `8c40909`, which
+never had this change. Confirmed by probing both origins side by side rather
+than assuming: `window.lenis.snap` (the flag `lenis/snap` stamps on
+construction) read `true` on `localhost:5173` and `false` on
+`https://diegodamian.com`. Behaviourally, parked ±180px off `#projects`'
+line — **the one section with no entrance hold**, so nothing else can move the
+page — local snapped to the line from both directions, production stayed put
+(2877→2697 / 2517→2697 local; 2877→2881 / 2517→2513 prod).
+
+Two things worth carrying forward: **(1)** measure the hold-free section when
+testing snap. Two earlier probes parked near `#about` and both "passed" on
+production too, because About's `lenis.scrollTo(snapTo)` hold lands on the same
+line a snap would — the hold masks a missing snap perfectly. **(2)** this is
+the third time a "still broken" report has traced to unpushed/undeployed work
+(see the working agreement's own "Push after every commit" note); the
+side-by-side origin probe above is the cheap way to settle it in one run.
+
+**Files:** `smooth-scroll.jsx` (construct `Snap`, `rebuildSnapPoints()` on the
+existing refresh debounce, destroy in cleanup), `scroll.js`
+(`get/setActiveSnap`), `about.jsx` / `my-taste.jsx` / `connect.jsx` (2-line
+snap `stop()`/`start()` in the hold pair each). **No SCSS.**
 
 ---
 

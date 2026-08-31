@@ -18,6 +18,24 @@ export function getActiveLenis() {
     return activeLenis;
 }
 
+// The live lenis/snap instance, same singleton pattern as activeLenis above and
+// for the same reason: it's constructed inside smooth-scroll.jsx (which owns
+// Lenis's lifecycle) but paused/resumed from plain functions in the section
+// components — about.jsx / my-taste.jsx / connect.jsx each call
+// getActiveSnap()?.stop() alongside their existing lenis.stop() while an
+// entrance cascade holds scroll, so the vertical section snap doesn't fire on
+// top of the hold. null under prefers-reduced-motion (no Lenis, so no Snap) and
+// in the brief window before smooth-scroll.jsx mounts — every caller uses `?.`.
+let activeSnap = null;
+
+export function setActiveSnap(instance) {
+    activeSnap = instance;
+}
+
+export function getActiveSnap() {
+    return activeSnap;
+}
+
 // Distinguishes "the visitor is dragging a wheel/trackpad through the page"
 // from "a nav click (or any other scrollToSection() caller) is animating
 // straight to a target section" — about.jsx's Task 5 scroll-hold needs this:

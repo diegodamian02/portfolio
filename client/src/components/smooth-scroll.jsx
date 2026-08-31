@@ -1,7 +1,8 @@
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
+import Snap from "lenis/snap";
 import { gsap, ScrollTrigger } from "../lib/gsap.js";
-import { setActiveLenis } from "../lib/scroll.js";
+import { setActiveLenis, setActiveSnap } from "../lib/scroll.js";
 
 // Mounted ONCE, wrapping the whole app (see App.jsx) — never per-section. A
 // second instance would mean two independent scroll owners fighting for the
@@ -106,6 +107,58 @@ export default function SmoothScroll({ children }) {
             // trigger fires at the wrong position once Stage 3/6/7 add any.
             lenis.on("scroll", ScrollTrigger.update);
 
+            // Site-wide vertical scroll-snap. lenis/snap ships INSIDE the
+            // already-installed `lenis` package (no new dependency) — it
+            // listens to Lenis's `virtual-scroll` event (raw wheel/trackpad
+            // input only, never a programmatic scrollTo), debounces, and once
+            // the gesture settles glides to the nearest registered snap value
+            // IF it's within `distanceThreshold`. `proximity` (not
+            // `mandatory`): it never interrupts an in-progress scroll and a
+            // section taller than the viewport stays freely scrollable through
+            // its middle. Nav clicks and /#hash deep links go through
+            // lenis.scrollTo() (scroll.js / useHashScroll), which emits no
+            // `virtual-scroll`, so they're immune by construction. Touch scroll
+            // never snaps (the module hard-returns on `touchmove`) — a
+            // deliberate v1 limitation, mobile gets its own pass. No CSS
+            // scroll-snap anywhere: it's already documented as fighting
+            // Lenis/Chromium here (main.scss, the .experience-viewport note).
+            //
+            // Values are a tuned starting point — see design-review/STATUS.md.
+            const snap = new Snap(lenis, {
+                type: "proximity",
+                distanceThreshold: "40%",
+                debounce: 500,
+                duration: 0.8,
+            });
+            setActiveSnap(snap);
+
+            // lenis/snap's own addElement() snaps an element's raw document top
+            // to scroll position 0 — every section would land UNDER the 144px
+            // fixed navbar, and the module has no offset hook. So register
+            // computed pixel values instead: each section's absolute top minus
+            // its own resolved scroll-margin-top (= --scroll-offset, navbar +
+            // 24px) — the exact line scrollToSection()/scroll-margin-top land a
+            // section on, and the same getComputedStyle(el).scrollMarginTop
+            // read Lenis itself does for scrollTo(element) (see scroll.js).
+            // snap.add() returns an unsubscribe fn; the whole set is rebuilt on
+            // every layout shift, hung off the SAME scheduleRefresh() debounce
+            // below that already re-measures ScrollTrigger for the identical
+            // stale-measurement reason (fonts swapping in, async section
+            // content, sibling reflow).
+            let removeSnapPoints = [];
+            const rebuildSnapPoints = () => {
+                removeSnapPoints.forEach((remove) => remove());
+                removeSnapPoints = [];
+                document.querySelectorAll(".content > section").forEach((section) => {
+                    const top = section.getBoundingClientRect().top + window.scrollY;
+                    const margin = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
+                    removeSnapPoints.push(snap.add(Math.max(0, Math.round(top - margin))));
+                });
+            };
+            // Immediate first pass so snapping works before webfonts settle;
+            // scheduleRefresh() keeps it current after that.
+            const firstSnapBuild = requestAnimationFrame(rebuildSnapPoints);
+
             // Found live (reload #my-taste, scroll down — the pin never
             // engaged): several sections build their OWN ScrollTrigger
             // (my-taste.jsx, experience.jsx) inside effects gated on async
@@ -143,7 +196,10 @@ export default function SmoothScroll({ children }) {
             let refreshTimeout;
             const scheduleRefresh = () => {
                 clearTimeout(refreshTimeout);
-                refreshTimeout = setTimeout(() => ScrollTrigger.refresh(), 200);
+                refreshTimeout = setTimeout(() => {
+                    ScrollTrigger.refresh();
+                    rebuildSnapPoints();
+                }, 200);
             };
             document.fonts.ready.then(scheduleRefresh);
             const bodyResizeObserver = new ResizeObserver(scheduleRefresh);
@@ -161,6 +217,11 @@ export default function SmoothScroll({ children }) {
 
             return () => {
                 gsap.ticker.remove(raf);
+                cancelAnimationFrame(firstSnapBuild);
+                // Before lenis.destroy() — snap.destroy() calls lenis.off().
+                removeSnapPoints.forEach((remove) => remove());
+                snap.destroy();
+                setActiveSnap(null);
                 lenis.destroy();
                 setActiveLenis(null);
                 clearTimeout(refreshTimeout);

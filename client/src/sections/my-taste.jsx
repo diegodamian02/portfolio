@@ -6,7 +6,7 @@ import {
     CARD_LAND_EASE, CARD_LAND_SQUASH_EASE, PIN_SNAP_EASE,
 } from "../lib/gsap.js";
 import {
-    getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange,
+    getActiveLenis, getActiveSnap, isProgrammaticScrollActive, onProgrammaticScrollChange,
     getLastNavTarget, onSectionNavigated,
 } from "../lib/scroll.js";
 // Latin + latin-ext subsets specifically, not the package-default imports
@@ -624,6 +624,8 @@ export default function MyTaste() {
                 if (!holding) return;
                 holding = false;
                 getActiveLenis()?.start();
+                // Resume the site-wide section snap, paused on hold engage.
+                getActiveSnap()?.start();
                 window.removeEventListener("touchmove", blockTouchMove, { capture: true });
                 window.removeEventListener("keydown", blockScrollKeys, { capture: true });
             }
@@ -666,6 +668,7 @@ export default function MyTaste() {
                         if (snapTo != null) lenis.scrollTo(snapTo, { immediate: true, force: true });
                         lenis.stop();
                     }
+                    getActiveSnap()?.stop();
                     window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
                     window.addEventListener("keydown", blockScrollKeys, { capture: true });
                 }

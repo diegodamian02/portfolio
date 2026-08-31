@@ -5,7 +5,7 @@ import axios from 'axios';
 import { useGSAP } from '@gsap/react';
 import { gsap, ScrollTrigger, SplitText, SIGNATURE_EASE, Flip, WALKMAN_POP_EASE, PIN_SNAP_EASE } from '../lib/gsap.js';
 import {
-    getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange,
+    getActiveLenis, getActiveSnap, isProgrammaticScrollActive, onProgrammaticScrollChange,
     getLastNavTarget, onSectionNavigated,
 } from '../lib/scroll.js';
 import useReducedMotion from '../hooks/use-reduced-motion.js';
@@ -353,6 +353,8 @@ export default function Connect() {
                 if (!holding) return;
                 holding = false;
                 getActiveLenis()?.start();
+                // Resume the site-wide section snap, paused on hold engage.
+                getActiveSnap()?.start();
                 window.removeEventListener('touchmove', blockTouchMove, { capture: true });
                 window.removeEventListener('keydown', blockScrollKeys, { capture: true });
             }
@@ -421,6 +423,7 @@ export default function Connect() {
                         if (snapTo != null) lenis.scrollTo(snapTo, { immediate: true, force: true });
                         lenis.stop();
                     }
+                    getActiveSnap()?.stop();
                     window.addEventListener('touchmove', blockTouchMove, { passive: false, capture: true });
                     window.addEventListener('keydown', blockScrollKeys, { capture: true });
                 }
