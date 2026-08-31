@@ -7436,9 +7436,35 @@ reasoning:
   genuinely taller than the screen (`#projects` with a row expanded is 1133px,
   1.33×) and its middle stays freely scrollable.
 
-Constants: `DEBOUNCE_MS 250`, `DURATION_S 0.45`, `THRESHOLD_RATIO 0.55`,
+Constants: `DEBOUNCE_MS 120`, `DURATION_S 0.30`, `THRESHOLD_RATIO 0.55`,
 `AT_LINE_PX 8`. The `stop()`/`start()` shape is unchanged, so the three
 entrance holds (`about.jsx`, `my-taste.jsx`, `connect.jsx`) needed no edits.
+
+**Speed pass, same day** (direct ask: "is there a way to make the snap
+faster"). Latency is `DEBOUNCE_MS + DURATION_S` and the two carry very
+different risk, so they were swept separately and measured:
+
+| debounce / duration | settles after input | landing | mid-gesture interruption |
+|---|---|---|---|
+| 250 / 0.45 (first version of this file) | 600ms | 5/5 | none |
+| **120 / 0.30 (shipped)** | **350ms** | **5/5** | **none** |
+| 60 / 0.22 | 217ms | 5/5 | none *in emulation* |
+
+60ms was rejected despite testing clean: the emulated momentum tail uses
+uniform 16ms gaps, while a real trackpad tail — and a finger repositioned
+mid-drag — produces irregular 30–80ms gaps, which a 60ms debounce would fire
+inside. That is the "page is fighting me" failure this mechanism exists to
+prevent, and a test that cannot reproduce it is not evidence it is absent.
+120ms keeps real margin. The remaining latency is not a floor to be tuned away
+— `DEBOUNCE_MS` is what distinguishes "paused mid-scroll" from "done".
+
+New hazard checked for this pass and clean at 120ms: **hesitant scrolling** —
+bursts with 150 / 250 / 400ms pauses between them, watching for any backward
+movement mid-sequence (worst backward jump 0px at every interval). Re-verified
+after the change: 60/60 landings across 1920×1080 → 1280×680, 0/25 dead bands,
+mouse wheel escapes at every notch interval, `#projects` expanded readable,
+holds/nav/deep-links/filmstrip/reduced-motion unchanged, 0 page errors, lint
+7/2.
 
 **Verified** at 1920×1080 / 1440×850 / 1366×768 / 1280×680: **60/60** rest
 positions land on a line; **0/25** dead bands (was 1/25); slow mouse wheel

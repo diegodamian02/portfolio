@@ -28,17 +28,29 @@
 // and phone snapping is its own design problem), and there is no snap at all
 // under prefers-reduced-motion, because no Lenis instance exists in that mode.
 
-// Long enough that consecutive wheel notches and a trackpad's momentum tail
-// coalesce into ONE gesture rather than each firing its own snap; short enough
-// that the settle still reads as part of that gesture. The direction rule
-// above is what makes a value this low safe — the old 500ms was chosen purely
-// to out-wait a slow mouse, which is no longer how the trap is avoided.
-const DEBOUNCE_MS = 250;
+// How long input must be quiet before the page is treated as having come to
+// rest. Together with DURATION_S this is the whole felt latency of a snap:
+// measured end to end, 120 + 0.30s settles 350ms after the last input, down
+// from 1116ms for the first `lenis/snap` version, which read as the page
+// lurching on its own long after the visitor had stopped.
+//
+// A value this low is only safe because of the departure rule below. The
+// 500ms this started at was chosen purely to out-wait a slow mouse wheel, and
+// it did not even succeed — a wheel turned slower than the debounce was still
+// trapped. The trap is handled by intent now, not by waiting, which frees this
+// number to be about responsiveness alone.
+//
+// 60ms was measured too and settles in 217ms, but is NOT used: it is shorter
+// than the irregular 30-80ms gaps that appear at the end of a real trackpad
+// momentum tail and when a finger is repositioned mid-drag, so it would fire
+// inside a live gesture — the exact "the page is fighting me" failure this
+// whole mechanism exists to avoid. 120ms keeps real margin against that.
+const DEBOUNCE_MS = 120;
 
-// The glide onto the line. 0.45s reads as a decisive settle; the 0.8s this
-// started at read as the page drifting on its own well after the visitor had
-// stopped.
-const DURATION_S = 0.45;
+// The glide onto the line, once the snap has been decided. Purely cosmetic —
+// it cannot cause a mis-landing — so it is tuned as short as still reads as a
+// settle rather than a jump.
+const DURATION_S = 0.30;
 
 // How far from a line the visitor can come to rest and still be pulled onto
 // it, as a fraction of viewport height. This number is doing two jobs at once,
