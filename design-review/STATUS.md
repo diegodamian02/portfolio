@@ -7586,6 +7586,38 @@ Constants: `TRAVEL_S 0.6`, `QUIET_MS 80`, `MIN_DELTA 2`, `AT_STOP_PX 8`
    results panel opens into the hero instead of into the next section. Verified
    contained at 390×844 and 375×667.
 
+**Follow-up — a POWERFUL scroll still skipped a section.** Reported live after
+the fixes above. Reproduced by making the emulated flick realistic in a third
+way: large deltas (peak 30-300), +/-30% per-event noise, and a momentum tail
+whose inter-event gaps stretch as it dies. At peak 120 that skipped whole
+sections and every intensity landed 17-24px BETWEEN stops.
+
+Two causes, one shared root — the cooldown ended while the gesture was still
+going. A hard flick's tail stretches its gaps out to ~220ms, past the 160ms
+quiet window, so mid-tail the lock came off (drift) and tail events over
+START_DELTA began fresh trips (skips). `QUIET_MS` 160 -> 400 covers the gaps.
+
+The second cause was the mechanism itself, and it had to be abandoned rather
+than tuned. Detecting a genuine second push by looking for a RISE in magnitude
+assumes a tail only decays — true of the trend, false of the samples. With
++/-30% noise a decaying tail throws spikes that clear any rise threshold, and
+~8% of hard flicks still jumped two sections. The signal genuinely overlaps, so
+no threshold could separate it.
+
+Replaced with the opposite question. Instead of recognising a NEW push, wait
+for the OLD gesture to stop mattering: once TAIL_SPENT_EVENTS (3) consecutive
+events are too small to start a trip anyway, whatever arrives next is judged on
+its own. A tail below that floor cannot start anything, so there is no spike to
+be fooled by. The mid-trip queue was also removed outright — a queued advance
+was another route to two sections, and one section per gesture is the
+requirement regardless of intensity.
+
+Verified across gentle / normal / hard / violent (peak 10-300, tails 0.6-2.5s),
+both directions, on two independent tail models including the stretched-gap
+one: **0 wrong advances**, every flick landing exactly on a stop. Regression
+set unchanged: footer reachable at 1280x680, #about hold, filmstrip, all six
+nav clicks, deep link, #projects expanded, reduced motion. 0 page errors.
+
 **The "laggy when a song is playing" report did NOT reproduce, and the number
 that suggested it was a test artifact.** Headless Chromium software-renders
 canvas: it measured 33.3ms/frame (30fps, 91% of frames over budget) with the

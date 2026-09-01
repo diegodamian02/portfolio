@@ -30,12 +30,17 @@
 // The trip between two stops.
 const TRAVEL_S = 0.6;
 
-// After arriving, input must be quiet for this long before another gesture is
-// accepted. This is NOT a delay before moving — the first gesture fires
-// instantly. It exists only so the momentum tail of the flick that triggered
-// the trip cannot immediately trigger the next one and chain three sections
-// off a single swipe.
-const QUIET_MS = 160;
+// How long input must be QUIET before the gesture is considered over. This is
+// NOT a delay before moving — the first event of a gesture fires instantly.
+//
+// It has to outlast the GAPS INSIDE a momentum tail, not just the tail's
+// length. A hard flick's tail stretches its own inter-event gaps as it dies —
+// measured out to ~220ms — and at 160ms the cooldown expired in the middle of
+// one. Everything after that was read as fresh input: the lock came off (the
+// page drifted 17-24px off the stop) and tail events large enough to pass
+// START_DELTA began whole extra trips, which is how a powerful scroll skipped
+// a section. 400ms clears the largest gaps seen.
+const QUIET_MS = 400;
 
 // Smaller events than this still count as input — they keep the cooldown
 // alive — but can never START a trip. A dying momentum tail ends in a scatter
@@ -44,15 +49,22 @@ const QUIET_MS = 160;
 // extra trip. That is one of the two ways a single flick moved two sections.
 const START_DELTA = 6;
 
-// A momentum tail DECAYS, so a rise identifies a genuine second push — but
-// only once the tail has actually begun. A real gesture RAMPS UP at its start
-// (2 -> 5 -> 9 -> 14), and reading that ramp as a second push is the other way
-// one flick moved two sections. It was invisible in testing because the
-// emulator drove the active phase at a constant magnitude and so never ramped.
-// Hysteresis fixes it: the magnitude has to fall to DECAY_FRACTION of the
-// gesture's own peak before a rise back above REARM_FRACTION counts as new.
-const DECAY_FRACTION = 0.3;
-const REARM_FRACTION = 0.5;
+// How many consecutive sub-START_DELTA events mean the previous gesture's
+// momentum has become negligible.
+//
+// Earlier versions tried to spot a genuine SECOND push by looking for a RISE
+// in magnitude, on the reasoning that a tail only ever decays. That is true of
+// the trend but not of the samples: real trackpad deltas carry about +/-30%
+// noise, so a decaying tail throws occasional spikes that clear any rise test,
+// and roughly 8% of hard flicks still jumped two sections because of one. No
+// threshold fixes that — the signal genuinely overlaps.
+//
+// So this does not try to recognise a new push at all. It waits for the OLD
+// gesture to stop mattering: once several events in a row are too small to
+// start a trip anyway, whatever arrives next can be treated on its own merits.
+// A tail that has decayed below the floor cannot itself start anything, so
+// there is no spike to be fooled by.
+const TAIL_SPENT_EVENTS = 3;
 
 // Treat the page as being AT a stop within this many px, so the "next stop in
 // this direction" search doesn't return the one we are already sitting on.
@@ -64,15 +76,10 @@ export function createSectionSnap(lenis, getSnapPoints) {
     let quietTimer = null;
     let failsafe = null;
     let paused = false;
-    // Peak magnitude of the gesture in progress, and whether it has started
-    // decaying yet — together these tell a genuine second push from both a
-    // dying tail and the ramp-up at the start of the first push.
-    let gesturePeak = 0;
-    let hasDecayed = false;
-    // A gesture that arrives mid-trip is remembered and run on arrival, so
-    // flicking twice quickly moves two sections instead of the second being
-    // swallowed.
-    let queuedDirection = 0;
+    // Consecutive events too small to start a trip. Once this passes
+    // TAIL_SPENT_EVENTS the previous gesture's momentum is spent and a new one
+    // is free to act.
+    let weakRun = 0;
     let holdingLock = false;
 
     const currentY = () => lenis.actualScroll ?? window.scrollY;
@@ -129,16 +136,6 @@ export function createSectionSnap(lenis, getSnapPoints) {
         if (!travelling) return;
         travelling = false;
 
-        if (queuedDirection !== 0 && !lenis.isStopped) {
-            const direction = queuedDirection;
-            queuedDirection = 0;
-            const next = stopAfter(currentY(), direction);
-            if (next !== undefined) {
-                travelTo(next);
-                return;
-            }
-        }
-        queuedDirection = 0;
         cooling = true;
         grabLock();
         restartQuiet();
@@ -158,47 +155,30 @@ export function createSectionSnap(lenis, getSnapPoints) {
         if (event && typeof event.type === "string" && event.type.startsWith("touch")) return;
 
         const magnitude = Math.abs(deltaY || 0);
-        if (magnitude > gesturePeak) gesturePeak = magnitude;
-        if (gesturePeak > 0 && magnitude < gesturePeak * DECAY_FRACTION) hasDecayed = true;
-        // A second push has to clear BOTH tests: the previous gesture must
-        // already be dying, and this event must climb back up out of that
-        // tail. The ramp-up of a single flick satisfies neither, because
-        // nothing has decayed yet.
-        const isSecondPush =
-            hasDecayed && magnitude >= START_DELTA && magnitude > gesturePeak * REARM_FRACTION;
-        if (isSecondPush) {
-            gesturePeak = magnitude;
-            hasDecayed = false;
-        }
+        const strong = magnitude >= START_DELTA;
+        weakRun = strong ? 0 : weakRun + 1;
 
-        if (travelling) {
-            // Mid-trip. Lenis is locked so these move nothing; only remember a
-            // genuine second push so it can run on arrival.
-            if (isSecondPush) queuedDirection = Math.sign(deltaY);
-            return;
-        }
+        // Mid-trip: swallow everything. Lenis is locked so these move nothing.
+        // Nothing is queued for later either — a queued advance was how a hard
+        // flick could still turn into two sections, and one section per gesture
+        // is the requirement no matter how hard the gesture was.
+        if (travelling) return;
 
         if (cooling) {
-            // Dying events of the gesture that brought us here: hold the line
-            // and push the deadline out until they genuinely stop.
-            if (!isSecondPush) {
-                restartQuiet();
-                return;
-            }
-            // A real new push — don't make the visitor wait out the tail.
+            // Still inside the gesture that brought us here. Hold the line and
+            // push the deadline out. The lock stays on, so none of this moves
+            // the page off the stop.
+            restartQuiet();
+            // Only once its momentum has decayed past the point of being able
+            // to start anything does a later event get to act on its own.
+            if (weakRun < TAIL_SPENT_EVENTS) return;
+            if (!strong) return;
             clearTimeout(quietTimer);
             cooling = false;
             releaseLock();
         }
 
-        // Idle: this event is the start of a brand-new gesture, so the peak
-        // tracking restarts with it.
-        if (!cooling && !travelling && !isSecondPush) {
-            gesturePeak = magnitude;
-            hasDecayed = false;
-        }
-
-        if (!deltaY || magnitude < START_DELTA) return;
+        if (!deltaY || !strong) return;
 
         // A hold has frozen scrolling for an entrance cascade (about.jsx,
         // my-taste.jsx, connect.jsx). Those call stop() on us too, but this
@@ -228,7 +208,6 @@ export function createSectionSnap(lenis, getSnapPoints) {
             clearTimeout(failsafe);
             travelling = false;
             cooling = false;
-            queuedDirection = 0;
             // Never leave Lenis locked because a hold interrupted us — that
             // would freeze the page for the rest of the session.
             releaseLock();
@@ -237,9 +216,7 @@ export function createSectionSnap(lenis, getSnapPoints) {
             paused = false;
             travelling = false;
             cooling = false;
-            queuedDirection = 0;
-            gesturePeak = 0;
-            hasDecayed = false;
+            weakRun = 0;
             releaseLock();
         },
         destroy() {
