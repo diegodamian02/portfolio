@@ -11,7 +11,13 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-31, **Stage 6 Phase 8 — scratch**: the record on the platter is draggable, plays BACKWARDS via an `AudioWorkletProcessor` (an `AudioBufferSourceNode` cannot — both Chrome and Safari clamp a negative `playbackRate` to 0), goes silent when held still, and is pulled back to 33⅓ by the "motor" on release; works on touch, and the hero skyline follows it for free because the analyser taps the sum of both players. Stage 6 now has only Phase 10 left. Prior 2026-08-30: **site-wide vertical scroll-snap** — every section settles to `--scroll-offset` when a wheel/trackpad gesture rests near it, both directions [`proximity` via `lenis/snap`, no CSS scroll-snap]; the three entrance holds pause it while they play. Prior 2026-08-29: `#connect` send-state polish — sent layout centred, heading glides in, takeover scrim removed, "send another" fades in. Prior 2026-08-28: desktop one-screen fit pass — every section fits after a nav click; entrance pins removed; both cascades animate on a nav click; B56 closed for `#my-taste` + `#connect`)*
+## 0. Current state — quick summary *(updated 2026-09-01, **Stage 10 — sitewide
+typography**: the "Avenir Next" system-font stack — never actually self-hosted,
+silently falling back to a generic sans on non-Apple machines — is replaced
+sitewide by self-hosted Poppins (400 body / 600 display), behind two new
+`--font-display`/`--font-body` tokens. `#my-taste` and the walkman's DSEG7
+LCD are untouched, deliberate exceptions. Full writeup below. Prior
+2026-08-31, **Stage 6 Phase 8 — scratch**: the record on the platter is draggable, plays BACKWARDS via an `AudioWorkletProcessor` (an `AudioBufferSourceNode` cannot — both Chrome and Safari clamp a negative `playbackRate` to 0), goes silent when held still, and is pulled back to 33⅓ by the "motor" on release; works on touch, and the hero skyline follows it for free because the analyser taps the sum of both players. Stage 6 now has only Phase 10 left. Prior 2026-08-30: **site-wide vertical scroll-snap** — every section settles to `--scroll-offset` when a wheel/trackpad gesture rests near it, both directions [`proximity` via `lenis/snap`, no CSS scroll-snap]; the three entrance holds pause it while they play. Prior 2026-08-29: `#connect` send-state polish — sent layout centred, heading glides in, takeover scrim removed, "send another" fades in. Prior 2026-08-28: desktop one-screen fit pass — every section fits after a nav click; entrance pins removed; both cascades animate on a nav click; B56 closed for `#my-taste` + `#connect`)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -2361,6 +2367,94 @@ stuck, the exact feeling this removes. JS net −299 lines. Playwright-verified
 writeup + verification table: `STATUS.md`'s own dated entry. `.jsx`/`.js`
 half is commit `7c53298`; the `main.scss` half shipped inside `9087bec`
 (a concurrent session's `git commit -a` — flagged in both docs' own entries).
+
+---
+
+### Stage 10 — sitewide typography: Poppins replaces the Avenir Next stack *(2026-09-01)*
+
+Not part of the original stage order — the design decision (below) was worked
+through in mockup comparisons by a separate research pass with no repo access,
+then handed off as an implementation brief. Recorded here since it wasn't
+written to disk until this stage actually landed.
+
+**Decision:** the site-wide body font was `"Avenir Next", Avenir, "Helvetica
+Neue", sans-serif` — a commercial Linotype/Monotype typeface with no free
+self-hosting path, so on every non-Apple machine it silently fell through to
+whatever generic sans the OS supplies. Hero, About, Experience, Projects and
+Connect had no real self-hosted brand typography at all; only `#my-taste`
+(Anton/Oswald/Space Mono) did. Several pairings were compared (Anton/Oswald
+extended sitewide, Space Grotesk/Space Mono, Chakra Petch) before landing on a
+**single-family Poppins system** — free, self-hostable, a geometric-humanist
+stand-in for Avenir Next's body-text weight/warmth — at 400 (body) and 600
+(display/headings). One family, not a pairing, because the title/body SIZE
+contrast already does the differentiation work; two weights, not more,
+because nothing in the audited rendered output needed a third (see below).
+
+**Implementation:** `@fontsource/poppins` latin-400/latin-ext-400/latin-600/
+latin-ext-600 only (`client/src/main.jsx`, same latin/latin-ext subsetting
+pattern as My Taste's fonts — the package-default full-unicode imports were
+already caught and fixed once, `STATUS.md` Stage 4 Task 1). Two new root
+tokens, `--font-display`/`--font-body` (`main.scss`, alongside the existing
+`--text-*`/`--space-*` scale) — both currently resolve to the same
+`"Poppins", sans-serif`, kept as two named tokens rather than one because the
+ROLE is what's worth keeping distinct, matching how `--taste-font-display`/
+`--taste-font-support` stay separate despite both being self-hosted
+`@fontsource` families. `body` and `@mixin section-title`/`section-subtitle`
+now reference `var(--font-body)`/`var(--font-display)`; the two remaining
+selectors that hardcoded the old stack directly (`body`, `.portfolio-header`)
+both moved to the tokens. Heading selectors sitewide (`.hero-name`,
+`.loading-screen-text`, `.about-me-name`, `.contact-title`, plus
+`.portfolio-title`/`.experience-title` via the mixin) now carry
+`var(--font-display)`.
+
+Audited every non-400/600 `font-weight` this change would otherwise touch,
+rather than letting the browser's own font-matching quietly decide (per the
+brief's own "decide deliberately, don't silently collapse" instruction):
+`.loading-screen-text` (700→600, converged onto the one display weight
+rather than importing a one-off third weight for a single loading screen),
+`.hero-tagline` (300→400 — `--secondary-text` already carries the
+de-emphasis), `.portfolio-header` (200→400, which also converges
+`.project-role`, which had no weight override of its own, with
+`.project-title`'s existing 400). In every case the declared number now
+matches what the browser was already going to render with only 400/600
+available — CSS font-matching resolves an unavailable weight to the nearest
+available one, so this only removes a mismatch between the source and the
+render, not a lived visual change.
+
+**Checked against the tree, not assumed:** the brief's own suggested
+`.timeline-content h3` turned out to have no actual CSS rule anywhere in
+`main.scss` — only referenced in a Stage 3 audit comment as an
+already-known "undeclared size" bug, not fixed then and not this stage's job
+either. It inherits `body`'s new `var(--font-body)` automatically; nothing
+to add.
+
+**Explicitly untouched, both confirmed by re-reading the source (not
+assumed):** `#my-taste`'s `--taste-font-display`/`--taste-font-support`/
+`--taste-font-mono` and every selector consuming them (now with an inline
+comment marking them a deliberate exception, same status as DSEG7 below —
+not drift for a future audit to "fix"); the walkman LCD's self-hosted
+`"DSEG7 Classic"` `@font-face` and its two consuming selectors.
+
+**Bundle size**, subsetted the same way as My Taste's fonts, for direct
+comparison: Poppins (400/600, latin + latin-ext, woff2 + woff) is **8 files /
+~63.1 KB** in the built `dist/assets`, next to My Taste's own **24 files /
+408 KB** (three families: Anton, Oswald, Space Mono) — proportionally smaller
+because this stage imports one family at two weights, not three families at
+up to three weights each.
+
+**Verified live** (Vite dev server, port 5173 per the working-agreement note
+above): computed `font-family`/`font-weight` read back from the rendered DOM
+at desktop and mobile widths confirms Poppins actually renders (not a silent
+fallback) on `body`, `.hero-name`, `.hero-tagline`, `.about-me-name`,
+`.contact-title`, `.experience-title`, `.portfolio-title`, and
+`.portfolio-header .project-title`; `.my-taste-heading` still computes
+`"Space Mono", "Courier New", monospace` and `.my-taste-featured-name`/
+`.my-taste-secondary-name` still reference `var(--taste-font-display)`/
+`var(--taste-font-support)` in source, both unchanged by this stage; the
+walkman's `.walkman-screen-ghost`/`-lit` still reference `"DSEG7 Classic",
+"Space Mono", monospace` in source, unchanged. `npm run lint`: 7 errors / 2
+warnings, unchanged (the pre-existing baseline — see `STATUS.md`'s own note
+correcting `CLAUDE.md`'s stale "16 errors" claim).
 
 ---
 

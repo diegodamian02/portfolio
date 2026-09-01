@@ -286,6 +286,26 @@
   // 1000px for the same reason.
   --content-width: 45rem;        // 720px
   --content-width-wide: 68.75rem; // 1100px
+
+  // ---- 4. Typography (Stage 10) -----------------------------------------
+  // Single edit point for the site-wide font, same reasoning as the tokens
+  // above it: one selector-by-selector hardcode ("Avenir Next", Avenir,
+  // "Helvetica Neue", sans-serif) used to appear at `body` and again on
+  // .portfolio-header, and a future swap meant finding every copy by hand.
+  // Both tokens resolve to the SAME family, Poppins — a free self-hosted
+  // geometric-humanist stand-in for Avenir Next's body-text weight/warmth,
+  // chosen over a two-family pairing (Space Grotesk/Space Mono, Chakra
+  // Petch) because a single family keeps the system simpler and the
+  // title/body SIZE contrast already does the differentiation work. Two
+  // named tokens, not one, because the ROLE (display vs. body) is the thing
+  // worth keeping distinct even while the value is identical, the same way
+  // --taste-font-display/--taste-font-support stay separate tokens below
+  // despite both ultimately being self-hosted @fontsource families — if a
+  // future pass ever wants the two to diverge again, there's already a
+  // single line to change per role instead of a second file-wide audit.
+  --font-display: "Poppins", sans-serif; // 600/semibold — section titles,
+                                          // .hero-name, .about-me-name
+  --font-body: "Poppins", sans-serif;    // 400/regular — body text, UI
 }
 [data-theme="light"] {
   --bg-color: #f6f7fb;
@@ -385,6 +405,7 @@
 // almost certainly that value with a dropped digit, not a different
 // intent), and Connect is the section Q1 holds up as already working.
 @mixin section-title {
+  font-family: var(--font-display);
   font-size: var(--text-xl);
   font-weight: 600;
   text-align: center;
@@ -392,6 +413,7 @@
 }
 
 @mixin section-subtitle {
+  font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 600;
   text-align: center;
@@ -435,7 +457,7 @@ html {
  body {
   background-color: var(--bg-color);
   color: var(--text-color);
-  font-family: "Avenir Next", Avenir, "Helvetica Neue", "Helvetica Neue", sans-serif;
+  font-family: var(--font-body);
   margin: 0;
   padding: 0;
   transition: background-color var(--theme-transition), color var(--theme-transition);
@@ -459,8 +481,15 @@ html {
 }
 
 .loading-screen-text {
+  font-family: var(--font-display);
   font-size: clamp(3rem, 10vw, 7rem);
-  font-weight: 700;
+  // Was 700. Only 400/600 are imported (Stage 10) — a 700 request with no
+  // 700 face available resolves to the nearest lighter match anyway (600),
+  // per the CSS font-matching algorithm, so this now says what actually
+  // renders instead of relying on that resolution silently. Collapsing into
+  // the same 600 the rest of the display system uses, rather than importing
+  // a one-off 700 weight for the loading screen alone.
+  font-weight: 600;
   line-height: 1.05;
   text-align: left;
   color: var(--text-color);
@@ -540,6 +569,7 @@ html {
 }
 
 .hero-name {
+  font-family: var(--font-display);
   font-size: clamp(2.5rem, 6vw, 4.5rem);
   font-weight: 600;
   color: var(--text-color);
@@ -549,7 +579,12 @@ html {
 
 .hero-tagline {
   font-size: clamp(1.1rem, 2.5vw, 1.5rem);
-  font-weight: 300;
+  // Was 300. Only 400/600 are imported (Stage 10) — a 300 request with no
+  // lighter face available resolves to the nearest available match anyway
+  // (400, the regular weight), per the CSS font-matching algorithm, so this
+  // now says what actually renders rather than relying on that resolution
+  // silently. --secondary-text already carries the visual de-emphasis here.
+  font-weight: 400;
   color: var(--secondary-text);
   margin: 0;
 }
@@ -1944,6 +1979,7 @@ html {
 }
 
 .about-me-name {
+  font-family: var(--font-display);
   font-size: var(--text-xl);
   font-weight: 600;
   margin: 0 0 var(--space-3);
@@ -2708,6 +2744,9 @@ html {
   // Fonts <link>) keeps that need from costing a render-blocking request on
   // a section every visitor scrolls past — goal 2's whole 152MB→9.6MB
   // load-speed story would be working against itself otherwise.
+  // Stage 10 (sitewide Poppins swap) does not touch these three — same
+  // deliberate, named-exception status as DSEG7 Classic on the walkman
+  // below, not drift for a future audit to "fix."
   --taste-font-display: "Anton", "Avenir Next", sans-serif;
   --taste-font-support: "Oswald", "Avenir Next", sans-serif;
   --taste-font-mono: "Space Mono", "Courier New", monospace;
@@ -4065,6 +4104,7 @@ html {
 }
 
 .contact-title {
+  font-family: var(--font-display);
   font-size: 2.5rem;
   // The heading IS the confirmation message after a successful send
   // (connect.jsx scrambles this same element to "Thank you for reaching
@@ -5093,8 +5133,15 @@ html {
   justify-content: space-between;
   width: 100%;
   font-size: 1.3rem;
-  font-family: "Avenir Next", Avenir, "Helvetica Neue", "Helvetica Neue", sans-serif;
-  font-weight: 200;
+  font-family: var(--font-body);
+  // Was 200. Only 400/600 are imported (Stage 10) — a 200 request with no
+  // lighter face available resolves to the nearest available match anyway
+  // (400), per the CSS font-matching algorithm, so this now says what
+  // actually renders. Also converges .project-role (no weight override of
+  // its own, so it inherited this 200) with .project-title's separate 400
+  // override just below — one less unexplained weight mismatch between
+  // the two spans in the same row.
+  font-weight: 400;
   background: none;
   border: none;
   color: var(--text-color);

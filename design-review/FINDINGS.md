@@ -88,6 +88,10 @@ around `#c08c4e`) that deliberately stays the same warm wood in both themes.
 
 Typeface throughout is **Avenir Next**.
 
+> **Update, Stage 10 (2026-09-01):** this was never actually a self-hosted choice —
+> see **D33** below. Sitewide typeface is now self-hosted Poppins (400/600);
+> `#my-taste`'s Anton/Oswald/Space Mono are unaffected.
+
 ---
 
 ## 2. Screenshot index
@@ -677,6 +681,32 @@ Pre-existing and unrelated to Phase 8, so it was left alone rather than fixed in
 pass. One-word change if it's wanted; the only reason for hesitation is that switching
 to `pointerdown` would also start dismissing the panel on touch, which is a behaviour
 change nobody has asked for and which nothing currently depends on either way.
+
+### D33 — "Avenir Next" was never actually self-hosted — sitewide, it was one missing @font-face away from a generic system sans — **FOUND AND FIXED, Stage 10 (2026-09-01)**
+
+`body`'s `font-family` (and a second, independent hardcode on `.portfolio-header`)
+declared `"Avenir Next", Avenir, "Helvetica Neue", sans-serif` — a commercial
+Linotype/Monotype typeface. No `@font-face`, no `@fontsource` package, nothing
+self-hosted anywhere for it. On macOS/iOS, where Avenir Next ships with the OS, this
+rendered as intended and looked like a deliberate brand choice. On every other
+platform — Windows, most Linux, Android — the browser silently fell through the stack
+to whatever generic sans the OS supplies, with no visual signal that anything had
+degraded. Hero, About, Experience, Projects and Connect had, in effect, no real
+typography system at all; only `#my-taste` (Anton/Oswald/Space Mono, `@fontsource`,
+Stage 4 Task 1) was actually self-hosted.
+
+Not found by inspection alone — it reproduces only on a non-Apple machine, so a
+screenshot pass run from a Mac would show it working and miss the failure mode
+entirely, the same asymmetry the iTunes/iPhone-UA finding (`CLAUDE.md`) already warns
+about for a different feature.
+
+**Fixed, Stage 10:** self-hosted Poppins (400 body / 600 display) via
+`@fontsource/poppins`, latin/latin-ext subsets only, behind two new
+`--font-display`/`--font-body` tokens. Full writeup: `ROADMAP.md` §3 and
+`STATUS.md`'s own Stage 10 entries. `#my-taste`'s fonts and the walkman's DSEG7
+LCD were confirmed untouched, not overlooked — deliberate, named exceptions, now
+commented as such in `main.scss` so a future audit doesn't read them as this same
+bug and "fix" them too.
 
 ### D12 — the mat is nearly invisible once a record is on the platter
 
