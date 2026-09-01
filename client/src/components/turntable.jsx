@@ -36,6 +36,63 @@ const PITCH_RETURN_SECONDS = 0.4; // the spring, on release
 const PITCH_RETURN_EASE = "power2.out";
 const PITCH_KEY_IDLE_MS = 500; // idle gap after a keypress before it self-centers
 
+// Stage 6, Phase 8 — scratch. The platter's nominal angular velocity: one
+// revolution per SPIN_SECONDS, so 200deg/s at 33 1/3. Every rate below is the
+// hand's own angular velocity divided by this, which makes 1 mean "turning at
+// exactly the speed the motor would have" by construction rather than by a
+// magic number.
+const NOMINAL_DEG_PER_SEC = 360 / SPIN_SECONDS;
+const RAD_TO_DEG = 180 / Math.PI;
+
+// Ceiling on how fast a hand can drive playback. Not a safety limit — the
+// worklet clamps far wider — but a musical one: past about 3x the resampler is
+// aliasing more than it is playing, and a flick that lands there sounds like a
+// glitch rather than a fast scratch.
+const SCRATCH_MAX_RATE = 3.2;
+
+// Time constant for the velocity follower, in seconds. This is the single
+// number that trades latency against smoothness, and it is deliberately short:
+// a real scratch reverses direction every 100-200ms, so anything above ~40ms
+// smears the reversal into a swoop. 28ms still removes per-sample pointer
+// jitter (which is what actually causes zipper noise) while leaving a
+// direction change readable inside two frames.
+const SCRATCH_VELOCITY_TAU = 0.028;
+
+// How long the velocity follower will wait for the pointer before integrating
+// the gap itself. Not a "has the finger stopped" heuristic — see the
+// accounted-clock note in handleScratchMove: both the pointer path and the
+// frame path advance ONE clock and integrate whatever angle has accumulated
+// since it last moved, so total angle is conserved no matter how fast or slow
+// samples arrive, and this only decides how finely that is sliced.
+//
+// It was a heuristic once, and that was the bug. At 24ms (one frame) and then
+// 48ms (three), a pointer slower than the threshold decayed toward zero
+// between two genuinely consecutive samples with nothing to compensate:
+// measured against a ~25ms synthetic pointer, a 200-degree sweep delivered
+// 0.561s of audio where the geometry says 1.000s — the deck quietly ignoring
+// 44% of the gesture. Conserving the angle instead makes the error 0 at every
+// sample rate, which is what let this go back down to 1.5 frames.
+const SCRATCH_STALE_MS = 24;
+
+// Floor on the interval a velocity is estimated over. Two pointer samples can
+// share a timestamp; dividing by that gives Infinity.
+const SCRATCH_MIN_INTERVAL_MS = 2;
+
+// The motor pulling the platter back to speed after the hand lets go, per unit
+// of rate travelled — proportional, the same convention setSpin uses, so
+// releasing from a hard backward flick takes visibly longer to recover than
+// nudging the record by a few percent. Bounded at both ends: below the floor a
+// release reads as a snap, above the ceiling as the deck being slow to obey.
+const SCRATCH_RECOVER_PER_UNIT = 0.34;
+const SCRATCH_RECOVER_MIN = 0.09;
+const SCRATCH_RECOVER_MAX = 0.6;
+
+// Grabs closer to the spindle than this fraction of the platter radius are
+// ignored. Angle around a centre is meaningless within a few pixels of it, so
+// a touch there produces enormous, random angular velocities from sub-pixel
+// jitter — it would read as the deck screaming rather than as a scratch.
+const SCRATCH_MIN_RADIUS_RATIO = 0.16;
+
 export default function Turntable({ track = null }) {
     const reduced = useReducedMotion();
 
@@ -240,17 +297,347 @@ export default function Turntable({ track = null }) {
         });
     }, [spinDown, applyDeckState]);
 
+    // ---- scratch (Stage 6, Phase 8) ----------------------------------------
+    //
+    // Hand-rolled pointer handling rather than Draggable(type:"rotation") +
+    // InertiaPlugin, which is what ROADMAP.md sketched for this phase. Three
+    // reasons, all of which only became visible with the rest of the deck built:
+    //
+    //  1. Draggable would have to bind to .turntable-platter-spin, which is the
+    //     element the spin tween writes `rotation` to every frame. STATUS.md
+    //     already flagged that collision from the other side (the fader's
+    //     update(false, false) bug) and warned to check for it here. Two owners
+    //     of one property is the exact fault that produced three separate
+    //     freeze bugs in Task 4.
+    //  2. InertiaPlugin's throw is the wrong PHYSICS. A record let go of on a
+    //     direct-drive deck does not coast to a stop — the motor pulls it back
+    //     to 33 1/3, which is a spring toward a target, not momentum decaying
+    //     to zero. That is the recovery ramp below, and it is four lines.
+    //  3. Latency. Audio rate has to be written from the pointer sample itself,
+    //     including the coalesced ones Draggable never exposes; going through
+    //     Draggable's own tick would put the sound a frame behind the finger on
+    //     exactly the gesture where that is most audible.
+    //
+    // The spin tween is SUSPENDED for the gesture and restored afterwards. That
+    // does not make this a second writer of timeScale: setSpin remains the only
+    // thing that RAMPS it, and this only ever puts back the value it took.
+
+    const scratchRef = useRef({
+        active: false,      // the gesture owns the platter (drag OR recovery)
+        dragging: false,    // a pointer is actually down
+        engine: false,      // the worklet took over; false means pitch-bend fallback
+        pointerId: null,
+        cx: 0, cy: 0,
+        lastAngle: 0,
+        rotation: 0,        // absolute, unwrapped — NOT modulo 360
+        velocity: 0,        // deg/s, smoothed
+        rate: 0,
+        accountedAt: 0,     // velocity is integrated up to here
+        pendingDelta: 0,    // degrees seen since, not yet integrated
+        lastFrameAt: 0,
+        raf: null,
+        restoreTimeScale: 0,
+        resumeTo: 1,        // 1 if the deck was playing when grabbed, else 0
+        recoverFrom: 0,
+        recoverStart: 0,
+        recoverSeconds: SCRATCH_RECOVER_MIN,
+    });
+
+    const clampRate = (r) => Math.max(-SCRATCH_MAX_RATE, Math.min(SCRATCH_MAX_RATE, r));
+
+    // Advances the velocity follower to `at`, integrating whatever angle has
+    // accumulated since it was last advanced.
+    //
+    // THE INVARIANT: every millisecond between grab and release is integrated
+    // exactly once, by whichever path gets there first. A frame that finds no
+    // new pointer data integrates zero degrees over that gap — and the sample
+    // that arrives afterwards is then divided by the SHORTER remaining
+    // interval, so its instantaneous velocity comes out proportionally higher
+    // and the two cancel. The mean the filter converges on is the true mean
+    // angular velocity at any sample rate, which is what makes
+    // NOMINAL_DEG_PER_SEC degrees of platter equal one second of audio whether
+    // the browser is delivering 120 samples a second or 20.
+    const integrateVelocity = useCallback((at) => {
+        const s = scratchRef.current;
+        const dt = (at - s.accountedAt) / 1000;
+        if (dt < SCRATCH_MIN_INTERVAL_MS / 1000) return false;
+        const instant = s.pendingDelta / dt;
+        s.pendingDelta = 0;
+        s.accountedAt = at;
+        s.velocity += (instant - s.velocity) * (1 - Math.exp(-dt / SCRATCH_VELOCITY_TAU));
+        return true;
+    }, []);
+
+    // The one place a scratch rate reaches audio, so the fallback lives in
+    // exactly one branch.
+    const applyScratchRate = useCallback((rate) => {
+        const s = scratchRef.current;
+        s.rate = rate;
+        if (s.engine) { audio.scratchTo(rate); return; }
+        // No AudioWorklet: reverse is simply not available, so a backward drag
+        // reads as a slow-down rather than as silence. abs() is what makes that
+        // true; setRate's own floor handles the bottom.
+        if (deckStateRef.current === DECK.PLAYING) audio.setRate(Math.min(2, Math.abs(rate)));
+    }, []);
+
+    // Gives the platter back to the spin tween without it jumping. The tween
+    // renders rotation from its own playhead, so the playhead has to be moved
+    // to the point in the cycle the hand actually left the record at — resuming
+    // without this snaps the record to wherever the motor "would" have been.
+    //
+    // .time() rather than .progress(): on a repeat:-1 tween, progress is
+    // ambiguous about which iteration it names, while time() is always the
+    // position inside the current one.
+    const restoreSpinTween = useCallback((rotation, timeScale, play) => {
+        const tween = spinTweenRef.current;
+        if (!tween) return;
+        const frac = (((rotation % 360) + 360) % 360) / 360;
+        tween.time(SPIN_SECONDS * frac);
+        tween.timeScale(timeScale);
+        if (play) tween.play();
+    }, []);
+
+    const stopScratchLoop = useCallback(() => {
+        const s = scratchRef.current;
+        if (s.raf !== null) cancelAnimationFrame(s.raf);
+        s.raf = null;
+    }, []);
+
+    // Settles the deck once the recovery ramp has arrived.
+    const finishScratch = useCallback(() => {
+        const s = scratchRef.current;
+        if (!s.active) return;
+        stopScratchLoop();
+        s.active = false;
+        s.dragging = false;
+        if (rootRef.current) delete rootRef.current.dataset.scratching;
+
+        const resume = s.resumeTo > 0;
+        restoreSpinTween(s.rotation, s.restoreTimeScale, resume && !reduced);
+        if (s.engine) audio.endScratch({ resume });
+        s.engine = false;
+
+        // endScratch fires the ended listeners itself if the hand ran off the
+        // end of the preview, and that listener already sets STOPPED_LOADED —
+        // so only overwrite the state when it is still ours to set.
+        if (deckStateRef.current === DECK.PLAYING || deckStateRef.current === DECK.PAUSED) {
+            applyDeckState(resume ? DECK.PLAYING : DECK.PAUSED);
+        }
+    }, [applyDeckState, reduced, restoreSpinTween, stopScratchLoop]);
+
+    // Drops the gesture with no hand-back, for anything that is about to
+    // rebuild playback anyway: a track swap, a tab blur, unmount.
+    const abortScratchGesture = useCallback(() => {
+        const s = scratchRef.current;
+        if (!s.active) return;
+        stopScratchLoop();
+        if (s.pointerId !== null) {
+            try { platterRef.current?.releasePointerCapture(s.pointerId); } catch { /* already released */ }
+        }
+        s.pointerId = null;
+        s.active = false;
+        s.dragging = false;
+        if (rootRef.current) delete rootRef.current.dataset.scratching;
+        restoreSpinTween(s.rotation, s.restoreTimeScale, false);
+        if (s.engine) audio.abortScratch();
+        s.engine = false;
+    }, [restoreSpinTween, stopScratchLoop]);
+
+    const scratchFrame = useCallback((now) => {
+        const s = scratchRef.current;
+        if (!s.active) return;
+        s.raf = requestAnimationFrame(scratchFrame);
+
+        const dt = Math.min(0.05, (now - s.lastFrameAt) / 1000);
+        s.lastFrameAt = now;
+        if (dt <= 0) return;
+
+        if (s.dragging) {
+            // A finger resting on the record is a record held STILL, and a
+            // stopped record has to fall silent. No pointermove fires while it
+            // rests, so this is the only path that can notice — it integrates
+            // the untouched gap (zero degrees) and the velocity decays out of
+            // its own accord, no special case for "stopped".
+            if (now - s.accountedAt > SCRATCH_STALE_MS && integrateVelocity(now)) {
+                applyScratchRate(clampRate(s.velocity / NOMINAL_DEG_PER_SEC));
+            }
+            return;
+        }
+
+        // Released: the motor pulls the platter back to speed (or lets it stop,
+        // if it was grabbed on a paused deck).
+        const p = Math.min(1, (now - s.recoverStart) / 1000 / s.recoverSeconds);
+        const eased = 1 - Math.pow(1 - p, 3); // power3.out, the deck's own ramp shape
+        const rate = s.recoverFrom + (s.resumeTo - s.recoverFrom) * eased;
+
+        // Integrated, not tweened: the platter has to keep turning through the
+        // recovery at whatever rate the audio is being played at, so the two
+        // stay one object. Skipped under reduced motion, where the platter is
+        // static by policy and only the pitch settles.
+        if (!reduced) {
+            s.rotation += rate * NOMINAL_DEG_PER_SEC * dt;
+            gsap.set(spinRef.current, { rotation: s.rotation });
+        }
+        applyScratchRate(rate);
+
+        if (p >= 1) finishScratch();
+    }, [applyScratchRate, finishScratch, integrateVelocity, reduced]);
+
+    const handleScratchDown = useCallback((e) => {
+        // Secondary mouse buttons open menus; touch and pen report button 0.
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        if (!trackRef.current) return;
+        if (isBusyRef.current) return; // never fights the load/swap choreography
+
+        // PLAYING and PAUSED only. In both the arm is down ON the record, which
+        // is what makes moving it produce sound. STOPPED_LOADED parks the arm
+        // back at rest, and a stylus that is not touching the groove cannot be
+        // scratched — "play again" puts it back first.
+        const state = deckStateRef.current;
+        if (state !== DECK.PLAYING && state !== DECK.PAUSED) return;
+
+        const platter = platterRef.current;
+        const spin = spinRef.current;
+        if (!platter || !spin) return;
+
+        const rect = platter.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = e.clientX - cx;
+        const dy = e.clientY - cy;
+        if (Math.hypot(dx, dy) < (rect.width / 2) * SCRATCH_MIN_RADIUS_RATIO) return;
+
+        const s = scratchRef.current;
+        const playing = state === DECK.PLAYING;
+
+        // Suspend the spin tween. killTweensOf first, or a wind-up still in
+        // flight keeps writing timeScale underneath the gesture and lands on
+        // top of the restore.
+        const tween = spinTweenRef.current;
+        if (tween) {
+            gsap.killTweensOf(tween);
+            s.restoreTimeScale = playing ? 1 : tween.timeScale();
+            tween.pause();
+        } else {
+            s.restoreTimeScale = playing ? 1 : 0;
+        }
+
+        s.active = true;
+        s.dragging = true;
+        s.pointerId = e.pointerId;
+        s.cx = cx;
+        s.cy = cy;
+        s.lastAngle = Math.atan2(dy, dx) * RAD_TO_DEG;
+        s.rotation = Number(gsap.getProperty(spin, "rotation")) || 0;
+        // Seeded at the speed the record is ALREADY turning, so grabbing a
+        // playing deck decays from pitch to a standstill over the follower's own
+        // time constant — which is what catching a moving record feels like —
+        // instead of cutting to silence on the first frame.
+        s.velocity = playing ? NOMINAL_DEG_PER_SEC : 0;
+        s.rate = playing ? 1 : 0;
+        s.resumeTo = playing ? 1 : 0;
+        s.accountedAt = e.timeStamp || performance.now();
+        s.pendingDelta = 0;
+        s.lastFrameAt = performance.now();
+
+        s.engine = audio.beginScratch(s.rate);
+        if (rootRef.current) rootRef.current.dataset.scratching = "";
+
+        // A cue on a paused deck IS playback — sound is coming out, and the
+        // hero's skyline reads this edge to know to light up. Returned to
+        // PAUSED by finishScratch when the record comes to rest.
+        if (s.engine && !playing) applyDeckState(DECK.PLAYING);
+
+        try { platter.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+
+        stopScratchLoop();
+        s.raf = requestAnimationFrame(scratchFrame);
+    }, [applyDeckState, scratchFrame, stopScratchLoop]);
+
+    const handleScratchMove = useCallback((e) => {
+        const s = scratchRef.current;
+        if (!s.dragging || e.pointerId !== s.pointerId) return;
+
+        // Coalesced events are every sample the OS actually delivered, not just
+        // the one survivor per frame. On a 120Hz phone that is the difference
+        // between a velocity built from eight samples and one built from four —
+        // and it is exactly the fast, short strokes of a real scratch where the
+        // dropped samples carry the most information.
+        const coalesced = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
+        const samples = coalesced && coalesced.length ? coalesced : [e];
+
+        for (const sample of samples) {
+            const angle = Math.atan2(sample.clientY - s.cy, sample.clientX - s.cx) * RAD_TO_DEG;
+            let delta = angle - s.lastAngle;
+            // Unwrap the +/-180 seam: crossing it is a small move, not a 359 jump.
+            if (delta > 180) delta -= 360;
+            else if (delta < -180) delta += 360;
+            s.lastAngle = angle;
+            s.rotation += delta;
+
+            s.pendingDelta += delta;
+            // Coalesced samples carry their own timestamps, so each one is
+            // integrated over its own real interval rather than all of them
+            // being flattened onto the frame they were delivered in.
+            integrateVelocity(sample.timeStamp || performance.now());
+        }
+
+        // Written here rather than in the rAF loop: pointermove already lands
+        // immediately before paint, so the visual costs nothing extra, and the
+        // AUDIO rate gets to the graph without waiting for a frame boundary.
+        if (!reduced) gsap.set(spinRef.current, { rotation: s.rotation });
+        applyScratchRate(clampRate(s.velocity / NOMINAL_DEG_PER_SEC));
+    }, [applyScratchRate, integrateVelocity, reduced]);
+
+    const handleScratchUp = useCallback((e) => {
+        const s = scratchRef.current;
+        if (!s.dragging || (e && e.pointerId !== s.pointerId)) return;
+        s.dragging = false;
+        if (s.pointerId !== null) {
+            try { platterRef.current?.releasePointerCapture(s.pointerId); } catch { /* already released */ }
+        }
+        s.pointerId = null;
+
+        s.recoverFrom = s.rate;
+        s.recoverStart = performance.now();
+        s.recoverSeconds = Math.max(
+            SCRATCH_RECOVER_MIN,
+            Math.min(SCRATCH_RECOVER_MAX, Math.abs(s.resumeTo - s.recoverFrom) * SCRATCH_RECOVER_PER_UNIT),
+        );
+    }, []);
+
+    // The worklet needs the module fetched and ~10MB of channel data copied
+    // across the thread boundary before it can make a sound, and beginScratch
+    // has to be synchronous. Doing it here means it is settled long before a
+    // finger can reach the record — deferred off the needle-contact frame
+    // itself, which is the one frame in the whole load that is already busy.
+    useEffect(() => {
+        if (!track?.previewUrl) return;
+        if (!audio.isScratchSupported()) return;
+        const id = setTimeout(() => { audio.prepareScratch(track.previewUrl); }, 400);
+        return () => clearTimeout(id);
+    }, [track?.previewUrl]);
+
+    useEffect(() => abortScratchGesture, [abortScratchGesture]);
+
     // Tab blur: stop, don't auto-resume on return.
+    //
+    // Lives below the scratch section rather than with the rest of the audio
+    // wiring so it can name abortScratchGesture — a gesture in flight owns the
+    // spin tween and a requestAnimationFrame loop, neither of which audio.stop()
+    // knows about, and a rAF loop in a hidden tab is throttled to ~1Hz, so the
+    // recovery ramp would land minutes later on a deck that had moved on.
     useEffect(() => {
         const onVisibility = () => {
             if (document.visibilityState !== "hidden") return;
+            abortScratchGesture();
             audio.stop();
             spinDown(0.2);
             if (deckStateRef.current === DECK.PLAYING) applyDeckState(DECK.PAUSED);
         };
         document.addEventListener("visibilitychange", onVisibility);
         return () => document.removeEventListener("visibilitychange", onVisibility);
-    }, [spinDown, applyDeckState]);
+    }, [spinDown, applyDeckState, abortScratchGesture]);
 
     // ---- choreography ------------------------------------------------------
 
@@ -265,6 +652,10 @@ export default function Turntable({ track = null }) {
         // Guard overlap: a rapid second pick must not stack timelines or leave
         // two audio sources running.
         if (timelineRef.current) { timelineRef.current.kill(); timelineRef.current = null; }
+        // A gesture still on the platter owns rotation and holds the spin tween
+        // suspended — the drop animation below would be fighting it for the
+        // same element, and the recovery ramp would land on the new track.
+        abortScratchGesture();
         // A needle drop, not a resume: the deck is treated as already at speed,
         // so playback starts at pitch with Task 2's slow fade-in rather than
         // bending up from the rate floor. Also clears any rate a previous
@@ -350,6 +741,11 @@ export default function Turntable({ track = null }) {
     const handleTransport = useCallback(() => {
         // Never fights the load/swap choreography, or the replay swing below.
         if (isBusyRef.current) return;
+        // ...or a scratch. The gesture owns the platter and the audio rate for
+        // its whole length, including the recovery ramp; a press landing inside
+        // that window would ramp timeScale on a tween the scratch has suspended
+        // and is about to restore.
+        if (scratchRef.current.active) return;
         if (!trackRef.current) return;
 
         // The REF, not the state variable — see applyDeckState. Reading state
@@ -802,7 +1198,27 @@ export default function Turntable({ track = null }) {
                 <div className="turntable-arm-rest" aria-hidden="true" />
 
                 <div className="turntable-platter-mount">
-                    <div className="turntable-platter" ref={platterRef}>
+                    {/* The scratch surface (Stage 6, Phase 8). Listeners sit on
+                        the whole platter rather than on .vinyl-record: the disc
+                        is the object a visitor reaches for, the extra ring is
+                        free forgiveness for a thumb on a phone, and this element
+                        is static — binding to the record's own wrapper would
+                        mean sharing a target with the drop tween.
+
+                        Pointer events, not touch: one code path covers mouse,
+                        finger and pen, and setPointerCapture (see
+                        handleScratchDown) keeps the gesture alive when the
+                        finger leaves the platter mid-stroke, which on a 200px
+                        disc it constantly does. */}
+                    <div
+                        className="turntable-platter"
+                        ref={platterRef}
+                        onPointerDown={handleScratchDown}
+                        onPointerMove={handleScratchMove}
+                        onPointerUp={handleScratchUp}
+                        onPointerCancel={handleScratchUp}
+                        onLostPointerCapture={handleScratchUp}
+                    >
                         {/* Platter, strobe ring and record all live inside the
                             spin group so they rotate as one object. */}
                         <div className="turntable-platter-spin" ref={spinRef} data-platter="">

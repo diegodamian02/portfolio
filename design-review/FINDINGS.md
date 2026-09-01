@@ -650,6 +650,34 @@ It converges correctly and only applies after a preview has finished, so it was 
 is. The real fix is a `DECK.CUEING` state, which belongs with **Phase 8** (scratch) since
 that phase needs to know whether the arm is mid-travel anyway.
 
+> **Still open after Phase 8 shipped (2026-08-31).** The scratch did *not* need a new
+> deck state, so it did not add one. It sidesteps the arm-position question by refusing
+> to engage from `STOPPED_LOADED` at all — in `PLAYING` and `PAUSED` the arm is down on
+> the record, which is what makes moving it produce sound, and `STOPPED_LOADED` parks
+> the arm at rest where a stylus off the groove cannot be scratched. Cueing a paused
+> deck publishes `DECK.PLAYING` for the length of the gesture (sound genuinely is coming
+> out, and the skyline reads that edge) and returns to `PAUSED` on release. So D11's
+> 0.6s swallow is unchanged and `DECK.CUEING` is still the right fix — it just no longer
+> has a phase attached to it. Whoever picks it up owns the whole thing.
+
+### D32 — the crate's outside-click handler is bound to `mousedown`, so touch never dismisses it
+
+`record-crate.jsx:158` registers `handlePointerDown` — the function's own name — on
+**`mousedown`**, not `pointerdown`. A touch drag produces no `mousedown` (browsers
+synthesise one only for taps, after `touchend`), so on a phone the crate panel stays
+open underneath any touch interaction elsewhere on the page.
+
+Found while checking whether a track swap could land mid-scratch in Phase 8, which is
+the only reason it matters at all today: it means a second finger can in principle reach
+a record while the first is on the platter. That path is handled (`abortScratchGesture()`
+runs from the choreography effect) but could not be driven in a harness, since Chrome
+does not synthesise a click for a touch inside a multi-touch sequence.
+
+Pre-existing and unrelated to Phase 8, so it was left alone rather than fixed in that
+pass. One-word change if it's wanted; the only reason for hesitation is that switching
+to `pointerdown` would also start dismissing the panel on touch, which is a behaviour
+change nobody has asked for and which nothing currently depends on either way.
+
 ### D12 — the mat is nearly invisible once a record is on the platter
 
 `.turntable-mat` is `inset: 6.5%` of the platter (radius 0.935) and `.vinyl-record` is

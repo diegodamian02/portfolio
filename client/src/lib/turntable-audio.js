@@ -6,8 +6,16 @@
 // no error. There is exactly one, created lazily, reused forever.
 //
 // Graph:
-//     AudioBufferSourceNode → masterGain → destination
-//                                  └─────→ analyser   (tap, no output)
+//     AudioBufferSourceNode → sourceGain ──┐
+//                                          ├─→ masterGain → destination
+//     ScratchWorkletNode ──→ scratchGain ──┘        └─────→ analyser  (tap)
+//
+// sourceGain and scratchGain exist so the two players can be CROSSFADED
+// against each other without touching masterGain, which both of them pass
+// through and which the spin linkage owns (see the scratch section at the
+// bottom of this file). The analyser sits downstream of the sum, so the hero's
+// skyline follows a scratch for free — including going silent when the record
+// is held still — with no coupling between the two features.
 //
 // The analyser is built now even though nothing reads it until Stage 7. It is
 // free here and painful to retrofit once the graph has consumers.
@@ -31,6 +39,10 @@ const SILENT_UNLOCK_SECONDS = 0.001;
 let ctx = null;
 let masterGain = null;
 let analyser = null;
+
+// Per-player gain for the ordinary buffer source. Always 1 except during the
+// ~12ms handover to or from the scratch engine.
+let sourceGain = null;
 
 let currentSource = null;
 let currentTrackId = null;
@@ -113,6 +125,10 @@ export function init() {
         //
         // Nothing else reads the analyser.
         analyser.smoothingTimeConstant = 0.55;
+
+        sourceGain = ctx.createGain();
+        sourceGain.gain.value = 1;
+        sourceGain.connect(masterGain);
 
         masterGain.connect(ctx.destination);
         // Tap only — an AnalyserNode processes whatever reaches it and does not
@@ -231,6 +247,7 @@ export function isSpinLinked() { return spinLinked; }
  * playback that is just starting.
  */
 export function followSpin(timeScale, { stopAtFloor = false } = {}) {
+    if (scratchActive) return;
     if (!spinLinked || !ctx || !masterGain) return;
     const t = Math.max(0, timeScale);
 
@@ -255,6 +272,7 @@ export function followSpin(timeScale, { stopAtFloor = false } = {}) {
 
 /** Lands rate and gain exactly, so a ramp can't leave them a hair off target. */
 export function settleSpin(timeScale) {
+    if (scratchActive) return;
     if (!ctx || !masterGain) return;
     if (timeScale <= 0) return;
     setRate(timeScale);
@@ -320,7 +338,7 @@ function startBuffer(buffer, url, trackId, offset, fadeSeconds) {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.playbackRate.value = playbackRate;
-    source.connect(masterGain);
+    source.connect(sourceGain);
 
     source.onended = () => {
         if (stoppingIntentionally) return;
@@ -406,6 +424,7 @@ export async function play({ previewUrl, trackId, offset = 0, fadeSeconds } = {}
 /** Stops playback and returns the offset reached, for a later resume. */
 export function stop() {
     const elapsed = getElapsed();
+    abortScratch();
     if (ctx && masterGain) {
         masterGain.gain.cancelScheduledValues(ctx.currentTime);
         masterGain.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
@@ -423,6 +442,10 @@ export function reset() {
 }
 
 export function getElapsed() {
+    // The worklet is the only thing that knows where the head is during a
+    // gesture — startOffset/startedAtCtxTime describe a source that is not
+    // running, and the position can have gone BACKWARDS since it stopped.
+    if (scratchActive) return getScratchPosition();
     if (!ctx) return startOffset;
     if (!isPlaying) return startOffset;
     return startOffset + (ctx.currentTime - startedAtCtxTime) * playbackRate;
@@ -477,6 +500,13 @@ export function onEnded(fn) {
 
 export function getState() {
     return {
+        // True while the worklet owns playback. isPlaying stays FALSE then —
+        // it tracks the AudioBufferSourceNode specifically, which really is
+        // stopped — so anything asking "is this deck making sound" has to read
+        // both. Exposed here rather than only through isScratching() because
+        // getState() is what the skyline's debug hook surfaces, and that hook
+        // is the only reliable way a probe reaches the app's own instance.
+        scratching: scratchActive,
         isPlaying,
         trackId: currentTrackId,
         elapsed: getElapsed(),
@@ -508,4 +538,313 @@ export function getAnalyser() {
  */
 export function getRate() {
     return playbackRate;
+}
+
+// ---- scratch (Stage 6, Phase 8) ----------------------------------------
+//
+// A SECOND, TEMPORARY SOURCE, not a mode of the existing one. For the length
+// of a gesture the AudioWorklet in public/scratch-processor.js replaces the
+// AudioBufferSourceNode; when the platter is back at speed, playback is handed
+// back. Everything outside the gesture — pause/resume, the spin linkage, the
+// elapsed bookkeeping, onEnded — is untouched and stays authoritative.
+//
+// The split is because the two nodes are good at opposite things:
+//
+//   - AudioBufferSourceNode plays a buffer forwards, at pitch, bit-exact, with
+//     the browser doing the work. It cannot play backwards (both Chrome and
+//     Safari clamp a negative playbackRate to 0 and output silence), which
+//     makes it useless for the half of a scratch that defines the sound.
+//   - The worklet resamples by hand, so it goes backwards, stops dead, and
+//     changes direction inside one render quantum (2.7ms). It also
+//     interpolates every sample it emits, which is a thing to spend on a
+//     2-second gesture and not on 30 seconds of ordinary listening.
+//
+// Handing back rather than staying on the worklet is what keeps this phase
+// from touching the rest of the engine: the moment endScratch() returns, the
+// deck is in exactly the state it would have been in had the scratch never
+// happened, only at a different offset.
+
+// Matches the pointer layer's own smoothing window. setTargetAtTime is
+// exponential, so this is ~95% arrived in 18ms — below the ~30ms where a rate
+// change stops reading as instant, and long enough that 60 discrete writes a
+// second do not step audibly.
+const SCRATCH_RATE_TAU = 0.006;
+
+// The crossfade between the two players, each way. Both are playing the SAME
+// audio from the SAME offset, so the signals are correlated and a LINEAR
+// crossfade is the correct one — an equal-power curve would bulge by ~3dB in
+// the middle. Short enough to be a seam rather than a dissolve.
+const SCRATCH_XFADE = 0.012;
+
+// The power-down when a scratch is released on a deck that was paused: the
+// record was never going to keep turning, so the sound goes with it.
+const SCRATCH_CUE_RELEASE = 0.12;
+
+const SCRATCH_MODULE_URL = "/scratch-processor.js";
+
+let scratchNode = null;
+let scratchGain = null;
+let scratchModulePromise = null;
+let scratchModuleFailed = false;
+let scratchLoadedUrl = null;   // which preview the worklet currently holds
+let scratchActive = false;
+
+// Last position reported by the worklet, and the context time it arrived, so
+// getElapsed() can extrapolate between reports instead of stepping every 21ms.
+let scratchPosition = 0;
+let scratchPositionAt = 0;
+let scratchRate = 1;
+let scratchAtEnd = false;
+
+export function isScratchSupported() {
+    return !scratchModuleFailed && typeof AudioWorkletNode !== "undefined";
+}
+
+export function isScratching() {
+    return scratchActive;
+}
+
+/** Live read head during a scratch, in seconds. Extrapolated between reports. */
+function getScratchPosition() {
+    if (!ctx) return scratchPosition;
+    const drift = (ctx.currentTime - scratchPositionAt) * scratchRate;
+    return Math.max(0, scratchPosition + drift);
+}
+
+/**
+ * Loads the worklet module and hands it the decoded preview.
+ *
+ * Called from the needle-contact beat, NOT from the gesture — beginScratch()
+ * has to be synchronous (it runs inside pointerdown, where a single dropped
+ * frame is felt), and addModule() plus a ~10MB channel copy are not things to
+ * do with a finger already on the record. By the time anyone can touch the
+ * platter this has been settled for well over a second.
+ *
+ * Safe to call repeatedly; it no-ops once the worklet holds this URL.
+ */
+export async function prepareScratch(previewUrl) {
+    if (!isScratchSupported()) return false;
+    if (!ctx) return false;
+    const url = previewUrl ?? currentUrl;
+    if (!url) return false;
+    if (scratchLoadedUrl === url && scratchNode) return true;
+
+    try {
+        if (!scratchModulePromise) {
+            scratchModulePromise = ctx.audioWorklet.addModule(SCRATCH_MODULE_URL);
+        }
+        await scratchModulePromise;
+
+        const buffer = bufferCache.get(url) || await load(url);
+
+        if (!scratchNode) {
+            scratchGain = ctx.createGain();
+            scratchGain.gain.value = 0;
+            scratchGain.connect(masterGain);
+
+            scratchNode = new AudioWorkletNode(ctx, "scratch-processor", {
+                numberOfInputs: 0,
+                numberOfOutputs: 1,
+                // Always stereo out. A mono preview is duplicated inside the
+                // processor rather than left hard-panned left.
+                outputChannelCount: [2],
+            });
+            scratchNode.port.onmessage = ({ data }) => {
+                if (!data || data.type !== "position") return;
+                scratchPosition = data.position;
+                scratchPositionAt = ctx.currentTime;
+                scratchAtEnd = data.atEnd;
+            };
+            scratchNode.connect(scratchGain);
+        }
+
+        // .slice() copies out of the AudioBuffer (its own channel data must
+        // stay intact for the ordinary source), then the copies are
+        // TRANSFERRED — the second argument moves ownership rather than
+        // structured-cloning ~10MB across the thread boundary.
+        const channels = [];
+        for (let c = 0; c < buffer.numberOfChannels; c++) {
+            channels.push(buffer.getChannelData(c).slice());
+        }
+        scratchNode.port.postMessage(
+            { type: "load", channels },
+            channels.map((a) => a.buffer),
+        );
+
+        scratchLoadedUrl = url;
+        return true;
+    } catch (err) {
+        // Not fatal and not surfaced: the deck still plays, it just cannot be
+        // scratched. The gesture layer falls back to a forward-only pitch bend.
+        scratchModuleFailed = true;
+        console.warn("[turntable-audio] scratch engine unavailable", err);
+        return false;
+    }
+}
+
+/**
+ * Takes over playback at the current position. SYNCHRONOUS — safe to call from
+ * a pointerdown handler. Returns false if the worklet isn't ready, in which
+ * case the caller keeps the ordinary source and degrades to a pitch bend.
+ *
+ * `startRate` is where the record is already travelling: 1 on a playing deck,
+ * 0 on a paused one, so the handover is continuous in rate as well as position.
+ */
+export function beginScratch(startRate = 1) {
+    if (scratchActive) return true;
+    if (!ctx || !masterGain || !scratchNode || scratchLoadedUrl !== currentUrl) return false;
+    if (ctx.state === "suspended") ctx.resume(); // fire-and-forget
+
+    const now = ctx.currentTime;
+    const offset = getElapsed();
+
+    // The scratch owns rate and gain for the whole gesture. Leaving the spin
+    // link on would let followSpin() write RATE_FLOOR-clamped values over the
+    // top of it the moment anything touched the platter's timeScale — and the
+    // floor is exactly what a scratch has to go below.
+    endSpinLink();
+
+    // Retire the ordinary source under a short fade rather than tearing it
+    // down in the same tick. teardownSource() would cut it at full level.
+    const outgoing = currentSource;
+    if (outgoing) {
+        sourceGain.gain.cancelScheduledValues(now);
+        sourceGain.gain.setValueAtTime(sourceGain.gain.value, now);
+        sourceGain.gain.linearRampToValueAtTime(0, now + SCRATCH_XFADE);
+        outgoing.onended = null;
+        try { outgoing.stop(now + SCRATCH_XFADE); } catch { /* already stopped */ }
+        retiring.add(outgoing);
+        setTimeout(() => {
+            try { outgoing.disconnect(); } catch { /* already disconnected */ }
+            retiring.delete(outgoing);
+        }, SCRATCH_XFADE * 1000 + 80);
+    }
+    currentSource = null;
+    isPlaying = false;
+    startOffset = offset;
+
+    scratchRate = startRate;
+    scratchPosition = offset;
+    scratchPositionAt = now;
+    scratchAtEnd = false;
+
+    const rate = scratchNode.parameters.get("rate");
+    rate.cancelScheduledValues(now);
+    rate.setValueAtTime(startRate, now);
+
+    scratchNode.port.postMessage({ type: "start", position: offset });
+
+    scratchGain.gain.cancelScheduledValues(now);
+    scratchGain.gain.setValueAtTime(scratchGain.gain.value, now);
+    scratchGain.gain.linearRampToValueAtTime(1, now + SCRATCH_XFADE);
+
+    // Covers the cue case: on a paused deck masterGain is sitting at 0 from
+    // the power-down, and a scratch has to be audible anyway — moving a record
+    // by hand makes sound whether or not the motor is running.
+    masterGain.gain.cancelScheduledValues(now);
+    masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+    masterGain.gain.linearRampToValueAtTime(TARGET_VOLUME, now + SCRATCH_XFADE);
+
+    scratchActive = true;
+    return true;
+}
+
+/**
+ * The hot path — called on every pointer sample and every animation frame of
+ * the release. Negative values play backwards; 0 holds the record still, which
+ * the processor renders as silence rather than DC.
+ */
+export function scratchTo(rate) {
+    if (!scratchActive || !scratchNode || !ctx) return;
+    // Bank the distance covered at the OLD rate before adopting the new one,
+    // for the same reason setRate() does: getScratchPosition() extrapolates
+    // with a single rate, which is only correct while that rate holds.
+    scratchPosition = getScratchPosition();
+    scratchPositionAt = ctx.currentTime;
+    scratchRate = rate;
+    scratchNode.parameters.get("rate")
+        .setTargetAtTime(rate, ctx.currentTime, SCRATCH_RATE_TAU);
+}
+
+/**
+ * Hands playback back. `resume: true` starts an ordinary source at the scratch
+ * position (the deck is playing again); `resume: false` fades out and banks the
+ * position for a later resume (the deck was, and stays, paused).
+ *
+ * Returns the position reached, in seconds.
+ */
+export function endScratch({ resume = true } = {}) {
+    if (!scratchActive) return getElapsed();
+    const now = ctx.currentTime;
+    const position = getScratchPosition();
+    const reachedEnd = scratchAtEnd;
+
+    scratchActive = false;
+    startOffset = position;
+
+    const fadeScratch = (seconds) => {
+        scratchGain.gain.cancelScheduledValues(now);
+        scratchGain.gain.setValueAtTime(scratchGain.gain.value, now);
+        scratchGain.gain.linearRampToValueAtTime(0, now + seconds);
+        // Stopping the processor is deferred past its own fade for the same
+        // reason the source teardown is: silencing and stopping in one tick
+        // makes the ramp inaudible and the cut audible.
+        setTimeout(() => {
+            if (!scratchActive) scratchNode?.port.postMessage({ type: "stop" });
+        }, seconds * 1000 + 40);
+    };
+
+    if (!resume) {
+        fadeScratch(SCRATCH_CUE_RELEASE);
+        masterGain.gain.cancelScheduledValues(now);
+        masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+        masterGain.gain.linearRampToValueAtTime(0, now + SCRATCH_CUE_RELEASE);
+        return position;
+    }
+
+    // Scratched forward off the end of the preview: there is nothing left to
+    // hand back to, so this is the same end-of-side the ordinary source would
+    // have reported. Told through the SAME listener set, so the deck's arm
+    // return and brake run exactly as they do on a natural finish.
+    if (reachedEnd) {
+        fadeScratch(SCRATCH_CUE_RELEASE);
+        startOffset = 0;
+        endedListeners.forEach((fn) => fn());
+        return position;
+    }
+
+    const buffer = bufferCache.get(currentUrl);
+    if (!buffer) {
+        fadeScratch(SCRATCH_CUE_RELEASE);
+        return position;
+    }
+
+    // Back to pitch before the new source is built — startBuffer() reads
+    // `playbackRate` for its initial value, and whatever the pitch fader or a
+    // power-down last left there is not what a resumed scratch should inherit.
+    setRate(1);
+
+    sourceGain.gain.cancelScheduledValues(now);
+    sourceGain.gain.setValueAtTime(0, now);
+    sourceGain.gain.linearRampToValueAtTime(1, now + SCRATCH_XFADE);
+    fadeScratch(SCRATCH_XFADE);
+
+    startBuffer(buffer, currentUrl, currentTrackId, position, undefined);
+    return position;
+}
+
+/**
+ * Drops the scratch immediately, with no hand-back — for a track swap, a tab
+ * blur, or anything else that is about to rebuild playback anyway and would
+ * otherwise be fought by a gesture still in flight.
+ */
+export function abortScratch() {
+    if (!scratchActive) return;
+    scratchActive = false;
+    if (ctx && scratchGain) {
+        scratchGain.gain.cancelScheduledValues(ctx.currentTime);
+        scratchGain.gain.setValueAtTime(0, ctx.currentTime);
+    }
+    scratchNode?.port.postMessage({ type: "stop" });
+    startOffset = getScratchPosition();
 }

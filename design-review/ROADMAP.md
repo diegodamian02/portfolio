@@ -11,7 +11,7 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-08-30, **site-wide vertical scroll-snap** — every section settles to `--scroll-offset` when a wheel/trackpad gesture rests near it, both directions [`proximity` via `lenis/snap`, no CSS scroll-snap]; the three entrance holds pause it while they play. Prior 2026-08-29: `#connect` send-state polish — sent layout centred, heading glides in, takeover scrim removed, "send another" fades in. Prior 2026-08-28: desktop one-screen fit pass — every section fits after a nav click; entrance pins removed; both cascades animate on a nav click; B56 closed for `#my-taste` + `#connect`)*
+## 0. Current state — quick summary *(updated 2026-08-31, **Stage 6 Phase 8 — scratch**: the record on the platter is draggable, plays BACKWARDS via an `AudioWorkletProcessor` (an `AudioBufferSourceNode` cannot — both Chrome and Safari clamp a negative `playbackRate` to 0), goes silent when held still, and is pulled back to 33⅓ by the "motor" on release; works on touch, and the hero skyline follows it for free because the analyser taps the sum of both players. Stage 6 now has only Phase 10 left. Prior 2026-08-30: **site-wide vertical scroll-snap** — every section settles to `--scroll-offset` when a wheel/trackpad gesture rests near it, both directions [`proximity` via `lenis/snap`, no CSS scroll-snap]; the three entrance holds pause it while they play. Prior 2026-08-29: `#connect` send-state polish — sent layout centred, heading glides in, takeover scrim removed, "send another" fades in. Prior 2026-08-28: desktop one-screen fit pass — every section fits after a nav click; entrance pins removed; both cascades animate on a nav click; B56 closed for `#my-taste` + `#connect`)*
 
 For anyone opening this file cold: the detailed stage-by-stage record below (§3)
 is the source of truth, but it's long. This section is the fast version —
@@ -891,7 +891,7 @@ links and reduced motion all unchanged; 0 page errors. Full writeup:
 | **5 (`#my-taste` piece)** | ~~Mobile pass~~ — **done, above.** | — |
 | **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
 | **6 (Phase 9)** | ~~Pitch fader~~ — **done, above.** | — |
-| **6 (Phases 8, 10)** | Turntable delight remainder — scroll-linked ducking/mute, scratch | Stages 1 + 2 — both done |
+| **6 (Phase 10)** | Turntable delight remainder — scroll-linked ducking/mute. *(Phase 8, scratch, shipped 2026-08-31; Phase 9, pitch, already done)* | Stages 1 + 2 — both done |
 | **7 (a–d)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy pass, spectrum-bound ribbons~~ — **superseded and DELETED, see the rebuild above.** | — |
 | **7 (rebuild)** | ~~Hero synthwave skyline spectrum — Canvas2D renderer, standalone palette module, presence + synchronous reveal~~ — **done, above.** | — |
 | **7.1** | ~~Electric palette, navbar-derived height ceiling, travelling colour wave, neon glow pass~~ — **done, above.** | — |
@@ -2180,9 +2180,30 @@ deferred — navigation existing at all is a Stage 0 bug, separate from mobile p
 
 ### Stage 6 — Turntable delight *(Phases 8, 9, 10)*
 
-- **9** Pitch fader — ±8% `playbackRate`, `preservesPitch = false` *(~1 hour)*
-- **10** Scroll-linked ducking + persistent mute *(depends on Stages 1 and 2)*
-- **8** Scratch — `Draggable(type:"rotation")` + `InertiaPlugin` *(hardest, pure delight, last)*
+- **9** Pitch fader — ±8% `playbackRate`, `preservesPitch = false` ✅ **done**
+- **10** Scroll-linked ducking + persistent mute *(depends on Stages 1 and 2)* — **the
+  only Stage 6 item still open**
+- **8** Scratch ✅ **done, 2026-08-31.** Built on an **`AudioWorkletProcessor`**, not
+  `Draggable(type:"rotation")` + `InertiaPlugin` as sketched here. Three reasons, all
+  recorded in `STATUS.md` with measurements:
+  - `AudioBufferSourceNode` **cannot play backwards** — `playbackRate` accepts negative
+    values on paper, but Chrome and Safari both clamp to 0 and emit silence. Reverse is
+    the defining half of a scratch, so the sketch could only ever have produced a pitch
+    bend. The worklet resamples by hand and plays at any signed rate; playback is handed
+    **back** to the ordinary source once the platter is at speed, so nothing else in the
+    engine had to become scratch-aware.
+  - `Draggable` would have bound to the element the spin tween already writes `rotation`
+    to — the collision `STATUS.md` warned to check for here. The gesture **suspends and
+    restores** the tween instead; `setSpin` is still the only thing that *ramps*
+    `timeScale`.
+  - `InertiaPlugin`'s throw is the wrong physics: a released record on a direct-drive
+    deck is pulled back to 33⅓ by the motor, which is a spring to a target, not
+    momentum decaying to zero.
+
+  The hero skyline follows a scratch **for free** — the analyser taps the sum of both
+  players, so no wiring was added between the two features. Do not relitigate the
+  Draggable/Inertia sketch; it was tried against the built deck and lost on all three
+  points.
 
 ### Stage 7 — The WOW layer
 

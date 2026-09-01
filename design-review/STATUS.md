@@ -7603,6 +7603,179 @@ root `README.md`.
 
 Ordered by dependency, not importance.
 
+### Stage 6, Phase 8 — scratch *(2026-08-31)*
+
+The last item on the Stage 6 list, and the one the roadmap called "hardest, pure
+delight, last." The record on the platter is now draggable: pull it backwards and
+the preview plays backwards, hold it still and it goes silent, let go and the
+motor pulls it back to 33⅓. It works on touch, which was the explicit ask — a
+phone is where this gets used.
+
+**The reason this needed a new audio node at all.** `AudioBufferSourceNode` is
+the deck's player everywhere else and is correct for everything else it does,
+but it **cannot play backwards**. `playbackRate` is documented as accepting
+negative values; no shipping engine honours it — Chrome and Safari both clamp
+to 0 and emit silence. Reverse is the defining half of a scratch, so a scratch
+built on that node is a pitch bend with extra steps.
+
+So a scratch runs on an **`AudioWorkletProcessor`** (`client/public/scratch-processor.js`)
+that resamples the decoded preview by hand at an arbitrary signed rate, and
+turntable-audio.js hands playback **back** to the ordinary source once the
+platter is at speed. The split is deliberate: the worklet is better at going
+backwards and stopping dead, the buffer source is better at 30 seconds of
+ordinary listening, and handing back means the moment `endScratch()` returns,
+the deck is in exactly the state it would have been in had the gesture never
+happened — every existing path (pause/resume, spin linkage, elapsed
+bookkeeping, `onEnded`) is untouched rather than made scratch-aware.
+
+**Why it lives in `public/`.** `audioWorklet.addModule()` takes a URL and
+fetches it; it is not an import Vite can see through. Both `?url` and
+`new URL(..., import.meta.url)` route the file back through the JS transform
+pipeline, which is a no-op today and one dependency away from emitting an ESM
+wrapper into a scope with no module loader. `public/` is copied byte-for-byte
+(verified in `dist/`).
+
+**The graph grew two gain nodes**, so the two players can be crossfaded against
+each other without touching `masterGain` — which both pass through and which the
+spin linkage owns:
+
+```
+AudioBufferSourceNode → sourceGain  ─┐
+                                     ├─→ masterGain → destination
+ScratchWorkletNode    → scratchGain ─┘        └─────→ analyser  (tap)
+```
+
+The analyser sits downstream of the sum, so **the hero skyline follows a scratch
+for free** — including falling silent when the record is held — with no coupling
+added between the two features. That was the one integration worth getting right
+by construction rather than by wiring.
+
+**Not `Draggable(type:"rotation")` + `InertiaPlugin`,** which is what the roadmap
+sketched. Three reasons, all only visible with the rest of the deck built:
+
+1. Draggable would bind to `.turntable-platter-spin` — the element the spin tween
+   writes `rotation` to every frame. `STATUS.md` already flagged that collision
+   from the other side (the fader's `update(false, false)` bug) and said to check
+   for it here. Two owners of one property is the fault that produced three
+   separate freeze bugs in Stage 1 Task 4.
+2. Inertia is the **wrong physics**. A record let go of on a direct-drive deck
+   does not coast to a stop; the motor pulls it back to 33⅓. That is a spring
+   toward a target, not momentum decaying to zero — four lines, not a plugin.
+3. Latency. The audio rate has to be written from the pointer sample itself,
+   including the **coalesced** ones Draggable never exposes.
+
+The spin tween is **suspended** for the gesture and restored after. That is not a
+second writer of `timeScale`: `setSpin` remains the only thing that *ramps* it,
+and the scratch only ever puts back the value it took. Rotation is handed back via
+`tween.time()`, not `.progress()` — on a `repeat:-1` tween, progress is ambiguous
+about which iteration it names.
+
+#### The bug worth recording: a heuristic that silently ate 44% of every gesture
+
+The velocity follower needed to know when a finger had come to rest on the record
+(a held record must go silent, and no `pointermove` fires while it rests). The
+first version used a staleness threshold: if no sample had arrived in N ms, decay
+the velocity toward zero.
+
+That is a heuristic about frame pacing, and it was wrong at **both** values tried.
+24ms is above one frame at 60Hz — which is how it was justified — but *below two*,
+so any dropped frame read as "the finger stopped" and decayed the velocity between
+two genuinely consecutive samples, with nothing to compensate. 48ms moved the
+threshold without fixing the shape.
+
+Measured against a ~25ms synthetic pointer, a 200° sweep delivered **0.561s of
+audio where the geometry says 1.000s** — the deck quietly discarding 44% of the
+gesture, in a way that would have read as "the scratch feels weak" rather than as
+a bug.
+
+The fix was to stop guessing. Both the pointer path and the frame path now advance
+**one accounted clock** and integrate whatever angle has accumulated since it last
+moved. A frame that finds no new pointer data integrates zero degrees over that
+gap — and the sample that arrives afterwards is divided by the *shorter remaining
+interval*, so its instantaneous velocity comes out proportionally higher and the
+two cancel exactly. Total angle is conserved at any sample rate, so
+`NOMINAL_DEG_PER_SEC` degrees of platter equals one second of audio whether the
+browser delivers 120 samples a second or 20. "Held still" then needs no special
+case at all: it is just a run of zero-degree gaps.
+
+| | before | after |
+|---|---|---|
+| +200° sweep (expects 1.000s) | 0.561s — **44% lost** | 0.963s |
+| +720° sweep (expects 3.600s) | — | 3.497s |
+| worst absolute error, any sweep | — | **0.103s** |
+
+The residue is the velocity filter's own convergence cost (τ = 28ms, ~2τ at each
+end where a sweep also reverses). Confirmed to be a **fixed transient rather than
+proportional loss** by sweeping two lengths: the absolute error stays flat while
+the percentage falls 9.2% → 2.9% as the sweep gets 3.6× longer. 100ms of position
+error is inaudible mid-scratch, and the smoothing is what makes the gesture feel
+continuous rather than stepped.
+
+#### Measured
+
+Verified against a **synthetic linear-ramp preview**, where the rendered sample
+value *is* the read position (`level = TARGET_VOLUME × position / duration`) —
+which turns "does it play backwards" from something you listen for into a number.
+
+| Claim | Measurement |
+|---|---|
+| Reverse actually renders | head 2.226s → 1.725s; level 0.368 → 0.287, falling |
+| Commanded rate is the delivered rate | −2.0 commanded → −2.05 measured; +2.5 → +2.50 |
+| A held record is silent | level **exactly 0.0000** |
+| Hand-back is continuous | 2.552s → 2.851s across the handover, no gap |
+| Gesture → audio, end to end | dragging back rewound 0.955s → 0.298s, audible level 0.072 → 0.027 |
+| Skyline follows the scratch | `data-skyline-state="playing"` throughout, no extra wiring |
+| Cue on a **paused** deck | sounds (level 0.076), moves the groove, skyline lights, returns to PAUSED and silence on release |
+| Touch target | 204px disc at iPhone 13 width |
+| Reduced motion | platter stays at 0.000° throughout; gesture still engages |
+
+**Test coverage note.** Two things could *not* be verified in the harness and want
+a real device before they are called done:
+
+- **`touch-action: none` actually suppressing page scroll.** CDP's synthetic touch
+  does not consult `touch-action` at all — verified against an isolated control
+  page, where `touch-action: none` scrolled byte-identically to `auto`. The
+  declaration is confirmed present on the hit chain; its *effect* is untested.
+- **A track swap landing mid-gesture.** Chrome does not synthesise a click for a
+  touch that is part of a multi-touch sequence, so the second-finger tap could not
+  be driven. The abort it would take is the same one the tab-blur case exercises,
+  which passes.
+
+Also found while checking that path, and left alone: `record-crate.jsx`'s
+outside-click handler is named `handlePointerDown` but bound to **`mousedown`**
+(`record-crate.jsx:158`), so on touch the crate panel stays open underneath a live
+scratch. Pre-existing, unrelated to this phase, filed in `FINDINGS.md` as D32.
+
+#### Interaction rules
+
+- Scratch is allowed from **PLAYING and PAUSED only**. In both the arm is down on
+  the record, which is what makes moving it produce sound. `STOPPED_LOADED` parks
+  the arm at rest, and a stylus that is not touching the groove cannot be
+  scratched — "play again" puts it back first.
+- Cueing a paused deck publishes `DECK.PLAYING` for the length of the gesture,
+  because sound genuinely is coming out and the skyline reads that edge. It
+  returns to `PAUSED` on release. **No new deck state was added** — `DECK.CUEING`
+  is still the right fix for D11, and D11 is still open.
+- Transport is ignored while a gesture is live (verified via a second finger and
+  via Space on the focused button).
+- Grabs within 16% of the spindle are ignored: angle around a centre is
+  meaningless within a few pixels of it, and sub-pixel jitter there would read as
+  the deck screaming.
+- Rate is clamped to ±3.2. Not a safety limit — the worklet clamps far wider — but
+  past ~3× the resampler aliases more than it plays.
+
+Files: `client/public/scratch-processor.js` (new, 200 lines),
+`client/src/lib/turntable-audio.js` (+~250), `client/src/components/turntable.jsx`
+(+~300), `client/src/styles/main.scss` (touch-action, grab cursor). ESLint
+unchanged at its existing 7 errors / 2 warnings.
+
+> **Note on this file's own baseline claim:** `CLAUDE.md` says `npm run lint`
+> reports **16 errors**. It reports **7** (plus 2 warnings) as of this pass, and
+> did before it too — the number drifted at some earlier point and was never
+> re-measured. Not changed here, but don't trust 16 as the tripwire.
+
+---
+
 ### Stage 0 — bugs, no design input needed *(~half a day)*
 `FINDINGS.md` §4, B1–B7. Independent of every design decision:
 - **B1** "Work Experience" heading invisible in both themes (~1.04:1 contrast)
