@@ -7483,6 +7483,88 @@ snap `stop()`/`start()` in the hold pair each). **No SCSS.**
 
 ---
 
+### Scroll-snap, third pass — section NAVIGATION, and the footer moves into `#connect` *(2026-09-01)*
+
+Two direct asks: *"is there a way that we can snap into sections… the user
+doesn't have any of these weird delays or kinda laggy scrolls"* and *"in
+Connect we need to include the footer because right now when we snap into that
+section the footer gets cut off, but the footer has to be on the last
+section."*
+
+**The model changed, not the tuning.** Both previous versions were
+*correction* models: let the gesture run, then fix where it stopped. That wait
+is irreducible — it is what separates "paused mid-scroll" from "done
+scrolling" — so shortening it (1116ms → 600ms → 350ms) could only ever reduce
+the delay, never remove it. This is a *navigation* model: the first wheel event
+of a gesture is consumed immediately as "go to the next section", Lenis is
+locked for the trip, and the rest of the flick is swallowed. **Motion begins
+0–7ms after the gesture starts**, measured, at every viewport — there is no
+debounce before moving at all.
+
+**A test artifact was corrected first, and it invalidated part of the earlier
+tuning.** Playwright's `page.mouse.wheel()` costs ~80ms per round trip, so the
+"trackpad emulation" used throughout the previous two passes fired events
+**~80ms apart** — a real trackpad fires at ~16ms through both the drag and the
+momentum tail. Traced directly: 53 wheel events spread over 4397ms for what was
+meant to be an 830ms gesture. Every gesture is now dispatched **inside the
+page** (`window.dispatchEvent(new WheelEvent(...))` on a real 16ms clock), which
+is what exposed the two defects below. Sparse input made section navigation
+chain 5 stops off one flick; it is not a real-world failure, but nothing could
+have been trusted while the emulator was wrong.
+
+Two real defects, both found and fixed with the corrected emulator:
+
+- **Landing 23px past every stop.** Lenis clears its own lock the instant a
+  `scrollTo` finishes, but the flick's momentum is still arriving for a few
+  hundred ms after. Those leftover events dragged the page straight off the
+  stop. The lock is now held through the cooldown too and released only once
+  input genuinely stops.
+- **A second flick during a trip was swallowed**, so rapid navigation felt
+  dead. A gesture arriving mid-trip is now queued and run on arrival. A
+  momentum tail *decays*, so a genuine second push is told apart from it by
+  magnitude rising clearly above the previous event, not by timing.
+
+**Sections taller than the screen keep extra stops.** This matters more than it
+sounds: with free scrolling gone, anything below the fold would be
+**unreachable**. Measured, sections are *not* all one screen — at 1440×900 and
+up they fit, but at 1280×680 the usable height is 512px against sections of
+536–626px, and `#projects` with a row expanded is 1133px at any size. So a
+section that overflows by more than 60px gets extra stops a screenful apart,
+ending flush with its bottom edge. The 60px floor exists so a section missing
+by a hair does not earn a stop that moves 24px and reads as broken.
+
+**The footer moved inside `#connect`** (`App.jsx`) instead of sitting after the
+section list, where snapping guaranteed it was below the fold. `#connect` now
+owns the one-screen box and `.contact-section` takes what the footer leaves
+(`min-height: 0` + `flex: 1`; without that the two stack, since
+`.contact-section`'s own `min-height` is a full screen, and the footer is
+pushed straight back out of view). The pair needs 666px under the navbar, free
+above an 834px-tall viewport; a `@media (max-height: 833px)` trim (40px off the
+section padding, 40px off the footer) brings it inside a 768px window. Below
+that it cannot fit by trimming, so it is one scroll away via the extra stop
+rather than unreachable.
+
+**Verified** at 1920×1080 / 1440×850 / 1366×768 / 1280×680: every flick
+advances **exactly one stop** in both directions (5/5, 5/5, 5/5, 9/9), one
+motion segment per gesture, motion begins 0–7ms in; a single deliberate mouse
+notch advances exactly one section; footer fully visible on arrival at
+1920/1440/1366 and one stop away at 1280×680; `#about`'s hold still blocks its
+cascade then releases; `#projects` expanded (1133px) reaches its bottom;
+filmstrip still horizontal-only; nav clicks and `/#projects` land at 168 ±
+0.3px; reduced motion untouched; 0 page errors throughout.
+
+Constants: `TRAVEL_S 0.6`, `QUIET_MS 80`, `MIN_DELTA 2`, `AT_STOP_PX 8`
+(`lib/section-snap.js`), `MIN_OVERFLOW_PX 60` (`smooth-scroll.jsx`).
+
+> **Concurrent work, not measured here:** another session was editing
+> `turntable.jsx` (+357 lines), `turntable-audio.js` and a new untracked
+> `client/public/scratch-processor.js` (Stage 6's scratch phase) while this
+> landed. Those files are deliberately NOT in this commit. It also means the
+> repo-wide lint count and the bundle size were confounded during this pass and
+> are not quoted — `eslint` on only the files changed here is clean.
+
+---
+
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*
 
 | Metric | Before | Now |

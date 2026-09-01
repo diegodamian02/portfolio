@@ -844,6 +844,41 @@ Verified across 1280×680 → 1920×1080: **60/60** rest positions land on a lin
 **0** dead bands, slow mouse progresses at every notch interval, latency
 **1116ms → 600ms**, holds/nav/deep-links/filmstrip/reduced-motion all
 unchanged, 0 page errors, lint 7/2, bundle **−5.35 kB**. Full writeup:
+`STATUS.md`'s own dated entry. A same-day speed pass then took it to **350ms**
+(`DEBOUNCE_MS` 250→120, `DURATION_S` 0.45→0.30).
+
+**Also 2026-09-01 — the snap became section NAVIGATION, and the footer moved
+into `#connect`.** Direct asks: snap *into* sections, with no "weird delays or
+laggy scrolls"; and the footer must belong to the last section instead of being
+cut off below it.
+
+The model changed rather than the numbers. Every previous version was a
+*correction* model — let the gesture run, then fix where it stopped — and that
+wait is irreducible, so tuning could only shrink the delay, never remove it.
+Now the first wheel event of a gesture is consumed immediately as "go to the
+next section", Lenis is locked for the trip, and the rest of the flick is
+swallowed: **motion begins 0–7ms after the gesture starts**, and every flick
+advances **exactly one stop** in both directions.
+
+A **test artifact was corrected first, and it invalidated part of the earlier
+tuning**: Playwright's `mouse.wheel()` costs ~80ms per round trip, so the
+"trackpad emulation" used in the two previous passes fired events ~80ms apart
+against a real trackpad's ~16ms. Gestures are now dispatched inside the page on
+a real clock, which is what exposed the two genuine defects (a 23px overshoot
+from momentum arriving after Lenis released its own lock; a second flick during
+a trip being swallowed).
+
+Because free scrolling is gone, **a section taller than the screen would have
+had unreachable content** — sections are not all one screen (at 1280×680 the
+usable height is 512px against sections of 536–626px, and `#projects` expanded
+is 1133px at any size), so such sections get extra stops ending flush with
+their bottom edge. The footer now lives inside `#connect`, which owns the
+one-screen box; a `max-height: 833px` trim keeps the pair inside a 768px
+window, and below that it is one stop away rather than lost.
+
+Verified at 1920×1080 → 1280×680: one-stop advances 5/5, 5/5, 5/5, 9/9; footer
+fully visible on arrival at 1920/1440/1366; holds, filmstrip, nav clicks, deep
+links and reduced motion all unchanged; 0 page errors. Full writeup:
 `STATUS.md`'s own dated entry.
 
 **Not started yet, in the order the roadmap currently has them:**

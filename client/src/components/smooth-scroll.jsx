@@ -129,15 +129,44 @@ export default function SmoothScroll({ children }) {
             // SAME scheduleRefresh() debounce below that already re-measures
             // ScrollTrigger for the identical stale-measurement reason (fonts
             // swapping in, async section content, sibling reflow).
+            // A section taller than the space under the navbar needs more than
+            // one stop, or the part below the fold becomes UNREACHABLE once
+            // free scrolling is gone — snapping would silently hide content.
+            // Measured: at 1440x900 and up every section fits and gets exactly
+            // one stop, but at 1280x680 the usable height is 512px against
+            // sections of 536-626px, and #projects with a row expanded is
+            // 1133px at any size. So extra stops are added down such a section,
+            // a screenful apart, ending flush with its bottom edge.
+            //
+            // MIN_OVERFLOW_PX exists so a section that misses by a hair does
+            // not earn a second stop — a gesture that moves 24px reads as
+            // broken, and a sliver below the fold is the residual the
+            // one-screen fit pass already accepted.
+            const MIN_OVERFLOW_PX = 60;
             let snapPoints = [];
             const rebuildSnapPoints = () => {
-                snapPoints = [...document.querySelectorAll(".content > section")]
-                    .map((section) => {
-                        const top = section.getBoundingClientRect().top + window.scrollY;
-                        const margin = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
-                        return Math.max(0, Math.round(top - margin));
-                    })
-                    .sort((a, b) => a - b);
+                const points = [];
+                const maxScroll = Math.max(0, document.body.scrollHeight - window.innerHeight);
+                document.querySelectorAll(".content > section").forEach((section) => {
+                    const rect = section.getBoundingClientRect();
+                    const top = rect.top + window.scrollY;
+                    const margin = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
+                    const line = Math.max(0, Math.round(top - margin));
+                    points.push(line);
+
+                    // How much of the section sits below the fold once it is
+                    // resting at its line.
+                    const bottomStop = Math.min(maxScroll, Math.round(top + rect.height - window.innerHeight));
+                    if (bottomStop - line <= MIN_OVERFLOW_PX) return;
+                    // A screenful, minus the navbar, so stepping never parks
+                    // content underneath the fixed bar.
+                    const step = Math.max(1, window.innerHeight - margin);
+                    for (let y = line + step; y < bottomStop - MIN_OVERFLOW_PX; y += step) {
+                        points.push(Math.round(y));
+                    }
+                    points.push(bottomStop);
+                });
+                snapPoints = [...new Set(points)].sort((a, b) => a - b);
             };
             const snap = createSectionSnap(lenis, () => snapPoints);
             setActiveSnap(snap);

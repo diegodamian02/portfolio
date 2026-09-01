@@ -34,14 +34,19 @@ export default function App() {
                                 <section id="experience"><Experience /></section>
                                 <section id="my-taste"><MyTaste /></section>
                                 <section id="projects"><Portfolio /></section>
-                                <section id="connect"><Connect /></section>
+                                {/* The footer lives INSIDE #connect, not after
+                                    the sections. Section snapping stops at
+                                    #connect, so a footer sitting outside it was
+                                    always below the fold and got cut off. As
+                                    the last section's own content it arrives
+                                    with the section. */}
+                                <section id="connect"><Connect /><Footer /></section>
                             </>} />
                             <Route path="/project" element={<Navigate to="/#projects" replace />} />
                             <Route path="/about" element={<Navigate to="/#about" replace />} />
                             <Route path="/contact" element={<Navigate to="/#connect" replace />} />
                         </Routes>
                     </div>
-                    <Footer />
                 </div>
             </SmoothScroll>
         </Router>

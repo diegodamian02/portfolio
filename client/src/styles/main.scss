@@ -772,6 +772,23 @@ html {
   inset: 0;
   border-radius: 50%;
   background: color-mix(in srgb, var(--text-color) 22%, var(--deck-ground));
+
+  // Scratch surface (turntable.jsx, Stage 6 Phase 8).
+  //
+  // touch-action: none is what makes this work on a phone at all. Without it
+  // the browser claims any vertical component of the gesture as a page scroll
+  // and stops delivering pointermove entirely — a scratch would work for the
+  // first few horizontal pixels and then die mid-stroke. Same reason it is on
+  // .turntable-fader-handle above.
+  //
+  // The three user-select/callout declarations are the iOS long-press
+  // suppression set: holding a finger on the record for a beat before moving —
+  // which is exactly how a cue starts — otherwise raises the selection
+  // magnifier over the deck.
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
   box-shadow:
     inset 0 0 0 2px color-mix(in srgb, var(--text-color) 30%, transparent),
     inset 0 6px 20px var(--deck-well-shadow),
@@ -789,6 +806,23 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+// The only visible invitation to scratch on a pointer device, so it is scoped
+// to exactly the states that accept the gesture — the same PLAYING/PAUSED pair
+// handleScratchDown guards on. A `grab` cursor over a deck that will not
+// respond is a worse affordance than none.
+//
+// [data-scratching] is set imperatively by turntable.jsx rather than through
+// React state: it is a presentation attribute, and routing it through a render
+// would rebuild the whole deck twice per gesture.
+.turntable[data-deck-state="PLAYING"] .turntable-platter,
+.turntable[data-deck-state="PAUSED"] .turntable-platter {
+  cursor: grab;
+}
+
+.turntable[data-scratching] .turntable-platter {
+  cursor: grabbing;
 }
 
 // Strobe dots — SVG, not a CSS conic-gradient. A repeating-conic-gradient
@@ -3809,6 +3843,46 @@ html {
   color: var(--accent);
 }
 //Contact
+// The footer is rendered INSIDE this section (App.jsx), not after the section
+// list, because section snapping comes to rest on #connect and anything below
+// it was permanently cut off. That makes #connect — not .contact-section — the
+// element that owns the one-screen box: the section is the screen, the contact
+// block takes whatever the footer leaves. Without this the two stack
+// (.contact-section's own min-height is a full screen on its own) and the
+// footer is pushed straight back below the fold, which is the bug being fixed.
+#connect {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--scroll-offset));
+  min-height: calc(100dvh - var(--scroll-offset));
+
+  > .contact-section {
+    flex: 1 1 auto;
+    // Releases the full-screen floor below so this can shrink by the footer's
+    // height. min-height is what it had; flex-basis alone would not override it.
+    min-height: 0;
+  }
+
+  // The contact block's own content is ~546px and the footer 120px, so the two
+  // together need 666px of room under the navbar. Above a 834px-tall viewport
+  // that is free; below it the footer lands past the fold and the last section
+  // stops showing the thing it was moved here to show. Measured trims — 40px
+  // off the section's vertical padding, 40px off the footer — bring it back
+  // inside a 768px-tall window (a real 1366x768 laptop), which is the size
+  // this matters at. Shorter windows than that cannot fit it by trimming
+  // alone; they get a second stop instead (smooth-scroll.jsx), so the footer
+  // is one scroll away rather than unreachable.
+  @media (max-height: 833px) {
+    > .contact-section { padding-top: 0.75em; padding-bottom: 0.75em; }
+
+    .footer {
+      height: 56px;
+      padding-top: 12px;
+      padding-bottom: 12px;
+    }
+  }
+}
+
 .contact-section {
   background-color: var(--bg-color);
   color: var(--text-color);

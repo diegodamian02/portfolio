@@ -1,219 +1,214 @@
-// Vertical section snap — the page settles onto a section's resting line when
-// a wheel/trackpad gesture ends near one.
+// Section snapping — a wheel/trackpad gesture moves the page to the next
+// section and nothing else. One gesture, one section.
 //
-// This replaces `lenis/snap`, which was tried first and could not express the
-// behaviour this site needs. Both of its modes failed, measured rather than
-// assumed:
+// HISTORY, because this is the third mechanism in this slot and each was
+// replaced for a measured reason rather than a preference:
 //
-//   - `proximity` always snaps to the NEAREST line. Correct landings (6/6 in
-//     testing) but it drags the visitor BACKWARD onto the line they just left.
-//     With a mouse wheel turned slower than the debounce, every notch was
-//     undone: 8 notches x 100px produced net 0px of travel, permanently. A
-//     visitor scrolling deliberately could not leave a section at all.
-//   - `lock` always advances one section in the gesture's direction, which
-//     fixes that, but a hard flick overshoots the target and its internal
-//     "already snapping" guard then blocks the correction — 2 of 6 flicks came
-//     to rest stranded BETWEEN sections (the exact thing snapping exists to
-//     prevent).
+//   1. `lenis/snap`, `proximity` mode. Snaps to the NEAREST stop after input
+//      settles. It drags the visitor BACKWARD onto the stop they just left, so
+//      a mouse wheel turned slower than its debounce had every notch undone —
+//      8 notches x 100px produced net 0px, permanently.
+//   2. `lenis/snap`, `lock` mode. Fixes that by always advancing one section,
+//      but a hard flick overshoots and its internal guard then blocks the
+//      correction, coming to rest BETWEEN sections (2 of 6 flicks).
+//   3. A hand-rolled version of (1) with a departure rule. Correct — 60/60
+//      landings, no trap — but it is a CORRECTION model: it waits for the
+//      gesture to end, then fixes where you stopped. That wait is irreducible
+//      (it is what separates "paused mid-scroll" from "done scrolling") and it
+//      is what read as a delay and as the page moving on its own.
 //
-// The missing rule is one line of intent: snap to the nearest line, EXCEPT
-// when that line is the one the gesture started on — then carry the visitor on
-// to the next line in the direction they are actually travelling. That single
-// distinction is what separates "you overshot, let me settle you back" from
-// "you are trying to leave, stop fighting me", and neither library mode can
-// see the difference because neither knows where the gesture began.
+// This is a NAVIGATION model instead, which is what removes the delay rather
+// than shortening it. The gesture does not settle anywhere and then get
+// corrected; it is consumed immediately as "go to the next section", and the
+// page is locked for the trip so momentum cannot fight it. There is no
+// debounce before the move at all.
 //
-// Deliberate non-goals, matching the lenis/snap behaviour this replaces:
-// touch never snaps (a native touch scroll is not routed through Lenis here,
-// and phone snapping is its own design problem), and there is no snap at all
-// under prefers-reduced-motion, because no Lenis instance exists in that mode.
+// Deliberate non-goals, unchanged: touch never snaps (native touch scroll is
+// not routed through Lenis here — phone scrolling is untouched), and there is
+// no snap under prefers-reduced-motion, because no Lenis instance exists then.
 
-// How long input must be quiet before the page is treated as having come to
-// rest. Together with DURATION_S this is the whole felt latency of a snap:
-// measured end to end, 120 + 0.30s settles 350ms after the last input, down
-// from 1116ms for the first `lenis/snap` version, which read as the page
-// lurching on its own long after the visitor had stopped.
-//
-// A value this low is only safe because of the departure rule below. The
-// 500ms this started at was chosen purely to out-wait a slow mouse wheel, and
-// it did not even succeed — a wheel turned slower than the debounce was still
-// trapped. The trap is handled by intent now, not by waiting, which frees this
-// number to be about responsiveness alone.
-//
-// 60ms was measured too and settles in 217ms, but is NOT used: it is shorter
-// than the irregular 30-80ms gaps that appear at the end of a real trackpad
-// momentum tail and when a finger is repositioned mid-drag, so it would fire
-// inside a live gesture — the exact "the page is fighting me" failure this
-// whole mechanism exists to avoid. 120ms keeps real margin against that.
-const DEBOUNCE_MS = 120;
+// The trip between two stops.
+const TRAVEL_S = 0.6;
 
-// The glide onto the line, once the snap has been decided. Purely cosmetic —
-// it cannot cause a mis-landing — so it is tuned as short as still reads as a
-// settle rather than a jump.
-const DURATION_S = 0.30;
+// After arriving, input must be quiet for this long before another gesture is
+// accepted. This is NOT a delay before moving — the first gesture fires
+// instantly. It exists only so the momentum tail of the flick that triggered
+// the trip cannot immediately trigger the next one and chain three sections
+// off a single swipe.
+const QUIET_MS = 80;
 
-// How far from a line the visitor can come to rest and still be pulled onto
-// it, as a fraction of viewport height. This number is doing two jobs at once,
-// which is why it is not larger:
-//
-//   - It must exceed HALF the largest gap between adjacent sections, or the
-//     middle of that gap becomes a dead band the visitor can rest in. At 0.40
-//     (the first value shipped) the about->experience gap of 706px against a
-//     850px viewport left a 26px band, and it was found immediately.
-//   - It must stay BELOW half the height of a genuinely tall section, so that
-//     section's middle stays freely scrollable. #projects with a row expanded
-//     is 1133px (1.33x viewport); at 0.55 the reachable band in its middle is
-//     ~199px, so its video and description can still be read.
-//
-// 0.55 satisfies both across 1280x680 -> 1920x1080. A section taller than
-// 1.1x the viewport keeps a free middle by construction, which is the property
-// that makes this safe for content that grows.
-const THRESHOLD_RATIO = 0.55;
+// Ignore the sub-pixel dribble at the very end of a momentum tail so it cannot
+// count as a fresh gesture.
+const MIN_DELTA = 2;
 
-// Within this many px of a line, treat the page as already resting ON it —
-// both for "nothing to correct" and for "this gesture started here".
-const AT_LINE_PX = 8;
+// Treat the page as being AT a stop within this many px, so the "next stop in
+// this direction" search doesn't return the one we are already sitting on.
+const AT_STOP_PX = 8;
 
 export function createSectionSnap(lenis, getSnapPoints) {
-    let timer = null;
-    // The line the visitor is currently docked at — the one they were resting
-    // on before they started scrolling away. NOT "where this gesture began":
-    // that was the first attempt and it only worked for a single notch, because
-    // the second notch starts somewhere off the line and the rule stops
-    // applying, so the page snapped backward again. It has to persist across
-    // the whole departure until they actually reach somewhere else.
-    let anchor = null;
-    // How many times in a row we have pulled the visitor back onto `anchor`.
-    // The first pull-back is right: someone who stops a short way into a gap
-    // has simply come to rest between sections, and settling them is the whole
-    // point. A SECOND one against the same line means they are trying to
-    // leave and we are fighting them — that is the mouse-wheel trap, where
-    // every notch was undone and the page never advanced at all. So the first
-    // is allowed and the rest are not.
-    let backSnaps = 0;
-    let lastDirection = 0;
+    let travelling = false;
+    let cooling = false;
+    let quietTimer = null;
+    let failsafe = null;
     let paused = false;
+    // Magnitude of the previous event, used to tell a fresh gesture from a
+    // momentum tail: a tail DECAYS, so anything that rises clearly above the
+    // last event is the visitor pushing again rather than the flick dying.
+    let lastMagnitude = 0;
+    // A gesture that arrives mid-trip is remembered and run on arrival, so
+    // flicking twice quickly moves two sections instead of the second being
+    // swallowed.
+    let queuedDirection = 0;
+    let holdingLock = false;
 
     const currentY = () => lenis.actualScroll ?? window.scrollY;
 
-    function nearestLine(y) {
-        let best = null;
-        let bestDistance = Infinity;
-        for (const value of getSnapPoints()) {
-            const distance = Math.abs(value - y);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = value;
+    // Lenis clears its own lock the moment a scrollTo finishes, but the flick's
+    // momentum is still arriving for a few hundred ms after that. Unlocked,
+    // those leftover events drag the page straight back off the stop —
+    // measured at 23px past every target. So the lock is held through the
+    // cooldown as well, and only released once input has genuinely stopped.
+    function grabLock() {
+        if (holdingLock) return;
+        holdingLock = true;
+        lenis.isLocked = true;
+    }
+    function releaseLock() {
+        if (!holdingLock) return;
+        holdingLock = false;
+        lenis.isLocked = false;
+    }
+
+    function restartQuiet() {
+        clearTimeout(quietTimer);
+        quietTimer = setTimeout(() => {
+            cooling = false;
+            releaseLock();
+        }, QUIET_MS);
+    }
+
+    function stopAfter(y, direction) {
+        const points = getSnapPoints();
+        if (points.length === 0) return undefined;
+        return direction > 0
+            ? points.find((value) => value > y + AT_STOP_PX)
+            : [...points].reverse().find((value) => value < y - AT_STOP_PX);
+    }
+
+    function travelTo(target) {
+        travelling = true;
+        clearTimeout(failsafe);
+        // If something interrupts the trip so onComplete never fires — an
+        // entrance hold's own forced scrollTo replacing the animation — this
+        // releases the guard rather than leaving snapping dead for the session.
+        failsafe = setTimeout(endTravel, TRAVEL_S * 1000 + 400);
+        // lock: true is what makes "no delay" possible. Lenis ignores wheel
+        // input while locked (it still EMITS virtual-scroll, which is why the
+        // guards below still see the momentum tail), so the trip cannot be
+        // fought by the rest of the flick. Verified against lenis.mjs: scrollTo
+        // sets isLocked on start and reset() clears it on completion.
+        lenis.scrollTo(target, { duration: TRAVEL_S, lock: true, onComplete: endTravel });
+    }
+
+    function endTravel() {
+        clearTimeout(failsafe);
+        if (!travelling) return;
+        travelling = false;
+
+        if (queuedDirection !== 0 && !lenis.isStopped) {
+            const direction = queuedDirection;
+            queuedDirection = 0;
+            const next = stopAfter(currentY(), direction);
+            if (next !== undefined) {
+                travelTo(next);
+                return;
             }
         }
-        return best;
+        queuedDirection = 0;
+        cooling = true;
+        grabLock();
+        restartQuiet();
     }
 
     function onVirtualScroll({ deltaY }) {
         if (paused) return;
-        // On the first event of a new gesture, if the page is sitting ON a
-        // line, that is where the visitor is departing from. Sampled here
-        // rather than when the snap runs, by which point the gesture has
-        // already carried the page off it. If they are mid-gap the previous
-        // anchor is kept — that is what lets a sequence of small notches
-        // accumulate into a real departure instead of each one being undone.
-        if (timer === null) {
-            const y = currentY();
-            const line = nearestLine(y);
-            if (line !== null && Math.abs(line - y) <= AT_LINE_PX) anchor = line;
-        }
-        if (deltaY) lastDirection = Math.sign(deltaY);
-        clearTimeout(timer);
-        timer = setTimeout(run, DEBOUNCE_MS);
-    }
 
-    function run() {
-        timer = null;
-        if (paused) return;
+        const magnitude = Math.abs(deltaY || 0);
+        // A decaying tail never rises; a new push does. The margin keeps a
+        // noisy tail from registering as a fresh gesture.
+        const isFreshGesture = magnitude > lastMagnitude * 1.3 + 1;
+        const previousMagnitude = lastMagnitude;
+        lastMagnitude = magnitude;
 
-        const points = getSnapPoints();
-        if (points.length === 0) return;
-
-        const y = currentY();
-        const threshold = window.innerHeight * THRESHOLD_RATIO;
-
-        const nearest = nearestLine(y);
-        if (nearest === null) return;
-        if (Math.abs(nearest - y) <= AT_LINE_PX) {
-            // Resting on a line already; nothing to correct. Arriving here is
-            // also what clears the fight counter — the visitor is settled, so
-            // the next departure starts from a clean slate.
-            if (anchor !== nearest) backSnaps = 0;
-            anchor = nearest;
+        if (travelling) {
+            // Mid-trip. Lenis is locked so these move nothing; only remember a
+            // genuine second push so it can run on arrival.
+            if (isFreshGesture && magnitude >= MIN_DELTA && previousMagnitude > 0) {
+                queuedDirection = Math.sign(deltaY);
+            }
             return;
         }
 
-        // The rule both library modes were missing. If the nearest line is the
-        // one the visitor is docked at and snapping would drag them back onto
-        // it, and we have already pulled them back once, they are deliberately
-        // leaving — carry them to the next line in the direction they are
-        // actually travelling instead of undoing their scroll again.
-        const wouldGoBackward = Math.sign(nearest - y) === -lastDirection;
-        const fightingDeparture =
-            nearest === anchor && wouldGoBackward && lastDirection !== 0 && backSnaps >= 1;
-
-        if (!fightingDeparture) {
-            // Ordinary case: settle onto the nearest line if it is close
-            // enough. Out of range means the visitor is deep inside a section
-            // taller than the threshold allows for — leave them alone.
-            if (Math.abs(nearest - y) > threshold) return;
-            if (nearest === anchor) backSnaps += 1;
-            else backSnaps = 0;
-            anchor = nearest;
-            lenis.scrollTo(nearest, { duration: DURATION_S });
-            return;
+        if (cooling) {
+            // Dying events of the gesture that brought us here: hold the line
+            // and push the deadline out until they genuinely stop.
+            if (!isFreshGesture || magnitude < MIN_DELTA) {
+                restartQuiet();
+                return;
+            }
+            // A real new push — don't make the visitor wait out the tail.
+            clearTimeout(quietTimer);
+            cooling = false;
+            releaseLock();
         }
 
-        const ahead = lastDirection > 0
-            ? points.find((value) => value > y + AT_LINE_PX)
-            : [...points].reverse().find((value) => value < y - AT_LINE_PX);
-        if (ahead === undefined) return; // end of the page
+        if (!deltaY || magnitude < MIN_DELTA) return;
 
-        // Reaching the next line usually means travelling nearly a whole gap,
-        // which is further than `threshold` — so the normal threshold cannot
-        // be the test here, or an insistent visitor gets stranded mid-gap
-        // (measured: stuck at 897, with the next line 491px away against a
-        // 467px threshold). What matters instead is whether there is anything
-        // BETWEEN the two lines worth stopping on:
-        //
-        //   - Gap within about one screen: the section fits the viewport, so
-        //     mid-gap is just the seam between two sections. Carry them across
-        //     it however far it is.
-        //   - Gap larger than that: the section is genuinely taller than the
-        //     screen (#projects with a row expanded, 1.33x) and its middle is
-        //     real content. Fall back to the threshold, which leaves that
-        //     middle freely scrollable.
-        const gap = Math.abs(ahead - anchor);
-        const fitsOneScreen = gap <= window.innerHeight * 1.05;
-        if (!fitsOneScreen && Math.abs(ahead - y) > threshold) return;
+        // A hold has frozen scrolling for an entrance cascade (about.jsx,
+        // my-taste.jsx, connect.jsx). Those call stop() on us too, but this
+        // also covers the frame before that lands — without it scrollTo would
+        // be refused and `travelling` would stick forever.
+        if (lenis.isStopped) return;
 
-        backSnaps = 0;
-        anchor = ahead;
-        lenis.scrollTo(ahead, { duration: DURATION_S });
+        const target = stopAfter(currentY(), Math.sign(deltaY));
+
+        // Nothing further in that direction — the top of the page or the last
+        // section. Leave the event alone so Lenis scrolls normally into the
+        // remaining slack rather than the gesture feeling dead.
+        if (target === undefined) return;
+
+        travelTo(target);
     }
 
     lenis.on("virtual-scroll", onVirtualScroll);
 
     return {
-        // stop()/start() keep the same shape the section entrance holds already
-        // call on the old lenis/snap instance (about.jsx, my-taste.jsx,
-        // connect.jsx), so this swap needs no changes in those files.
+        // Same shape the entrance holds already call (about.jsx, my-taste.jsx,
+        // connect.jsx), so swapping the mechanism underneath needs no changes
+        // in those files.
         stop() {
             paused = true;
-            clearTimeout(timer);
-            timer = null;
+            clearTimeout(quietTimer);
+            clearTimeout(failsafe);
+            travelling = false;
+            cooling = false;
+            queuedDirection = 0;
+            // Never leave Lenis locked because a hold interrupted us — that
+            // would freeze the page for the rest of the session.
+            releaseLock();
         },
         start() {
             paused = false;
+            travelling = false;
+            cooling = false;
+            queuedDirection = 0;
+            lastMagnitude = 0;
+            releaseLock();
         },
         destroy() {
-            clearTimeout(timer);
-            timer = null;
+            clearTimeout(quietTimer);
+            clearTimeout(failsafe);
+            releaseLock();
             lenis.off("virtual-scroll", onVirtualScroll);
         },
     };
