@@ -571,9 +571,29 @@ html {
 // control, so without it the whole hero would be inert.
 .hero-skyline-canvas {
   position: absolute;
-  inset: 0;
+  // Bottom is inset by the gap between the navbar's bottom edge and where a
+  // section actually comes to rest (--scroll-offset is --navbar-height + 24px).
+  // Found live: snapped to #about with a track playing, the hero's spectrum
+  // bars were visible in that 24px band, because the band shows the BOTTOM of
+  // the previous section and the navbar only covers as far as its own height.
+  // Measured: navbar bottom 144, #about top 168, canvas bottom 168 — 24px of
+  // hero canvas on screen under a section it does not belong to. Every other
+  // section has a flat background there so nothing showed; this one is
+  // animated, so it did.
+  //
+  // Derived from the two tokens rather than hard-coded 24px, so it stays
+  // correct if either is retuned. The columns' horizon sits on the canvas's
+  // bottom edge, so this lifts the whole skyline by that much — against a
+  // uniform --bg-color the band below it is invisible.
+  // height is explicit, NOT left to the bottom inset: <canvas> is a replaced
+  // element, so with `height: auto` it uses its own intrinsic aspect ratio
+  // instead of the inset-derived box — measured, it collapsed to 720px against
+  // an 826px slot the first time this was written that way.
+  top: 0;
+  left: 0;
+  right: 0;
   width: 100%;
-  height: 100%;
+  height: calc(100% - (var(--scroll-offset) - var(--navbar-height)));
   display: block;
   z-index: 0;
   pointer-events: none;
@@ -5359,16 +5379,19 @@ html {
 
 @media (max-width: 768px) {
 
-  // Mobile: single column, content -> deck -> crate (crate sits below
-  // the deck here, per spec — grid-template-areas reorders it visually
-  // without touching DOM order, so tab order stays content -> crate
-  // input -> deck regardless of where the crate renders).
+  // Mobile: single column, content -> crate -> deck. The crate used to sit
+  // BELOW the deck, at the very bottom of the hero, which put its results
+  // panel hard against the section's bottom edge — expanded, it ran into the
+  // next section. Directly under the name it opens downward into the hero's
+  // own space instead. grid-template-areas reorders it visually without
+  // touching DOM order, so tab order stays content -> crate input -> deck
+  // either way.
   .home {
     grid-template-columns: 1fr;
     grid-template-areas:
       "content"
-      "deck"
-      "crate";
+      "crate"
+      "deck";
     row-gap: 32px;
     text-align: center;
     padding: 120px 20px 40px;

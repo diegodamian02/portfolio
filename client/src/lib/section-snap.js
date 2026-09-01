@@ -35,11 +35,24 @@ const TRAVEL_S = 0.6;
 // instantly. It exists only so the momentum tail of the flick that triggered
 // the trip cannot immediately trigger the next one and chain three sections
 // off a single swipe.
-const QUIET_MS = 80;
+const QUIET_MS = 160;
 
-// Ignore the sub-pixel dribble at the very end of a momentum tail so it cannot
-// count as a fresh gesture.
-const MIN_DELTA = 2;
+// Smaller events than this still count as input — they keep the cooldown
+// alive — but can never START a trip. A dying momentum tail ends in a scatter
+// of 1-4px events and its gaps stretch as it dies; without this floor one of
+// those stragglers, landing just after the cooldown expired, began a whole
+// extra trip. That is one of the two ways a single flick moved two sections.
+const START_DELTA = 6;
+
+// A momentum tail DECAYS, so a rise identifies a genuine second push — but
+// only once the tail has actually begun. A real gesture RAMPS UP at its start
+// (2 -> 5 -> 9 -> 14), and reading that ramp as a second push is the other way
+// one flick moved two sections. It was invisible in testing because the
+// emulator drove the active phase at a constant magnitude and so never ramped.
+// Hysteresis fixes it: the magnitude has to fall to DECAY_FRACTION of the
+// gesture's own peak before a rise back above REARM_FRACTION counts as new.
+const DECAY_FRACTION = 0.3;
+const REARM_FRACTION = 0.5;
 
 // Treat the page as being AT a stop within this many px, so the "next stop in
 // this direction" search doesn't return the one we are already sitting on.
@@ -51,10 +64,11 @@ export function createSectionSnap(lenis, getSnapPoints) {
     let quietTimer = null;
     let failsafe = null;
     let paused = false;
-    // Magnitude of the previous event, used to tell a fresh gesture from a
-    // momentum tail: a tail DECAYS, so anything that rises clearly above the
-    // last event is the visitor pushing again rather than the flick dying.
-    let lastMagnitude = 0;
+    // Peak magnitude of the gesture in progress, and whether it has started
+    // decaying yet — together these tell a genuine second push from both a
+    // dying tail and the ramp-up at the start of the first push.
+    let gesturePeak = 0;
+    let hasDecayed = false;
     // A gesture that arrives mid-trip is remembered and run on arrival, so
     // flicking twice quickly moves two sections instead of the second being
     // swallowed.
@@ -130,29 +144,44 @@ export function createSectionSnap(lenis, getSnapPoints) {
         restartQuiet();
     }
 
-    function onVirtualScroll({ deltaY }) {
+    function onVirtualScroll({ deltaY, event }) {
         if (paused) return;
 
+        // Touch is NOT a snap gesture. Lenis emits `virtual-scroll` for touch
+        // events as well as wheel ones, and missing this guard had two live
+        // consequences: every touch drag on a phone jumped a whole section
+        // (this module has always documented touch as untouched), and — worse
+        // — scratching the record scrolled the page instead. `.turntable-platter`
+        // sets `touch-action: none`, which stops the BROWSER scrolling but not
+        // this, so the scratch gesture was being read as a scroll and the page
+        // moved out from under the finger mid-stroke.
+        if (event && typeof event.type === "string" && event.type.startsWith("touch")) return;
+
         const magnitude = Math.abs(deltaY || 0);
-        // A decaying tail never rises; a new push does. The margin keeps a
-        // noisy tail from registering as a fresh gesture.
-        const isFreshGesture = magnitude > lastMagnitude * 1.3 + 1;
-        const previousMagnitude = lastMagnitude;
-        lastMagnitude = magnitude;
+        if (magnitude > gesturePeak) gesturePeak = magnitude;
+        if (gesturePeak > 0 && magnitude < gesturePeak * DECAY_FRACTION) hasDecayed = true;
+        // A second push has to clear BOTH tests: the previous gesture must
+        // already be dying, and this event must climb back up out of that
+        // tail. The ramp-up of a single flick satisfies neither, because
+        // nothing has decayed yet.
+        const isSecondPush =
+            hasDecayed && magnitude >= START_DELTA && magnitude > gesturePeak * REARM_FRACTION;
+        if (isSecondPush) {
+            gesturePeak = magnitude;
+            hasDecayed = false;
+        }
 
         if (travelling) {
             // Mid-trip. Lenis is locked so these move nothing; only remember a
             // genuine second push so it can run on arrival.
-            if (isFreshGesture && magnitude >= MIN_DELTA && previousMagnitude > 0) {
-                queuedDirection = Math.sign(deltaY);
-            }
+            if (isSecondPush) queuedDirection = Math.sign(deltaY);
             return;
         }
 
         if (cooling) {
             // Dying events of the gesture that brought us here: hold the line
             // and push the deadline out until they genuinely stop.
-            if (!isFreshGesture || magnitude < MIN_DELTA) {
+            if (!isSecondPush) {
                 restartQuiet();
                 return;
             }
@@ -162,7 +191,14 @@ export function createSectionSnap(lenis, getSnapPoints) {
             releaseLock();
         }
 
-        if (!deltaY || magnitude < MIN_DELTA) return;
+        // Idle: this event is the start of a brand-new gesture, so the peak
+        // tracking restarts with it.
+        if (!cooling && !travelling && !isSecondPush) {
+            gesturePeak = magnitude;
+            hasDecayed = false;
+        }
+
+        if (!deltaY || magnitude < START_DELTA) return;
 
         // A hold has frozen scrolling for an entrance cascade (about.jsx,
         // my-taste.jsx, connect.jsx). Those call stop() on us too, but this
@@ -202,7 +238,8 @@ export function createSectionSnap(lenis, getSnapPoints) {
             travelling = false;
             cooling = false;
             queuedDirection = 0;
-            lastMagnitude = 0;
+            gesturePeak = 0;
+            hasDecayed = false;
             releaseLock();
         },
         destroy() {
