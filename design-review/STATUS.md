@@ -7825,6 +7825,75 @@ unchanged at its existing 7 errors / 2 warnings.
 
 ---
 
+### Stage 10 — sitewide typography: Poppins replaces the Avenir Next stack *(2026-09-01)*
+
+Full decision writeup and rationale: `ROADMAP.md` §3's own Stage 10 entry. This
+entry is the measurements.
+
+**What changed.** `client/package.json` gained `@fontsource/poppins`.
+`client/src/main.jsx` imports `latin-400`/`latin-ext-400`/`latin-600`/
+`latin-ext-600` only — the same subsetting fix already applied to My Taste's
+fonts (Stage 4 Task 1, below), not the package-default full-unicode imports.
+`main.scss` gained two root tokens, `--font-display`/`--font-body` (both
+`"Poppins", sans-serif` today, kept as two names for the ROLE rather than one
+because a future pass might want them to diverge again, same reasoning as
+`--taste-font-display`/`--taste-font-support` staying separate tokens).
+`body` and `@mixin section-title`/`section-subtitle` now reference them, along
+with `.hero-name`, `.loading-screen-text`, `.about-me-name`, `.contact-title`
+and `.portfolio-header` — the last of which also had the "Avenir Next" stack
+hardcoded a second time, independent of `body`.
+
+**Font-weight audit.** Only 400/600 are imported — matches the weights the
+design mockups actually used, and nothing else in the rendered site needed a
+third once audited. Three selectors declared a weight the CSS font-matching
+algorithm was always going to substitute anyway (an unavailable weight
+resolves to the nearest available one, browser-side, silently) — updated to
+say what actually renders instead of leaving a source/render mismatch for a
+future reader to trip on:
+
+| Selector | Was | Now | Why |
+|---|---|---|---|
+| `.loading-screen-text` | 700 | 600 | Converges onto the one display weight rather than a one-off third import for a single screen |
+| `.hero-tagline` | 300 | 400 | `--secondary-text` already carries the de-emphasis this weight was doing |
+| `.portfolio-header` | 200 | 400 | Also converges `.project-role` (no weight override of its own, so it inherited this value) with `.project-title`'s existing 400 override just below it |
+
+**Checked against the tree, not assumed:** the brief suggested auditing
+`.timeline-content h3` for a heading treatment. It has no actual CSS rule
+anywhere in `main.scss` — only a mention inside a Stage 3 audit comment
+flagging it as an already-known "undeclared size" bug, not this stage's job
+to fix. It inherits `body`'s new `var(--font-body)` for free.
+
+**Explicitly untouched** (re-read from source, not assumed): `#my-taste`'s
+`--taste-font-display`/`--taste-font-support`/`--taste-font-mono` and every
+selector consuming them — now with an inline comment marking the exception
+deliberate, same status as DSEG7's own comment block; the walkman's
+self-hosted `"DSEG7 Classic"` `@font-face` and its two consumers
+(`.walkman-screen-ghost`/`-lit`).
+
+**Bundle size**, subsetted the same way, for direct comparison against My
+Taste's own number two rows below:
+
+| | Files | Size (`dist/assets`, built) |
+|---|---|---|
+| Poppins (400/600 × latin/latin-ext × woff2/woff) | **8** | **~63.1 KB** |
+| My Taste (Anton/Oswald/Space Mono, Stage 4 Task 1, for comparison) | 24 | 408 KB |
+
+Proportionally smaller because this stage self-hosts one family at two
+weights, against three families at up to three weights each.
+
+**Verified live**, Vite dev server on port 5173 (per this file's own working
+agreement — `4173`'s CORS block would otherwise read as a font bug that
+isn't one): computed `font-family`/`font-weight` read back from the rendered
+DOM at 1440px and 390px confirms Poppins actually renders — not a silent
+fallback — on `body`, `.hero-name`, `.hero-tagline`, `.about-me-name`,
+`.contact-title`, `.experience-title`, `.portfolio-title`, and
+`.portfolio-header .project-title`. `.my-taste-heading` still computes
+`"Space Mono", "Courier New", monospace` live; `npm run build` confirms no
+italic or unused-weight files leaked into `dist`. `npm run lint`: 7 errors /
+2 warnings, unchanged.
+
+---
+
 ### Stage 0 — bugs, no design input needed *(~half a day)*
 `FINDINGS.md` §4, B1–B7. Independent of every design decision:
 - **B1** "Work Experience" heading invisible in both themes (~1.04:1 contrast)
@@ -7888,3 +7957,5 @@ never spins; the tonearm is `aria-hidden` decoration.
 | **Cloudflare SSL mode `Full`, not `Full (Strict)`** | Railway serves its shared default cert to Cloudflare's edge on proxied domains |
 | **React Three Fiber abandoned** | A disco-ball hero was fully planned, then superseded by the turntable. Never installed |
 | **Mobile deferred until after redesign** | The mobile treatment falls out of the layout; building it first means building it twice |
+| **Poppins, single family at 400/600, sitewide** (Stage 10) | Free self-hosted stand-in for "Avenir Next" (commercial, never actually self-hosted, silently fell back to system sans on non-Apple machines). One family over a pairing (Space Grotesk/Space Mono, Chakra Petch — both compared and dropped) because title/body size contrast already does the differentiation work |
+| **`#my-taste` and the walkman LCD kept out of the Stage 10 swap** | Anton/Oswald/Space Mono and DSEG7 Classic are deliberate, named exceptions to the sitewide font system, not drift — same status, not two different justifications |
