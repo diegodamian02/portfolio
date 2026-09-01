@@ -7556,6 +7556,55 @@ filmstrip still horizontal-only; nav clicks and `/#projects` land at 168 ±
 Constants: `TRAVEL_S 0.6`, `QUIET_MS 80`, `MIN_DELTA 2`, `AT_STOP_PX 8`
 (`lib/section-snap.js`), `MIN_OVERFLOW_PX 60` (`smooth-scroll.jsx`).
 
+**Follow-up the next day — four live bugs, three of them from the pass above.**
+
+1. **One flick sometimes moved TWO sections.** Two independent causes, both
+   invisible because the emulator ran a gesture's active phase at a *constant*
+   magnitude. A real gesture **ramps up** (2 → 5 → 9 → 14), and the rising-edge
+   test read that ramp as a second push, queueing an extra advance. Separately,
+   a real momentum tail ends in 1–4px events whose gaps *stretch* as it dies,
+   and one landing just after the cooldown expired began a whole extra trip.
+   Fixed with hysteresis (magnitude must decay to 30% of the gesture's own peak
+   before a rise above 50% counts as a new push, which a ramp can never
+   satisfy), a `START_DELTA` of 6 to begin a trip while smaller events still
+   keep the cooldown alive, and `QUIET_MS` 80 → 160.
+2. **Touch was treated as a snap gesture.** Lenis emits `virtual-scroll` for
+   touch as well as wheel, and this module never checked the event type despite
+   documenting touch as untouched. On a phone every touch drag jumped a section
+   — and **scratching the record scrolled the page instead of scratching**,
+   because `.turntable-platter`'s `touch-action: none` stops the *browser*
+   scrolling but not this. Touch now returns early.
+3. **The hero's spectrum bars showed above `#about`.** The navbar covers 144px
+   but sections rest at `--scroll-offset` (168px), so a 24px band always shows
+   the *bottom of the previous section*; every other section is flat there, the
+   hero is animated. Measured: navbar bottom 144, `#about` top 168, canvas
+   bottom 168. The canvas bottom is now inset by exactly that difference,
+   derived from both tokens. Its height stays explicit — `<canvas>` is a
+   **replaced element**, so leaving the height to the inset made it fall back to
+   its intrinsic aspect ratio and collapse to 720px in an 826px slot.
+4. **Mobile crate moved from below the deck to directly under the name**, so its
+   results panel opens into the hero instead of into the next section. Verified
+   contained at 390×844 and 375×667.
+
+**The "laggy when a song is playing" report did NOT reproduce, and the number
+that suggested it was a test artifact.** Headless Chromium software-renders
+canvas: it measured 33.3ms/frame (30fps, 91% of frames over budget) with the
+hero visible, and isolation pointed at the skyline's RAF loop — removing the
+canvas element changed nothing, removing `#home` restored 60fps, because only
+the latter trips the IntersectionObserver that stops the loop. **In a real
+GPU-backed window on the same M2 the same scenario is 16.7ms median with 0%
+of frames over 20ms**, idle *and* during a section trip, identical to silent.
+Stage 7 was therefore left alone; "optimising" it against the headless figure
+would have degraded tuned visuals for nothing. Gating is confirmed correct:
+33.3ms only while the hero is on screen, 16.7ms at `#projects`.
+
+The likeliest real mechanism is bug 1 rather than rendering: the snap's
+cooldown and edge detection were timing-sensitive, audio work adds main-thread
+jitter that makes wheel delivery irregular, and stray triggers then read as
+lag. Worth re-checking on the live site now that 1 is fixed — if it persists,
+the next suspects are browser-specific (Safari) and the Stage 6 scratch
+AudioWorklet, neither of which this machine reproduced.
+
 > **Concurrent work, not measured here:** another session was editing
 > `turntable.jsx` (+357 lines), `turntable-audio.js` and a new untracked
 > `client/public/scratch-processor.js` (Stage 6's scratch phase) while this
