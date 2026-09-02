@@ -1482,6 +1482,15 @@ pre-existing ~13px rail/date-badge vertical offset confirmed unchanged (present
 identically before this fix — not something this touched). Screenshots:
 `b29-experience-title-overlap-fixed-macbook13-{dark,light}.png`.
 
+**Update (2026-09-01):** the `.experience-viewport-shell` spacer this fix
+introduced was itself retired. It centred *only the viewport* in the room below
+the title, so on any screen taller than the content the title floated 87–122px
+above the cards (live feedback: "center the slide cards in the middle, title on
+top"). Replaced with `justify-content: center` on `.experience-section`, so the
+`[title + viewport]` pair centres as one unit — the title can no longer land
+over the viewport either (B29 stays fixed by construction), and the pair reads
+as one composition. Full writeup: `STATUS.md`, 2026-09-01 dated entry.
+
 ### B30 — `#my-taste`'s pin never engaged on a fresh page load — **FOUND AND FIXED**
 
 Live report: "when we reload the page and we scroll down the section is not pinned."

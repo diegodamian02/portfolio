@@ -1,11 +1,13 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-08-30 (**site-wide vertical scroll-snap** — every section
-settles to `--scroll-offset` when a wheel/trackpad gesture comes to rest near
-it, both directions; `proximity` via `lenis/snap`, no CSS scroll-snap; the
-three entrance holds pause it while they play). Prior: 2026-08-29 `#connect`
-send-state polish — sent layout centred, heading glides in, takeover scrim
-removed, "send another message" fades in. ·
+**Updated:** 2026-09-01 (**Experience title + filmstrip centre as one unit** —
+the B29 spacer shell centred only the viewport, floating the title 87–122px
+above the cards; replaced with `justify-content: center` on the section so the
+pair moves together, title→card gap now 44–50px at every size). Prior:
+2026-08-30 **site-wide vertical scroll-snap** — every section settles to
+`--scroll-offset` when a wheel/trackpad gesture comes to rest near it, both
+directions; `proximity` via `lenis/snap`, no CSS scroll-snap; the three
+entrance holds pause it while they play. ·
 **Live:** https://diegodamian.com
 
 Companion to [`FINDINGS.md`](./FINDINGS.md) (design analysis) and
@@ -7643,6 +7645,46 @@ AudioWorklet, neither of which this machine reproduced.
 > landed. Those files are deliberately NOT in this commit. It also means the
 > repo-wide lint count and the bundle size were confounded during this pass and
 > are not quoted — `eslint` on only the files changed here is clean.
+
+### Experience — title now hugs the filmstrip; the pair centres as one unit *(2026-09-01)*
+
+Live ask: *"center the slide cards in the middle and the title on top."*
+Measured the current state before touching it (dark, nav-click to `#experience`,
+title-bottom → active-card-top gap): **87px at 1440×900, 116px at 1920×1080,
+122px at 390×844.** The B29 fix's `.experience-viewport-shell` (a `flex: 1 1
+auto` spacer with `::before`/`::after` flex-grow `0.35/0.65`) centred **only the
+viewport** in the room below the title — so on any screen taller than the
+content, the title floated well above the cards, reading as a stray label rather
+than the filmstrip's heading.
+
+Fix: dropped the spacer shell entirely. `.experience-section` is now
+`justify-content: center`, so the `[title + viewport]` pair centres together;
+`@mixin section-title`'s own `margin-bottom` (`--space-6`, 32px) is the single
+gap between them. `.experience-viewport-shell` kept as a plain
+`flex: 0 0 auto` wrapper (still needed as the `align-items: center` cross-axis
+context for the viewport's `max-width`). `.experience-section--static`
+(reduced-motion) opts back out with `justify-content: flex-start` — it's a tall
+scrolling list, not a one-screen composition, and centring would push its top
+under the navbar. Section padding restored to `--space-5 / --space-6`
+(the B29-era asymmetry) after confirming a heavier bottom pad barely moves a
+centred pair but does push the section's own bottom past a ~720px fold.
+
+**Verified** (Playwright, nav-click to `#experience`, dark):
+
+| Viewport | title→card gap (was → now) | card centre vs. section centre | section overflow past fold |
+|---|---|---|---|
+| 1920×1080 | 116 → **45px** | +56px | 0 |
+| 1440×900 | 87 → **49px** | +56px | 0 |
+| 1280×720 | 50 → **50px** | +56px | 34px *(unchanged from before)* |
+| 390×844 | 122 → **44px** | +47px | 0 |
+
+Card centre sits below section centre by design — it's the tall lower half of a
+centred pair that carries the title on top; the leftover space is split above
+the title and below the viewport instead (at 1440: 112px above title / 103px
+below card — balanced). Reduced-motion `ExperienceStatic` re-checked: top-aligned,
+all 6 items in flow, section grows to 1106px, nothing clipped. User picked this
+from a two-option mock (vs. title pinned to the section top, viewport centred
+alone). Only `main.scss` changed — no JSX, lint baseline untouched.
 
 ---
 

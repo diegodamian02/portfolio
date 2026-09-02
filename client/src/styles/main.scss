@@ -2079,71 +2079,57 @@ html {
 // every prior build of this section. --panel-text/--panel-text-secondary
 // stay in real use for .experience-info and .experience-client-badge — both
 // sit on a photo/motif scrim regardless of site theme.
-// Live feedback: "id like to center the cards more to the middle."
-// Measured, not guessed: with no min-height here, this section (the pinned
-// element itself — experience.jsx pins rootRef, THIS class) was only as
-// tall as its own content (title + the fixed-footprint viewport), which
-// left ~90px of empty space below it for the entire pin duration on a
-// 900px-tall window. min-height (the same `#about`/.about-me-section
-// min-height: 100(d)vh pattern used elsewhere) reserves the full
-// navbar-cleared viewport so that dead space stops collecting below the
-// section. Safe to add directly to the pinned element here (unlike that
-// about.jsx precedent, which deliberately keeps its min-height on an
-// OUTER, non-measured wrapper): nothing in this file reads rootRef's own
-// raw height, so inflating it doesn't flatten any other calculation the
-// way it would there.
+// VERTICAL LAYOUT (live feedback 2026-09-01: "center the slide cards in the
+// middle, title on top"). The title sits directly above the filmstrip with
+// ONE fixed gap — section-title's own margin-bottom — and the whole
+// [title + viewport] pair is centered in the section as a unit
+// (justify-content: center). The previous design pinned the title near the
+// section top and centered ONLY the viewport in the room left below it; on
+// tall screens that stranded the title 90-120px above the cards, reading as
+// a floating label rather than the filmstrip's heading. Centering the pair
+// keeps them together at every height — the leftover vertical space now
+// collects above the title and below the viewport, never between them.
 //
-// display: flex; flex-direction: column (title, then
-// .experience-viewport-shell) REPLACES an earlier version of this rule that
-// only had `position: relative` here, with .experience-viewport absolutely
-// positioned and centered via `top: calc(50% - height/2)` against this
-// element's OWN total height — i.e. blind to the title actually sitting
-// above it. That was a deliberate choice at the time (see the
-// combined-flex-block attempt it was chosen over, in .experience-viewport-
-// shell's own comment below) but it silently assumed this section would
-// always be tall enough that a section-CENTER offset landed below the
-// title's real flow height. It doesn't: live report — "the experience
-// title is overlapping the display cards" — reproduced and measured, not
-// just eyeballed. At 1440×800, 1280×800, 1024×768, 768×700, 390×600,
-// 320×568 (ordinary windowed-browser heights, not exotic ones — a laptop's
-// visible content height after browser chrome routinely lands well under
-// its 900/1080px screen height), the old math put the viewport's top
-// ABOVE the title's own bottom edge by 5-55px: real, live overlap.
-// FINDINGS.md B29.
+// The rejected alternative this replaces (documented at length in a prior
+// version of the shell comment below): a flex: 1 1 auto "shell" with
+// ::before/::after flex-grow spacers, centering the viewport in its OWN
+// leftover only. It was chosen precisely to keep the title's height out of
+// the centering math — but that is the thing that made the title float.
+//
+// min-height: one navbar-cleared screen — the same 100(d)vh - scroll-offset
+// this section has always reserved, so it still reads as exactly one screen
+// and the section snap has a full stop to land on. Against --scroll-offset
+// (navbar + 24px), not --navbar-height alone, because a nav click lands the
+// top 24px below the navbar (the B3 scroll-margin-top rule). Nothing in
+// experience.jsx reads rootRef's raw height (verified), so inflating it
+// flattens no JS calc.
+//
+// box-sizing: border-box is load-bearing (see .navbar's own note on the same
+// gotcha): without it the padding is added ON TOP of min-height and the
+// rendered box overflows the fold by exactly its vertical padding — measured
+// once at 820px against a 756px min-height.
+//
+// Padding is a touch bottom-heavier than top (space-5 / space-6 desktop):
+// with justify-content: center a bigger bottom pad lifts the centered pair,
+// and true centering under a fixed navbar reads low because the navbar
+// anchors the eye upward (the effect about.jsx's TOP_BIAS compensates for).
+// Kept modest on purpose — a large bottom pad barely moves a centered pair
+// but does push the section's own bottom past a short (~720px) fold.
+//
+// NOT transform: translateY(-50%) centering — experience.jsx runs
+// gsap.set/to with `scale` on .experience-viewport (mount reveal) and GSAP
+// writes its own inline `transform`, which would clobber a stylesheet one.
+// Flex centering never touches `transform`. B29 (FINDINGS.md — the title
+// overlapping the cards) stays fixed: the pair is one centered unit, so the
+// title can never land over the viewport.
 .experience-section {
   position: relative;
   display: flex;
   flex-direction: column;
-  // border-box is load-bearing here too (see .navbar's own comment on this
-  // same gotcha): without it, content-box min-height excludes this
-  // element's OWN padding, so the rendered box actually came out to
-  // min-height + padding — 64px taller than the navbar-cleared viewport it
-  // was meant to exactly fill, overflowing past the bottom of the window
-  // and undermining the centering this rule exists to fix. Caught by
-  // measuring, not assumed: computed height read 820px against a 756px
-  // min-height, the gap exactly matching top+bottom padding.
+  justify-content: center;
   box-sizing: border-box;
-  // Against --scroll-offset (navbar + 24px), not --navbar-height alone: a
-  // nav click lands this section's top 24px below the navbar (the B3
-  // scroll-margin-top rule), so a min-height of `100dvh - navbar` left the
-  // section's own bottom edge 24px past the fold on every desktop size —
-  // measured, harmless (content is flex-centered and fully visible) but it
-  // was the last thing keeping this section from reading as exactly one
-  // screen. Experience has no pin/hold since the 2026-08-27 rebuild, so
-  // nothing in experience.jsx reads this value (verified).
   min-height: calc(100vh - var(--scroll-offset));
   min-height: calc(100dvh - var(--scroll-offset));
-  // Top/bottom padding asymmetric now (was var(--space-6) both sides) — live
-  // feedback: "move it a bit higher, title and slideshow." The shell's own
-  // ::before/::after bias (below) only moves the VIEWPORT relative to the
-  // title; it can't move the title itself, since the title sits outside the
-  // shell entirely (flex-shrink: 0, its own row). Trimming top padding
-  // (space-6 -> space-5, an existing token, not an invented value) shifts
-  // the whole [title, shell] column up as a unit inside the section — the
-  // freed 8px doesn't vanish, it's simply no longer reserved above the
-  // title, same min-height/pin footprint either way. Bottom padding stays
-  // space-6, unchanged, so the section's own total height (and the pin's
-  // own occupied viewport space) doesn't shift.
   padding: var(--space-5) 0 var(--space-6);
 
   @media (max-width: 768px) {
@@ -2155,87 +2141,35 @@ html {
   @include section-title;
   @include content-column($width: var(--content-width-wide));
   color: var(--text-color);
-  // Never the thing that gives in a short window — only
-  // .experience-viewport-shell (below) should ever absorb tight vertical
-  // space, so the title stays fully readable regardless.
+  // section-title's own margin-bottom is now the ENTIRE gap between the
+  // title and the filmstrip — no pseudo-element spacers between the two.
+  // flex-shrink: 0 so a short window eats into the padding above/below the
+  // centered pair rather than crushing the title.
   flex-shrink: 0;
 }
 
-// Pure spacer: takes whatever vertical space is actually left in
-// .experience-section once the title's own flow height (and this
-// section's padding) is subtracted, then centers .experience-viewport
-// within THAT real, browser-computed remainder — real layout arithmetic
-// instead of a guessed pixel floor to clamp the old `top` calc against
-// (exactly the "two guessed numbers drifted apart" mistake
-// --experience-vp-height's own comment below already warns about).
-//
-// This is deliberately NOT the same thing as centering title+viewport
-// together as one flex block, which is what an earlier version of this
-// fix tried first and rejected: that puts equal leftover space above and
-// below the COMBINED block, but the title only ever sits above the
-// viewport, never below it, so the viewport still ends up sitting below
-// the section's true center by roughly half the title's own footprint —
-// the same complaint with smaller numbers, not actually fixed. Keeping
-// the title OUTSIDE this shell (flex-shrink: 0, always first, own row)
-// and only centering the shell's own remainder avoids that: the space
-// above the title is never counted as "leftover" at all.
-//
-// min-height: 0 is the flex-item override this project's own comments
-// already document elsewhere for the same trap on the cross axis
-// (`min-width: auto` family — B25, FINDINGS.md): without it, a flex
-// child's automatic minimum is its CONTENT size, which for this shell
-// would be .experience-viewport's own --experience-vp-height — i.e.
-// exactly the height this element exists to be allowed to shrink below.
-//
-// justify-content: center replaced with two flex-grow spacers (below) —
-// live feedback: "move it a bit higher." Pure 50/50 centering put an equal
-// gap above and below the viewport WITHIN this shell's own leftover space,
-// which — stacked on top of the title's own row above the shell entirely —
-// read as the whole title+viewport block sitting in the lower half of the
-// section, not just off-center by a little. about.jsx's own TOP_BIAS
-// comment already diagnosed the same underlying cause for a different
-// section: true mathematical centering under a fixed navbar reliably reads
-// as lower than intended, because the navbar itself anchors the eye toward
-// the top. About biases its PIN's scroll-engage position instead (a JS
-// calc — that section has no flex shell to bias); this section has no such
-// position, so the equivalent idea is applied where the centering actually
-// happens: two flex-grow "spacer" pseudo-elements (::before above the
-// viewport, ::after below it), split via UNEQUAL flex-grow rather than
-// justify-content's implicit 1:1 split. flex-grow, not a fixed
-// padding/margin, is what makes this safe at short window heights: when
-// the shell has ZERO leftover space (a tight window — --experience-vp-
-// height already fills the whole shell, the exact case this rule's own
-// comment above describes), both spacers compute to 0px regardless of
-// their grow ratio — there's nothing to over-claim, so this can't
-// reintroduce a B29-style overlap/cutoff on a short window the way a fixed
-// pixel offset could have. 0.35/0.65 (top/bottom), not 0.5/0.5: reused, not
-// invented — the same 65/35 magnitude About's own TOP_BIAS already
-// established as "a felt shift, not a broken one" for this kind of
-// fixed-under-navbar layout, just assigned to the opposite side (About
-// needed MORE slack above to read as centered; this needs MORE slack below
-// to read as higher than centered).
+// Wraps the fixed-footprint viewport so .experience-section's
+// justify-content: center can center it together with the title. Holds no
+// vertical space of its own beyond the viewport (flex: 0 0 auto) — an
+// earlier version was a flex: 1 1 auto spacer with ::before/::after
+// flex-grow pseudo-elements that centered the viewport WITHIN the room below
+// the title, which only ever centered the viewport against the title, never
+// the pair against the section (the "floating title" report above).
+// align-items: center + the viewport's own max-width keep the filmstrip
+// centered on the cross axis.
 .experience-viewport-shell {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
 
-  &::before,
-  &::after {
-    content: "";
-    flex-shrink: 1;
-    width: 100%;
-  }
-
-  &::before {
-    flex-grow: 0.35;
-  }
-
-  &::after {
-    flex-grow: 0.65;
-  }
+// Reduced-motion fallback (ExperienceStatic, experience.jsx) is a tall
+// scrolling list, not a one-screen composition — centering it as a unit
+// would push its top under the navbar. It keeps the default top alignment.
+.experience-section--static {
+  justify-content: flex-start;
 }
 
 // The pinned box — experience.jsx's ScrollTrigger pins THIS section
@@ -2275,24 +2209,21 @@ html {
   // each side still clears an 8% scale-up on a ~400px card (~16px/side),
   // and the 32px it frees is what lets this section fit a 768px window.
   --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-6));
-  // Centered by the flex SHELL around it (.experience-viewport-shell,
-  // above) now, not by its own top/left math against the whole section —
-  // see that rule's comment, and .experience-section's, for why. Still not
+  // Centered as part of the [title + viewport] pair by justify-content:
+  // center on .experience-section (the shell just carries it there) — not by
+  // its own top/left math against the whole section. Still not
   // `transform: translateY(-50%)`-based centering, for the same reason the
   // old top/height approach avoided it: experience.jsx runs gsap.set/to
-  // with `scale` on this exact element (the pin-engage settle, mount
-  // reveal), and GSAP writes its own inline `transform`, which would
-  // silently overwrite a stylesheet transform the instant either of those
-  // ran (effectively on mount, i.e. always). Flex centering never touches
-  // `transform`, so it has nothing to conflict with either.
+  // with `scale` on this exact element (the mount reveal), and GSAP writes
+  // its own inline `transform`, which would silently overwrite a stylesheet
+  // transform the instant it ran (effectively on mount, i.e. always). Flex
+  // centering never touches `transform`, so it has nothing to conflict with.
   //
-  // flex: 0 0 auto keeps this box at EXACTLY --experience-vp-height even
-  // if the shell above ever has less room than that to give (an extreme
-  // window height no real user is likely to hit) — the tuned rail/card/
-  // date headroom math below (`--space-7`) assumes this element's rendered
-  // height truly equals --experience-vp-height; letting it shrink would
-  // desync that math instead of just costing a few extra px of pin scroll
-  // in that same edge case, which is the safer failure mode.
+  // flex: 0 0 auto keeps this box at EXACTLY --experience-vp-height. The
+  // section grows past its min-height rather than starving the shell, so
+  // there is normally room to spare; this is the belt-and-braces guarantee
+  // that the tuned rail/card/date headroom math below never desyncs from
+  // this element's rendered height even on an extreme short window.
   position: relative;
   flex: 0 0 auto;
   width: 100%;
