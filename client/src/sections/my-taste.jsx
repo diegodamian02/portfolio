@@ -6,7 +6,7 @@ import {
     CARD_LAND_EASE, CARD_LAND_SQUASH_EASE, PIN_SNAP_EASE,
 } from "../lib/gsap.js";
 import {
-    getActiveLenis, getActiveSnap, isProgrammaticScrollActive, onProgrammaticScrollChange,
+    isProgrammaticScrollActive, onProgrammaticScrollChange,
     getLastNavTarget, onSectionNavigated,
 } from "../lib/scroll.js";
 // Latin + latin-ext subsets specifically, not the package-default imports
@@ -222,16 +222,6 @@ const ROTATE_MAX_DEG = 4;
 const JITTER_RANGE_PX = 8; // total range; actual offset is ±(this / 2)
 const TAPE_ROTATE_MAX_DEG = 10;
 const TEAR_PRESET_COUNT = 4;
-
-// The pin-hold's own "don't trap the visitor" safety net (below, the
-// ScrollTrigger's onEnter) tolerates the section being up to this much
-// TALLER than the space actually available before it gives up on holding
-// scroll at all. 1.6, not 1.0 — found live (B32, FINDINGS.md): the section's
-// content height is fixed (doesn't shrink with the window), and a strict
-// "any overflow at all" check skipped the hold on completely ordinary
-// desktop window heights, not just unusually short ones. See the onEnter
-// callback's own comment for the measured numbers behind this value.
-const SAFETY_NET_OVERFLOW_ALLOWANCE = 1.6;
 
 // One deterministic transform per card id — same id always produces the same
 // rotation/jitter/tear-preset/tape-angle, across reloads and re-renders, the
@@ -619,25 +609,14 @@ export default function MyTaste() {
             gsap.set(crateThumbs, { opacity: 0, y: -14 });
             gsap.set(setlistRows, { opacity: 0, y: 10 });
 
-            let holding = false;
-            function releaseHold() {
-                if (!holding) return;
-                holding = false;
-                getActiveLenis()?.start();
-                // Resume the site-wide section snap, paused on hold engage.
-                getActiveSnap()?.start();
-                window.removeEventListener("touchmove", blockTouchMove, { capture: true });
-                window.removeEventListener("keydown", blockScrollKeys, { capture: true });
-            }
-            const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "]);
-            function blockScrollKeys(e) {
-                if (SCROLL_KEYS.has(e.key)) e.preventDefault();
-            }
-            function blockTouchMove(e) {
-                e.preventDefault();
-            }
-
-            const tl = gsap.timeline({ paused: true, onComplete: releaseHold });
+            // No hold. This section used to freeze scroll input for the
+            // length of its cascade (lenis.stop() plus a touchmove blocker);
+            // that read as scrolling "stalling in some scenarios" and the
+            // call is now explicit — no section holds scroll, and any
+            // animation can be scrolled away from mid-flight. The timeline
+            // has no ScrollTrigger of its own, so it finishes on GSAP's
+            // ticker whatever the page does underneath it.
+            const tl = gsap.timeline({ paused: true });
 
             // The entrance is a one-shot, and it must play on EVERY route into
             // the section, not just an organic downward scroll. It used to hang
@@ -646,32 +625,17 @@ export default function MyTaste() {
             // above the trigger's own start line) so clicking "My Taste" left
             // the wall cards frozen at opacity 0 (FINDINGS B72). The pin is
             // gone now (Experience dropped its own 2026-08-27; About never used
-            // one — a lenis.stop() hold does not need it), which also retires
-            // the pin-spacer displacement bug (B71). Three entry points now
-            // feed one guarded starter:
-            //   - beginEntrance({ hold }) — animate the cascade; optionally
-            //     freeze scroll for it (organic scroll only — a nav click asked
-            //     to come here, don't trap it).
-            //   - resolveEntrance() — snap to the finished state, no animation,
-            //     no hold (a nav click passing THROUGH toward another section).
+            // one), which also retires the pin-spacer displacement bug (B71).
+            // Two entry points now feed one guarded starter:
+            //   - beginEntrance() — animate the cascade.
+            //   - resolveEntrance() — snap to the finished state, no animation
+            //     (a nav click passing THROUGH toward another section).
+            // The `hold` / `snapTo` arguments callers used to pass are gone
+            // with the hold itself, so every call site is now the same call.
             let entranceStarted = false;
-            function beginEntrance({ hold, snapTo } = {}) {
+            function beginEntrance() {
                 if (entranceStarted) return;
                 entranceStarted = true;
-                if (hold) {
-                    holding = true;
-                    const lenis = getActiveLenis();
-                    if (lenis) {
-                        // Lenis's easing can carry a few px past the trigger
-                        // line before this runs — snap to a clean rest first,
-                        // same one-time correction About's own hold uses.
-                        if (snapTo != null) lenis.scrollTo(snapTo, { immediate: true, force: true });
-                        lenis.stop();
-                    }
-                    getActiveSnap()?.stop();
-                    window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
-                    window.addEventListener("keydown", blockScrollKeys, { capture: true });
-                }
                 tl.play();
             }
             function resolveEntrance() {
@@ -802,7 +766,7 @@ export default function MyTaste() {
             // onEnter fires on both routes: an organic downward scroll crossing
             // it, and a nav click / deep link whose landing at the offset is
             // already past it. The organic hold then snaps back to the exact
-            // offset (beginEntrance's snapTo), so this +32 only needs to be
+            // offset, so this +32 only needs to be
             // >24, it doesn't set the resting position.
             const st = ScrollTrigger.create({
                 trigger: rootRef.current,
@@ -813,29 +777,17 @@ export default function MyTaste() {
                         // A nav scroll is crossing this section. Heading HERE
                         // -> animate the cascade (no hold, they asked to come).
                         // Passing THROUGH toward another section -> snap.
-                        if (getLastNavTarget() === "my-taste") beginEntrance({ hold: false });
+                        if (getLastNavTarget() === "my-taste") beginEntrance();
                         else resolveEntrance();
                         return;
                     }
 
-                    // Organic scroll. Safety net (shape from About's hold, but
-                    // NOT its strict threshold — B32, FINDINGS.md): a section
-                    // taller than the window by more than
-                    // SAFETY_NET_OVERFLOW_ALLOWANCE (60%) plays its entrance
-                    // without freezing scroll, so a genuinely oversized view
-                    // can't trap the visitor. Ordinary desktop windows
-                    // (600-900px tall) are well inside that and still hold.
-                    const available = window.innerHeight - navbarHeight();
-                    const sectionHeight = rootRef.current.getBoundingClientRect().height;
-                    if (sectionHeight > available * SAFETY_NET_OVERFLOW_ALLOWANCE) {
-                        beginEntrance({ hold: false });
-                        return;
-                    }
-                    // Snap to #my-taste's own scroll-margin-top (Lenis reads it
-                    // off the element) so the held view rests at exactly
-                    // --scroll-offset, not wherever the trigger line happened
-                    // to be or wherever momentum carried past it.
-                    beginEntrance({ hold: true, snapTo: document.getElementById("my-taste") });
+                    // Organic scroll. There used to be a safety net here
+                    // (B32, FINDINGS.md) deciding whether the section was
+                    // short enough to be safe to hold scroll on. With no hold
+                    // there is nothing to be unsafe about, and both branches
+                    // did the same thing.
+                    beginEntrance();
                 },
             });
 
@@ -846,7 +798,7 @@ export default function MyTaste() {
             // setup.
             if (rootRef.current.getBoundingClientRect().top < window.innerHeight * 0.9) {
                 if (isProgrammaticScrollActive() && getLastNavTarget() !== "my-taste") resolveEntrance();
-                else beginEntrance({ hold: false });
+                else beginEntrance();
             }
 
             // A nav click that fires AFTER this effect mounts and heads here:
@@ -854,23 +806,19 @@ export default function MyTaste() {
             // catches it, but this is the direct "a nav to us just landed"
             // signal for a stop that falls a hair short of the line.
             const unsubNav = onSectionNavigated((id) => {
-                if (id === "my-taste") beginEntrance({ hold: false });
+                if (id === "my-taste") beginEntrance();
             });
 
-            // A nav click that starts WHILE the organic hold is running:
-            // release it, and snap the timeline only if the visitor is
-            // actually leaving (not re-triggering us).
+            // A nav click that lands mid-cascade jumps it to its end state,
+            // but only if the visitor is actually leaving (not re-triggering
+            // us) — otherwise they asked to come here and should see it play.
             const unsubscribe = onProgrammaticScrollChange((active) => {
-                if (active && holding) {
-                    if (getLastNavTarget() !== "my-taste") tl.progress(1);
-                    releaseHold();
-                }
+                if (active && tl.isActive() && getLastNavTarget() !== "my-taste") tl.progress(1);
             });
 
             return () => {
                 unsubscribe();
                 unsubNav();
-                releaseHold();
                 st.kill();
                 tl.kill();
                 kickerSplit.revert();

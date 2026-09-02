@@ -3,7 +3,7 @@ import "../styles/main.scss";
 import diego from "../assets/diego.jpg";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger, SplitText, SIGNATURE_EASE } from "../lib/gsap.js";
-import { getActiveLenis, getActiveSnap, isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
+import { isProgrammaticScrollActive, onProgrammaticScrollChange } from "../lib/scroll.js";
 
 // About Me — the calm intro card, Stage 3 Task 4. Replaces the old
 // .bio-section entirely (photo + two paragraphs + Rutgers logo + flag
@@ -160,50 +160,22 @@ export default function About() {
             // on the section permanently, with the document scrolling
             // freely underneath it. Reproduced repeatedly, not a one-off.
             //
-            // This version holds SCROLL INPUT itself instead of reacting to
-            // scroll position after the fact — nothing to clamp, nothing to
-            // race, nothing to revert:
-            //   - lenis.stop()/start() for wheel/trackpad input (Lenis's
-            //     own primitive for this — halts any in-flight momentum
-            //     too, not just future input).
-            //   - a direct, non-passive touchmove listener for touch —
-            //     this project's Lenis instance runs with the default
-            //     syncTouch:false (smooth-scroll.jsx), meaning touch
-            //     scrolling is native, not routed through Lenis at all, so
-            //     lenis.stop() alone doesn't affect it. Verified via Lenis's
-            //     own source before relying on either path.
+            // A later version held SCROLL INPUT itself — lenis.stop() plus a
+            // non-passive touchmove blocker — which fixed the stale-pin bug
+            // but replaced it with a different problem: the visitor was
+            // frozen out of the page for the length of the cascade. That was
+            // reported as scrolling "stalling in some scenarios", and the
+            // call is now explicit — no section holds scroll, and any
+            // animation can be scrolled away from mid-flight.
             //
             // `tl` is a plain, paused timeline with NO scrollTrigger of its
             // own — genuinely decoupled from scroll input, not just
             // un-scrubbed. A separate ScrollTrigger below calls tl.play()
-            // once, on entry; the timeline then runs to completion on
-            // GSAP's own ticker regardless of what scroll input does (or
-            // doesn't do) in the meantime.
-            let holding = false;
-
-            function releaseHold() {
-                if (!holding) return;
-                holding = false;
-                getActiveLenis()?.start();
-                // Resume the site-wide section snap, paused on hold engage
-                // below so it doesn't fire on top of the entrance cascade.
-                getActiveSnap()?.start();
-                window.removeEventListener("touchmove", blockTouchMove, { capture: true });
-                window.removeEventListener("keydown", blockScrollKeys, { capture: true });
-            }
-
-            const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "]);
-            function blockScrollKeys(e) {
-                if (SCROLL_KEYS.has(e.key)) e.preventDefault();
-            }
-            function blockTouchMove(e) {
-                e.preventDefault();
-            }
-
-            const tl = gsap.timeline({
-                paused: true,
-                onComplete: releaseHold,
-            });
+            // once, on entry; the timeline then runs to completion on GSAP's
+            // own ticker regardless of what scroll input does (or doesn't do)
+            // in the meantime, which is exactly what makes it safe to leave
+            // scrolling free while it plays.
+            const tl = gsap.timeline({ paused: true });
 
             // Every tween below shares SIGNATURE_EASE (lib/gsap.js) — Task 7's
             // "one motion signature" retrofitted here too, replacing what
@@ -225,17 +197,11 @@ export default function About() {
             tl.from(bioSplit.words, { opacity: 0, y: 12, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.025 }, ">+=0.25");
             tl.from(chips, { opacity: 0, y: 10, duration: 0.4, ease: SIGNATURE_EASE, stagger: 0.08 }, ">+=0.3");
 
-            // Covers a nav click that starts WHILE already holding, not just
-            // one that arrives before entry — e.g. a mid-entrance click on
-            // "Connect". Without this, lenis.stop() would leave Lenis
-            // stopped forever once the forced nav scrollTo (see
-            // lib/scroll.js) moved past it, since only this hold's own
-            // releaseHold() ever calls lenis.start().
+            // A nav click that lands mid-cascade jumps it to its end state
+            // rather than leaving a half-revealed section behind as the page
+            // travels away from it.
             const unsubscribe = onProgrammaticScrollChange((active) => {
-                if (active && holding) {
-                    tl.progress(1);
-                    releaseHold();
-                }
+                if (active && tl.isActive()) tl.progress(1);
             });
 
             ScrollTrigger.create({
@@ -271,72 +237,27 @@ export default function About() {
                     return "top top+=" + centeredTop;
                 },
                 once: true,
-                onEnter: (self) => {
+                onEnter: () => {
                     // A nav click already scrolling straight through
                     // #about toward another section — the visitor asked to
                     // go there, not to watch an intro they didn't request.
-                    // Resolve to the finished state instantly (nothing is
-                    // left invisible if they scroll back up to look later)
-                    // and never hold at all.
+                    // Resolve to the finished state instantly — nothing is
+                    // left invisible if they scroll back up to look later.
                     if (isProgrammaticScrollActive()) {
                         tl.progress(1);
                         return;
                     }
 
-                    // Safety net for any viewport where the card is taller
-                    // than the space actually available — CSS now sizes the
-                    // portrait against real (non-fullscreen) window height
-                    // (main.scss, .about-me-portrait-wrap), but that can't
-                    // account for unpredictable text length, so this checks
-                    // the ACTUAL rendered height rather than trusting the
-                    // CSS budget held. Holding scroll captive against a view
-                    // that's already cut off just traps the visitor staring
-                    // at cropped content for ~2.9s with no way to scroll
-                    // past it — worse than letting a fast scroll run past
-                    // part of the entrance, which is the fallback the
-                    // original brief itself sanctioned for exactly this
-                    // case ("test on mobile/touch, gate accordingly if not
-                    // smooth"). Still plays the entrance on its own clock,
-                    // just doesn't block scroll input for it.
-                    const navbarHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navbar-height")) || 0;
-                    const available = window.innerHeight - navbarHeight;
-                    const sectionHeight = rootRef.current.getBoundingClientRect().height;
-                    if (sectionHeight > available) {
-                        tl.play();
-                        return;
-                    }
-
-                    holding = true;
-                    const lenis = getActiveLenis();
-                    if (lenis) {
-                        // Correct overshoot before stopping — reported live:
-                        // the section was landing already scrolled part-way
-                        // past "top top", holding on a frame with its own
-                        // top cut off above the viewport instead of a clean
-                        // full view. Root cause: ScrollTrigger only notices
-                        // a crossed threshold on its NEXT update tick, and
-                        // Lenis's own easing keeps moving in the meantime —
-                        // by the time onEnter actually runs, real scroll
-                        // input (a normal trackpad swipe, not just a fast
-                        // one) can have already carried well past `start`.
-                        // One immediate, one-time snap to the exact trigger
-                        // position — not a repeated per-frame clamp, which
-                        // is what caused the stale-pin bug earlier in this
-                        // file's history — fixes it regardless of how much
-                        // was overshot.
-                        lenis.scrollTo(self.start, { immediate: true, force: true });
-                        lenis.stop();
-                    }
-                    getActiveSnap()?.stop();
-                    window.addEventListener("touchmove", blockTouchMove, { passive: false, capture: true });
-                    window.addEventListener("keydown", blockScrollKeys, { capture: true });
+                    // Nothing to gate on any more. The old height check here
+                    // existed only to decide whether it was safe to hold
+                    // scroll captive on a section taller than the viewport;
+                    // with no hold, both branches do the same thing.
                     tl.play();
                 },
             });
 
             return () => {
                 unsubscribe();
-                releaseHold();
                 tl.kill();
                 nameSplit.revert();
                 bioSplit.revert();

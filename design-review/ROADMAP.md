@@ -876,6 +876,31 @@ a real clock, which is what exposed the two genuine defects (a 23px overshoot
 from momentum arriving after Lenis released its own lock; a second flick during
 a trip being swallowed).
 
+**Also 2026-09-02 — DECISION REVERSED: no section holds scroll any more.**
+The 2026-08-29 scroll-snap brief kept the entrance holds deliberately (*"if
+it's for the animations only hold the sections that have animations
+integrated"*). That is overridden by a direct later ask: *"I should be able to
+skip some animations so we are not using hold any more for any of the
+sections."* `#about`, `#my-taste` and `#connect` no longer call `lenis.stop()`,
+no longer install `touchmove`/`keydown` blockers, and no longer pause the
+section snap.
+
+This was also the remaining *"motion while scrolling still stalled in some
+scenarios"* — the stall was never in the snap. Landing on any of those three
+froze scroll for the length of its cascade (~2.9s on About). Measured at the
+same trigger, scroll position during the About cascade went from **682
+(pinned)** to **1388 (free)**.
+
+The cascades still play: their timelines are `paused: true` with no
+ScrollTrigger of their own, so they run on GSAP's ticker regardless of scroll —
+that decoupling (built for an earlier stale-pin bug) is what makes holding
+unnecessary. Two "don't trap the visitor" safety nets were retired with the
+holds, correctly: About's height check and `#my-taste`'s
+`SAFETY_NET_OVERFLOW_ALLOWANCE` (B32) existed only to decide when holding was
+unsafe. Verified: 5 swipes down and 5 back up, every one obeyed, all cascade
+end states at opacity 1.00, nothing left frozen; swipe and regression suites
+unchanged.
+
 **Also 2026-09-02 — the scroll model is settled, and one question is now
 closed for good.** Asks: the snap had become *too stiff* (a held drag advanced
 one section then went dead), scrolling still read as slightly laggy, and the

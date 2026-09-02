@@ -1,6 +1,10 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-02 (**scroll-snap fourth pass** — one swipe moves exactly
+**Updated:** 2026-09-02 (**entrance holds removed from every section** — no
+section freezes scroll any more; that was the remaining "stall", and skipping
+an animation by scrolling away is now always possible. Reverses the
+2026-08-29 decision to keep holds on the three animated sections.) Prior, same
+day: (**scroll-snap fourth pass** — one swipe moves exactly
 one section at any intensity, and a new swipe is obeyed mid-animation.
 Gesture-end proved unrecoverable from delta magnitudes across three detectors
 and 600 trials/model; replaced with gap + reversal detection, which the event
@@ -7650,6 +7654,67 @@ AudioWorklet, neither of which this machine reproduced.
 > landed. Those files are deliberately NOT in this commit. It also means the
 > repo-wide lint count and the bundle size were confounded during this pass and
 > are not quoted — `eslint` on only the files changed here is clean.
+
+### Entrance holds REMOVED from every section *(2026-09-02)*
+
+Direct ask, and a **reversal of a decision made on 2026-08-29**: *"Remember I
+should be able to skip some animations so we are not using hold any more for
+any of the sections."* The original scroll-snap brief had kept the holds
+explicitly (*"if it's for the animations only hold the sections that have
+animations integrated"*); that is now overridden. **No section freezes scroll,
+for any reason.**
+
+This is also the fix for *"the motion while scrolling still stalled in some
+scenarios."* The stall was not in the snap at all — `#about`, `#my-taste` and
+`#connect` each called `lenis.stop()` plus a non-passive `touchmove` blocker
+and a `keydown` blocker on entry, releasing only from the cascade's own
+`onComplete`. Landing on any of those three froze scroll for the length of its
+entrance (~2.9s on About). Measured before/after at the same trigger: scroll
+position during the About cascade was **682 (pinned) → 1388 (free)**.
+
+Removed from all three:
+
+- `lenis.stop()` / `lenis.start()` and the one-time overshoot-correcting
+  `scrollTo(..., { immediate: true })` that preceded it
+- the `touchmove` / `keydown` capture-phase blockers
+- `getActiveSnap()?.stop()` / `.start()`
+- `holding` + `releaseHold()` and the `beginEntrance({ hold, snapTo })`
+  argument — every call site is now just `beginEntrance()`
+
+Two safety nets died with them, correctly: About's `sectionHeight > available`
+check and `#my-taste`'s `SAFETY_NET_OVERFLOW_ALLOWANCE` (1.6, B32) both existed
+only to decide whether a section was short enough that holding scroll on it
+wouldn't trap the visitor. With no hold there is nothing to be unsafe about,
+and both branches did the same thing.
+
+What is kept: every cascade still plays, on GSAP's own ticker. The timelines
+were already `paused: true` with **no ScrollTrigger of their own** — that
+decoupling (built to fix an earlier stale-pin bug) is exactly what makes it
+safe to leave scrolling free while they run. A nav click landing mid-cascade
+still jumps it to its end state, now guarded on `tl.isActive()` rather than on
+the departed `holding` flag, and still only when the visitor is actually
+leaving rather than re-triggering the section.
+
+**Verified — walked the whole page one swipe at a time, 1440×850:**
+
+| | result |
+|---|---|
+| 5 swipes down, `#home`→`#connect` | every one obeyed, exactly one stop each |
+| 5 swipes back up | every one obeyed, exactly one stop each |
+| cascade end states (About name + chip, `#my-taste` card, `#connect` form) | all opacity **1.00** — animations still play |
+| scroll left frozen anywhere | no — page responds after every section |
+| swipe suite (peaks 10–600, interrupts, reversals) | **0 violations**, unchanged |
+| regression (footer 1280×680, filmstrip, 6 nav clicks, deep link, `#projects` expanded, reduced motion) | unchanged, 0 page errors |
+
+`npm run lint` 7 errors / 2 warnings, unchanged. Bundle **−2.46 kB**
+(560.32 → 557.86 kB).
+
+**Stale test name, flagged not hidden:** `final-check.mjs` §2 is still titled
+"#about entrance hold still blocks and releases" and now passes for the
+opposite reason — its own numbers show the page moving during the cascade
+(682 → 1388) where it used to be pinned. The assertion it makes (chip reaches
+opacity 1, scrolling works afterwards) is still the right one; only the name
+is wrong.
 
 ### Scroll-snap, fourth pass — one swipe = one section, interruptible *(2026-09-02)*
 

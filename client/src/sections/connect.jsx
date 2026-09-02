@@ -5,7 +5,7 @@ import axios from 'axios';
 import { useGSAP } from '@gsap/react';
 import { gsap, ScrollTrigger, SplitText, SIGNATURE_EASE, Flip, WALKMAN_POP_EASE, PIN_SNAP_EASE } from '../lib/gsap.js';
 import {
-    getActiveLenis, getActiveSnap, isProgrammaticScrollActive, onProgrammaticScrollChange,
+    getActiveLenis, isProgrammaticScrollActive, onProgrammaticScrollChange,
     getLastNavTarget, onSectionNavigated,
 } from '../lib/scroll.js';
 import useReducedMotion from '../hooks/use-reduced-motion.js';
@@ -348,41 +348,23 @@ export default function Connect() {
 
             if (formTargets.length === 0) return undefined;
 
-            let holding = false;
-            function releaseHold() {
-                if (!holding) return;
-                holding = false;
-                getActiveLenis()?.start();
-                // Resume the site-wide section snap, paused on hold engage.
-                getActiveSnap()?.start();
-                window.removeEventListener('touchmove', blockTouchMove, { capture: true });
-                window.removeEventListener('keydown', blockScrollKeys, { capture: true });
-            }
-            const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' ']);
-            function blockScrollKeys(e) {
-                if (SCROLL_KEYS.has(e.key)) e.preventDefault();
-            }
-            function blockTouchMove(e) {
-                e.preventDefault();
-            }
-
-            // titleSplit.revert() runs HERE unconditionally, not only in this
-            // effect's own cleanup (below) — a send can happen long after
-            // this reveal finished, and by then the inner title span needs to
-            // be plain text again so ScrambleTextPlugin (runSendSequence) has a
-            // real string to read/scramble rather than SplitText's own
-            // leftover per-word wrapper spans. Wrapping `releaseHold` rather
-            // than calling `.revert()` directly on `tl`'s `onComplete` keeps
-            // `releaseHold`'s own `holding` guard intact for its OTHER job
-            // (undoing the scroll-lock) — this call must fire every time the
-            // timeline completes, including the isProgrammaticScrollActive
-            // skip below (`tl.progress(1)`), where `releaseHold` itself
-            // no-ops because `holding` was never set true.
+            // titleSplit.revert() runs HERE, not only in this effect's own
+            // cleanup (below) — a send can happen long after this reveal
+            // finished, and by then the inner title span needs to be plain
+            // text again so ScrambleTextPlugin (runSendSequence) has a real
+            // string to read/scramble rather than SplitText's own leftover
+            // per-word wrapper spans. It must fire every time the timeline
+            // completes, including the isProgrammaticScrollActive skip below
+            // (`tl.progress(1)`).
+            //
+            // No scroll hold here any more: this section used to freeze input
+            // for the length of the cascade, which read as scrolling
+            // "stalling in some scenarios". No section holds scroll now, and
+            // any animation can be scrolled away from mid-flight.
             const tl = gsap.timeline({
                 paused: true,
                 onComplete: () => {
                     titleSplit.revert();
-                    releaseHold();
                 },
             });
 
@@ -410,23 +392,11 @@ export default function Connect() {
             // (b) — once a retirePin() tried to collapse it mid-scroll —
             // made a fresh nav click OVERSHOOT the section entirely, dropping
             // the visitor into the footer with the heading and the top of the
-            // J-card scrolled up behind the navbar. No pin now; the hold is
-            // lenis.stop() + input blockers, About's mechanism.
+            // J-card scrolled up behind the navbar. No pin and no hold now.
             let entranceStarted = false;
-            function beginEntrance({ hold, snapTo } = {}) {
+            function beginEntrance() {
                 if (entranceStarted) return;
                 entranceStarted = true;
-                if (hold) {
-                    holding = true;
-                    const lenis = getActiveLenis();
-                    if (lenis) {
-                        if (snapTo != null) lenis.scrollTo(snapTo, { immediate: true, force: true });
-                        lenis.stop();
-                    }
-                    getActiveSnap()?.stop();
-                    window.addEventListener('touchmove', blockTouchMove, { passive: false, capture: true });
-                    window.addEventListener('keydown', blockScrollKeys, { capture: true });
-                }
                 tl.play();
             }
             function resolveEntrance() {
@@ -457,7 +427,7 @@ export default function Connect() {
                     // concurrent re-render mid-play can't leave React holding a
                     // stale child node. Verified with the b56 stress run.
                     if (isProgrammaticScrollActive()) {
-                        if (getLastNavTarget() === 'connect') beginEntrance({ hold: false });
+                        if (getLastNavTarget() === 'connect') beginEntrance();
                         else resolveEntrance();
                         return;
                     }
@@ -471,10 +441,10 @@ export default function Connect() {
                     const available = window.innerHeight - navbarHeight();
                     const contentHeight = containerRef.current.getBoundingClientRect().height;
                     if (contentHeight > available) {
-                        beginEntrance({ hold: false });
+                        beginEntrance();
                         return;
                     }
-                    beginEntrance({ hold: true, snapTo: document.getElementById('connect') });
+                    beginEntrance();
                 },
             });
 
@@ -492,22 +462,18 @@ export default function Connect() {
             // past the start line when the nav began — and there a play still
             // reads as a clean arrival, so play rather than snap.
             const unsubNav = onSectionNavigated((id) => {
-                if (id === 'connect') beginEntrance({ hold: false });
+                if (id === 'connect') beginEntrance();
             });
 
-            // A nav click that starts WHILE the organic hold is running:
-            // release it, snapping the timeline only if the visitor is leaving.
+            // A nav click that lands mid-cascade jumps it to its end state,
+            // but only if the visitor is actually leaving.
             const unsubscribe = onProgrammaticScrollChange((active) => {
-                if (active && holding) {
-                    if (getLastNavTarget() !== 'connect') tl.progress(1);
-                    releaseHold();
-                }
+                if (active && tl.isActive() && getLastNavTarget() !== 'connect') tl.progress(1);
             });
 
             return () => {
                 unsubscribe();
                 unsubNav();
-                releaseHold();
                 st.kill();
                 tl.kill();
                 titleSplit.revert();

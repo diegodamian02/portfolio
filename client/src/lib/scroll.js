@@ -18,14 +18,19 @@ export function getActiveLenis() {
     return activeLenis;
 }
 
-// The live lenis/snap instance, same singleton pattern as activeLenis above and
-// for the same reason: it's constructed inside smooth-scroll.jsx (which owns
-// Lenis's lifecycle) but paused/resumed from plain functions in the section
-// components — about.jsx / my-taste.jsx / connect.jsx each call
-// getActiveSnap()?.stop() alongside their existing lenis.stop() while an
-// entrance cascade holds scroll, so the vertical section snap doesn't fire on
-// top of the hold. null under prefers-reduced-motion (no Lenis, so no Snap) and
-// in the brief window before smooth-scroll.jsx mounts — every caller uses `?.`.
+// The live section-snap instance, same singleton pattern as activeLenis above:
+// it's constructed inside smooth-scroll.jsx (which owns Lenis's lifecycle) but
+// needs to be reachable from plain functions elsewhere. null under
+// prefers-reduced-motion (no Lenis, so no snap) and in the brief window before
+// smooth-scroll.jsx mounts, so every caller must use `?.`.
+//
+// No section reads it at present. about.jsx / my-taste.jsx / connect.jsx used
+// to call getActiveSnap()?.stop() to keep the snap from firing on top of an
+// entrance cascade that had frozen scroll; none of them hold scroll any more
+// (2026-09-02 — holds removed outright, an animation should always be
+// scrollable-away-from), so there is nothing left to suppress. Kept because
+// stop()/start() is the right seam if anything ever needs to suspend snapping
+// again.
 let activeSnap = null;
 
 export function setActiveSnap(instance) {
