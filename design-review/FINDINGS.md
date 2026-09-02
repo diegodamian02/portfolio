@@ -1486,10 +1486,12 @@ identically before this fix — not something this touched). Screenshots:
 introduced was itself retired. It centred *only the viewport* in the room below
 the title, so on any screen taller than the content the title floated 87–122px
 above the cards (live feedback: "center the slide cards in the middle, title on
-top"). Replaced with `justify-content: center` on `.experience-section`, so the
-`[title + viewport]` pair centres as one unit — the title can no longer land
-over the viewport either (B29 stays fixed by construction), and the pair reads
-as one composition. Full writeup: `STATUS.md`, 2026-09-01 dated entry.
+top"). After three passes that session — centre the pair as one unit → bias it
+up → **top-align it** (`justify-content: flex-start`, small top padding, no
+spacers) — the title is now always the first flow child above the viewport with
+a real margin between them, so it structurally cannot overlap the cards. B29
+stays fixed regardless of which of those arrangements is live. Full writeup:
+`STATUS.md`, 2026-09-01 dated entry.
 
 ### B30 — `#my-taste`'s pin never engaged on a fresh page load — **FOUND AND FIXED**
 

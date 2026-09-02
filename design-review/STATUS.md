@@ -7754,7 +7754,7 @@ for each. `npm run lint`: 7 errors / 2 warnings, unchanged, and clean on the
 changed file. (Note: `CLAUDE.md` still quotes a 16-error baseline; the actual
 current figure is 7/2.)
 
-### Experience — title now hugs the filmstrip; the pair centres as one unit *(2026-09-01)*
+### Experience — title hugs the filmstrip, then the pair moves to the top of the section *(2026-09-01)*
 
 Live ask: *"center the slide cards in the middle and the title on top."*
 Measured the current state before touching it (dark, nav-click to `#experience`,
@@ -7804,6 +7804,20 @@ now rides above true centre — card centre vs. section centre: 1920 +56→**+26
 plain `justify-content: center` — 1280×720 is unchanged (+56px, 34px overflow),
 no new B29 risk. `.experience-section--static` sets `content: none` on both so
 the reduced-motion list stays top-aligned. Screenshots refreshed.
+
+**Second follow-up same day — "cards way higher, title almost at the top."**
+Centred and lightly-biased both still read as "the slideshow is too low." A
+full-height section centred under the 144px fixed navbar structurally can't put
+the filmstrip near the optical middle of the *screen* without the title hitting
+the navbar. So the pair is now **top-aligned**: `justify-content: flex-start`,
+top padding cut to `--space-4` (the section already sits 24px below the navbar
+via `--scroll-offset`), spacer pseudo-elements deleted, and the now-redundant
+`.experience-section--static` rule removed (the base is top-aligned, which is
+what the reduced-motion list wanted anyway). Result — nav-bottom → title gap
+**73px desktop / 31px mobile** (was 116 / ~190); card centre vs. *screen* centre
+**+82px @1440, +36px @1920, +5px @390** (was +125 / +110 / +79). Leftover height
+(161–256px) now pools below the filmstrip. 1280×720 still fine (card bottom 19px
+off the fold). Only `main.scss`; reduced-motion list re-verified unclipped.
 
 ---
 

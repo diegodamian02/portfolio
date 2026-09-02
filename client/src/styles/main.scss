@@ -2079,22 +2079,22 @@ html {
 // every prior build of this section. --panel-text/--panel-text-secondary
 // stay in real use for .experience-info and .experience-client-badge — both
 // sit on a photo/motif scrim regardless of site theme.
-// VERTICAL LAYOUT (live feedback 2026-09-01: "center the slide cards in the
-// middle, title on top"). The title sits directly above the filmstrip with
-// ONE fixed gap — section-title's own margin-bottom — and the whole
-// [title + viewport] pair is centered in the section as a unit
-// (justify-content: center). The previous design pinned the title near the
-// section top and centered ONLY the viewport in the room left below it; on
-// tall screens that stranded the title 90-120px above the cards, reading as
-// a floating label rather than the filmstrip's heading. Centering the pair
-// keeps them together at every height — the leftover vertical space now
-// collects above the title and below the viewport, never between them.
+// VERTICAL LAYOUT. Title sits near the TOP of the section, filmstrip directly
+// under it, all the leftover height falls to the bottom — `justify-content:
+// flex-start` with a small top padding. This is the third arrangement the
+// live feedback walked through: (1) title floating ~90-120px above a centred
+// viewport ["center the cards, title on top"]; (2) title + viewport centred
+// together as one pair; (3) a small upward bias on that pair ["a bit
+// higher"]. (2) and (3) both still read as "the slideshow is too low" —
+// "cards way higher, title almost at the top." A full-height section centred
+// under a 144px fixed navbar can't put the filmstrip near the optical middle
+// of the SCREEN without the title colliding with the navbar, so the pair is
+// pinned to the top instead and the empty space goes below it.
 //
-// The rejected alternative this replaces (documented at length in a prior
-// version of the shell comment below): a flex: 1 1 auto "shell" with
-// ::before/::after flex-grow spacers, centering the viewport in its OWN
-// leftover only. It was chosen precisely to keep the title's height out of
-// the centering math — but that is the thing that made the title float.
+// section-title's own margin-bottom is the single gap between title and
+// filmstrip. No pseudo-element spacers anymore (an earlier version biased the
+// centred pair with `::before`/`::after` flex-grow; a top-aligned layout has
+// nothing to bias).
 //
 // min-height: one navbar-cleared screen — the same 100(d)vh - scroll-offset
 // this section has always reserved, so it still reads as exactly one screen
@@ -2109,58 +2109,28 @@ html {
 // rendered box overflows the fold by exactly its vertical padding — measured
 // once at 820px against a 756px min-height.
 //
-// The pair is biased UPWARD, not dead-centred — two flex-grow spacer
-// pseudo-elements below, `::after` heavier than `::before`, so more of the
-// section's leftover height collects below the filmstrip than above the
-// title. Live feedback ("move the slideshow a bit higher"), and the same
-// thing about.jsx's TOP_BIAS records: mathematical centring under a fixed
-// navbar reads low, because the navbar anchors the eye to the top, and this
-// pair carries its title on top so the filmstrip already sits in the pair's
-// lower half. flex-grow, NOT extra bottom padding: on a short window the
-// leftover height is ~0, both spacers collapse to 0px regardless of ratio,
-// and the pair falls back to plain `justify-content: center` in whatever
-// space exists — so this can't push the section past a tight (~720px) fold
-// or reintroduce B29's title/card overlap the way a fixed offset could.
-//
-// NOT transform: translateY(-50%) centering — experience.jsx runs
-// gsap.set/to with `scale` on .experience-viewport (mount reveal) and GSAP
-// writes its own inline `transform`, which would clobber a stylesheet one.
-// Flex centering never touches `transform`. B29 (FINDINGS.md — the title
-// overlapping the cards) stays fixed: the pair is one unit, so the title
-// can never land over the viewport.
+// NOT transform-based positioning — experience.jsx runs gsap.set/to with
+// `scale` on .experience-viewport (mount reveal) and GSAP writes its own
+// inline `transform`, which would clobber a stylesheet one. Flex layout never
+// touches `transform`. B29 (FINDINGS.md — the title overlapping the cards)
+// stays fixed: the title is always the first flow child, above the viewport,
+// with a real margin between them — it can't land on top of it.
 .experience-section {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   box-sizing: border-box;
   min-height: calc(100vh - var(--scroll-offset));
   min-height: calc(100dvh - var(--scroll-offset));
-  padding: var(--space-5) 0 var(--space-6);
+  // Top padding is small on purpose ("title almost at the top") — the section
+  // already sits 24px below the navbar via --scroll-offset, so this is the
+  // whole remaining gap. Bottom padding is nominal; flex-start means the
+  // leftover height pools below the filmstrip regardless of its value.
+  padding: var(--space-4) 0 var(--space-6);
 
   @media (max-width: 768px) {
     padding: var(--space-4) 0 var(--space-5);
-  }
-
-  // Desktop 1 : 2 — the space below the pair grows twice as fast as the space
-  // above it, so the pair lands ~1/6 of the leftover height above true centre
-  // (a clear, deliberate lift, per "move the slideshow a bit higher").
-  &::before,
-  &::after {
-    content: "";
-    flex-shrink: 1;
-    width: 100%;
-  }
-
-  &::before { flex-grow: 1; }
-  &::after { flex-grow: 2; }
-
-  // A tall narrow phone has ~1.6x the leftover height a desktop does, so the
-  // same ratio shifts the pair much further in absolute px and leaves an
-  // obvious empty band under the filmstrip. Flatten the ratio here so the
-  // lift stays "a bit," not "halfway up."
-  @media (max-width: 768px) {
-    &::after { flex-grow: 1.5; }
   }
 }
 
@@ -2168,10 +2138,8 @@ html {
   @include section-title;
   @include content-column($width: var(--content-width-wide));
   color: var(--text-color);
-  // section-title's own margin-bottom is now the ENTIRE gap between the
-  // title and the filmstrip — no pseudo-element spacers between the two.
-  // flex-shrink: 0 so a short window eats into the padding above/below the
-  // centered pair rather than crushing the title.
+  // section-title's own margin-bottom is the ENTIRE gap between the title and
+  // the filmstrip. flex-shrink: 0 so a short window can't crush it.
   flex-shrink: 0;
 }
 
@@ -2192,17 +2160,9 @@ html {
   align-items: center;
 }
 
-// Reduced-motion fallback (ExperienceStatic, experience.jsx) is a tall
-// scrolling list, not a one-screen composition — centering or biasing it
-// would push its top under the navbar. Top-aligned, and no spacer
-// pseudo-elements (a `::before` with flex-grow would still claim space above
-// a short list on a tall window).
-.experience-section--static {
-  justify-content: flex-start;
-
-  &::before,
-  &::after { content: none; }
-}
+// (.experience-section--static, the reduced-motion ExperienceStatic list,
+// needs no rule of its own now — the base section is top-aligned with no
+// spacers, which is exactly what a tall scrolling list wants.)
 
 // The pinned box — experience.jsx's ScrollTrigger pins THIS section
 // (.experience-section, the ref'd element), but this inner element is what
@@ -3144,7 +3104,22 @@ html {
     // above simply don't apply below 600px anymore (not redeclared to
     // "none" — grid-only properties are inert once display isn't grid).
     display: flex;
+    // Horizontal ONLY. `overflow-x: auto` alone is not enough: per the
+    // overflow spec, a `visible` value on the other axis computes to `auto`
+    // as soon as one axis is non-visible, so this box silently became
+    // vertically scrollable too. The wall cards carry rotate()/translate()
+    // jitter, and that transformed overflow gave it a real 6px scroll range
+    // (measured live at 599px) — enough that a vertical swipe grabbed the
+    // row instead of passing through to the page, which is exactly what
+    // "we can move it up and down" reported. Same pairing the Experience
+    // filmstrip already uses for the same reason (see
+    // .experience-filmstrip-viewport). The vertical padding below gives the
+    // jitter its 6px back as real box space, so `hidden` clips nothing.
     overflow-x: auto;
+    overflow-y: hidden;
+    // Don't chain a horizontal overscroll at the row ends into a page scroll
+    // or the browser's back-nav swipe.
+    overscroll-behavior-x: contain;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     // Same defensive min-width: 0 this section has needed at every other
@@ -3164,7 +3139,10 @@ html {
     // technique bit the project with before (CLAUDE.md, the fr-track
     // minmax(0) issue) — zero horizontal page overflow at 320–600px.
     margin: 0 calc(-1 * var(--space-5));
-    padding: 0 var(--space-5);
+    // Vertical padding is not decoration — it is the room the rotated/
+    // jittered cards overflow into, now that overflow-y is hidden. 8px
+    // against a measured 6px of transformed overflow.
+    padding: var(--space-2) var(--space-5);
   }
 }
 
@@ -3771,7 +3749,14 @@ html {
 
   @media (max-width: 600px) {
     display: flex;
+    // Horizontal only — same computed-`auto` trap as .my-taste-wall above.
+    // This row's cards are un-rotated so it measured 0px of vertical range
+    // today, but it is the identical mechanism one stray descendant margin
+    // away from the same bug, and the pair reads as one gesture to a
+    // visitor: both rows swipe sideways, neither drags vertically.
     overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     min-width: 0;

@@ -29,20 +29,18 @@ and — within Stage 3 — the design system itself plus a full rebuild of
 `#about` (intro card + Experience). Experience alone went through three
 builds (Tasks 7, 8, 9) chasing "big photos" and "fits on screen" at once;
 Task 9's pinned horizontal filmstrip is what actually landed both. Also a
-site-wide scroll-feel tuning (Lenis `lerp`) outside any one section. Three more
-live-feedback passes landed on Experience since, outside the Stage 4 sequence
-below since they touch an already-"done" section: **B29** — the title
+site-wide scroll-feel tuning (Lenis `lerp`) outside any one section. Several
+more live-feedback passes landed on Experience since, outside the Stage 4
+sequence below since they touch an already-"done" section: **B29** — the title
 overlapping its cards on real (not exotic) short windowed-browser heights,
 fixed with a flex-centered spacer replacing a section-blind absolute-center
 calc (`STATUS.md`/`FINDINGS.md` B29); then (2026-08-17) — "move it a bit
 higher, title and slideshow," a trimmed top padding plus an asymmetric
-flex-grow split replacing 50/50 centering, reusing `about.jsx`'s own
-`TOP_BIAS` reasoning; then, **most recently (2026-09-01)** — "center the slide
-cards in the middle, title on top," which retired the spacer shell for
-`justify-content: center` on the section so the title+filmstrip centre as one
-unit (the spacer only ever centred the viewport, leaving the title floating
-90–120px above it on tall screens). §3's Stage 3 Task 9 blockquote below has
-the full writeup for all three.
+flex-grow split; then, **on 2026-09-01**, three passes in one session that
+walked the title/filmstrip vertical layout from "centre the pair as one unit"
+→ "a bit higher" (flex-grow bias) → **top-aligned** (`justify-content:
+flex-start`, spacers gone), landing on "cards way higher, title almost at the
+top." §3's Stage 3 Task 9 blockquote below has the full writeup.
 
 Also removed entirely, same day, direct request over privacy — **the resume**:
 the nav link, the `#connect` link, and the PDF itself
@@ -1734,15 +1732,16 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > (`section-title`'s own `margin-bottom`) between them. Title→card gap now
 > 44–50px at every size checked; the leftover space collects above the title
 > and below the viewport. `.experience-section--static` (reduced-motion) opts
-> back out with `justify-content: flex-start` (it's a tall scrolling list, not
-> a one-screen composition). Chosen by the user from a two-option mock
-> (the alternative: title pinned near the section top, viewport centred on its
-> own). A same-day follow-up ("move the slideshow a bit higher") then biased
-> the pair above true centre with two `flex-grow` spacer pseudo-elements on the
-> section, `::after` heavier than `::before` (1:2 desktop, 1:1.5 on mobile) —
-> `flex-grow` so they collapse to 0 on a short window and can't reintroduce the
-> overlap. All fixes' full writeups: `STATUS.md`'s own dated entries
-> (`FINDINGS.md` B29 for the first).
+> back out with `justify-content: flex-start`. Two more same-day follow-ups:
+> ("move the slideshow a bit higher") biased the centred pair up with
+> `flex-grow` spacer pseudo-elements; then ("cards way higher, title almost at
+> the top") **abandoned centring for a top-aligned layout** —
+> `justify-content: flex-start`, top padding trimmed to `--space-4`, spacers
+> and the `--static` rule deleted. A full-height section centred under a 144px
+> fixed navbar can't put the filmstrip near the screen's optical middle without
+> the title colliding with the navbar, so the pair is pinned to the top and the
+> leftover height pools below it. All fixes' full writeups: `STATUS.md`'s own
+> dated entries (`FINDINGS.md` B29 for the first).
 
 > **Stage 3 Task 10 is DONE — 2026-08-18.** `#projects` refined: B11 (a dead
 > slideshow-era rule sizing the list's title at 40px) and three orphaned
