@@ -1737,7 +1737,11 @@ Also here: migrate the About timeline's unthrottled scroll handler to `ScrollTri
 > back out with `justify-content: flex-start` (it's a tall scrolling list, not
 > a one-screen composition). Chosen by the user from a two-option mock
 > (the alternative: title pinned near the section top, viewport centred on its
-> own). All fixes' full writeups: `STATUS.md`'s own dated entries
+> own). A same-day follow-up ("move the slideshow a bit higher") then biased
+> the pair above true centre with two `flex-grow` spacer pseudo-elements on the
+> section, `::after` heavier than `::before` (1:2 desktop, 1:1.5 on mobile) —
+> `flex-grow` so they collapse to 0 on a short window and can't reintroduce the
+> overlap. All fixes' full writeups: `STATUS.md`'s own dated entries
 > (`FINDINGS.md` B29 for the first).
 
 > **Stage 3 Task 10 is DONE — 2026-08-18.** `#projects` refined: B11 (a dead

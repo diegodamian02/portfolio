@@ -7794,6 +7794,17 @@ all 6 items in flow, section grows to 1106px, nothing clipped. User picked this
 from a two-option mock (vs. title pinned to the section top, viewport centred
 alone). Only `main.scss` changed — no JSX, lint baseline untouched.
 
+**Follow-up same day — "move the slideshow a bit higher."** Added two
+`flex-grow` spacer pseudo-elements to `.experience-section` around the pair,
+`::after` heavier than `::before` (1:2 desktop, flattened to 1:1.5 below 768px
+because a phone's larger leftover height would otherwise over-lift it). The pair
+now rides above true centre — card centre vs. section centre: 1920 +56→**+26px**,
+1440 +56→**+41px**, 390 +47→**+27px**. `flex-grow`, not padding: on a short
+(≤~720px) window the leftover is ~0, the spacers collapse, and it falls back to
+plain `justify-content: center` — 1280×720 is unchanged (+56px, 34px overflow),
+no new B29 risk. `.experience-section--static` sets `content: none` on both so
+the reduced-motion list stays top-aligned. Screenshots refreshed.
+
 ---
 
 ## 3. Current measurements *(refreshed 2026-08-25, Stage 7.2)*

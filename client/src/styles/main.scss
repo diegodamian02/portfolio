@@ -2109,19 +2109,25 @@ html {
 // rendered box overflows the fold by exactly its vertical padding — measured
 // once at 820px against a 756px min-height.
 //
-// Padding is a touch bottom-heavier than top (space-5 / space-6 desktop):
-// with justify-content: center a bigger bottom pad lifts the centered pair,
-// and true centering under a fixed navbar reads low because the navbar
-// anchors the eye upward (the effect about.jsx's TOP_BIAS compensates for).
-// Kept modest on purpose — a large bottom pad barely moves a centered pair
-// but does push the section's own bottom past a short (~720px) fold.
+// The pair is biased UPWARD, not dead-centred — two flex-grow spacer
+// pseudo-elements below, `::after` heavier than `::before`, so more of the
+// section's leftover height collects below the filmstrip than above the
+// title. Live feedback ("move the slideshow a bit higher"), and the same
+// thing about.jsx's TOP_BIAS records: mathematical centring under a fixed
+// navbar reads low, because the navbar anchors the eye to the top, and this
+// pair carries its title on top so the filmstrip already sits in the pair's
+// lower half. flex-grow, NOT extra bottom padding: on a short window the
+// leftover height is ~0, both spacers collapse to 0px regardless of ratio,
+// and the pair falls back to plain `justify-content: center` in whatever
+// space exists — so this can't push the section past a tight (~720px) fold
+// or reintroduce B29's title/card overlap the way a fixed offset could.
 //
 // NOT transform: translateY(-50%) centering — experience.jsx runs
 // gsap.set/to with `scale` on .experience-viewport (mount reveal) and GSAP
 // writes its own inline `transform`, which would clobber a stylesheet one.
 // Flex centering never touches `transform`. B29 (FINDINGS.md — the title
-// overlapping the cards) stays fixed: the pair is one centered unit, so the
-// title can never land over the viewport.
+// overlapping the cards) stays fixed: the pair is one unit, so the title
+// can never land over the viewport.
 .experience-section {
   position: relative;
   display: flex;
@@ -2134,6 +2140,27 @@ html {
 
   @media (max-width: 768px) {
     padding: var(--space-4) 0 var(--space-5);
+  }
+
+  // Desktop 1 : 2 — the space below the pair grows twice as fast as the space
+  // above it, so the pair lands ~1/6 of the leftover height above true centre
+  // (a clear, deliberate lift, per "move the slideshow a bit higher").
+  &::before,
+  &::after {
+    content: "";
+    flex-shrink: 1;
+    width: 100%;
+  }
+
+  &::before { flex-grow: 1; }
+  &::after { flex-grow: 2; }
+
+  // A tall narrow phone has ~1.6x the leftover height a desktop does, so the
+  // same ratio shifts the pair much further in absolute px and leaves an
+  // obvious empty band under the filmstrip. Flatten the ratio here so the
+  // lift stays "a bit," not "halfway up."
+  @media (max-width: 768px) {
+    &::after { flex-grow: 1.5; }
   }
 }
 
@@ -2166,10 +2193,15 @@ html {
 }
 
 // Reduced-motion fallback (ExperienceStatic, experience.jsx) is a tall
-// scrolling list, not a one-screen composition — centering it as a unit
-// would push its top under the navbar. It keeps the default top alignment.
+// scrolling list, not a one-screen composition — centering or biasing it
+// would push its top under the navbar. Top-aligned, and no spacer
+// pseudo-elements (a `::before` with flex-grow would still claim space above
+// a short list on a tall window).
 .experience-section--static {
   justify-content: flex-start;
+
+  &::before,
+  &::after { content: none; }
 }
 
 // The pinned box — experience.jsx's ScrollTrigger pins THIS section
