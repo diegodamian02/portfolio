@@ -682,6 +682,49 @@ pass. One-word change if it's wanted; the only reason for hesitation is that swi
 to `pointerdown` would also start dismissing the panel on touch, which is a behaviour
 change nobody has asked for and which nothing currently depends on either way.
 
+### D34 — There is no tablet tier: the mobile layout stops at 600px and iPads get a squeezed desktop — **OPEN, found 2026-09-01 (Stage 5)**
+
+Every mobile override in `main.scss` is gated at `max-width: 600px` (or 480px).
+Above that, the **desktop** layout applies unchanged. The practical result is
+that an iPad renders a layout designed for a 1440×900 window inside a 768–1024px
+portrait viewport.
+
+Measured section height as a fraction of the viewport (Playwright, computed off
+the rendered DOM):
+
+| Section | iPhone 14 (390) | iPad mini (768) | iPad Air (820) | iPad Pro (1024) |
+|---|---|---|---|---|
+| `#projects` | 0.94× | **0.62×** | **0.53×** | **0.46×** |
+| `#my-taste` | 0.84× | **0.59×** | **0.51×** | **0.40×** |
+| `#about` | 0.87× | 0.88× | 0.88× | 0.89× |
+| `#connect` | 1.07× | 0.91× | 0.86× | 0.88× |
+
+`#projects` and `#my-taste` fall to **0.40–0.62×** — they occupy well under
+two-thirds of the screen, so a tablet visitor sees a small band of content
+floating in a large empty field. `#about` and `#connect` hold near 0.88× at every
+width and are *not* part of this problem.
+
+Note this is the inverse of the usual responsive complaint. Nothing overflows —
+horizontal overflow is **0px at every width tested**. The content is *too small
+for its container*, not too large. A bug hunt looking for clipping will find
+nothing and conclude the tablet case is fine.
+
+**Why it was left open rather than fixed:** closing it means either introducing a
+real 601–1024px tier (new art direction for two sections, not a numeric tweak) or
+raising the mobile breakpoint so tablets inherit the phone layout — which trades
+the empty field for phone-sized cards stretched across 820px. That is a design
+decision with a visible identity cost either way, and it wants a deliberate pass
+rather than being folded into a touch-target cleanup.
+
+**Relevant constraint for whoever takes this:** `#my-taste`'s mobile treatment
+(the two horizontal swipe rows) is *specifically* a phone idiom, built in the
+Stage 5 `#my-taste` pass. Extending `max-width: 600px` upward would push those
+rows onto tablets, where there is enough width to show the cards as a grid
+instead — so the two options are not symmetric, and the breakpoint-raise is the
+weaker one for that section.
+
+---
+
 ### D33 — "Avenir Next" was never actually self-hosted — sitewide, it was one missing @font-face away from a generic system sans — **FOUND AND FIXED, Stage 10 (2026-09-01)**
 
 `body`'s `font-family` (and a second, independent hardcode on `.portfolio-header`)
@@ -3310,6 +3353,46 @@ regardless of where the trigger line or scroll momentum put it.
 ---
 
 ## 5. Design problems — these need a direction decision
+
+### B73 — `#my-taste`'s artist rows scrolled vertically as well as horizontally — **FOUND AND FIXED (2026-09-01, Stage 5)**
+
+Reported live: "the artist scroll for some reason we can move it up and down —
+we should only be able to swipe left and right."
+
+`.my-taste-wall` and `.my-taste-track-scroll` each set `overflow-x: auto` and
+declared nothing for `overflow-y`. That is not the same as leaving the other axis
+alone: per CSS Overflow, a computed value of `visible` on one axis becomes `auto`
+as soon as the other axis is not `visible`. Both rows were therefore vertical
+scroll containers that nobody authored.
+
+For `.my-taste-track-scroll` the vertical range happened to be 0px, so it was
+invisible. For `.my-taste-wall` it was not — the wall cards carry
+`rotate()`/`translate()` jitter, transformed overflow counts toward scrollable
+overflow, and the row measured a real **6px** vertical range at 599px wide. 6px
+is small but it is enough: a touch drag that starts vertically is captured by the
+nearest scrollable ancestor, so the row absorbed the gesture instead of letting
+the page scroll, which is exactly what was reported.
+
+**Fix:** `overflow-y: hidden` plus `overscroll-behavior-x: contain` on both rows,
+and `padding: var(--space-2)` vertically on the wall so the jitter has real box
+space and `hidden` clips nothing.
+
+**Measured before → after** (Playwright, computed off the rendered DOM):
+
+| | before | after |
+|---|---|---|
+| `.my-taste-wall` vertical range | **6px** | **0px** |
+| `.my-taste-wall` `scrollHeight`/`clientHeight` | 227 / 221 | **237 / 237** (nothing clipped) |
+| `.my-taste-wall` horizontal range | 417px | **417px** (unchanged) |
+| computed `overflow-y` | `auto` | `hidden` |
+| computed `overscroll-behavior-x` | `auto` | `contain` |
+
+The identical pairing was already present, and already commented with the same
+reasoning, on `.experience-filmstrip-viewport` — this was a known trap in the
+codebase that the two newer rows did not inherit. Worth grepping for
+`overflow-x` with no matching `overflow-y` before adding any future scroller.
+
+---
 
 ### D1 — The hero is roughly half empty
 

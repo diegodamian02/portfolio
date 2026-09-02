@@ -1436,6 +1436,18 @@ html {
   color: var(--text-color);
   padding: 3px 0;
 
+  // Stage 5 — 0.95rem computes to 15.2px, and iOS Safari zooms the whole
+  // page in when a focused input's font-size is under 16px. There is no way
+  // back out of that zoom by gesture on a page that locks scale, so the
+  // deck ends up off-centre for the rest of the visit. 1rem is the
+  // threshold, not a preference — hence exactly 1rem, and only where a
+  // touch keyboard can actually appear. The min-height lifts the 29px box
+  // to the 44px floor at the same time.
+  @media (pointer: coarse) {
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
   &::placeholder {
     color: var(--secondary-text);
   }
@@ -1673,6 +1685,26 @@ html {
 
     &:hover {
       transform: scale(1.1);
+    }
+
+    // Stage 5 — the logo box measures 24x24 on a phone (28x28 on iPad),
+    // well under the 44px floor. Same `max(44px, 100%)` ::before technique
+    // .turntable-start-button already uses: the TARGET grows, the artwork
+    // does not move or resize. Gated on `pointer: coarse` so a mouse, which
+    // has no such floor, sees no change at all. The navbar has nothing else
+    // in the logo's corner, so the widened box overlaps no other control.
+    @media (pointer: coarse) {
+      position: relative;
+
+      &::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: max(44px, 100%);
+        height: max(44px, 100%);
+        transform: translate(-50%, -50%);
+      }
     }
   }
 
@@ -2801,6 +2833,17 @@ html {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+
+  // Stage 5 — the row measured 24px tall (32px on iPad). Padding rather
+  // than the ::before floor used elsewhere, because this link WRAPS
+  // (flex-wrap below): a single centred pseudo-element cannot cover a
+  // target that may render as two stacked lines, whereas padding grows
+  // with whatever the row becomes. --space-3, not --space-2: 8px a side
+  // left the phone case at 40px (24 + 16), still short of the floor —
+  // measured, not estimated. 12px a side clears it at 48px.
+  @media (pointer: coarse) {
+    padding: var(--space-3) 0;
+  }
   // Task 3.9 — the new avatar pushed this row past the available width at
   // narrow (mobile) viewports for the first time; found live via a real
   // 390px screenshot, not assumed. flex-wrap: nowrap (this row's own
@@ -4416,6 +4459,14 @@ html {
   font-size: 1rem;
   padding: var(--space-1) 0 var(--space-1);
 
+  // Stage 5 — 34px tall as measured; already 1rem, so no iOS zoom risk
+  // here, only the target floor. min-height (not extra padding) so the
+  // dashed rest-state underline and the SVG focus line it pairs with stay
+  // exactly where the one-screen-fit pass put them.
+  @media (pointer: coarse) {
+    min-height: 44px;
+  }
+
   &:focus {
     // The underline itself is the focus indicator (drawn in via
     // DrawSVGPlugin, connect.jsx) — a native focus ring here would double
@@ -5002,6 +5053,29 @@ html {
 .footer-links {
   display: flex;
   gap: 20px;
+
+  // Stage 5 — LinkedIn / GitHub / Spotify measured 30-32px wide by 37px
+  // tall, under the 44px floor, and these are the most recruiter-relevant
+  // links on the page. Same ::before hit-area floor as the logo and the
+  // turntable transport; the icons themselves are untouched. The widest
+  // expansion here is (44 - 30) / 2 = 7px per side against this rule's own
+  // 20px gap, so neighbouring targets still cannot overlap.
+  @media (pointer: coarse) {
+    a {
+      position: relative;
+      display: block;
+
+      &::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: max(44px, 100%);
+        height: max(44px, 100%);
+        transform: translate(-50%, -50%);
+      }
+    }
+  }
 }
 
 //social links

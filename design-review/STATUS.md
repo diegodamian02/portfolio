@@ -53,6 +53,64 @@ working hero is design information the sections beneath it need.
 
 ## 2. What changed recently
 
+### Stage 5 (remainder) — mobile/tablet interaction pass *(2026-09-01)*
+
+Audited `#home`/`#projects`/`#my-taste`/`#about`/`#connect` at six real device
+widths (375, 390, 430, 768, 820, 1024) with Playwright, measuring computed
+values off the rendered DOM rather than reading screenshots.
+
+**The margin/overflow complaint that prompted this did not reproduce.**
+Horizontal page overflow measured **0px at all six widths**, before and after.
+Section padding is already consistent. Nothing was "reformatted", because there
+was nothing measurably wrong to reformat — recorded here so the question is not
+reopened without new evidence.
+
+**B73 — `#my-taste` rows scrolled vertically as well as horizontally.** Fixed.
+Both `.my-taste-wall` and `.my-taste-track-scroll` set `overflow-x: auto` and
+never set `overflow-y`. Per the overflow spec a `visible` value computes to
+`auto` once the other axis is non-visible, so both boxes were silently
+vertically scrollable. The wall's rotated/jittered cards gave it a **measured
+6px** vertical scroll range — enough for a vertical swipe to be captured by the
+row instead of passing through to the page. Paired `overflow-y: hidden` with
+`overscroll-behavior-x: contain` (the same pairing
+`.experience-filmstrip-viewport` already carries and documents) and added 8px of
+vertical padding so `hidden` clips nothing. Verified: vertical range 6px → **0**,
+`scrollHeight === clientHeight` (237/237, so no clipping), horizontal range
+**417px** unchanged.
+
+**Touch targets raised to the 44px floor**, all measured, all gated behind
+`@media (pointer: coarse)` so desktop is provably unchanged:
+
+| Target | Before | After (touch) | Desktop |
+|---|---|---|---|
+| `.logo a` | 24×24 | 44×44 | 36×36 — unchanged |
+| `.footer-links a` (LinkedIn/GitHub/Spotify) | 30×37 | 44×44 | 32×37 — unchanged |
+| `.record-crate-input` | 326×29 @ **15.2px** | 326×50 @ **16px** | 15.2px — unchanged |
+| `.my-taste-heading-link` | 219×24 | 219×48 | 334×32 — unchanged |
+| `.jcard-name/email-input` | 320×34 | 320×44 | 320×34 — unchanged |
+
+The `.record-crate-input` font-size is the one that was a real bug rather than a
+polish item: **iOS Safari zooms the whole page when a focused input is under
+16px**, and this page cannot be pinched back out, so the deck stayed off-centre
+for the rest of the visit. `1rem` is the threshold, not a taste call.
+
+`@media (pointer: coarse)` is new to this file — chosen over a width breakpoint
+because "mobile and tablets" is precisely what it means, and it leaves the
+pointer-accurate desktop case untouched by construction rather than by picking
+the right px number.
+
+**Two audit false positives, checked against the source before touching
+anything** (both left alone): `.turntable-start-button` measures 36×36 but
+already carries a `max(44px, 100%)` `::before` hit-area floor; a bounding-box
+audit cannot see a pseudo-element. And a strict `elementFromPoint` probe flagged
+large targets (`.my-taste-track-card` at 94×147, `.portfolio-header` at 306×90)
+that are overlay artifacts of the probe, not small targets.
+
+Build passes; 0 page errors at all six widths.
+
+**Not done, deliberately — see `FINDINGS.md` D34:** the tablet gap.
+
+
 Seven commits, `b32c561..5d72292`. 42 files, +949 / −78.
 
 ### `c41265a` — restore broken project links, video playback, footer year
