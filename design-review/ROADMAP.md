@@ -878,6 +878,50 @@ a real clock, which is what exposed the two genuine defects (a 23px overshoot
 from momentum arriving after Lenis released its own lock; a second flick during
 a trip being swallowed).
 
+**Also 2026-09-02 — the scroll model is settled, and one question is now
+closed for good.** Asks: the snap had become *too stiff* (a held drag advanced
+one section then went dead), scrolling still read as slightly laggy, and the
+final shape — *"every time we swipe up and down we switch to a different
+section; a strong swipe shouldn't pass two sections or more; enable swiping to
+a different section without the animation being over... we are focusing on
+user interaction rather than showing all the content."*
+
+**Decision, do not relitigate: gesture-end is NOT recoverable from wheel delta
+magnitudes.** Three detectors were built and measured, and all three failed —
+per-event rise (±30% noise puts tail spikes over any threshold, ~8% of hard
+flicks doubled), a run of spent events (livelocked: strong input reset the
+counter *and* extended the deadline, so a held drag held its own exit shut),
+and a decay-ratio test over a 0.5–1.2s horizon. The last one is the definitive
+result: across **600 trials per model**, a wobbling held finger falls to
+**0.844** of its earlier peak while an extreme momentum tail still reaches
+**0.898–0.995**. The distributions overlap at every window size tried, so no
+threshold can separate them. Any future proposal to "detect when the swipe
+ended" from magnitudes should be rejected on this evidence.
+
+The shipped mechanism asks a question the stream *can* answer: momentum never
+pauses (widest gap inside a modelled tail: 40ms) and never reverses — so a new
+gesture is a ≥110ms gap or a direction reversal, and everything else is tail
+and is swallowed. Trips are now **interruptible** (a `tripId` guards superseded
+completions; the next stop is measured from the in-flight *target*, never the
+live pixel, since measuring from the pixel mid-trip finds the stop beyond the
+one already being approached). `TRAVEL_S` 0.6→**0.45s** with an explicit
+cubic-out, replacing Lenis's default expo-out whose crawling last 10% was the
+"laggy" feel.
+
+A fixed-dwell variant (`HOLD_MS`, every section held still before the next can
+start) also passed all no-skip tests and was **rejected by the owner** — it
+guarantees no section is missed but imposes a pause on every one, and the call
+was explicitly interaction over completeness of viewing.
+
+Verified 0 violations: one swipe = one section at peaks 10–600 (tails
+0.6–3.5s) both directions; reversal mid-animation at 300/400/520ms; overlapping
+uncancelled streams land on a stop line without thrashing; a second
+same-direction swipe mid-animation gives exactly two sections; lift-and-swipe
+at 0/150/400/900ms always obeyed. Full regression unchanged, 0 page errors,
+lint 7/2. Deliberate limitation: a *perfectly* uninterrupted drag is one
+gesture and moves one section — real drags contain >110ms micro-pauses and
+advance repeatedly.
+
 Because free scrolling is gone, **a section taller than the screen would have
 had unreachable content** — sections are not all one screen (at 1280×680 the
 usable height is 512px against sections of 536–626px, and `#projects` expanded

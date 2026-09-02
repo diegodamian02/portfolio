@@ -1,6 +1,11 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-01 (**Experience title + filmstrip centre as one unit** —
+**Updated:** 2026-09-02 (**scroll-snap fourth pass** — one swipe moves exactly
+one section at any intensity, and a new swipe is obeyed mid-animation.
+Gesture-end proved unrecoverable from delta magnitudes across three detectors
+and 600 trials/model; replaced with gap + reversal detection, which the event
+stream can actually answer. `TRAVEL_S` 0.45s, cubic-out.) Prior:
+2026-09-01 (**Experience title + filmstrip centre as one unit** —
 the B29 spacer shell centred only the viewport, floating the title 87–122px
 above the cards; replaced with `justify-content: center` on the section so the
 pair moves together, title→card gap now 44–50px at every size). Prior:
@@ -7645,6 +7650,109 @@ AudioWorklet, neither of which this machine reproduced.
 > landed. Those files are deliberately NOT in this commit. It also means the
 > repo-wide lint count and the bundle size were confounded during this pass and
 > are not quoted — `eslint` on only the files changed here is clean.
+
+### Scroll-snap, fourth pass — one swipe = one section, interruptible *(2026-09-02)*
+
+Live asks, in order: *"we mightve made it a little too stiff now — even if I
+take my fingers off the touchpad and I want to scroll down and up sometimes it
+wont let me"*, *"the visuals of scrolling down and up are still a bit laggy"*,
+and then the shape it had to end up in: *"every time we swipe up and down we
+switch to a different section. A strong swipe shouldn't pass two sections or
+more. Let's enable the ability to swipe to a different section without the
+animation being over, as people just want to see the content of the page. We
+are focusing on user interaction rather than showing all the content."*
+
+**The stall was real and reproducible.** A 2.4s continuous drag advanced ONE
+section and then went dead. Cause: during the cooldown a strong event reset
+`weakRun` to 0 — so it could never reach `TAIL_SPENT_EVENTS` — while ALSO
+calling `restartQuiet()` and pushing the deadline out. Sustained input held its
+own exit shut; only a full 400ms of silence cleared it. A livelock, not a
+threshold that needed tuning.
+
+**The bigger result: gesture-end cannot be recovered from delta magnitudes.**
+That is now measured, not asserted, and it retires three separate detectors:
+
+| detector | why it failed |
+|---|---|
+| per-event RISE in magnitude | ±30% trackpad noise means a decaying tail throws spikes over any threshold; ~8% of hard flicks doubled |
+| run of spent (sub-floor) events | the livelock above — a held drag never produces the run |
+| decay ratio over a 0.5–1.2s horizon | **600 trials per model:** a wobbling held finger falls to **0.844** of its earlier peak while an extreme tail still reaches **0.898–0.995**. The distributions OVERLAP at every window size tried (350/700, 400/800, 500/1000, 600/1200ms). No separating threshold exists. |
+
+A fifth mechanism (fixed dwell per section, `HOLD_MS`) sidestepped the question
+by never asking it, and passed — but it bought that with a mandatory pause on
+every section, which is the opposite of the stated goal. Discarded on the
+user's call: interaction over completeness of viewing.
+
+**What shipped instead asks a question the stream can actually answer.** Two
+facts hold no matter how hard the swipe was: momentum never PAUSES (it is
+delivered at display rate until it stops — the widest gap inside a modelled
+tail is 40ms), and momentum never REVERSES. So a new gesture is recognised by
+`NEW_GESTURE_GAP_MS` (110) or by direction reversal, and everything else is the
+tail of a swipe already acted on, and is swallowed. Nothing is inferred from
+magnitude, so nothing can be misread. `REVERSE_RUN` (2 consecutive opposite
+events) keeps a single jitter sample from flipping the page; `MIN_TRIP_GAP_MS`
+(130) is insurance against one janked frame reading as a gap — both below human
+re-swipe latency, so neither is felt.
+
+**Interruptibility** is the new capability. Trips carry a `tripId` so a
+superseded `onComplete` cannot clobber newer state, and the next stop is
+measured from the in-flight **target**, not the live animated pixel — measuring
+from the pixel mid-trip finds the stop *beyond* the one already being
+approached, which is exactly the two-section jump this exists to prevent.
+
+**Latency/feel:** `TRAVEL_S` 0.6 → **0.45s**, and an explicit cubic-out easing
+replaces Lenis's default expo-out, whose last 10% crawls — over a full section
+that long slow finish was what read as sluggish.
+
+**One bug found only because the rewrite exposed it:** `grabLock()` early-
+returned on its own `holdingLock` flag, but **Lenis clears `isLocked` itself
+when a `scrollTo` completes** (its `reset()`). So after the first trip nothing
+was actually locked while this module believed otherwise, and the whole
+remaining tail free-scrolled to the bottom of the page. It now always
+re-asserts, and `endTravel()` re-takes the lock the moment Lenis drops it.
+Programmatic trips need `force: true` for the same reason —
+`lenis.mjs`: `if ((this.isStopped || this.isLocked) && !force) return`.
+`isStopped` is still checked separately, so forcing cannot run over an
+entrance hold.
+
+**Verified, 0 violations:**
+
+- one swipe = one section at gentle/normal/hard/violent/**absurd** (peak
+  10–600, tails 0.6–3.5s), both directions, 4 swipes each
+- reversal mid-animation at 300/400/520ms → turns around and lands back at
+  the start
+- reversal with the old tail NOT cancelled (overlapping streams) → still
+  lands on a stop line, no thrashing
+- second same-direction swipe mid-animation → exactly 2 sections, never more
+- lift-and-swipe-again at 0/150/400/900ms → always obeyed (the reported stall)
+- regression: footer at 1280×680, `#about` hold blocks then releases,
+  filmstrip horizontal-only, all six nav clicks + `/#projects` deep link at
+  168px, `#projects` expanded reaches its bottom, reduced motion untouched.
+  0 page errors.
+
+**Known behaviour, deliberate:** a *perfectly* continuous drag with no pause
+and no reversal is one gesture, so it moves one section. Real drags contain
+micro-pauses over 110ms and advance repeatedly; this only bites a synthetic
+uninterrupted stream. Flagged rather than fixed, because "fixing" it means
+re-opening the unanswerable question above.
+
+**Two test-rig errors corrected this pass**, both of which had produced false
+results:
+
+1. The interrupt tests fired a second gesture while the first was still in its
+   288ms active phase (96ms ramp + 192ms plateau), with `__cancel` checked only
+   in the tail loop. The streams interleaved 17ms apart — measured — so the
+   module correctly read them as one continuous gesture. Physically impossible
+   input: you cannot have lifted while still swiping. Cancel is now honoured in
+   every phase, and interrupts are timed into the tail.
+2. Momentum cancellation was not modelled at all. macOS kills the momentum
+   stream the instant fingers touch down; the rig now does the same, with a
+   non-cancelling variant kept deliberately as a thrash test.
+
+Constants live at the top of `client/src/lib/section-snap.js` with the reason
+for each. `npm run lint`: 7 errors / 2 warnings, unchanged, and clean on the
+changed file. (Note: `CLAUDE.md` still quotes a 16-error baseline; the actual
+current figure is 7/2.)
 
 ### Experience — title now hugs the filmstrip; the pair centres as one unit *(2026-09-01)*
 
