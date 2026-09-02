@@ -53,6 +53,52 @@ working hero is design information the sections beneath it need.
 
 ## 2. What changed recently
 
+### Album cards match the artist wall; `dvh` scroll-jump fixed *(2026-09-02)*
+
+**The album row now carries the artist wall's paper treatment** — live
+feedback that the two rows should read as one idea. `.my-taste-track-card`
+gains `.my-taste-card` as a second class, so background, padding, shadow,
+torn edge and tilt all come from the existing card rule; there is no second
+card style to keep in sync. The tilt/tear/tape angles come from the **same
+`cardTransform()`** the wall uses, keyed on `track.id` — deliberately the same
+function rather than a similar-looking second one, so the rows cannot drift
+apart in tilt range or tear vocabulary.
+
+`TasteCard` itself was *not* reused: it renders an `<article>` wrapping an
+inner `<a>`, and this row needs the card to **be** the link so the whole
+crooked card is one tap target. The classes and custom properties it sets are
+applied directly to the `<a>` instead.
+
+Two supporting rules, both mirroring what `.my-taste-wall` already does:
+`.my-taste-track-scroll .my-taste-card` puts the tilt back (the base card's
+600px block sets `transform: none` for its old un-rotated fallback), and the
+row gained vertical padding so `overflow-y: hidden` crops neither the tilt nor
+the tape.
+
+Verified at 360/390/430/599px: 0px page overflow, row vertical scroll **0**,
+**0px** card cropping top or bottom, tape rendering, 5 cards, 0 page errors.
+
+**`100dvh` -> `100svh` at all five viewport-sized sections** — see
+`FINDINGS.md` **B74** for the full writeup. `dvh` tracks the mobile URL bar by
+design, so every section above the reader re-heighted mid-scroll and the
+shifts accumulated: **-60px** at `#about`, **-180px** at `#my-taste`,
+**-240px** at `#projects`, exactly one viewport-delta per `dvh` section above.
+
+Worth carrying forward: the obvious suspect was `ScrollTrigger.refresh()` off
+the `ResizeObserver` (several sections are `pin: true`). Isolating reflow from
+refresh showed the refresh contributes **0px** — it was innocent, and was left
+untouched. The bug was plain CSS.
+
+**This one is not fully verified headlessly and should not be recorded as if
+it were.** Playwright renders no browser chrome, so `svh`/`lvh`/`dvh` are all
+`vh` there and move together under `setViewportSize`. Confirmed headlessly:
+the mechanism (the arithmetic above), that `svh` resolves (736px at 390x844),
+and no regression at fixed sizes. **Still needs a real-phone check.**
+
+Build passes; lint **7 errors / 2 warnings — the documented baseline,
+unchanged**.
+
+
 ### Stage 5 (remainder) — mobile/tablet interaction pass *(2026-09-01)*
 
 Audited `#home`/`#projects`/`#my-taste`/`#about`/`#connect` at six real device

@@ -1098,26 +1098,50 @@ export default function MyTaste() {
                             {/* data-lenis-prevent-horizontal — see the same
                                 attribute on .my-taste-wall above. */}
                             <div className="my-taste-track-scroll" ref={trackScrollRef} data-lenis-prevent-horizontal>
-                                {setlist.map((track) => (
-                                    <a
-                                        key={track.id}
-                                        className="my-taste-track-card"
-                                        href={track.external_urls?.spotify}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        <PhotoSlot
-                                            id={track.id}
-                                            className="my-taste-photo-slot--track"
-                                            imageUrl={track.imageUrl}
-                                            imageAlt={track.imageAlt}
-                                        />
-                                        <span className="my-taste-track-card-title">{track.name}</span>
-                                        <span className="my-taste-track-card-artist">
-                                            {track.artists.map((a) => a.name).join(", ")}
-                                        </span>
-                                    </a>
-                                ))}
+                                {setlist.map((track) => {
+                                    /* Same seeded cardTransform() the artist wall
+                                       uses — deliberately the SAME function, not a
+                                       second one tuned to look similar, so the two
+                                       rows can never drift apart in tilt range,
+                                       jitter or tear vocabulary. Keying it on
+                                       track.id (as the wall keys on artist id)
+                                       means a given album is always crooked the
+                                       same way across reloads and re-renders.
+                                       Not TasteCard itself: that renders an
+                                       <article> wrapping an inner <a>, and this row
+                                       needs the card to BE the link so the whole
+                                       crooked card is one tap target. The classes
+                                       and custom properties below are the same
+                                       contract TasteCard sets, applied to an <a>. */
+                                    const { rotate, jitterX, jitterY, tear, tapeRotate } = cardTransform(track.id);
+                                    return (
+                                        <a
+                                            key={track.id}
+                                            className={`my-taste-track-card my-taste-card my-taste-card--tear-${tear}`}
+                                            style={{
+                                                "--card-rotate": `${rotate.toFixed(2)}deg`,
+                                                "--card-jitter-x": `${jitterX.toFixed(1)}px`,
+                                                "--card-jitter-y": `${jitterY.toFixed(1)}px`,
+                                                "--tape-rotate": `${tapeRotate.toFixed(1)}deg`,
+                                            }}
+                                            href={track.external_urls?.spotify}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <div className="my-taste-card-tape" />
+                                            <PhotoSlot
+                                                id={track.id}
+                                                className="my-taste-photo-slot--track"
+                                                imageUrl={track.imageUrl}
+                                                imageAlt={track.imageAlt}
+                                            />
+                                            <span className="my-taste-track-card-title">{track.name}</span>
+                                            <span className="my-taste-track-card-artist">
+                                                {track.artists.map((a) => a.name).join(", ")}
+                                            </span>
+                                        </a>
+                                    );
+                                })}
                             </div>
                             {/* Same dots mechanism/aria-hidden reasoning as
                                 the wall's own row above. */}

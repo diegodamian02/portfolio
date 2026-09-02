@@ -682,6 +682,69 @@ pass. One-word change if it's wanted; the only reason for hesitation is that swi
 to `pointerdown` would also start dismissing the panel on touch, which is a behaviour
 change nobody has asked for and which nothing currently depends on either way.
 
+### B74 — `100dvh` made every section re-height while the mobile URL bar moved, jumping content mid-scroll — **FOUND AND FIXED (2026-09-02)**
+
+Reported live: "when we scroll in my taste and projects sometimes the page
+jumps unexpectedly and it doesn't follow a smooth flow — same issue with
+projects and connect."
+
+Five rules sized sections with `min-height: calc(100dvh - ...)`
+(`.about-section`, `.experience-section`, `.my-taste-section`'s mobile block,
+`#connect`, `.contact-section`). **`dvh` tracks the mobile URL bar by
+definition** — that is what the unit is for. So during an ordinary scroll,
+every viewport-sized section *above* the reader silently re-heights as the bar
+slides away, and the shifts accumulate downward.
+
+Measured at 390x844, moving the viewport 60px (a typical bar transition) and
+reading each section's top relative to the viewport:
+
+| Section | dvh sections above it | content shift |
+|---|---|---|
+| `#about` | 1 | **-60px** |
+| `#my-taste` | 3 | **-180px** |
+| `#projects` | 4 | **-240px** |
+
+The shift is exactly (sections above) x (viewport delta) — the arithmetic
+matches at every row, which is what identifies the mechanism rather than
+merely correlating with it.
+
+**A wrong hypothesis, recorded because it looked obviously right:** the first
+suspect was `smooth-scroll.jsx`'s `ResizeObserver` -> `ScrollTrigger.refresh()`,
+since several sections are `pin: true` and a refresh re-measures pin spacers.
+Isolating it — sampling the shift at 120ms (reflow done, the 200ms refresh
+debounce not yet fired) against 700ms (refresh complete) — showed the refresh
+contributes **0px at every section**. The whole jump is plain CSS reflow.
+`ScrollTrigger.refresh()` was innocent and was left alone; no
+`ignoreMobileResize` was added, because nothing measured justified it.
+
+**Fix:** `svh` instead of `dvh` at all five sites. `svh` is defined as the
+viewport with the browser chrome *visible* and does not change when the chrome
+hides, so the per-section delta is zero by construction. `lvh` would also be
+stable but is the wrong choice — sized to the chrome-hidden viewport, sections
+would overflow the visible area whenever the bar is shown, which breaks this
+site's one-screen-per-section goal. `vh` remains declared first as the
+fallback, the file's existing dual-declaration idiom.
+
+The original comment in `.my-taste-section` argued *for* `dvh` — "accounts for
+mobile browser chrome showing/hiding." That reasoning is exactly inverted:
+tracking the chrome is the defect. The comment has been corrected in place
+rather than deleted, so the reversal is legible to the next reader.
+
+**Trade accepted deliberately:** with the bar hidden, a section now ends ~60px
+short of the glass instead of exactly filling it. That is invisible next to
+content jumping 240px mid-read.
+
+**Verification limit, stated plainly:** Playwright renders no browser chrome,
+so `svh`, `lvh` and `dvh` are all equal to `vh` headlessly and
+`setViewportSize` moves all of them together. The headless suite therefore
+CANNOT demonstrate this fix end-to-end — it can only confirm the mechanism (the
+arithmetic above), that `svh` is supported and resolves (`CSS.supports` true;
+`min-height` computes to 736px at 390x844), and that no layout regressed at
+fixed sizes. **Final confirmation needs a real phone**, scrolling `#projects`
+slowly enough for the bar to collapse.
+
+---
+
 ### D34 — There is no tablet tier: the mobile layout stops at 600px and iPads get a squeezed desktop — **OPEN, found 2026-09-01 (Stage 5)**
 
 Every mobile override in `main.scss` is gated at `max-width: 600px` (or 480px).

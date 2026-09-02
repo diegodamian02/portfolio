@@ -1864,8 +1864,20 @@ html {
 // (its top + this min-height) is always at or below the viewport's own
 // bottom edge at that landed position, for any viewport size or bias.
 #about {
+  // svh, NOT dvh — changed 2026-09-02 after a measured scroll bug. dvh
+  // tracks the mobile URL bar by design, so every viewport-sized section
+  // ABOVE the reader re-heights while the bar shows/hides during an
+  // ordinary scroll, and the shifts accumulate: measured at 390x844, a 60px
+  // bar transition moved #about 60px, #my-taste 180px and #projects 240px
+  // (exactly one delta per dvh section above it) with the content jumping
+  // out from under the reader. svh is defined as the viewport with the bar
+  // VISIBLE and does not change when it hides, so that delta is zero by
+  // construction. The trade is deliberate: with the bar hidden a section
+  // ends up ~60px short of the glass rather than exactly filling it, which
+  // is invisible next to content jumping mid-read. vh stays declared first
+  // as the fallback, same dual-declaration order as before.
   min-height: calc(100vh - var(--navbar-height));
-  min-height: calc(100dvh - var(--navbar-height));
+  min-height: calc(100svh - var(--navbar-height));
 }
 
 .about-me-section {
@@ -2153,8 +2165,20 @@ html {
   flex-direction: column;
   justify-content: flex-start;
   box-sizing: border-box;
+  // svh, NOT dvh — changed 2026-09-02 after a measured scroll bug. dvh
+  // tracks the mobile URL bar by design, so every viewport-sized section
+  // ABOVE the reader re-heights while the bar shows/hides during an
+  // ordinary scroll, and the shifts accumulate: measured at 390x844, a 60px
+  // bar transition moved #about 60px, #my-taste 180px and #projects 240px
+  // (exactly one delta per dvh section above it) with the content jumping
+  // out from under the reader. svh is defined as the viewport with the bar
+  // VISIBLE and does not change when it hides, so that delta is zero by
+  // construction. The trade is deliberate: with the bar hidden a section
+  // ends up ~60px short of the glass rather than exactly filling it, which
+  // is invisible next to content jumping mid-read. vh stays declared first
+  // as the fallback, same dual-declaration order as before.
   min-height: calc(100vh - var(--scroll-offset));
-  min-height: calc(100dvh - var(--scroll-offset));
+  min-height: calc(100svh - var(--scroll-offset));
   // Top padding is small on purpose ("title almost at the top") — the section
   // already sits 24px below the navbar via --scroll-offset, so this is the
   // whole remaining gap. Bottom padding is nominal; flex-start means the
@@ -2742,10 +2766,13 @@ html {
   @media (max-width: 600px) {
     // Stage 5 — fills exactly one screen on mobile, matching the
     // full-screen-per-section feel the desktop pinned sections (About,
-    // Experience) already use. dvh, not vh (accounts for mobile browser
-    // chrome showing/hiding) — vh declared first as the fallback, dvh
-    // second so it wins where supported, the same dual-declaration order
-    // every other full-viewport rule in this file already uses.
+    // Experience) already use. This originally read "dvh, not vh (accounts
+    // for mobile browser chrome showing/hiding)" — that reasoning was
+    // exactly backwards and is corrected in the svh note below: tracking
+    // the browser chrome is the bug, not the feature. vh is still declared
+    // first as the fallback, the unit below second so it wins where
+    // supported, the same dual-declaration order every other full-viewport
+    // rule in this file already uses.
     //
     // calc(... - var(--scroll-offset)), not the literal 100dvh first tried
     // here: found live, not assumed — a nav click (or any direct
@@ -2763,8 +2790,20 @@ html {
     // Matches .about-me-section/.contact-section's own PINNED-box formula
     // in spirit, just keyed to the exact offset THIS section actually
     // lands at rather than navbar-height alone.
+    // svh, NOT dvh — changed 2026-09-02 after a measured scroll bug. dvh
+    // tracks the mobile URL bar by design, so every viewport-sized section
+    // ABOVE the reader re-heights while the bar shows/hides during an
+    // ordinary scroll, and the shifts accumulate: measured at 390x844, a 60px
+    // bar transition moved #about 60px, #my-taste 180px and #projects 240px
+    // (exactly one delta per dvh section above it) with the content jumping
+    // out from under the reader. svh is defined as the viewport with the bar
+    // VISIBLE and does not change when it hides, so that delta is zero by
+    // construction. The trade is deliberate: with the bar hidden a section
+    // ends up ~60px short of the glass rather than exactly filling it, which
+    // is invisible next to content jumping mid-read. vh stays declared first
+    // as the fallback, same dual-declaration order as before.
     min-height: calc(100vh - var(--scroll-offset));
-    min-height: calc(100dvh - var(--scroll-offset));
+    min-height: calc(100svh - var(--scroll-offset));
     display: flex;
     flex-direction: column;
     // Distributes THREE items (kicker, top-artists, top-tracks — the
@@ -3805,7 +3844,39 @@ html {
     min-width: 0;
     gap: var(--space-3);
     margin: 0 calc(-1 * var(--space-5));
-    padding: 0 var(--space-5);
+    // Vertical padding for the same reason .my-taste-wall carries it: these
+    // cards are rotated now, overflow-y is hidden on this row, and the tape
+    // sits above each card's top edge. Without the room, `hidden` would crop
+    // the tilt and the tape rather than the row simply containing them.
+    padding: var(--space-4) var(--space-5) var(--space-2);
+  }
+}
+
+// Stage 5 follow-up (2026-09-02) — the album row gets the artist wall's own
+// paper treatment, on live feedback that the two rows should read as one
+// idea. Everything visual (background, padding, shadow, torn edge, tilt) now
+// comes from `.my-taste-card`, which these cards carry as a second class —
+// there is no second card style to keep in sync, only this rule re-enabling
+// on mobile what `.my-taste-card`'s own 600px block switches off by default,
+// exactly as `.my-taste-wall .my-taste-card` above does for the wall.
+.my-taste-track-scroll .my-taste-card {
+  @media (max-width: 600px) {
+    // .my-taste-card's mobile block sets `transform: none` (its old
+    // un-rotated single-column fallback). Put the seeded tilt back.
+    transform:
+      rotate(var(--card-rotate, 0deg))
+      translate(var(--card-jitter-x, 0px), var(--card-jitter-y, 0px));
+    // ...and drop that same block's vertical margin: spacing in this row is
+    // the flex `gap`, as on the wall.
+    margin: 0;
+  }
+}
+
+.my-taste-track-scroll .my-taste-card-tape {
+  @media (max-width: 600px) {
+    // `.my-taste-card-tape` hides itself below 600px for the old un-decorated
+    // fallback; the wall re-enables it the same way.
+    display: block;
   }
 }
 
@@ -3825,6 +3896,11 @@ html {
   display: block;
   color: inherit;
   text-decoration: none;
+  // The tape is absolutely positioned against its card; `.my-taste-card`
+  // (an <article> elsewhere) supplies this, but state it here too since this
+  // card is an <a> and the two rules' order in this file is not guaranteed
+  // to put the containing block where it is needed.
+  position: relative;
 
   &:hover .my-taste-track-card-title {
     text-decoration: underline;
@@ -3903,8 +3979,20 @@ html {
 #connect {
   display: flex;
   flex-direction: column;
+  // svh, NOT dvh — changed 2026-09-02 after a measured scroll bug. dvh
+  // tracks the mobile URL bar by design, so every viewport-sized section
+  // ABOVE the reader re-heights while the bar shows/hides during an
+  // ordinary scroll, and the shifts accumulate: measured at 390x844, a 60px
+  // bar transition moved #about 60px, #my-taste 180px and #projects 240px
+  // (exactly one delta per dvh section above it) with the content jumping
+  // out from under the reader. svh is defined as the viewport with the bar
+  // VISIBLE and does not change when it hides, so that delta is zero by
+  // construction. The trade is deliberate: with the bar hidden a section
+  // ends up ~60px short of the glass rather than exactly filling it, which
+  // is invisible next to content jumping mid-read. vh stays declared first
+  // as the fallback, same dual-declaration order as before.
   min-height: calc(100vh - var(--scroll-offset));
-  min-height: calc(100dvh - var(--scroll-offset));
+  min-height: calc(100svh - var(--scroll-offset));
 
   > .contact-section {
     flex: 1 1 auto;
@@ -3968,10 +4056,22 @@ html {
   // left the section's own bottom edge 24px past the fold. connect.jsx's
   // entry-pin onEnter safety check computes its own `window.innerHeight -
   // navbarHeight()` in JS and measures .contact-container (not this box), so
-  // it's unaffected by this value. Dual vh/dvh declaration as elsewhere
-  // (later dvh wins where supported, vh is the fallback).
+  // it's unaffected by this value. Dual vh/svh declaration as elsewhere
+  // (later svh wins where supported, vh is the fallback).
+  // svh, NOT dvh — changed 2026-09-02 after a measured scroll bug. dvh
+  // tracks the mobile URL bar by design, so every viewport-sized section
+  // ABOVE the reader re-heights while the bar shows/hides during an
+  // ordinary scroll, and the shifts accumulate: measured at 390x844, a 60px
+  // bar transition moved #about 60px, #my-taste 180px and #projects 240px
+  // (exactly one delta per dvh section above it) with the content jumping
+  // out from under the reader. svh is defined as the viewport with the bar
+  // VISIBLE and does not change when it hides, so that delta is zero by
+  // construction. The trade is deliberate: with the bar hidden a section
+  // ends up ~60px short of the glass rather than exactly filling it, which
+  // is invisible next to content jumping mid-read. vh stays declared first
+  // as the fallback, same dual-declaration order as before.
   min-height: calc(100vh - var(--scroll-offset));
-  min-height: calc(100dvh - var(--scroll-offset));
+  min-height: calc(100svh - var(--scroll-offset));
   overflow: hidden;
   // Positioning context for the walkman takeover's own scale-up transform
   // and the .cassette-flight clone (walkman.jsx/connect.jsx) — section-scoped
