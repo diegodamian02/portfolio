@@ -244,6 +244,15 @@ const TEAR_PRESET_COUNT = 4;
 // measures every rendered card's actual bounding box against its
 // neighbors at 1440/1024/768px, re-run after Task 3.7's regrid with the
 // same zero-overlap result (see stage4-my-taste-concept.md).
+// The JS half of the swipe/wide split. MUST stay equal to `$taste-swipe-max`
+// in main.scss: the CSS decides which layout renders, and these two media
+// queries decide which behaviour is wired to it. When they disagreed (CSS at
+// 1024px, these still at 600/601px) the 601-1024px band got the swipe layout
+// AND the wide layout's pinned entrance cascade at the same time — the exact
+// pairing the cascade's own comment below rules out, since it pins a section
+// whose crate is display:none at that width. Raised together, 2026-09-02.
+const SWIPE_MAX_PX = 1024;
+
 function cardTransform(id) {
     const magnitude = ROTATE_MIN_DEG + seeded01(id, "rotate-mag") * (ROTATE_MAX_DEG - ROTATE_MIN_DEG);
     const sign = seeded01(id, "rotate-sign") < 0.5 ? -1 : 1;
@@ -442,7 +451,7 @@ export default function MyTaste() {
     // that preference. Gated on its own bare `matchMedia`, independent of
     // gsap.matchMedia() above (no GSAP tweens involved here at all).
     useEffect(() => {
-        const mql = window.matchMedia("(max-width: 600px)");
+        const mql = window.matchMedia(`(max-width: ${SWIPE_MAX_PX}px)`);
         let cleanups = [];
 
         function wireRow(scrollEl, dotsEl) {
@@ -526,9 +535,12 @@ export default function MyTaste() {
 
         const mm = gsap.matchMedia();
 
-        // Three conditions, not two — mobile is deliberately its OWN
-        // "do nothing" branch alongside reduced-motion, not folded into the
-        // full-motion branch with a runtime bail. Task 3.7/3.8 both scoped
+        // Three conditions, not two — the swipe layout is deliberately its
+        // OWN "do nothing" branch alongside reduced-motion, not folded into
+        // the full-motion branch with a runtime bail. ("Mobile" throughout
+        // this comment now means every width running the swipe layout, i.e.
+        // phones AND tablets up to SWIPE_MAX_PX — the reasoning is unchanged,
+        // only the range it covers.) Task 3.7/3.8 both scoped
         // mobile out explicitly; this task's own brief doesn't repeat that
         // line, but the reasoning still applies and is arguably sharper
         // here: mobile's own measured fit ratio is 2.68× viewport height
@@ -546,7 +558,7 @@ export default function MyTaste() {
         // for this section (a real, tuned-for-the-breakpoint entrance) is
         // Stage 5's job, same as the layout itself.
         mm.add({
-            fullMotion: "(min-width: 601px) and (prefers-reduced-motion: no-preference)",
+            fullMotion: `(min-width: ${SWIPE_MAX_PX + 1}px) and (prefers-reduced-motion: no-preference)`,
         }, (context) => {
             if (!context.conditions.fullMotion) return undefined;
 

@@ -2710,6 +2710,23 @@ html {
 // and entrance motion (Task 4) all still read as a plain stacked list until
 // their own task lands; that starkness is correct for where this is at,
 // not a regression.
+// The width at or below which #my-taste uses its SWIPE layout — two
+// horizontal card rows — instead of the wide grid-and-crate. Every rule in
+// this section that switches between the two is keyed to this one value.
+//
+// A variable, in a file that otherwise has none, for a specific reason: 22
+// separate rules gate on this number, and the section only works if they all
+// flip together. Leaving 22 literals meant a future tune had 22 chances to
+// miss one and leave the layout half-switched. Raised 600px -> 1024px on
+// 2026-09-02 so tablets (iPad mini 768, Air 820, Pro portrait 1024) get the
+// swipe layout rather than a desktop grid squeezed into two-thirds of the
+// screen — see FINDINGS.md D34 for the measurements that prompted it.
+//
+// NOT to be confused with the wide layout's own rejected treatment: ROADMAP
+// Task 3.6 reverted five individually torn "singles" in the CRATE as too
+// busy. This is the swipe ROW, a different shape, and that revert stands.
+$taste-swipe-max: 1024px;
+
 .my-taste-section {
   // Self-hosted (@fontsource), scoped to THIS section only — not :root, and
   // not used anywhere else on the site. A deliberate, named exception to
@@ -2763,7 +2780,7 @@ html {
   color: var(--text-color);
   text-align: center;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Stage 5 — fills exactly one screen on mobile, matching the
     // full-screen-per-section feel the desktop pinned sections (About,
     // Experience) already use. This originally read "dvh, not vh (accounts
@@ -2853,7 +2870,7 @@ html {
   // safe outer levers that doesn't touch the wall card math.
   margin: 0 0 var(--space-4);
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Stage 5 — part of the same 100dvh fit pass as .my-taste-section's
     // own padding trim: at the narrowest real widths this row's own 32px
     // gap under a single-line kicker was disproportionate next to the two
@@ -2961,7 +2978,7 @@ html {
   // section, avatar included.
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-color) 38%, transparent);
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Stage 5 — the kicker's own mobile condensation: a smaller avatar
     // alongside the shorter "Spotify ↗" tail below, in place of the
     // functional-but-uncomposed two-line wrap Task 3.9's own flex-wrap
@@ -2977,7 +2994,7 @@ html {
 // breakpoint below, never both, same "one DOM, CSS reshapes it" approach
 // this whole section already uses for every other mobile change.
 .my-taste-heading-tail-full {
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     display: none;
   }
 }
@@ -2985,7 +3002,7 @@ html {
 .my-taste-heading-tail-short {
   display: none;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     display: inline;
   }
 }
@@ -3040,7 +3057,7 @@ html {
   align-items: start;
   margin-top: var(--space-2);
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Stage 5 — was a single grid column just stacking wall-column above
     // crate-column with whatever leftover gap fell out. display: contents
     // takes this element OUT of the box model entirely (safe here — it's a
@@ -3080,7 +3097,7 @@ html {
 // of its own, not between the crate's title and its own content, which is
 // where it would land if left on .my-taste-crate directly.
 .my-taste-crate-column {
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // space-4 -> space-3, part of the same 100dvh fit pass as
     // .my-taste-section's own padding trim above.
     margin-top: var(--space-3);
@@ -3104,7 +3121,7 @@ html {
   opacity: 0.7;
   margin: 0 0 var(--space-3);
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // space-3 -> space-2, same 100dvh fit pass as .my-taste-section's own
     // padding trim above.
     margin-bottom: var(--space-2);
@@ -3179,7 +3196,7 @@ html {
   gap: var(--space-3);
   text-align: left;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Stage 5 — was a single un-rotated column, one card per row; now one
     // horizontal scroll-snap row, all 5 cards reached by swipe instead of
     // vertical stacking. display: flex means the grid-template-* props
@@ -3242,7 +3259,7 @@ html {
 // re-verified at THIS card's smaller mobile size rather than assumed
 // still-clear from the desktop numbers.
 .my-taste-wall .my-taste-card {
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     flex: 0 0 clamp(92px, 30vw, 168px);
     // Found live: a long, un-wrappable name (white-space: nowrap, set on
     // .my-taste-featured-name/-secondary-name at this width) gives the
@@ -3261,7 +3278,7 @@ html {
 }
 
 .my-taste-wall .my-taste-card-tape {
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     display: block;
   }
 }
@@ -3278,7 +3295,7 @@ html {
   flex-direction: column;
   text-align: left;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Stage 5 — replaced, not stacked alongside, by .my-taste-track-scroll
     // below (my-taste.jsx renders both; CSS shows exactly one of the two
     // per breakpoint, the same swap-not-stack approach as every other
@@ -3321,7 +3338,7 @@ html {
     translate(var(--card-jitter-x, 0px), var(--card-jitter-y, 0px));
   transform-origin: center center;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Un-rotated single column (brief) — overrides the per-card custom
     // properties rather than needing JS to know the viewport width.
     margin: var(--space-2) 0;
@@ -3471,7 +3488,7 @@ html {
   transform: translateX(-50%) rotate(var(--tape-rotate, 0deg));
   pointer-events: none;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     display: none; // un-rotated, un-decorated single column below 600px
   }
 }
@@ -3538,7 +3555,7 @@ html {
   aspect-ratio: 16 / 9;
   margin-bottom: var(--space-2);
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Stage 5 — converges to --secondary's own mobile ratio just below:
     // all 5 cards read as one uniform tier in the scroll row (the brief's
     // own explicit ask), so the two ratios that expressed featured/
@@ -3560,7 +3577,7 @@ html {
   aspect-ratio: 3 / 2;
   margin-bottom: var(--space-2);
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     aspect-ratio: 1 / 1;
   }
 }
@@ -3591,7 +3608,7 @@ html {
   letter-spacing: 0.01em;
   margin: 0;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // Stage 5 — converges to --secondary-name's own mobile treatment
     // below, same "one uniform tier" reasoning as the photo aspect-ratio
     // above. Truncation triplet reused from .record-crate-title (this
@@ -3617,7 +3634,7 @@ html {
   letter-spacing: 0.02em;
   margin: 0;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3793,7 +3810,7 @@ html {
 .my-taste-track-dots {
   display: none;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     display: flex;
     justify-content: center;
     gap: var(--space-2);
@@ -3829,7 +3846,7 @@ html {
 .my-taste-track-scroll {
   display: none;
 
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     display: flex;
     // Horizontal only — same computed-`auto` trap as .my-taste-wall above.
     // This row's cards are un-rotated so it measured 0px of vertical range
@@ -3860,7 +3877,7 @@ html {
 // on mobile what `.my-taste-card`'s own 600px block switches off by default,
 // exactly as `.my-taste-wall .my-taste-card` above does for the wall.
 .my-taste-track-scroll .my-taste-card {
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // .my-taste-card's mobile block sets `transform: none` (its old
     // un-rotated single-column fallback). Put the seeded tilt back.
     transform:
@@ -3873,7 +3890,7 @@ html {
 }
 
 .my-taste-track-scroll .my-taste-card-tape {
-  @media (max-width: 600px) {
+  @media (max-width: $taste-swipe-max) {
     // `.my-taste-card-tape` hides itself below 600px for the old un-decorated
     // fallback; the wall re-enables it the same way.
     display: block;

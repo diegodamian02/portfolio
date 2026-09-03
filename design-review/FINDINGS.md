@@ -745,7 +745,7 @@ slowly enough for the bar to collapse.
 
 ---
 
-### D34 — There is no tablet tier: the mobile layout stops at 600px and iPads get a squeezed desktop — **OPEN, found 2026-09-01 (Stage 5)**
+### D34 — There is no tablet tier: the mobile layout stops at 600px and iPads get a squeezed desktop — **PARTLY RESOLVED 2026-09-02 (`#my-taste` only)**
 
 Every mobile override in `main.scss` is gated at `max-width: 600px` (or 480px).
 Above that, the **desktop** layout applies unchanged. The practical result is
@@ -778,6 +778,33 @@ raising the mobile breakpoint so tablets inherit the phone layout — which trad
 the empty field for phone-sized cards stretched across 820px. That is a design
 decision with a visible identity cost either way, and it wants a deliberate pass
 rather than being folded into a touch-target cleanup.
+
+**RESOLVED for `#my-taste`, 2026-09-02.** On live instruction, the swipe
+layout's breakpoint was raised 600px -> **1024px**, so iPad mini/Air/Pro-portrait
+now get the two crooked card rows instead of the wide grid. Re-measured section
+height as a fraction of viewport:
+
+| Width | before | after |
+|---|---|---|
+| 768 (iPad mini) | 0.59x | **0.86x** |
+| 820 (iPad Air) | 0.51x | **0.86x** |
+| 1024 (iPad Pro portrait) | 0.40x | **0.88x** |
+
+Boundary verified in both directions: at 1024px the swipe layout renders and the
+wide layout's entrance cascade does **not** run; at 1025px the wide layout
+renders and the cascade does. 0px page overflow and 0 page errors at every width.
+
+**The breakpoint now lives in exactly two named places, and they must move
+together:** `$taste-swipe-max` (main.scss) and `SWIPE_MAX_PX` (my-taste.jsx).
+The CSS value was previously duplicated as 22 literals and the JS value as two
+more (`max-width: 600px` for the scroll dots, `min-width: 601px` for the
+cascade). Raising only the CSS half left 601-1024px rendering the swipe layout
+while ALSO running the wide layout's pinned entrance cascade — the exact pairing
+that cascade's own comment rules out. Caught by testing the boundary rather than
+the middle.
+
+**Still open for `#projects`**, which measured 0.62x/0.53x/0.46x and was not part
+of this change.
 
 **Relevant constraint for whoever takes this:** `#my-taste`'s mobile treatment
 (the two horizontal swipe rows) is *specifically* a phone idiom, built in the

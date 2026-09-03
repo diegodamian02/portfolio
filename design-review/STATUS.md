@@ -53,6 +53,37 @@ working hero is design information the sections beneath it need.
 
 ## 2. What changed recently
 
+### `#my-taste`'s swipe layout extended to tablets *(2026-09-02)*
+
+Breakpoint raised **600px -> 1024px** on live instruction, so tablets get the
+two crooked card rows rather than a wide grid at half scale. Section fit went
+**0.59x -> 0.86x** (768), **0.51x -> 0.86x** (820), **0.40x -> 0.88x** (1024).
+`FINDINGS.md` **D34** now reads PARTLY RESOLVED — `#projects` still has the gap.
+
+**Checked against the history before doing it, per the working agreement.**
+`ROADMAP.md` Task 3.6 reverted five individually torn "singles" in the CRATE as
+"too busy," on direct feedback. That decision stands and is untouched: this is
+the swipe ROW — a different shape at a different width — not the crate. The
+distinction was put to the user explicitly rather than assumed.
+
+**The part that would have shipped broken.** The breakpoint existed as 22 CSS
+literals plus two independent JS copies: `max-width: 600px` (scroll dots) and
+`min-width: 601px` (the wide layout's entrance cascade). Moving only the CSS
+left **601-1024px running the swipe layout AND the wide cascade at once** — a
+cascade that pins the section and animates a crate which is `display: none` at
+that width, exactly what its own comment rules out. It is now one named value
+per language, `$taste-swipe-max` (main.scss) and `SWIPE_MAX_PX` (my-taste.jsx),
+which must stay equal; both carry a comment saying so.
+
+Found by testing the **boundary** (1024 vs 1025) rather than the middle. At
+1024: swipe layout renders, cascade does not run. At 1025: wide layout renders,
+cascade runs. Neither state overlaps.
+
+Regression across 375/390/430/768/820/1024: 0px page overflow, 0 page errors,
+touch targets still 44px on coarse pointers and untouched on desktop. Build
+passes; lint 7 errors / 2 warnings, the documented baseline.
+
+
 ### Album cards match the artist wall; `dvh` scroll-jump fixed *(2026-09-02)*
 
 **The album row now carries the artist wall's paper treatment** — live
