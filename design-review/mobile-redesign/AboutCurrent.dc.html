@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;min-height:844px;background:#0a0e1a;position:relative;overflow:hidden;padding-top:56px}
+    .portrait{width:152px;height:190px;border-radius:14px;margin:0 auto;background:radial-gradient(120% 90% at 50% 25%,#586b54,#243027 70%);position:relative;overflow:hidden}
+    .portrait::after{content:"photo";position:absolute;left:0;right:0;bottom:12px;text-align:center;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;color:rgba(255,255,255,.28)}
+    .name{font-family:"Poppins";font-weight:700;font-size:40px;letter-spacing:-.03em;text-align:center;margin:34px 0 0}
+    .bio{color:#9aa3bd;font-size:20px;text-align:center;margin:26px 20px 0;line-height:1.5}
+    .chips{display:flex;flex-direction:column;gap:12px;align-items:center;margin:34px 20px 0}
+    .chip{width:100%;max-width:330px;display:flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;border:1px solid rgba(154,163,189,.35);border-radius:999px;font-size:18px}
+    .chip svg{width:18px;height:18px;flex:0 0 auto;stroke:#9aa3bd}
+    .callout{position:absolute;left:20px;right:20px;bottom:20px;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.06em;color:#6b7488;text-align:center;border-top:1px dashed rgba(154,163,189,.25);padding-top:10px}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="portrait"></div>
+  <h1 class="name">Diego Damian</h1>
+  <p class="bio">Hola! This is Diego. I am a Software Engineer, with a passion for coding, developing &amp; music. Play your favorite tune &amp; enjoy the ride!</p>
+  <div class="chips">
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><path d="M5 17.5V3"/><path d="M5 4c1.4-1 3-1 4.5 0s3.1 1 4.5 0v7c-1.4 1-3 1-4.5 0s-3.1-1-4.5 0V4Z"/></svg>From Lima, Peru</div>
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><path d="M2.5 17.5h15"/><path d="M4.5 17.5V8.5l2.5-1.8 2.5 1.8v9"/><path d="M9.5 17.5V4.5l3-2 3 2v13"/></svg>Based in Chicago</div>
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><path d="M2 7.5 10 4l8 3.5-8 3.5-8-3.5Z"/><path d="M5.5 9.2v3.6c0 1 2 2.2 4.5 2.2s4.5-1.2 4.5-2.2V9.2"/></svg>Rutgers: Computer Science</div>
+  </div>
+  <div class="callout">&darr; three of six facts &middot; ~360px of empty section below</div>
+</div>
+</x-dc>
+</body>
+</html>

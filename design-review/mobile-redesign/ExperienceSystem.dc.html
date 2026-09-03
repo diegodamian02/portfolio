@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden;padding:64px 20px 0}
+    .kicker{font-family:"Space Mono","Courier New",monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#9aa3bd}
+    .title{font-family:"Poppins";font-weight:700;font-size:32px;letter-spacing:-.03em;margin:10px 0 24px}
+    .tl{position:relative;padding-left:32px}
+    .tl::before{content:"";position:absolute;left:9px;top:8px;bottom:40px;width:2px;background:rgba(154,163,189,.22)}
+    .item{position:relative;padding-bottom:14px}
+    .item::before{content:"";position:absolute;left:4px;top:16px;width:12px;height:12px;border-radius:50%;background:#6f9bff;box-shadow:0 0 0 5px #0a0e1a}
+    .item.now::before{background:#eef1f8}
+    .card{display:flex;gap:12px;background:#121826;border:1px solid rgba(154,163,189,.14);border-radius:14px;padding:12px}
+    .thumb{width:50px;height:50px;border-radius:9px;flex:0 0 auto;background:linear-gradient(150deg,#4a4038,#20242c)}
+    .thumb.g{background:linear-gradient(150deg,#2e3a5a,#1a2030)}
+    .body{min-width:0}
+    .yr{font-family:"Space Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.12em;color:#9aa3bd;display:block}
+    .card h3{font-family:"Poppins";font-weight:600;font-size:15px;margin:3px 0 0;line-height:1.25}
+    .card p{color:#9aa3bd;font-size:12.5px;margin:4px 0 0;line-height:1.45}
+    .note{margin:10px 0 20px;font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#e8a0a0;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="kicker">experience</div>
+  <h1 class="title">Experience</h1>
+  <div class="tl">
+    <div class="item"><div class="card"><div class="thumb"></div><div class="body"><span class="yr">2019</span><h3>Colegio Peruano Brit&aacute;nico</h3><p>Secondary school, Lima.</p></div></div></div>
+    <div class="item"><div class="card"><div class="thumb"></div><div class="body"><span class="yr">2021</span><h3>Rutgers University</h3><p>B.S. Computer Science, minor in Music Technology.</p></div></div></div>
+    <div class="item"><div class="card"><div class="thumb"></div><div class="body"><span class="yr">2024</span><h3>Trump National Golf Club</h3><p>Food runner at Clubhouse.</p></div></div></div>
+    <div class="item"><div class="card"><div class="thumb"></div><div class="body"><span class="yr">2024</span><h3>CodeWiz &mdash; Coding Coach</h3><p>Taught Python &amp; Java to students ages 7&ndash;17.</p></div></div></div>
+    <div class="item"><div class="card"><div class="thumb g"></div><div class="body"><span class="yr">2025</span><h3>GlobalLogic &mdash; Trainee Test Engineer</h3><p>End-to-end test automation &mdash; Java, Selenium, Cucumber.</p></div></div></div>
+    <div class="item now"><div class="card"><div class="thumb g"></div><div class="body"><span class="yr">2026 &middot; now</span><h3>Capgemini &mdash; Test Engineer</h3><p>Weekly regression testing on Archy, McDonald&rsquo;s AI drive-thru.</p></div></div></div>
+  </div>
+  <div class="note">Phones scroll down, so a work history should too. <b>Vertical rail, six compact rows</b> &mdash; every job visible at a glance, no sideways swipe, no centre-focus scale, no floating year. The section fills itself.</div>
+</div>
+</x-dc>
+</body>
+</html>

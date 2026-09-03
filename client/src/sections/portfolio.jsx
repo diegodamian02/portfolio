@@ -7,6 +7,16 @@ import { getActiveLenis } from "../lib/scroll.js";
 import projects from "../data/projectsData";
 import "../styles/main.scss";
 
+// Hand-drawn, stroke, currentColor — the one icon convention this codebase
+// has (about.jsx's fact chips, turntable.jsx's transport glyphs). No icon
+// library exists in package.json; a single chevron doesn't justify adding
+// one. Rotated 180deg via CSS when its row is open (.portfolio-item.is-open).
+const ChevronIcon = () => (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m5.5 8 4.5 4.5L14.5 8" />
+    </svg>
+);
+
 // Task 10.2 — scroll a just-opened row's full expanded content into view when
 // it doesn't already fit. Reuses --scroll-offset (main.scss), the same
 // nav-clearance constant scroll.js's own scrollToSection() reads via CSS
@@ -313,22 +323,42 @@ export default function Portfolio() {
                     const detailsId = `project-details-${project.id}`;
 
                     return (
-                        <div key={project.id} className="portfolio-item" data-project-id={project.id}>
-                            {/* Expandable Header */}
+                        <div
+                            key={project.id}
+                            className={`portfolio-item${isOpen ? " is-open" : ""}`}
+                            data-project-id={project.id}
+                        >
+                            {/* Expandable Header — Stage 5 (continued): role is
+                                a kicker ABOVE the title now, not a second column
+                                floated right (two columns each wrapped
+                                independently on a phone and read as a tangle).
+                                Chevron sits at the top-right. */}
                             <button
                                 className="portfolio-header"
                                 onClick={() => toggleProject(project.id)}
                                 aria-expanded={isOpen}
                                 aria-controls={detailsId}
                             >
-                                <span className="project-title">{project.title}</span>
                                 <span className="project-role">{project.role}</span>
+                                <span className="project-title">{project.title}</span>
+                                <span className="portfolio-chevron"><ChevronIcon /></span>
                             </button>
 
-                            {/* Expandable Content */}
+                            {/* The description is always rendered now — CSS
+                                clamps it to 2 lines by default and the row's
+                                own .is-open class un-clamps it (main.scss).
+                                Moving it out of .portfolio-details means a
+                                collapsed card actually says what the project is
+                                instead of just its name. Its clamp -> full
+                                height change lands inside the same flushSync
+                                render toggleProject drives, so Flip.from's
+                                "after" measurement captures it — the standard
+                                Flip accordion pattern. */}
+                            <p className="portfolio-summary">{project.description}</p>
+
+                            {/* Expandable Content — video + links only now. */}
                             {isOpen && (
                                 <div className="portfolio-details" id={detailsId}>
-                                    <p>{project.description}</p>
                                     {project.video && (
                                         // width/height as real HTML attributes (not just CSS) —
                                         // Task 10.1 fix. These establish the video's intrinsic

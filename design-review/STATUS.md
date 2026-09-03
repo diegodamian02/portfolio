@@ -1,6 +1,12 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-03 (**scroll-snap fifth pass** — the freeze between rapid
+**Updated:** 2026-09-03 (**Stage 5 (continued) — mobile declutter pass**:
+every section's mobile layout tightened against a two-direction `/design`
+mockup exploration. `#my-taste`'s second swipe row deleted for a numbered
+list; `#projects` rebuilt as preview cards; `#experience` filmstrip kept but
+given swipe dots + a real card peek + a year-on-card tag; `#home`/`#about`/
+`#connect` de-floated. Full entry in §2.) Prior, same day: (**scroll-snap
+fifth pass** — the freeze between rapid
 consecutive swipes is gone, and a vertical swipe over the Experience filmstrip
 no longer jars. Root finding: consecutive real swipes ALWAYS overlap in the
 event stream — macOS momentum keeps firing for ~1s — so gap detection alone
@@ -58,6 +64,121 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 5 (continued) — mobile declutter pass *(2026-09-03)*
+
+**Branch:** `stage5-mobile-declutter`. Files: `main.scss` (the bulk),
+`sections/my-taste.jsx`, `sections/portfolio.jsx`, `sections/experience.jsx`,
+`sections/about.jsx`, plus `capture-screenshots.mjs` (`#experience` added to
+`SECTIONS`).
+
+**Why.** The `#my-taste` swipe layout (2026-08-23) and the tablet-breakpoint
+raise (2026-09-02) were only the first slice of Stage 5. Owner asked for a
+broader look — *"redesign how the mobile display works so it doesn't look too
+clutter."* A `/design` canvas (`design-review/mobile-redesign/`, 19 phone
+frames: `current` vs a conservative `targeted fix` vs a bolder `unified
+system` per section; PNGs in `screenshots/mobile-redesign/`) named the shared
+problem: every section is `min-height: ~100svh` while filling 40–60% of it,
+the same scaffolding repeats (`#my-taste` alone: 3 labels, 2 swipe rows, 2 dot
+sets), and four unrelated scroll idioms sit side by side. Owner picked
+**unified** for `#my-taste` + `#projects`, **targeted** for the rest
+(`#experience` explicitly: keep the filmstrip, make it mobile-friendly).
+
+**`#my-taste` (unified).**
+- Deleted: the mobile-only `.my-taste-track-scroll` swipe row and everything
+  it owned — `.my-taste-track-card*`, `.my-taste-photo-slot--track`, the
+  `.my-taste-track-dots` container, the second `wireRow` IntersectionObserver,
+  `trackScrollRef`/`trackDotsRef`. ~120 lines of CSS + ~70 of JSX/JS.
+- The top-5 is the existing numbered `<ol>` (`.my-taste-crate` /
+  `.my-taste-setlist`) now — `display: none` on mobile flipped to shown. Each
+  `<li>` gains a `<PhotoSlot className="my-taste-photo-slot--row">` (already
+  had `track.imageUrl`); at `$taste-swipe-max` `.my-taste-setlist-link`
+  becomes a grid — `44px | 1fr` columns, `"thumb main" / "thumb artist"` — so
+  the art spans both text rows without a markup fork (desktop stays the
+  wrapping flex row). `.my-taste-setlist-thumbs` (the fanned top-3 trio)
+  hides on mobile; `.my-taste-card--setlist` drops its torn `clip-path` /
+  paper tint / shadow there (it's a list, not a pinned flyer).
+- The voids: `.my-taste-section` mobile `justify-content: space-between` +
+  `.my-taste-layout` `display: contents` are gone. That pair spread three
+  items (kicker + two zones) across one screen and *was* the two inter-zone
+  gaps. Now a plain single-column grid (`grid-template-columns: 1fr; gap:
+  space-5`) at natural height; `min-height` dropped, `padding-bottom:
+  space-7`. Section fill 390: **~0.4× → 0.91×** (content height).
+
+**`#projects` (unified).**
+- `.portfolio-item` is a bordered rounded card; `.portfolio-header` is a
+  2-row grid — role as a small uppercase/letter-spaced `--secondary-text`
+  kicker **above** the title, chevron (hand-drawn `ChevronIcon`) top-right.
+  The old `justify-content: space-between` had title and role as two columns
+  that each wrapped independently ("Engage in Democracy: Rutgers Website" /
+  "Website Developer" both breaking) — the tangle D-review flagged.
+- New `.portfolio-summary` `<p>` — always rendered, the project description.
+  CSS-clamped to 2 lines while collapsed; the row's own `.is-open` class
+  switches it to `display: block` (full text). The clamp→full height change
+  lands in the same `flushSync` render `toggleProject` drives, so `Flip.from`
+  measures it — the standard Flip accordion pattern, verified: no un-eased
+  snap at tween end (the B35 failure mode). `{project.description}` removed
+  from `.portfolio-details` (video + links only there now).
+- Padding lives on `.portfolio-item`, not each inner block — a `-webkit-box`
+  line-clamp element with its own `padding-bottom` leaks the next line past
+  the clamp (seen live: 3 partial lines rendered under a 2-line clamp).
+
+**`#experience` (targeted — filmstrip kept).** No change to the
+`scrollLeft`-driven mechanism (rail draw, once-only year scramble,
+centre-focus falloff all intact).
+- New `.experience-dots` row under the strip (mobile only — desktop has the
+  rail + its progress dot). Toggled from the existing `setActive()` in
+  `ExperienceFilmstrip`'s scroll handler — no second observer.
+- `.experience-track` mobile: `padding-left: space-5; padding-right: calc(100%
+  - space-5 - card-w)` so the current card rests against the left gutter with
+  the next card clearly peeking on the right, instead of centred with a
+  sliver on both edges. Card `78vw → 74vw`. Centre-based active detection
+  still resolves right because the card fills most of the viewport.
+- `.experience-date` on mobile: repositioned as a `backdrop-filter` scrim tag
+  on the card media (`top: calc(rail-h + space-2); left: space-2`), off the
+  rail strip — which shrank `44px → 22px` since the year no longer lives
+  there. Headroom `2×space-5 → 2×space-4`.
+- `min-height` dropped on mobile: the section is its ~455px content height
+  and `#my-taste`'s kicker peeks below (reads as "keep going" vs a ~230px
+  void). `.experience-title` mobile `margin-bottom: space-4` (from
+  section-title's `space-6`).
+
+**`#home` (targeted).** `.home` mobile: `align-content: start` (base is
+`center` — a hero shorter than the 100vh grid split its slack top and bottom,
+~200px above the name); top padding `calc(navbar-height + space-4)`; gutter
+`20px → 12px`. `.turntable` mobile `min(420px,90vw) → min(480px,95vw)`.
+`.turntable-fader-handle` gets a `::before` inset `-15px -8px` hit box on
+`pointer: coarse` — a ≥44px target (the visible 28×14 handle unmoved), the
+one control the 2026-09-02 touch pass missed. Events on the pseudo dispatch
+to the element so GSAP Draggable still catches the press; horizontal
+expansion is only 8px/side so it stays clear of the platter's scratch
+surface.
+
+**`#about` (targeted).** The three `desktopOnly` chips (Test Automation /
+Loves Music / Plays Guitar — CSS-hidden on mobile for a scroll-hold fit
+check that no longer exists, B16) are back: `desktopOnly` flag removed from
+`CHIPS`, `.about-me-chip--desktop-only` rule deleted. Mobile chips
+`font-size: 0.8rem`, `.about-me-chips` `justify-content: flex-start` (was
+`center` — a centred wrapped cluster staggers each row's start). `.about-me-
+bio` mobile `text-align: left` (was `justify` + `text-align-last: center`).
+Name stays centred.
+
+**`#connect` (targeted — light).** `#connect`'s one-screen + in-footer
+architecture untouched. `.contact-section` mobile `align-items: flex-start`
+while composing (`:not(:has(.contact-container[data-state="sent"]))` — the
+send-success walkman takeover keeps its centred confirmation); heading + card
+sit near the top instead of dead-centre. `.contact-container` mobile gap
+`space-6 → space-5`. `.jcard` mobile `max-width: min(320px,90%) →
+min(400px,92%)` (the "reads wider than tall" worry was measured against a
+200px-min-height textarea that has since shrunk). `.jcard-submit` mobile
+`width: 100%; border-radius: 14px` — full-width send.
+
+**Verification.** Dev server (5173), 390 and 768, dark, nav-driven so the
+entrance cascades fire: 0 horizontal overflow at 320/375/390/430/600/768,
+0 console errors, `npm run lint` unchanged (7 errors / 2 warnings baseline),
+`vite build` passes. Flip accordion open/close smooth (measured summary
+50px clamped → 174px full, no snap). `#my-taste` desktop entrance cascade
+(`fullMotion`, `min-width: 1025px`) untouched. Screenshots regenerated.
 
 ### `#my-taste`'s swipe layout extended to tablets *(2026-09-02)*
 

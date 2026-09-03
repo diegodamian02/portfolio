@@ -1,0 +1,47 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Overview" },
+    { "id": "page-2", "name": "Home" },
+    { "id": "page-3", "name": "About" },
+    { "id": "page-4", "name": "Experience" },
+    { "id": "page-5", "name": "My Taste" },
+    { "id": "page-6", "name": "Projects" },
+    { "id": "page-7", "name": "Connect" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "page-1", "x": 0, "y": 0, "w": 1280, "h": 1656, "title": "Overview" },
+
+    { "file": "HomeCurrent.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 390, "h": 864, "title": "Home — current" },
+    { "file": "HomeFix.dc.html", "page": "page-2", "x": 470, "y": 0, "w": 390, "h": 830, "title": "Home — targeted fix" },
+    { "file": "HomeSystem.dc.html", "page": "page-2", "x": 940, "y": 0, "w": 390, "h": 918, "title": "Home — unified system" },
+
+    { "file": "AboutCurrent.dc.html", "page": "page-3", "x": 0, "y": 0, "w": 390, "h": 864, "title": "About — current" },
+    { "file": "AboutFix.dc.html", "page": "page-3", "x": 470, "y": 0, "w": 390, "h": 766, "title": "About — targeted fix" },
+    { "file": "AboutSystem.dc.html", "page": "page-3", "x": 940, "y": 0, "w": 390, "h": 612, "title": "About — unified system" },
+
+    { "file": "ExperienceCurrent.dc.html", "page": "page-4", "x": 0, "y": 0, "w": 390, "h": 864, "title": "Experience — current" },
+    { "file": "ExperienceFix.dc.html", "page": "page-4", "x": 470, "y": 0, "w": 390, "h": 742, "title": "Experience — targeted fix" },
+    { "file": "ExperienceSystem.dc.html", "page": "page-4", "x": 940, "y": 0, "w": 390, "h": 972, "title": "Experience — unified system" },
+
+    { "file": "MyTasteCurrent.dc.html", "page": "page-5", "x": 0, "y": 0, "w": 390, "h": 1156, "title": "My Taste — current" },
+    { "file": "MyTasteFix.dc.html", "page": "page-5", "x": 470, "y": 0, "w": 390, "h": 816, "title": "My Taste — targeted fix" },
+    { "file": "MyTasteSystem.dc.html", "page": "page-5", "x": 940, "y": 0, "w": 390, "h": 1016, "title": "My Taste — unified system" },
+
+    { "file": "ProjectsCurrent.dc.html", "page": "page-6", "x": 0, "y": 0, "w": 390, "h": 864, "title": "Projects — current" },
+    { "file": "ProjectsFix.dc.html", "page": "page-6", "x": 470, "y": 0, "w": 390, "h": 1008, "title": "Projects — targeted fix" },
+    { "file": "ProjectsSystem.dc.html", "page": "page-6", "x": 940, "y": 0, "w": 390, "h": 1172, "title": "Projects — unified system" },
+
+    { "file": "ConnectCurrent.dc.html", "page": "page-7", "x": 0, "y": 0, "w": 390, "h": 1016, "title": "Connect — current" },
+    { "file": "ConnectFix.dc.html", "page": "page-7", "x": 470, "y": 0, "w": 390, "h": 794, "title": "Connect — targeted fix" },
+    { "file": "ConnectSystem.dc.html", "page": "page-7", "x": 940, "y": 0, "w": 390, "h": 834, "title": "Connect — unified system" }
+  ],
+  "annotations": [
+    { "id": "n-home", "page": "page-2", "x": 0, "y": -156, "w": 940, "text": "HOME — the deck is the point; give it the screen.\nFix: pull the hero up, bleed the deck to the gutter, grow the play + fader targets past 44px.\nSystem: name shrinks to a label, the crate prompt gets loud, the pitch fader goes horizontal below the platter." },
+    { "id": "n-about", "page": "page-3", "x": 0, "y": -156, "w": 940, "text": "ABOUT — half a screen of content, centred prose, three of six facts.\nFix: left-align the bio, wrap the pills into one tag row so all six facts fit, trim the height.\nSystem: portrait becomes a header avatar; facts become a 2-up card grid; the section is only as tall as its content." },
+    { "id": "n-exp", "page": "page-4", "x": 0, "y": -156, "w": 940, "text": "EXPERIENCE — one card, no swipe hint, ~230px of void.\nFix: year tag onto the card, next card peeking, a dot row.\nSystem: drop the filmstrip on phones — a vertical timeline of six compact rows fills the section on its own." },
+    { "id": "n-taste", "page": "page-5", "x": 0, "y": -156, "w": 940, "text": "MY TASTE — three labels, two swipe rows, two dot sets, big voids between zones.\nFix: close the voids, snap the rows to the gutter so cards aren't sliced on both edges.\nSystem: one swipe row for artists; the top 5 becomes a numbered list — a ranking wants to be vertical." },
+    { "id": "n-proj", "page": "page-6", "x": 0, "y": -156, "w": 940, "text": "PROJECTS — title and role are two columns that wrap independently into a tangle.\nFix: single column, role as a mono kicker above a one-line title, chevron right.\nSystem: cards with a one-line preview in the collapsed state (today you get nothing until you tap)." },
+    { "id": "n-conn", "page": "page-7", "x": 0, "y": -156, "w": 940, "text": "CONNECT — works, but the cassette chrome is loud and the min-height pushes the footer away.\nFix: tighten spacing, 44px inputs, full-width send.\nSystem: chrome down to a single spine stripe; larger footer socials. The walkman send reveal is untouched in both." }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

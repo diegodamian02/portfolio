@@ -764,6 +764,22 @@ html {
   // GSAP Draggable (turntable.jsx, Stage 6 Phase 9) owns vertical dragging —
   // without this a touch-drag also tries to scroll the page underneath it.
   touch-action: none;
+
+  // Stage 5 (continued) — on touch the visible handle is a 28×14 target,
+  // well under the 44px floor. Same `::before` hit-area technique the logo,
+  // the transport button and the footer socials already use: the TARGET
+  // grows, the visible handle does not move or resize. Events on the pseudo
+  // dispatch to this element, so GSAP Draggable picks up a press anywhere
+  // in the expanded box. Horizontal expansion is only 8px a side (44px
+  // total) so the box stays clear of the platter's own scratch surface
+  // ~4.5% of the plinth width to its right.
+  @media (pointer: coarse) {
+    &::before {
+      content: "";
+      position: absolute;
+      inset: -15px -8px;
+    }
+  }
 }
 
 // The real control (Stage 6 Phase 9). Visually transparent and
@@ -2041,16 +2057,18 @@ html {
   max-width: 32rem;
   // Direct feedback: ragged edges on a wrapped paragraph read as messy.
   // justify only stretches inter-word spacing on wrapped lines — the final
-  // (short) line is untouched and falls back to plain start/left by
-  // default, which is fine on desktop (the rest of the layout is
-  // left-aligned too) but would sit oddly off-center on mobile, where
-  // .about-me-container centers everything else at this breakpoint.
+  // (short) line is untouched and falls back to plain start/left by default,
+  // which is fine on desktop (the rest of the layout is left-aligned too).
   text-align: justify;
 
   @media (max-width: 768px) {
+    // Stage 5 (continued) — plain left, not justified-then-centre-the-last-
+    // line. Justified body text at a phone's line length opens rivers of
+    // white space between words; a ragged right edge reads calmer. The
+    // name stays centred above it (the mockup, about-fix.png).
     max-width: none;
     margin-bottom: var(--space-4);
-    text-align-last: center;
+    text-align: left;
   }
 }
 
@@ -2063,7 +2081,11 @@ html {
   padding: 0;
 
   @media (max-width: 768px) {
-    justify-content: center;
+    // Stage 5 (continued) — left-packed, not centre-justified: a centred
+    // wrapped cluster staggers each row's start and reads as scattered.
+    // Packed from the left it reads as one tidy block under the left-
+    // aligned bio.
+    justify-content: flex-start;
     gap: var(--space-2);
   }
 }
@@ -2080,22 +2102,18 @@ html {
   border: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
 
   @media (max-width: 768px) {
+    // Smaller here so all six wrap into ~3 tidy rows rather than six
+    // near-full-width pills (Stage 5 continued — the three mobile-hidden
+    // chips are back, see about.jsx).
     padding: var(--space-1) var(--space-3);
+    font-size: 0.8rem;
   }
 }
 
-// Two of six chips, desktop-only — direct feedback ("get rid of Test
-// Automation and Plays Guitar, only for mobile, otherwise it doesn't look
-// too neat"). display: none (not visibility/opacity) is deliberate here: it
-// drops the chip out of layout entirely, which is what lets
-// .about-me-section's height-based fit-check (about.jsx onEnter, FINDINGS.md
-// B16) measure the card as short enough to hold/pin on mobile again, not
-// just look tidier.
-.about-me-chip--desktop-only {
-  @media (max-width: 768px) {
-    display: none;
-  }
-}
+// (.about-me-chip--desktop-only removed — Stage 5 continued. It hid three
+// chips on mobile so the card would pass a scroll-hold viewport-fit check
+// that no longer exists; the compact wrapped mobile cluster above now fits
+// all six. See about.jsx's CHIPS comment.)
 
 .about-me-chip-icon {
   display: inline-flex;
@@ -2186,7 +2204,14 @@ html {
   padding: var(--space-4) 0 var(--space-6);
 
   @media (max-width: 768px) {
-    padding: var(--space-4) 0 var(--space-5);
+    // Stage 5 (continued) — content height, not one forced screen. The
+    // filmstrip + title + dots come to ~440px on a phone; the old
+    // `min-height: 100svh - offset` left ~230px of dead band under the dots.
+    // Scroll-snap still has a valid stop at the section's top; a short
+    // section just means #my-taste's kicker peeks below, which reads as
+    // "keep going" rather than a void.
+    min-height: 0;
+    padding: var(--space-4) 0 var(--space-6);
   }
 }
 
@@ -2197,6 +2222,13 @@ html {
   // section-title's own margin-bottom is the ENTIRE gap between the title and
   // the filmstrip. flex-shrink: 0 so a short window can't crush it.
   flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    // Trim the title -> filmstrip gap (section-title's --space-6) on a phone
+    // — with the rail strip shrunk too, the default left the title floating
+    // well clear of the strip.
+    margin-bottom: var(--space-4);
+  }
 }
 
 // Wraps the fixed-footprint viewport so .experience-section's
@@ -2214,6 +2246,42 @@ html {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+// Stage 5 (continued) — scroll-position dots under the filmstrip, MOBILE
+// only (the desktop rail + its progress dot already signal position at that
+// width; on a phone the rail reads as a faint line and the peek alone
+// wasn't enough of a "there's more sideways" cue). experience.jsx toggles
+// .is-active from the SAME setActive() the year scramble and centre-focus
+// already run through — no second scroll observer. aria-hidden: a
+// scrollbar substitute, not content. Same visual language as
+// #my-taste's .my-taste-scroll-dot.
+.experience-dots {
+  display: none;
+
+  @media (max-width: 768px) {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+    flex-shrink: 0;
+  }
+}
+
+.experience-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--secondary-text);
+  opacity: 0.35;
+  transition: opacity 0.2s ease, width 0.2s ease, background-color 0.2s ease;
+
+  &.is-active {
+    opacity: 1;
+    width: 22px;
+    background: var(--accent);
+  }
 }
 
 // (.experience-section--static, the reduced-motion ExperienceStatic list,
@@ -2306,10 +2374,22 @@ html {
               // state to protect here.
 
   @media (max-width: 768px) {
-    --experience-card-w: clamp(240px, 78vw, 340px);
-    --experience-rail-h: 44px;
+    // Stage 5 (continued) — a smaller card (74vw, was 78vw) so the NEXT
+    // card peeks clearly on the right instead of a thin sliver on both
+    // edges; .experience-track below aligns the current card to the left
+    // gutter rather than centring it, which is what makes that peek
+    // one-sided and gives the first card a clean left edge. Rail strip
+    // trimmed 44 -> 22px: the year badge moved off it onto the card media
+    // (below), so all it now reserves is room for the thin draw-in line and
+    // its progress dot — the 44px was mostly empty space between the title
+    // and the first photo.
+    --experience-card-w: clamp(230px, 74vw, 320px);
+    --experience-rail-h: 22px;
     --experience-media-aspect: 1.2;
-    --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-5));
+    // Headroom 2×space-5 -> 2×space-4: still clears the active card's 1.08x
+    // scale-up (~12px/side on a ~290px card), and trims the empty band at
+    // the top of the strip that the shrunk rail already started on.
+    --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-4));
     max-width: 100vw;
     border-radius: 0;
   }
@@ -2342,6 +2422,16 @@ html {
 
   @media (max-width: 768px) {
     gap: var(--space-4);
+    // Stage 5 (continued) — the current card rests against the left gutter
+    // (var(--space-5)) with the next card peeking on the right, instead of
+    // centred with a sliver on both sides. padding-right leaves exactly the
+    // room the last card needs to reach that same left-gutter rest position
+    // (100% here = .experience-viewport's width, per this rule's own note
+    // above). Center-based active detection in experience.jsx still resolves
+    // correctly because the card fills most of the viewport width, so
+    // whichever card sits at the gutter is also the one nearest centre.
+    padding-left: var(--space-5);
+    padding-right: calc(100% - var(--space-5) - var(--experience-card-w));
   }
 }
 
@@ -2372,7 +2462,9 @@ html {
   pointer-events: none;
 
   @media (max-width: 768px) {
-    top: var(--space-5);
+    // Matches the leftover-half of --experience-vp-height's mobile formula
+    // (2×space-4 headroom -> space-4 each side).
+    top: var(--space-4);
   }
 }
 
@@ -2514,6 +2606,26 @@ html {
   font-weight: 600;
   text-align: center;
   transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
+
+  @media (max-width: 768px) {
+    // Stage 5 (continued) — off the rail strip, onto the card. The
+    // centred pill floating in the empty band between the title and the
+    // card read as unmoored on a phone; a corner tag on the media reads
+    // as "this photo is from 2019". Sits just inside the media's
+    // top-left: `top` is measured from the card's padding edge, and the
+    // media starts one --experience-rail-h down (the card's padding-top),
+    // so clear that plus a small inset.
+    top: calc(var(--experience-rail-h) + var(--space-2));
+    left: var(--space-2);
+    transform: none;
+    min-width: 0;
+    padding: 3px 8px;
+    border-width: 0;
+    background: color-mix(in srgb, var(--bg-color) 62%, transparent);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    letter-spacing: 0.06em;
+  }
 }
 
 // The "description" tier — role + caption together, shown automatically on
@@ -2781,63 +2893,24 @@ $taste-swipe-max: 1024px;
   text-align: center;
 
   @media (max-width: $taste-swipe-max) {
-    // Stage 5 — fills exactly one screen on mobile, matching the
-    // full-screen-per-section feel the desktop pinned sections (About,
-    // Experience) already use. This originally read "dvh, not vh (accounts
-    // for mobile browser chrome showing/hiding)" — that reasoning was
-    // exactly backwards and is corrected in the svh note below: tracking
-    // the browser chrome is the bug, not the feature. vh is still declared
-    // first as the fallback, the unit below second so it wins where
-    // supported, the same dual-declaration order every other full-viewport
-    // rule in this file already uses.
+    // Stage 5 (continued) — the mobile declutter pass. This block used to
+    // force `min-height: calc(100svh - scroll-offset)` + `display: flex` +
+    // `justify-content: space-between` so a fixed-top kicker plus the two
+    // zones (artists, tracks) got distributed across one screen. With only
+    // half a screen of real content that `space-between` manufactured two
+    // large voids — one under the kicker, one between the zones — which is
+    // most of what read as "cluttered / floating." Now: natural content
+    // height, normal flow, one comfortable pad at the bottom. The section
+    // is shorter than a screen on most phones; the site's scroll-snap still
+    // has a valid stop at its top (nothing here reads the section's raw
+    // height — verified), and the two zones sit back to back the way the
+    // `my-taste-system` mockup shows.
     //
-    // calc(... - var(--scroll-offset)), not the literal 100dvh first tried
-    // here: found live, not assumed — a nav click (or any direct
-    // #my-taste link/hash landing) uses this project's own B3 fix
-    // (scroll-margin-top: var(--scroll-offset), i.e. navbar-height + 24px
-    // breathing room) to land the section's top that far BELOW the
-    // viewport top, on purpose, so content never sits under the fixed bar.
-    // A literal 100dvh section landed that way pushes its own BOTTOM (the
-    // track row's dots) the same distance below the viewport — exactly the
-    // "vertical scroll required within the section" the fit target rules
-    // out. --navbar-height alone (tried first) closed most of it but left
-    // a flat, width-independent 24px gap every time — --scroll-offset's
-    // own extra buffer past the bar — reproduced live with a real
-    // hamburger-menu nav click at every width before landing on this.
-    // Matches .about-me-section/.contact-section's own PINNED-box formula
-    // in spirit, just keyed to the exact offset THIS section actually
-    // lands at rather than navbar-height alone.
-    // svh, NOT dvh — changed 2026-09-02 after a measured scroll bug. dvh
-    // tracks the mobile URL bar by design, so every viewport-sized section
-    // ABOVE the reader re-heights while the bar shows/hides during an
-    // ordinary scroll, and the shifts accumulate: measured at 390x844, a 60px
-    // bar transition moved #about 60px, #my-taste 180px and #projects 240px
-    // (exactly one delta per dvh section above it) with the content jumping
-    // out from under the reader. svh is defined as the viewport with the bar
-    // VISIBLE and does not change when it hides, so that delta is zero by
-    // construction. The trade is deliberate: with the bar hidden a section
-    // ends up ~60px short of the glass rather than exactly filling it, which
-    // is invisible next to content jumping mid-read. vh stays declared first
-    // as the fallback, same dual-declaration order as before.
-    min-height: calc(100vh - var(--scroll-offset));
-    min-height: calc(100svh - var(--scroll-offset));
-    display: flex;
-    flex-direction: column;
-    // Distributes THREE items (kicker, top-artists, top-tracks — the
-    // brief's own wording), not two: .my-taste-layout goes display:
-    // contents below so its two children become direct flex items here
-    // alongside the heading, instead of a fixed-top heading plus one
-    // internal 2-way split absorbing 100% of the leftover space into a
-    // single gap.
-    justify-content: space-between;
-    // Outer whitespace, the same last-lever-after-card-sizing this section
-    // already reached for once before (Task 2.5's own space-8 -> space-6
-    // desktop trim) — re-measured live at the shortest realistic phone
-    // heights (320×568, 375×667) after the card/photo sizing above; this
-    // is what closes most of the remaining gap to 100dvh rather than
-    // shrinking any more content.
+    // The old dvh->svh note (2026-09-02, B74) is moot here now that there's
+    // no viewport-unit min-height on this block at all — kept out rather
+    // than kept as a comment describing a rule that no longer exists.
     padding-top: var(--space-3);
-    padding-bottom: var(--space-3);
+    padding-bottom: var(--space-7);
   }
 
   // Grain (Task 3) removed here: a feTurbulence noise overlay across the
@@ -3058,20 +3131,15 @@ $taste-swipe-max: 1024px;
   margin-top: var(--space-2);
 
   @media (max-width: $taste-swipe-max) {
-    // Stage 5 — was a single grid column just stacking wall-column above
-    // crate-column with whatever leftover gap fell out. display: contents
-    // takes this element OUT of the box model entirely (safe here — it's a
-    // plain, non-semantic <div>) so its two children become direct flex
-    // items of .my-taste-section itself, alongside the kicker <h2> —
-    // .my-taste-section's own justify-content: space-between (above) is
-    // what actually distributes all THREE across the full 100dvh, splitting
-    // the leftover space into two gaps (kicker <-> top-artists, top-artists
-    // <-> top-tracks) instead of concentrating 100% of it into one gap
-    // below a fixed-position heading. The align-items: start this rule's
-    // base declares (for the DESKTOP grid's cross-axis) simply stops
-    // applying once this element is display: contents — there's no box
-    // left for it to apply to.
-    display: contents;
+    // Stage 5 (continued) — was `display: contents` so the two zone
+    // wrappers became direct flex items of .my-taste-section, letting its
+    // `justify-content: space-between` distribute them (plus the kicker)
+    // across one screen. That distribution is exactly what created the
+    // voids the declutter pass removes (see .my-taste-section's own mobile
+    // note). Back to a plain single-column grid: the two zones stack in
+    // normal flow, back to back, with only this rule's `gap` between them.
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
   }
 }
 
@@ -3092,17 +3160,11 @@ $taste-swipe-max: 1024px;
   min-width: 0;
 }
 
-// Moved from .my-taste-crate's own mobile rule (Task 3.5) to here — the gap
-// belongs between the two STACKED zones once Task 4.1 gave each one a title
-// of its own, not between the crate's title and its own content, which is
-// where it would land if left on .my-taste-crate directly.
-.my-taste-crate-column {
-  @media (max-width: $taste-swipe-max) {
-    // space-4 -> space-3, part of the same 100dvh fit pass as
-    // .my-taste-section's own padding trim above.
-    margin-top: var(--space-3);
-  }
-}
+// Stage 5 (continued) — the mobile gap between the two stacked zones is
+// .my-taste-layout's own grid `gap` now (single column at this breakpoint).
+// This element carried a `margin-top` for that job while .my-taste-layout was
+// `display: contents` and had no gap of its own to give; now that it's a real
+// one-column grid again, the margin would double up with the gap. Removed.
 
 // Task 4.1 — one label per zone, same font/case/tracking as the kicker
 // (.my-taste-heading, above) but visibly quieter (opacity, not a second
@@ -3294,14 +3356,14 @@ $taste-swipe-max: 1024px;
   display: flex;
   flex-direction: column;
   text-align: left;
-
-  @media (max-width: $taste-swipe-max) {
-    // Stage 5 — replaced, not stacked alongside, by .my-taste-track-scroll
-    // below (my-taste.jsx renders both; CSS shows exactly one of the two
-    // per breakpoint, the same swap-not-stack approach as every other
-    // mobile change in this section).
-    display: none;
-  }
+  // Stage 5 (continued) — this plain numbered list IS the mobile "top
+  // tracks" view now. It used to `display: none` below $taste-swipe-max
+  // and hand off to a second horizontal swipe row (.my-taste-track-scroll,
+  // deleted): a ranked top-5 reads better vertically than as a sideways
+  // swipe, it's denser, and dropping the second row also drops a second
+  // dot indicator and a second scroll gesture — the `my-taste-system`
+  // mockup. Per-row album art comes in via .my-taste-photo-slot--row
+  // (below), shown only at this breakpoint.
 }
 
 // Occupies a card's own grid-area (loading/error/empty states, per-list —
@@ -3432,6 +3494,18 @@ $taste-swipe-max: 1024px;
 // at every width, not only the un-rotated mobile breakpoint.
 .my-taste-card--setlist {
   transform: none;
+
+  @media (max-width: $taste-swipe-max) {
+    // Stage 5 (continued) — on mobile this card IS the whole "top tracks"
+    // view (no wall beside it, no swipe row), so a torn-flyer edge zig-
+    // zagging down a full-width numbered list reads as ragged rather than
+    // characterful. Clean rect + no paper tint/shadow: it's a list, not a
+    // pinned-up card here. The wall keeps its torn cards.
+    clip-path: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
 }
 
 // Four distinct point sets, not one clip-path reused across every card —
@@ -3652,6 +3726,14 @@ $taste-swipe-max: 1024px;
 .my-taste-setlist-thumbs {
   display: flex;
   margin: 0 0 var(--space-2) var(--space-3);
+
+  @media (max-width: $taste-swipe-max) {
+    // Stage 5 (continued) — the fanned top-3 trio is a desktop flourish
+    // above a wide list. On the mobile list each row carries its own
+    // .my-taste-photo-slot--row thumbnail instead, so this would just be
+    // three album covers duplicated above the same five tracks.
+    display: none;
+  }
 }
 
 .my-taste-photo-slot--thumb {
@@ -3766,6 +3848,22 @@ $taste-swipe-max: 1024px;
     outline-offset: 2px;
     border-radius: 2px;
   }
+
+  // Stage 5 (continued) — mobile: a fixed album-art column, then the track
+  // name stacked over the artist. Grid, not a flex-column markup change, so
+  // the desktop wrapping-flex row above is untouched — .my-taste-photo-slot
+  // --row is display:none above this breakpoint, so on desktop the `thumb`
+  // area is simply unused.
+  @media (max-width: $taste-swipe-max) {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    grid-template-areas:
+      "thumb main"
+      "thumb artist";
+    align-items: center;
+    column-gap: var(--space-3);
+    row-gap: 2px;
+  }
 }
 
 // The index+track pairing — its own nested flex row so the two stay
@@ -3780,6 +3878,10 @@ $taste-swipe-max: 1024px;
   gap: var(--space-2);
   flex: 1 1 auto;
   min-width: 0;
+
+  @media (max-width: $taste-swipe-max) {
+    grid-area: main;
+  }
 }
 
 .my-taste-setlist-index {
@@ -3796,18 +3898,44 @@ $taste-swipe-max: 1024px;
 .my-taste-setlist-artist {
   min-width: 0;
   color: var(--secondary-text);
+
+  @media (max-width: $taste-swipe-max) {
+    grid-area: artist;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
-// Stage 5 — scroll-position dots for the two mobile horizontal rows
-// (my-taste.jsx). Both dot containers exist in the DOM at every width —
-// no point mounting/unmounting via JS just to hide them — display: none is
-// the only thing keeping them out of the desktop/tablet layout, the same
-// "one DOM, CSS reshapes it per breakpoint" approach the rest of this
-// section already uses. aria-hidden (my-taste.jsx) on both containers: a
-// scrollbar substitute, not content — the row's own cards carry the real
-// tab order and links.
-.my-taste-scroll-dots,
-.my-taste-track-dots {
+// Stage 5 (continued) — per-row album art, MOBILE numbered list only.
+// .my-taste-crate is the sole "top tracks" view below $taste-swipe-max now
+// (the .my-taste-track-scroll swipe row is gone and the fanned
+// .my-taste-setlist-thumbs trio hides at this breakpoint), so each row
+// carries its own cover. Placed in .my-taste-setlist-link's `thumb` grid
+// area, spanning both rows (track name / artist). Reuses .my-taste-photo-slot
+// (border + --card-tint fallback) exactly like --thumb / --track.
+.my-taste-photo-slot--row {
+  display: none;
+
+  @media (max-width: $taste-swipe-max) {
+    display: block;
+    grid-area: thumb;
+    align-self: center;
+    width: 44px;
+    aspect-ratio: 1 / 1;
+  }
+}
+
+// Stage 5 — scroll-position dots for the mobile horizontal artist row
+// (my-taste.jsx). The container exists in the DOM at every width — no point
+// mounting/unmounting via JS just to hide it — display: none is the only
+// thing keeping it out of the desktop/tablet layout, the same "one DOM, CSS
+// reshapes it per breakpoint" approach the rest of this section uses.
+// aria-hidden (my-taste.jsx): a scrollbar substitute, not content — the
+// cards carry the real tab order and links. (The second dots container,
+// .my-taste-track-dots, went with the .my-taste-track-scroll swipe row it
+// belonged to — Stage 5 continued.)
+.my-taste-scroll-dots {
   display: none;
 
   @media (max-width: $taste-swipe-max) {
@@ -3839,125 +3967,13 @@ $taste-swipe-max: 1024px;
   }
 }
 
-// Stage 5 — the mobile-only track row: small cards (thumbnail + title +
-// artist), replacing .my-taste-crate's plain numbered list on mobile (that
-// rule's own display: none above). Same scroll-snap/edge-bleed mechanism
-// as .my-taste-wall's own mobile override further up this file.
-.my-taste-track-scroll {
-  display: none;
-
-  @media (max-width: $taste-swipe-max) {
-    display: flex;
-    // Horizontal only — same computed-`auto` trap as .my-taste-wall above.
-    // This row's cards are un-rotated so it measured 0px of vertical range
-    // today, but it is the identical mechanism one stray descendant margin
-    // away from the same bug, and the pair reads as one gesture to a
-    // visitor: both rows swipe sideways, neither drags vertically.
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    min-width: 0;
-    gap: var(--space-3);
-    margin: 0 calc(-1 * var(--space-5));
-    // Vertical padding for the same reason .my-taste-wall carries it: these
-    // cards are rotated now, overflow-y is hidden on this row, and the tape
-    // sits above each card's top edge. Without the room, `hidden` would crop
-    // the tilt and the tape rather than the row simply containing them.
-    padding: var(--space-4) var(--space-5) var(--space-2);
-  }
-}
-
-// Stage 5 follow-up (2026-09-02) — the album row gets the artist wall's own
-// paper treatment, on live feedback that the two rows should read as one
-// idea. Everything visual (background, padding, shadow, torn edge, tilt) now
-// comes from `.my-taste-card`, which these cards carry as a second class —
-// there is no second card style to keep in sync, only this rule re-enabling
-// on mobile what `.my-taste-card`'s own 600px block switches off by default,
-// exactly as `.my-taste-wall .my-taste-card` above does for the wall.
-.my-taste-track-scroll .my-taste-card {
-  @media (max-width: $taste-swipe-max) {
-    // .my-taste-card's mobile block sets `transform: none` (its old
-    // un-rotated single-column fallback). Put the seeded tilt back.
-    transform:
-      rotate(var(--card-rotate, 0deg))
-      translate(var(--card-jitter-x, 0px), var(--card-jitter-y, 0px));
-    // ...and drop that same block's vertical margin: spacing in this row is
-    // the flex `gap`, as on the wall.
-    margin: 0;
-  }
-}
-
-.my-taste-track-scroll .my-taste-card-tape {
-  @media (max-width: $taste-swipe-max) {
-    // `.my-taste-card-tape` hides itself below 600px for the old un-decorated
-    // fallback; the wall re-enables it the same way.
-    display: block;
-  }
-}
-
-.my-taste-track-card {
-  flex: 0 0 clamp(80px, 24vw, 132px);
-  // Found live — same flex min-content trap as .my-taste-wall .my-taste-card
-  // above, hit for real here: "I Ran (So Far Away) - Single Edit" (the same
-  // long title FINDINGS.md B31 already used as its own reference case) has
-  // no wrap point (white-space: nowrap on .my-taste-track-card-title), so
-  // without this the CARD's own automatic min-width becomes that title's
-  // full un-truncated text width (~203px, measured live) instead of the
-  // 132px flex-basis above — one card renders 71px taller than its
-  // siblings (aspect-ratio: 1/1 on the photo scales with it) and every
-  // other card in the row stretches to match via align-items: stretch.
-  min-width: 0;
-  scroll-snap-align: start;
-  display: block;
-  color: inherit;
-  text-decoration: none;
-  // The tape is absolutely positioned against its card; `.my-taste-card`
-  // (an <article> elsewhere) supplies this, but state it here too since this
-  // card is an <a> and the two rules' order in this file is not guaranteed
-  // to put the containing block where it is needed.
-  position: relative;
-
-  &:hover .my-taste-track-card-title {
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
-}
-
-// Reuses .my-taste-photo-slot's own base rule (border, --card-tint
-// fallback) — just this card's own aspect-ratio, same pattern as
-// --featured/--secondary/--thumb above.
-.my-taste-photo-slot--track {
-  aspect-ratio: 1 / 1;
-  margin-bottom: var(--space-2);
-}
-
-.my-taste-track-card-title {
-  display: block;
-  font-family: var(--taste-font-support);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.my-taste-track-card-artist {
-  display: block;
-  font-family: var(--taste-font-mono);
-  font-size: var(--text-xs);
-  color: var(--secondary-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+// Stage 5 (continued) — the mobile-only second swipe row
+// (.my-taste-track-scroll + .my-taste-track-card* + .my-taste-photo-slot
+// --track) is deleted. A ranked top-5 reads better as a vertical numbered
+// list than a sideways swipe; the list (.my-taste-crate / .my-taste-setlist)
+// is the sole "top tracks" view on mobile now, with per-row art via
+// .my-taste-photo-slot--row. This also removes the second dot indicator and
+// the second horizontal scroll gesture — the `my-taste-system` mockup.
 
 //Thank you section
 
@@ -4097,6 +4113,20 @@ $taste-swipe-max: 1024px;
   // unrelated) doubles as the takeover's own clip boundary for free — the
   // scale cap (connect.jsx) keeps it from ever needing to actually clip.
   position: relative;
+
+  // Stage 5 (continued) — stacked on a phone, `align-items: center` left the
+  // heading + card floating in the vertical middle with a wide empty band
+  // above and below. flex-start pins them near the top (just under the
+  // navbar via this section's own top padding); the leftover height pools
+  // below the card, which reads as ordinary section spacing before the
+  // footer rather than "why is this floating." Only while composing — the
+  // send-success walkman takeover keeps the centred confirmation it was
+  // tuned against (it grows in place, connect.jsx runSendSequence).
+  @media (max-width: 768px) {
+    &:not(:has(.contact-container[data-state="sent"])) {
+      align-items: flex-start;
+    }
+  }
 }
 
 // ---- Two-column layout (2026-08-27) ----
@@ -4145,7 +4175,10 @@ $taste-swipe-max: 1024px;
   @media (max-width: 768px) {
     flex-direction: column;
     text-align: center;
-    gap: var(--space-6);
+    // Stage 5 (continued) — space-6 -> space-5. Stacked, the heading, the
+    // intro line and the J-card only need one comfortable gap between them,
+    // not the generous side-by-side column gutter.
+    gap: var(--space-5);
   }
 }
 
@@ -4439,6 +4472,16 @@ $taste-swipe-max: 1024px;
   align-self: center;
   display: flex;
   flex-direction: column;
+  // Stage 5 (continued) — on a phone the 320px cap left the card floating
+  // in the middle of a wide gutter. The "reads wider than tall" worry that
+  // set 320 was measured against a 200px-min-height textarea; that field
+  // has since shrunk (min-height 280 -> 140 across the fit passes), so a
+  // fuller-width card is a portrait rectangle again here. Use most of the
+  // gutter, keeping ~8% so the card still reads as its own object and the
+  // reel-window decoration doesn't splay to the extreme corners.
+  @media (max-width: 768px) {
+    max-width: min(400px, 92%);
+  }
   // gap/top-padding each trimmed one step (space-4 -> space-3, space-6 ->
   // space-5) in the desktop one-screen-fit pass — the card's three sections
   // still read as distinct, but 604px was more than a navbar-cleared short
@@ -4793,6 +4836,17 @@ $taste-swipe-max: 1024px;
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 4px;
+  }
+
+  // Stage 5 (continued) — full-width send on a phone. A content-width pill
+  // floating centre in the tab row reads as a small afterthought under a
+  // gutter-width card; a full-width control reads as "the thing to do
+  // next." .jcard-tab-row stays a centred flex parent — the child just
+  // fills it now. Softer corner to match a bar rather than a pill.
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: center;
+    border-radius: 14px;
   }
 }
 
@@ -5239,107 +5293,129 @@ $taste-swipe-max: 1024px;
   margin-bottom: 2rem;
 }
 
-/* Expandable Sections */
+/* Expandable Sections — Stage 5 (continued): cards, not divider rows.
+   Each project is a distinct tappable card; the role is a mono-style kicker
+   ABOVE the title (the old two-column title/role split wrapped both columns
+   independently on a phone and read as a tangle); the description shows as a
+   2-line preview while collapsed and un-clamps once open. */
 .portfolio-item {
-  // Was a fixed rgba(255,255,255,0.2) — a light-on-dark divider that read
-  // as near-invisible in light theme (white at 20% alpha over a light bg).
-  // color-mix against --text-color is theme-aware by construction, same
-  // idiom the turntable's own --deck-bevel already uses for a subtle line.
-  border-bottom: 1px solid color-mix(in srgb, var(--text-color) 15%, transparent);
-  padding: 1rem 0;
-  // Stage 3 Task 10 — GSAP Flip (portfolio.jsx) tweens this row's real
-  // height/position when it opens or closes, not a scale transform (Flip's
-  // default for a size change is a direct height tween, which is what lets
-  // the description/video inside reflow naturally instead of visibly
-  // squishing). Hidden overflow is what keeps that grow/shrink reading as
-  // a clean reveal instead of content spilling past the row mid-tween —
-  // harmless once settled, since the row is always sized to its own
-  // content at rest.
-  //
-  // This is also what surfaced a real, previously-invisible bug: the
-  // header's own hover state carried `scale: (1.1)` (below), scaling the
-  // whole space-between row 10% larger — harmless with no ancestor
-  // constraining overflow, but clipped and visibly cut off the title/role
-  // text the instant this rule was added. Removed there, not worked around
-  // here, since a whole text row growing 10% on hover was already an odd
-  // effect on its own merits, independent of this clipping.
+  background: color-mix(in srgb, var(--text-color) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
+  border-radius: 12px;
+  margin-bottom: var(--space-3);
+  // Padding lives on the CARD, not each inner block — a `-webkit-box`
+  // line-clamp element with its own padding-bottom leaks the next line
+  // past the clamp (seen live). So the summary/details carry no padding of
+  // their own; the card frames all three.
+  padding: var(--space-4);
+  // GSAP Flip (portfolio.jsx) tweens this card's real height on open/close;
+  // hidden overflow keeps that grow/shrink reading as a clean reveal rather
+  // than content spilling past the card mid-tween — harmless at rest (the
+  // card is always sized to its own content). Same reasoning as the old
+  // border-bottom-divider version this replaces, and the same reason the
+  // header's stray scale(1.1) hover had to go (B34).
   overflow: hidden;
+  transition: border-color var(--theme-transition), background-color var(--theme-transition);
+
+  &.is-open {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  }
 }
 
 .portfolio-header {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "role  chevron"
+    "title chevron";
+  align-items: start;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
   width: 100%;
-  font-size: 1.3rem;
-  font-family: var(--font-body);
-  // Was 200. Only 400/600 are imported (Stage 10) — a 200 request with no
-  // lighter face available resolves to the nearest available match anyway
-  // (400), per the CSS font-matching algorithm, so this now says what
-  // actually renders. Also converges .project-role (no weight override of
-  // its own, so it inherited this 200) with .project-title's separate 400
-  // override just below — one less unexplained weight mismatch between
-  // the two spans in the same row.
-  font-weight: 400;
+  padding: 0;
   background: none;
   border: none;
   color: var(--text-color);
   text-align: left;
   cursor: pointer;
-  // Left inset reserves room for the hover/focus accent edge below so its
-  // scaleY reveal doesn't shift the row's own text sideways when it appears.
-  padding: 1rem 0 1rem var(--space-4);
-  // Was `all 0.3s`. Narrowed to the properties that actually change here
-  // (colour on theme, colour + opacity on :hover) — `all` also caught layout
-  // properties and made this the second-slowest surface in a theme change.
-  transition: color var(--theme-transition), opacity var(--theme-transition);
+  font-family: var(--font-body);
 
-  // Thin accent-colored left edge — plain CSS, not GSAP (a single-property
-  // hover doesn't earn a tweening engine, per the brief). scaleY 0->1 from
-  // a centered transform-origin so it reads as growing in place rather than
-  // sliding down from the top.
-  &::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: var(--space-2);
-    bottom: var(--space-2);
-    width: 3px;
-    background: var(--accent);
-    transform: scaleY(0);
-    transform-origin: center;
-    transition: transform 0.2s ease;
-  }
-
-  &:hover::before,
-  &:focus-visible::before {
-    transform: scaleY(1);
-  }
-
-  // No explicit :focus-visible rule existed here before this task — every
-  // other interactive element on the site has its own (navbar links, the
-  // theme toggle, My Taste's cards, form fields); this was the one gap.
-  // Same outline/offset values most of those already use.
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
-.portfolio-header:hover {
-  opacity: 0.7;
-  color: var(--accent);
-}
-.portfolio-header .project-title {
-  font-weight: 400;
+.project-role {
+  grid-area: role;
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--secondary-text);
 }
 
-/* Expandable Content */
-.portfolio-details {
-  margin-top: 1rem;
-  padding-left: 1rem;
+.project-title {
+  grid-area: title;
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.25;
+  transition: color var(--theme-transition);
+
+  .portfolio-header:hover & {
+    color: var(--accent);
+  }
+}
+
+.portfolio-chevron {
+  grid-area: chevron;
+  align-self: center;
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
   color: var(--secondary-text);
-  font-size: 1.2rem;
+  transition: transform 0.2s ease, color 0.2s ease;
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .portfolio-item.is-open & {
+    transform: rotate(180deg);
+    color: var(--accent);
+  }
+}
+
+// Always rendered (portfolio.jsx). 2-line preview while collapsed; the
+// .is-open state below switches it back to normal block flow so the full
+// text shows — that height change lands in the same flushSync render
+// toggleProject drives, so Flip.from measures it (standard Flip accordion).
+// The classic recipe (display: -webkit-box, NO own padding) — see
+// .portfolio-item's padding note.
+.portfolio-summary {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  color: var(--secondary-text);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+
+  .portfolio-item.is-open & {
+    display: block;
+    overflow: visible;
+  }
+}
+
+/* Expandable Content — video + links only now (the description moved out to
+   .portfolio-summary above). */
+.portfolio-details {
+  margin-top: var(--space-3);
+  color: var(--secondary-text);
   // The old `animation: fadeIn` (a CSS @keyframes, removed) came out —
   // GSAP Flip's own onEnter/onLeave callbacks (portfolio.jsx) own this fade
   // now, the "one mechanism per effect" discipline this codebase already
@@ -5352,7 +5428,6 @@ $taste-swipe-max: 1024px;
   width: 100%;
   max-width: 700px;
   height: auto;
-  margin-top: 1rem;
   border-radius: 10px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
 }
@@ -5578,9 +5653,16 @@ $taste-swipe-max: 1024px;
       "content"
       "crate"
       "deck";
-    row-gap: 32px;
+    // Stage 5 (continued) — align-content: start (base is `center`). Centred
+    // in a 100vh grid, a hero shorter than the screen splits its slack top
+    // and bottom, which is the ~200px of empty space above the name on a
+    // phone. Top-aligned, the name sits just under the navbar and the deck —
+    // the actual thing to interact with — gets the rest of the screen. Top
+    // padding is navbar-aware so the name can't land under the fixed bar.
+    align-content: start;
+    row-gap: 28px;
     text-align: center;
-    padding: 120px 20px 40px;
+    padding: calc(var(--navbar-height) + var(--space-4)) 12px 32px;
   }
 
   .hero-content {
@@ -5605,7 +5687,11 @@ $taste-swipe-max: 1024px;
   }
 
   .turntable {
-    width: min(420px, 90vw);
+    // Stage 5 (continued) — bled closer to the gutter (.home's mobile
+    // horizontal padding dropped 20px -> 12px) and grown, so the platter
+    // reads as the centrepiece it is rather than a small graphic under the
+    // text.
+    width: min(480px, 95vw);
     aspect-ratio: 4 / 3;
   }
 
@@ -5654,19 +5740,15 @@ $taste-swipe-max: 1024px;
   // — @mixin section-title now gives it --text-xl, a fluid clamp(2rem, 5vw,
   // 2.5rem) that already covers mobile on its own, same as .experience-title
   // and .contact-title's own fixed sizes needing no breakpoint step either.
-  .portfolio-header {
-    font-size: 1.2rem;
-    align-items: center;
-    justify-content: right;
-
-  }
-
-  .portfolio-list {
-    padding: 10px;
-  }
-
-  .portfolio-details {
-    font-size: 1rem;
+  //
+  // Stage 5 (continued): the old .portfolio-header (font-size 1.2rem,
+  // align-items center, justify-content right) and .portfolio-details
+  // (font-size 1rem) overrides are gone — the card rebuild's base rules use
+  // the fluid type scale and a grid header that already reads right at every
+  // width. .portfolio-list's 10px padding is gone too (each card carries its
+  // own padding now); the section just claims a tighter gutter here.
+  .portfolio-section {
+    padding: var(--space-6) var(--space-5);
   }
 
   .portfolio-video {

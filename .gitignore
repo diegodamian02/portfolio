@@ -15,3 +15,6 @@ node_modules
 
 # macOS
 .DS_Store
+
+# Claude Design canvas — seeded payload is a large regenerable artifact (seed-canvas.mjs)
+design-review/mobile-redesign/mobile-redesign.html

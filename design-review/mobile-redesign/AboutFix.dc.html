@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden;padding:64px 20px 0}
+    .portrait{width:128px;height:158px;border-radius:14px;margin:0 auto;background:radial-gradient(120% 90% at 50% 25%,#586b54,#243027 70%);position:relative}
+    .portrait::after{content:"photo";position:absolute;left:0;right:0;bottom:10px;text-align:center;font-family:"Space Mono",monospace;font-size:9px;letter-spacing:.14em;color:rgba(255,255,255,.28)}
+    .name{font-family:"Poppins";font-weight:700;font-size:32px;letter-spacing:-.03em;text-align:center;margin:24px 0 0}
+    .bio{color:#c7cdde;font-size:16px;text-align:left;margin:20px 0 0;line-height:1.62}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 0}
+    .chip{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border:1px solid rgba(154,163,189,.32);border-radius:999px;font-size:13.5px;white-space:nowrap}
+    .chip svg{width:15px;height:15px;flex:0 0 auto;stroke:#9aa3bd}
+    .note{margin:24px 0 22px;font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#8fd0a6;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="portrait"></div>
+  <h1 class="name">Diego Damian</h1>
+  <p class="bio">Hola! This is Diego. I am a Software Engineer, with a passion for coding, developing &amp; music. Play your favorite tune &amp; enjoy the ride!</p>
+  <div class="chips">
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><path d="M5 17.5V3"/><path d="M5 4c1.4-1 3-1 4.5 0s3.1 1 4.5 0v7c-1.4 1-3 1-4.5 0s-3.1-1-4.5 0V4Z"/></svg>From Lima, Peru</div>
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><path d="M2.5 17.5h15"/><path d="M4.5 17.5V8.5l2.5-1.8 2.5 1.8v9"/><path d="M9.5 17.5V4.5l3-2 3 2v13"/></svg>Based in Chicago</div>
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><path d="M2 7.5 10 4l8 3.5-8 3.5-8-3.5Z"/><path d="M5.5 9.2v3.6c0 1 2 2.2 4.5 2.2s4.5-1.2 4.5-2.2V9.2"/></svg>Rutgers: Computer Science</div>
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="m7 10.3 2 2 4-4.6"/></svg>Test Automation</div>
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><path d="M7.5 15.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/><path d="M9.5 13.5V3.8l6-1.3v9.4"/><path d="M15.5 13.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg>Loves Music</div>
+    <div class="chip"><svg viewBox="0 0 20 20" fill="none" stroke-width="1.5"><path d="M12.2 2.2 15.8 5.8"/><path d="m9.6 8.4-2.3 2.3"/><path d="M9.9 9.6c1.8 1.8 2 4.6.5 6.1a4 4 0 0 1-5.7-5.7c1.5-1.5 4.3-1.3 6.1.5Z"/></svg>Plays Guitar</div>
+  </div>
+  <div class="note">Same pieces, less noise. Bio <b>left-aligned</b> (centred prose is hard to read on a phone). Three stacked pills &rarr; one wrapped tag row, so <b>all six facts fit</b> in the space one used to take. Section trimmed to its content &mdash; no void below.</div>
+</div>
+</x-dc>
+</body>
+</html>

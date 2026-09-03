@@ -745,6 +745,57 @@ slowly enough for the bar to collapse.
 
 ---
 
+### B75 — `#my-taste`'s wall cards jumped position the instant the entrance cascade finished — **FOUND AND FIXED (2026-09-03)**
+
+Reported live: "when the animation of the cards in my taste finishes the cards
+end up in a different position than the one in the animation and it looks a bit
+weird."
+
+The Task 4.1 entrance settles each wall card's rotation around
+`transform-origin: 50% 0%` (the tape/pin anchor), for a "swinging from the pin"
+read. The timeline then calls `clearProps: "transform,transformOrigin"` to hand
+the card back to the `.my-taste-card` rest rule — which rotates around
+`center center`. Swapping the pivot under a card already rotated 2–4° shifts it
+sideways, and the shift is instantaneous because it lands on the single frame
+`clearProps` fires.
+
+A second, smaller contribution: the non-headliner cards animated only `y`, never
+`x`, so they settled at `x: 0` while the rest rule rests them at
+`translateX(var(--card-jitter-x))` — another ±4px pop in the same instant.
+
+**Measured** (Playwright, 1440×900, sampling each card's wall-relative box every
+frame through the cascade — page scroll cancelled out). Pre-fix, the step from
+the last animated frame to the settled position:
+
+| card | pre-fix jump | post-fix |
+|---|---|---|
+| headliner (featured-1) | **6.79px** | 0.86px |
+| featured-2 | **8.28px** | 1.63px |
+| secondary-1 | **4.95px** | 0.83px |
+| secondary-2 | **4.28px** | 1.50px |
+| secondary-3 | **3.06px** | 1.62px |
+
+The post-fix residual is the CustomBounce deceleration tail (present before too),
+not a discontinuity — the last ~400ms of every card's trajectory is completely
+static, i.e. `clearProps` now moves nothing.
+
+**Fix (`my-taste.jsx` only).** Settle at the same `center center` pivot the rest
+rule uses, and set each rest card's start `x` to its own `--card-jitter-x` so the
+drop is straight down onto its resting column and `clearProps` has nothing left
+to reconcile. The timeline's final frame is now identical to the CSS rest state
+(bar a sub-pixel `translate·rotate` vs `rotate·translate` ordering difference,
+~0.3px, not perceptible on a static end state). The "hinged at the pin" nuance of
+the settle is traded away; the drop + squash still carries the motion.
+
+**Not done: moving the rest state to the pin instead.** That would also
+reconcile the two and would arguably suit the "pinned flyer" metaphor, but the
+wall's zero-overlap spacing (`cardTransform()`'s margin budget vs
+`.my-taste-wall`'s gap) is verified only for centre-pivot rotation — a top-pivot
+rest state swings each card's bottom corner about twice as far into its
+neighbour's gap, and that clearance was never re-measured for it.
+
+---
+
 ### D34 — There is no tablet tier: the mobile layout stops at 600px and iPads get a squeezed desktop — **PARTLY RESOLVED 2026-09-02 (`#my-taste` only)**
 
 Every mobile override in `main.scss` is gated at `max-width: 600px` (or 480px).
@@ -805,6 +856,21 @@ the middle.
 
 **Still open for `#projects`**, which measured 0.62x/0.53x/0.46x and was not part
 of this change.
+
+> **Update, 2026-09-03 (Stage 5 continued — mobile declutter pass).**
+> `#projects`' mobile/tablet layout was rebuilt: `.portfolio-item` is a
+> bordered card, the role/title two-column split (each column wrapping
+> independently) became a stacked role-kicker + title, and a 2-line
+> `.portfolio-summary` preview fills the collapsed state. Its mobile
+> `@media (max-width: 768px)` block no longer just inherits desktop — the
+> new base rules use the fluid type scale and a grid header that reads
+> right at every width, so 768px `.portfolio-header`/`.portfolio-details`
+> overrides were deleted. Measured at 390: **1.08×** (over one screen — it
+> scrolls, no `min-height` on `#projects`). The narrow-band D34 concern
+> (601–1024 getting a scaled-down desktop) no longer applies to `#projects`
+> — its layout is width-fluid now. The still-genuinely-open half is
+> `#about`'s desktop timeline and the Experience filmstrip on 601–1024
+> *portrait*, if a deliberate tablet art-direction tier is ever wanted.
 
 **Relevant constraint for whoever takes this:** `#my-taste`'s mobile treatment
 (the two horizontal swipe rows) is *specifically* a phone idiom, built in the

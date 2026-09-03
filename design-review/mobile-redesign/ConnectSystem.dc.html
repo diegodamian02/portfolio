@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden;padding:64px 20px 0}
+    .kicker{font-family:"Space Mono","Courier New",monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#9aa3bd}
+    .title{font-family:"Poppins";font-weight:700;font-size:32px;letter-spacing:-.03em;margin:10px 0 0}
+    .intro{color:#9aa3bd;font-size:15px;margin:10px 0 0}
+    .stack{margin-top:24px;position:relative;padding-left:16px}
+    .stack::before{content:"";position:absolute;left:0;top:4px;bottom:70px;width:5px;border-radius:3px;background:repeating-linear-gradient(45deg,rgba(111,155,255,.5)0 4px,transparent 4px 8px)}
+    .field{margin-bottom:14px}
+    .lab{font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#9aa3bd}
+    .inp{height:48px;border-radius:10px;background:#121826;border:1px solid rgba(154,163,189,.16);margin-top:6px}
+    .inp.msg{height:132px}
+    .send{margin-top:2px;width:100%;height:52px;border-radius:12px;background:#6f9bff;color:#0a0e1a;font-weight:600;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px}
+    .foot{margin-top:34px;text-align:center;padding-bottom:16px}
+    .foot .c{color:#9aa3bd;font-size:13px}
+    .foot .soc{display:flex;gap:20px;justify-content:center;margin-top:14px}
+    .foot .soc i{width:44px;height:44px;border-radius:12px;background:#121826;border:1px solid rgba(154,163,189,.16)}
+    .note{margin:6px 0 20px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#e8a0a0;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="kicker">contact</div>
+  <h1 class="title">Let&rsquo;s Connect!</h1>
+  <p class="intro">Leave a note &mdash; the walkman still plays it back.</p>
+  <div class="stack">
+    <div class="field"><div class="lab">Name</div><div class="inp"></div></div>
+    <div class="field"><div class="lab">Email &middot; optional</div><div class="inp"></div></div>
+    <div class="field"><div class="lab">Message</div><div class="inp msg"></div></div>
+    <div class="send">&#9654;&nbsp; Send</div>
+  </div>
+  <div class="foot"><div class="c">&copy; 2026 | Diego Damian</div><div class="soc"><i></i><i></i><i></i></div></div>
+  <div class="note">Chrome dialled down to a single diagonal spine on the field stack &mdash; the cassette cue without the reel windows. <b>44&ndash;48px inputs, 52px send</b>. Footer socials become real 44px tap targets. The send-success walkman takeover is untouched.</div>
+</div>
+</x-dc>
+</body>
+</html>

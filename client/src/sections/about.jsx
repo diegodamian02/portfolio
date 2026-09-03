@@ -82,23 +82,21 @@ const GuitarIcon = () => (
 // accurate facts in the same two slots, rather than one journey line that
 // implied a direct move and left out the Rutgers/New Jersey years between.
 //
-// desktopOnly — mobile keeps only location (both chips) and education per
-// direct feedback ("just keep my education and my location for mobile...
-// keep the PIN"), narrowed down from an initial "drop Test Automation and
-// Plays Guitar" pass. Six chips wrapped into enough rows on a phone-width
-// column to be most of what made the card too tall to hold/pin on mobile in
-// the first place (see FINDINGS.md B16) — down to three keeps that margin
-// comfortable rather than marginal. Only hidden below the same 768px
-// breakpoint everything else in this file uses (a CSS display:none, not a
-// separate mobile CHIPS list — nothing here needed a JS-level fork), so all
-// six still show on desktop.
+// Stage 5 (continued) — all six show on mobile again. Three were CSS-hidden
+// there (the `desktopOnly` flag, FINDINGS.md B16) because six full-width
+// pills stacked into enough rows to push the card too tall to fit the
+// scroll-hold's viewport-fit check. That check is gone — about.jsx's
+// onEnter no longer gates on height ("Nothing to gate on any more") — and
+// the mobile chips are a compact wrapped tag cluster now (main.scss), not a
+// stack of full-width pills, so all six fit in roughly the space three
+// used to take.
 const CHIPS = [
     { icon: FlagIcon, label: "From Lima, Peru" },
     { icon: SkylineIcon, label: "Based in Chicago" },
     { icon: EducationIcon, label: "Rutgers: Computer Science" },
-    { icon: FocusIcon, label: "Test Automation", desktopOnly: true },
-    { icon: MusicIcon, label: "Loves Music", desktopOnly: true },
-    { icon: GuitarIcon, label: "Plays Guitar", desktopOnly: true },
+    { icon: FocusIcon, label: "Test Automation" },
+    { icon: MusicIcon, label: "Loves Music" },
+    { icon: GuitarIcon, label: "Plays Guitar" },
 ];
 
 export default function About() {
@@ -340,11 +338,8 @@ export default function About() {
                         Hola! This is Diego. I am a Software Engineer, with a passion for coding, developing & music. Play your favorite tune & enjoy the ride!
                     </p>
                     <ul className="about-me-chips" ref={chipsRef}>
-                        {CHIPS.map(({ icon: Icon, label, desktopOnly }) => (
-                            <li
-                                className={"about-me-chip" + (desktopOnly ? " about-me-chip--desktop-only" : "")}
-                                key={label}
-                            >
+                        {CHIPS.map(({ icon: Icon, label }) => (
+                            <li className="about-me-chip" key={label}>
                                 <span className="about-me-chip-icon" aria-hidden="true"><Icon /></span>
                                 {label}
                             </li>

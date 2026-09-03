@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden;padding:64px 20px 0}
+    .title{font-family:"Poppins";font-weight:700;font-size:34px;letter-spacing:-.03em;margin:0}
+    .intro{color:#9aa3bd;font-size:15px;margin:12px 0 0;line-height:1.5}
+    .jcard{margin-top:22px;background:#161b28;border-radius:12px;padding:16px;box-shadow:0 20px 44px rgba(0,0,0,.4)}
+    .field{margin-bottom:14px}
+    .lab{font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#9aa3bd}
+    .inp{height:44px;border-radius:8px;background:#0e121b;border:1px solid rgba(154,163,189,.2);margin-top:6px}
+    .cass{margin-top:6px;background:#0e121b;border:1px solid rgba(154,163,189,.2);border-radius:8px;padding:12px 12px 12px 30px;height:118px;position:relative}
+    .cass::before{content:"";position:absolute;left:10px;top:12px;bottom:12px;width:6px;border-radius:3px;background:repeating-linear-gradient(45deg,rgba(154,163,189,.3)0 3px,transparent 3px 6px)}
+    .send{margin-top:4px;width:100%;height:48px;border-radius:10px;background:#6f9bff;color:#0a0e1a;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px}
+    .foot{margin-top:26px;text-align:center;padding-bottom:16px}
+    .foot .c{color:#9aa3bd;font-size:13px}
+    .foot .soc{display:flex;gap:22px;justify-content:center;margin-top:12px}
+    .foot .soc i{width:24px;height:24px;border-radius:6px;background:#2b3040}
+    .note{margin:8px 0 20px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#8fd0a6;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <h1 class="title">Let&rsquo;s Connect!</h1>
+  <p class="intro">Thanks for playing around &mdash; leave a note if you&rsquo;d like to talk.</p>
+  <div class="jcard">
+    <div class="field"><div class="lab">Name</div><div class="inp"></div></div>
+    <div class="field"><div class="lab">Email &middot; optional</div><div class="inp"></div></div>
+    <div class="field"><div class="lab">Message</div><div class="cass"></div></div>
+    <div class="send">&#9654;&nbsp; Send</div>
+  </div>
+  <div class="foot"><div class="c">&copy; 2026 | Diego Damian</div><div class="soc"><i></i><i></i><i></i></div></div>
+  <div class="note">Intro to one line. Card tightened, inputs to <b>44px</b>, <b>send is full-width</b>. Cassette read kept as a slim spine stripe instead of reel windows. Min-height trimmed so the footer sits right under the card.</div>
+</div>
+</x-dc>
+</body>
+</html>

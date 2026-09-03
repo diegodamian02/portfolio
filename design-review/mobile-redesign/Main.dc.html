@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    a{color:#6f9bff}a:hover{color:#9dbcff}
+    .wrap{width:1280px;min-height:1640px;padding:64px 72px 72px}
+    .mono{font-family:"Space Mono","Courier New",monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#9aa3bd}
+    h1{font-family:"Poppins";font-weight:600;font-size:44px;letter-spacing:-.02em;margin:14px 0 8px}
+    .lede{font-size:19px;color:#c7cdde;max-width:720px;margin:0 0 52px}
+    h2{font-family:"Poppins";font-weight:600;font-size:15px;letter-spacing:.16em;text-transform:uppercase;color:#9aa3bd;margin:0 0 20px}
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-bottom:56px}
+    .prob{display:flex;flex-direction:column;gap:16px}
+    .prob div{background:#121826;border:1px solid rgba(154,163,189,.14);border-radius:12px;padding:16px 18px}
+    .prob b{font-weight:600;display:block;font-size:15px;margin-bottom:4px}
+    .prob span{color:#9aa3bd;font-size:14px}
+    .princ{display:flex;flex-direction:column;gap:14px;counter-reset:p}
+    .princ>div{display:flex;gap:14px;align-items:flex-start}
+    .princ>div::before{counter-increment:p;content:counter(p);flex:0 0 26px;height:26px;border-radius:50%;background:rgba(111,155,255,.16);color:#6f9bff;font-family:"Space Mono",monospace;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+    .princ b{font-weight:600;font-size:15px}
+    .princ span{color:#9aa3bd;font-size:14px;display:block;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th{text-align:left;font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9aa3bd;font-weight:400;padding:0 16px 12px 0;border-bottom:1px solid rgba(154,163,189,.2)}
+    td{padding:16px 16px 16px 0;border-bottom:1px solid rgba(154,163,189,.1);vertical-align:top;color:#c7cdde}
+    td:first-child{color:#eef1f8;font-weight:600;white-space:nowrap}
+    .rm{color:#e8a0a0}.add{color:#8fd0a6}
+    .foot{margin-top:44px;color:#9aa3bd;font-size:13px;font-family:"Space Mono",monospace;letter-spacing:.04em}
+  </style>
+</helmet>
+<div class="wrap">
+  <div class="mono">diegodamian.com &nbsp;/&nbsp; mobile</div>
+  <h1>Make each section fill the screen &mdash; not float in it</h1>
+  <p class="lede">The mobile build works. What makes it feel cluttered is the mix: content locked to one screen but only half-filling it, the same scaffolding repeated, and four different ways to scroll. Two directions per section below &mdash; a conservative fix that keeps each section's identity, and a bolder version on one shared system.</p>
+
+  <div class="cols">
+    <div>
+      <h2>What reads as clutter</h2>
+      <div class="prob">
+        <div><b>Content in a void</b><span>Every section is <code>min-height: 100svh</code> but fills ~40&ndash;60%. A wide empty band sits under each one.</span></div>
+        <div><b>Repeated scaffolding</b><span>#my-taste alone: three labels, two swipe rows, two dot indicators &mdash; for ten items.</span></div>
+        <div><b>Four scroll idioms</b><span>Filmstrip (experience), swipe rows (my&nbsp;taste), accordion (projects), static stack (about). Nothing rhymes.</span></div>
+        <div><b>Edge-bleed</b><span>Horizontal rows slice cards on both screen edges at once, so nothing has a clean start or end.</span></div>
+      </div>
+    </div>
+    <div>
+      <h2>The shared system &mdash; &ldquo;unified&rdquo; column</h2>
+      <div class="princ">
+        <div><div><b>Let sections breathe to their content</b><span>Drop one-section-one-screen on phones. Natural height, bounded padding (64 top / 48 bottom).</span></div></div>
+        <div><div><b>One section header</b><span>Mono kicker + one line of context. Same treatment in all six.</span></div></div>
+        <div><div><b>One horizontal idiom, used once</b><span>A peek-carousel: active card + next card peeking + dots. Only where the content is genuinely visual.</span></div></div>
+        <div><div><b>One card</b><span>12px radius, image top / text bottom, 16px padding, one surface colour.</span></div></div>
+        <div><div><b>One edge rhythm</b><span>20px gutter. Rows snap-align to it; the last card rests with a trailing gutter. No symmetric half-cards.</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Per section &mdash; what to remove, keep, add</h2>
+  <table>
+    <tr><th style="width:120px">Section</th><th style="width:34%">Remove</th><th style="width:26%">Keep</th><th>Add</th></tr>
+    <tr><td>Home</td><td class="rm">Vertical pitch fader (fiddly 36px target), the ~400px gap above the name</td><td>Turntable as centrepiece, scratch interaction, name + tagline</td><td class="add">44px+ transport / fader targets, deck bled to the gutter</td></tr>
+    <tr><td>About</td><td class="rm">Forced full height, centre-justified bio blob, three full-width stacked pills</td><td>Portrait, name, the fact set</td><td class="add">Left-aligned bio at reading width, compact wrapped tag row, all six facts back</td></tr>
+    <tr><td>Experience</td><td class="rm">Horizontal filmstrip, centre-focus scale effect, the year pill floating between title and card</td><td>The photos, the once-only year scramble</td><td class="add">Vertical timeline rail &mdash; six compact rows that fill the screen by themselves</td></tr>
+    <tr><td>My&nbsp;Taste</td><td class="rm">Second swipe row + its dots, the vertical voids between zones</td><td>Torn-poster artist cards (the section's identity)</td><td class="add">Top 5 tracks as a numbered list &mdash; a ranking wants to be vertical</td></tr>
+    <tr><td>Projects</td><td class="rm">Two-column title / role split (both wrap independently), bare divider rows</td><td>Single-open accordion, GSAP Flip swap</td><td class="add">Mono role kicker above each title, a one-line preview in the collapsed state</td></tr>
+    <tr><td>Connect</td><td class="rm">Heavy cassette chrome competing with the text, forced min-height under the form</td><td>The J-card note flow, the walkman send reveal</td><td class="add">Full-width send, one-line intro, larger footer socials</td></tr>
+  </table>
+
+  <p class="foot">18 phone frames follow &mdash; one page per section, three frames each: current &nbsp;&middot;&nbsp; targeted fix &nbsp;&middot;&nbsp; unified system.</p>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden;padding:72px 20px 0}
+    .title{font-family:"Poppins";font-weight:700;font-size:38px;letter-spacing:-.03em;text-align:center;margin:0}
+    .sub{color:#9aa3bd;font-size:16px;text-align:center;margin:14px 0 0;line-height:1.45}
+    .list{margin-top:30px}
+    .item{display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid rgba(154,163,189,.16)}
+    .item .body{flex:1;min-width:0}
+    .item .role{font-family:"Space Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9aa3bd}
+    .item .t{font-size:17px;font-weight:500;margin-top:4px;line-height:1.25}
+    .item .chev{color:#9aa3bd;font-size:16px;flex:0 0 auto}
+    .item.open .chev{transform:rotate(180deg);color:#6f9bff}
+    .det{padding:2px 0 20px}
+    .det p{color:#c7cdde;font-size:14px;line-height:1.55;margin:0 0 14px}
+    .vid{height:150px;border-radius:10px;background:linear-gradient(150deg,#1c2233,#12151d);display:flex;align-items:center;justify-content:center;color:#4a5265;font-size:13px}
+    .links{display:flex;gap:10px;margin-top:12px}
+    .links a{font-size:14px;color:#6f9bff;border:1px solid rgba(111,155,255,.4);border-radius:8px;padding:8px 16px;text-decoration:none}
+    .note{margin:22px 0;font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#8fd0a6;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <h1 class="title">Projects</h1>
+  <p class="sub">Here are some of my selected projects worth sharing.</p>
+  <div class="list">
+    <div class="item open"><div class="body"><div class="role">Website Developer</div><div class="t">Engage in Democracy: Rutgers Website</div></div><span class="chev">&#9662;</span></div>
+    <div class="det">
+      <p>A Drupal site on the Rutgers layout with tabbed-grid navigation in JavaScript &mdash; built to help students explore resources and share political views.</p>
+      <div class="vid">demo video</div>
+      <div class="links"><a>Live</a></div>
+    </div>
+    <div class="item"><div class="body"><div class="role">FrontEnd Developer</div><div class="t">Harmoni &mdash; Music Dating App</div></div><span class="chev">&#9662;</span></div>
+    <div class="item"><div class="body"><div class="role">FullStack Developer</div><div class="t">Diego&rsquo;s Pomodoro</div></div><span class="chev">&#9662;</span></div>
+    <div class="item"><div class="body"><div class="role">Backend Developer</div><div class="t">Check This Chess</div></div><span class="chev">&#9662;</span></div>
+  </div>
+  <div class="note">Kill the two-column split. <b>Role becomes a mono kicker</b> above a single-line title, chevron on the right. Same single-open accordion &mdash; expanded content (video + links) unchanged.</div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden}
+    .nav{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+    .logo{font-weight:700;font-size:20px;letter-spacing:-.02em}
+    .burger{width:26px;height:12px;display:flex;flex-direction:column;justify-content:space-between}
+    .burger i{height:2px;background:#eef1f8;border-radius:2px}
+    .head{padding:18px 20px 0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+    .name{font-family:"Poppins";font-weight:700;font-size:25px;letter-spacing:-.02em;margin:0}
+    .tag{color:#9aa3bd;font-size:14px;margin:0}
+    .pill{margin:16px 20px 0;display:flex;align-items:center;gap:12px;padding:15px 18px;border:1.5px solid #6f9bff;border-radius:14px;background:rgba(111,155,255,.07)}
+    .pill .dot{width:20px;height:20px;border:1.5px solid #6f9bff;border-radius:50%;position:relative;flex:0 0 auto}
+    .pill .dot::after{content:"";position:absolute;inset:7px;border-radius:50%;background:#6f9bff}
+    .pill span{font-size:17px;color:#cdd7f2;font-weight:500}
+    .deck{margin:16px 12px 0;background:#1b1f2b;border-radius:20px;padding:34px 24px 28px;display:flex;flex-direction:column;align-items:center;position:relative;overflow:hidden;box-shadow:0 26px 64px rgba(0,0,0,.5)}
+    .stage{position:relative;width:300px;height:300px}
+    .platter{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#20242f 0%,#171a22 72%);box-shadow:inset 0 0 0 14px rgba(255,255,255,.03),inset 0 0 48px rgba(0,0,0,.55)}
+    .platter::before{content:"";position:absolute;left:50%;top:50%;width:12px;height:12px;border-radius:50%;background:#eef1f8;transform:translate(-50%,-50%)}
+    .arm{position:absolute;right:-6px;top:-10px;width:5px;height:184px;background:#c8ccd6;border-radius:3px;transform:rotate(24deg);transform-origin:top}
+    .arm::before{content:"";position:absolute;left:-8px;top:-9px;width:20px;height:20px;border-radius:50%;background:#dfe2e9}
+    .pitch{width:100%;margin-top:26px}
+    .pitch .lab{font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#7f8ba6;margin-bottom:9px;display:flex;justify-content:space-between}
+    .pitch .track{height:6px;border-radius:4px;background:#12151d;position:relative}
+    .pitch .track::before{content:"";position:absolute;left:50%;top:-9px;bottom:-9px;width:2px;background:rgba(154,163,189,.3)}
+    .pitch .track i{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:#6f9bff;box-shadow:0 4px 14px rgba(111,155,255,.45)}
+    .play{margin-top:26px;width:64px;height:64px;border-radius:50%;background:#2b3040;position:relative;box-shadow:0 8px 22px rgba(0,0,0,.45)}
+    .play::after{content:"";position:absolute;left:25px;top:19px;border-left:16px solid #cfd4e0;border-top:13px solid transparent;border-bottom:13px solid transparent}
+    .note{margin:16px 20px 22px;font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#e8a0a0;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="nav"><div class="logo">D.</div><div class="burger"><i></i><i></i><i></i></div></div>
+  <div class="head"><h1 class="name">Diego Damian</h1><p class="tag">welcome to my playground</p></div>
+  <div class="pill"><span class="dot"></span><span>put a record on&hellip;</span></div>
+  <div class="deck">
+    <div class="stage"><div class="platter"></div><div class="arm"></div></div>
+    <div class="pitch">
+      <div class="lab"><span>&minus;8%</span><span>pitch</span><span>+8%</span></div>
+      <div class="track"><i></i></div>
+    </div>
+    <div class="play"></div>
+  </div>
+  <div class="note">Lead with the interaction. Name shrinks to a label, the crate prompt becomes the loud element, the deck takes the rest of the screen. <b>Pitch fader goes horizontal below the platter</b> &mdash; a self-centring slider, an easy thumb target, no 40px column. Everything on-screen at once; no scroll to reach the deck.</div>
+</div>
+</x-dc>
+</body>
+</html>

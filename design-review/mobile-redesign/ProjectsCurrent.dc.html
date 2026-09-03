@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;min-height:844px;background:#0a0e1a;position:relative;overflow:hidden;padding:72px 20px 0}
+    .title{font-family:"Poppins";font-weight:700;font-size:40px;letter-spacing:-.03em;text-align:center;margin:0}
+    .sub{color:#9aa3bd;font-size:19px;text-align:center;margin:18px 0 0;line-height:1.4}
+    .list{margin-top:34px}
+    .item{display:flex;justify-content:space-between;gap:16px;padding:22px 0;border-bottom:1px solid rgba(154,163,189,.18)}
+    .item .t{font-size:23px;font-weight:400;line-height:1.15;max-width:56%}
+    .item .r{font-size:23px;font-weight:400;line-height:1.15;color:#c7cdde;text-align:left}
+    .callout{position:absolute;left:20px;right:20px;bottom:16px;font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.05em;color:#6b7488;text-align:center;border-top:1px dashed rgba(154,163,189,.25);padding-top:9px;line-height:1.6}
+  </style>
+</helmet>
+<div class="phone">
+  <h1 class="title">Projects</h1>
+  <p class="sub">Here are some of my selected projects worth sharing.</p>
+  <div class="list">
+    <div class="item"><span class="t">Engage in Democracy: Rutgers Website</span><span class="r">Website Developer</span></div>
+    <div class="item"><span class="t">Harmoni - Music Dating App</span><span class="r">FrontEnd Developer</span></div>
+    <div class="item"><span class="t">Diego's Pomodoro</span><span class="r">FullStack Developer</span></div>
+    <div class="item"><span class="t">Check This Chess</span><span class="r">Backend Developer</span></div>
+  </div>
+  <div class="callout">title and role are two columns that wrap independently &mdash; every row reads as a tangle</div>
+</div>
+</x-dc>
+</body>
+</html>

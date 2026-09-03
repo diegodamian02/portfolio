@@ -168,6 +168,10 @@ function ExperienceFilmstrip({ entries }) {
     const railDotRef = useRef(null);
     const cardRefs = useRef([]);
     const dateRefs = useRef([]);
+    // Stage 5 (continued) — the mobile scroll-position dot row. A container
+    // ref; the effect reads its children and toggles .is-active from the
+    // same setActive() the emphasis calc already runs through.
+    const dotsRef = useRef(null);
     cardRefs.current = [];
     dateRefs.current = [];
 
@@ -176,6 +180,7 @@ function ExperienceFilmstrip({ entries }) {
         const trackEl = trackRef.current;
         const cards = cardRefs.current;
         const dates = dateRefs.current;
+        const dots = dotsRef.current ? Array.from(dotsRef.current.children) : [];
         // Scrambled once, ever, per card — not re-fired every time the same
         // card re-becomes active on scroll-back. Tested the alternative
         // (re-fire on every activation) empirically: on a quick back-and-
@@ -240,6 +245,10 @@ function ExperienceFilmstrip({ entries }) {
             if (i === activeIndex) return;
             if (activeIndex >= 0 && cards[activeIndex]) cards[activeIndex].classList.remove("is-active");
             cards[i].classList.add("is-active");
+            // Mobile scroll-position dots (CSS-hidden above 768px) — driven
+            // off the same "nearest card to centre" pick as everything else,
+            // so they can never disagree with the emphasis or the rail dot.
+            dots.forEach((dot, di) => dot.classList.toggle("is-active", di === i));
             activeIndex = i;
             if (!scrambled[i]) {
                 scrambled[i] = true;
@@ -377,6 +386,16 @@ function ExperienceFilmstrip({ entries }) {
                         ))}
                     </div>
                 </div>
+            </div>
+            {/* Stage 5 (continued) — mobile swipe affordance: one dot per
+                card, active dot tracks whichever card is nearest centre
+                (setActive, above). CSS-hidden above 768px, where the rail
+                and its progress dot already do this job. aria-hidden — the
+                cards carry the real tab order. */}
+            <div className="experience-dots" aria-hidden="true" ref={dotsRef}>
+                {EXPERIENCE_ENTRIES.map((entry) => (
+                    <span className="experience-dot" key={entry.id} />
+                ))}
             </div>
         </section>
     );

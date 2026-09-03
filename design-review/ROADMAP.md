@@ -11,7 +11,20 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-01, **Stage 10 — sitewide
+## 0. Current state — quick summary *(updated 2026-09-03, **Stage 5
+(continued) — mobile declutter pass**: every section's mobile layout tightened
+against a two-direction mockup exploration (`design-review/mobile-redesign/`).
+`#my-taste`'s second swipe row is gone — the top-5 is a plain numbered list
+with per-row art now — and the `justify-content: space-between` machinery that
+manufactured the inter-zone voids is removed. `#projects` is rebuilt as
+preview cards (role kicker + a 2-line collapsed description that un-clamps on
+open), replacing the two-column title/role split that wrapped into a tangle.
+`#experience` keeps the swipe filmstrip but gains a scroll-dot row, a real
+right-edge card peek, and the year moved off the empty rail strip onto the
+card media. `#home` (align-content: start + bigger deck + 44px fader target),
+`#about` (all six chips back, bio left-aligned) and `#connect` (top-aligned,
+full-gutter card, full-width send) de-floated. Full writeup below. Prior
+2026-09-01, **Stage 10 — sitewide
 typography**: the "Avenir Next" system-font stack — never actually self-hosted,
 silently falling back to a generic sans on non-Apple machines — is replaced
 sitewide by self-hosted Poppins (400 body / 600 display), behind two new
@@ -988,6 +1001,71 @@ fully visible on arrival at 1920/1440/1366; holds, filmstrip, nav clicks, deep
 links and reduced motion all unchanged; 0 page errors. Full writeup:
 `STATUS.md`'s own dated entry.
 
+**Also 2026-09-03 — Stage 5 (continued): the mobile declutter pass.** The
+`#my-taste` swipe layout (2026-08-23) plus the tablet-breakpoint raise
+(2026-09-02) were only the first slice of Stage 5. A `/design` mockup canvas
+(`design-review/mobile-redesign/` — 19 phone frames, `current` vs a
+conservative `targeted fix` vs a bolder `unified system` per section, PNGs in
+`screenshots/mobile-redesign/`) surfaced the shared problem: every section is
+`min-height: ~100svh` while filling 40–60% of it, the same scaffolding
+repeats, and four unrelated scroll idioms sit next to each other. Owner picked
+**unified** for `#my-taste` + `#projects`, **targeted** for
+`#experience`/`#home`/`#about`/`#connect` (Experience explicitly: keep the
+filmstrip, just make it mobile-friendly).
+
+- **`#my-taste`** — the mobile second swipe row (`.my-taste-track-scroll` +
+  `.my-taste-track-card*` + its dots) is **deleted** (markup, the second
+  `wireRow` IntersectionObserver, ~120 lines of CSS). The top-5 is the
+  existing numbered `<ol>` now, shown at `$taste-swipe-max` with a new
+  per-row `.my-taste-photo-slot--row` thumbnail (grid: thumb / track / artist)
+  and no torn-flyer edge (it's a list, not a pinned card, on mobile). The
+  section's mobile `justify-content: space-between` + `.my-taste-layout`'s
+  `display: contents` are gone — that pair distributed three items across one
+  screen and *was* the two voids; it's a plain single-column grid at natural
+  height now. `min-height` dropped on mobile.
+- **`#projects`** — `.portfolio-item` is a bordered card; `.portfolio-header`
+  is a grid with the role as a mono-style kicker **above** the title (the old
+  `justify-content: space-between` had title and role as two columns that
+  each wrapped independently). New always-rendered `.portfolio-summary` — the
+  description, CSS-clamped to 2 lines while collapsed, un-clamped by the row's
+  own `.is-open` class (the height change rides the same `flushSync` render
+  `toggleProject` drives, so `Flip.from` measures it — verified, no snap at
+  tween end). `<p>` moved out of `.portfolio-details` (video + links only
+  now). Card padding lives on `.portfolio-item`, not each inner block — a
+  `-webkit-box` line-clamp element with its own `padding-bottom` leaks the
+  next line past the clamp (seen live).
+- **`#experience`** — filmstrip mechanism untouched (scroll, rail draw, year
+  scramble, centre-focus all still driven by `viewportEl.scrollLeft`). Added:
+  a mobile `.experience-dots` row toggled from the existing `setActive()` (no
+  second observer); `.experience-track` mobile aligns the current card to the
+  left gutter with the next card peeking on the right (`padding-left:
+  space-5`, `padding-right: calc(100% - space-5 - card-w)`) instead of
+  centred-with-a-sliver; `.experience-date` repositioned on mobile as a
+  blur-scrim tag on the card media, off the (now 22px, was 44px) rail strip;
+  `min-height` dropped on mobile so the section is its ~455px content height
+  and `#my-taste`'s kicker peeks below rather than a ~230px void.
+- **`#home`** — mobile `.home` gets `align-content: start` (base is `center`,
+  which split the hero's slack into ~200px of empty space above the name);
+  navbar-aware top padding; deck `min(420px,90vw)` → `min(480px,95vw)` with a
+  12px gutter. `.turntable-fader-handle` gets a `::before` 44px hit area on
+  `pointer: coarse` (the one control the 2026-09-02 touch-target pass missed).
+- **`#about`** — the three `desktopOnly` chips (hidden on mobile for a
+  scroll-hold fit check that no longer exists) are back; mobile chips are a
+  smaller left-packed wrapped cluster; bio `text-align: left` (was
+  justified-then-centre-last-line). Name still centred.
+- **`#connect`** — light touch, the `#connect` one-screen + in-footer
+  architecture untouched: `.contact-section` mobile `align-items: flex-start`
+  while composing (was dead-centre) so heading + card sit near the top;
+  `.jcard` mobile `max-width: min(400px, 92%)` (was `min(320px, 90%)`);
+  `.jcard-submit` full-width + 44px on mobile.
+
+Verified live (dev server, 390 and 768, dark, nav-driven): 0 horizontal
+overflow at 320/375/390/430/600/768, 0 console errors, `npm run lint`
+unchanged (7 errors / 2 warnings baseline), `vite build` passes, Flip
+accordion and the `#my-taste` desktop entrance cascade unaffected. Screenshots
+regenerated (`capture-screenshots.mjs` — `#experience` added to its `SECTIONS`
+list). Full writeup: `STATUS.md`'s own dated entry.
+
 **Not started yet, in the order the roadmap currently has them:**
 
 | Stage | What | Depends on |
@@ -995,8 +1073,8 @@ links and reduced motion all unchanged; 0 page errors. Full writeup:
 | **4 (remainder)** | `#my-taste` Task 5: time-range switching + `Flip` re-rank | Tasks 1, 2, 2.5, 3, 3.5, 3.6, 3.8, 3.7, 4, 3.9, 4.1 — done |
 | **3 (remainder)** | Apply the design system to `#connect` — the same tokens/mixins already used on `#about`/`#projects`, just not applied there yet. This is the last piece of Stage 3's own original scope | Nothing — ready now |
 | **3 (deferred pass)** | The deck's material pass: dark-theme turntable contrast (D3, 1.15–2.07:1 today), the mat-as-a-ring problem (D12), light-theme deck colour revisit, the weak rim→mat boundary. Bundled together because they interact | Nothing — ready now |
-| **5 (`#my-taste` piece)** | ~~Mobile pass~~ — **done, above.** | — |
-| **5 (remainder)** | A mobile pass for any other section still worth a deliberate look (not just "doesn't overflow") — `#about`'s timeline, `#projects`' accordion, `#connect`'s cassette/walkman all currently ride generic responsive overrides, none audited the way `#my-taste` just was | Nothing — ready now |
+| **5 (`#my-taste` piece)** | ~~Mobile pass~~ — **done.** | — |
+| **5 (declutter pass)** | ~~A mobile pass for every other section — `#home`/`#about`/`#experience`/`#projects`/`#connect`~~ — **done 2026-09-03, above.** Only remaining Stage 5 candidate: `#about`'s desktop timeline / Experience filmstrip on *tablet* portrait, if a deliberate 601–1024px tier is ever wanted (D34's still-open half) | — |
 | **6 (Phase 9)** | ~~Pitch fader~~ — **done, above.** | — |
 | **6 (Phase 10)** | Turntable delight remainder — scroll-linked ducking/mute. *(Phase 8, scratch, shipped 2026-08-31; Phase 9, pitch, already done)* | Stages 1 + 2 — both done |
 | **7 (a–d)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy pass, spectrum-bound ribbons~~ — **superseded and DELETED, see the rebuild above.** | — |

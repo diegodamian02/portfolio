@@ -30,7 +30,7 @@ const VIEWPORTS = [
 ];
 
 // Section anchors as rendered by client/src/App.jsx.
-const SECTIONS = ['home', 'projects', 'my-taste', 'about', 'connect'];
+const SECTIONS = ['home', 'about', 'experience', 'my-taste', 'projects', 'connect'];
 
 const browser = await chromium.launch();
 

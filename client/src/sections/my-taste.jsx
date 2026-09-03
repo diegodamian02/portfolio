@@ -420,13 +420,14 @@ export default function MyTaste() {
     const kickerRef = useRef(null);
     const wallTitleRef = useRef(null);
     const crateTitleRef = useRef(null);
-    // Stage 5 — the two mobile horizontal scroll rows and their dot
-    // indicators. Refs only (no GSAP target here); wired up by the plain
-    // IntersectionObserver effect below, not the fullMotion cascade.
+    // Stage 5 — the mobile horizontal artist row and its dot indicator.
+    // Refs only (no GSAP target here); wired up by the plain
+    // IntersectionObserver effect below, not the fullMotion cascade. The
+    // second row (top tracks) is a plain vertical numbered list on mobile
+    // now, not a swipe row — Stage 5 (continued), the declutter pass — so it
+    // needs no scroll refs or dots.
     const wallScrollRef = useRef(null);
     const artistDotsRef = useRef(null);
-    const trackScrollRef = useRef(null);
-    const trackDotsRef = useRef(null);
 
     useEffect(() => {
         fetchTopItems("tracks").then(setTracks);
@@ -440,7 +441,7 @@ export default function MyTaste() {
         return () => window.removeEventListener("themeChange", handleTheme);
     }, []);
 
-    // Stage 5 — mobile scroll-position dots for the two horizontal rows.
+    // Stage 5 — mobile scroll-position dots for the horizontal artist row.
     // Deliberately a plain effect, not folded into the useGSAP cascade
     // below: that cascade is gated behind BOTH a min-width AND
     // prefers-reduced-motion (fullMotion), but a scroll-position readout
@@ -503,13 +504,12 @@ export default function MyTaste() {
             if (!mql.matches) return;
             cleanups = [
                 wireRow(wallScrollRef.current, artistDotsRef.current),
-                wireRow(trackScrollRef.current, trackDotsRef.current),
             ];
         }
 
         setup();
         // Re-wire on an actual breakpoint cross (e.g. a tablet rotating
-        // past 600px), same "matchMedia governs whether X exists at all"
+        // past 1024px), same "matchMedia governs whether X exists at all"
         // shape Stage 2's own gsap.matchMedia() decision established,
         // just via the native API since no GSAP tween is involved.
         mql.addEventListener("change", setup);
@@ -517,9 +517,9 @@ export default function MyTaste() {
             mql.removeEventListener("change", setup);
             cleanups.forEach((cleanup) => cleanup?.());
         };
-        // Re-run once real data lands — before that, the wall/track rows
-        // render placeholders (or nothing, for the dots) rather than the
-        // real cards these observers need to attach to.
+        // Re-run once real data lands — before that, the artist row
+        // renders placeholders (or nothing, for the dots) rather than the
+        // real cards this observer needs to attach to.
     }, [artists.status, tracks.status]);
 
     // Stage 4 Task 4 — the entrance cascade: a timed scroll-hold (pin, then
@@ -599,22 +599,37 @@ export default function MyTaste() {
             gsap.set(wallTitleSplit.words, { opacity: 0, y: 8 });
             gsap.set(crateTitleSplit.words, { opacity: 0, y: 8 });
             // Task 4.1 — rotation starts level (0deg), settling INTO each
-            // card's own real tilt as it lands, rather than starting at
-            // that tilt already. transform-origin moved to the tape's own
-            // anchor point (tape sits at top: -10px; left: 50% — top-center
-            // of the card, main.scss) instead of the card's own geometric
-            // center, so that settle reads as hinged at the pin, the way a
-            // real pinned sheet sways around where it's actually pinned,
-            // not around its own middle. Reset back to center via
-            // clearProps once the cascade settles (below) — this shouldn't
-            // outlive the entrance for any future transform this card gets
-            // (e.g. a hover effect).
-            gsap.set(restCards, { opacity: 0, y: -36, rotation: 0, transformOrigin: "50% 0%" });
+            // card's own real tilt as it lands, rather than starting at that
+            // tilt already.
+            //
+            // The settle pivots around the card's geometric CENTER — the same
+            // transform-origin `.my-taste-card` rests at (main.scss). An
+            // earlier pass hinged it at the tape's own anchor (50% 0%) so the
+            // motion read as swinging from the pin, but the rest rule it hands
+            // back to via clearProps (below) still pivots at the center, so
+            // the handoff snapped every card sideways — up to ~10px on the
+            // tall featured cards — the instant the timeline finished. The
+            // wall's zero-overlap spacing is also verified only for
+            // center-pivot rotation (cardTransform()'s margin budget,
+            // .my-taste-wall's gap), so matching the settle to the rest state
+            // is the safe direction to reconcile them, not moving the rest
+            // state to the pin.
+            gsap.set(restCards, {
+                opacity: 0,
+                // Drop straight down onto the card's OWN resting column: x
+                // starts at (and the land tween never touches, so it stays
+                // at) the same --card-jitter-x the CSS rest transform uses,
+                // so clearProps has nothing left to pop sideways.
+                x: (i, target) => jitterOf(target).jx,
+                y: -36,
+                rotation: 0,
+                transformOrigin: "center center",
+            });
             // Headliner gets its own start state (a MotionPathPlugin arc
             // start point, not the plain vertical -36 the rest use) —
             // set separately so it isn't overwritten by/doesn't overwrite
             // the line above.
-            gsap.set(headliner, { opacity: 0, x: -22, y: -58, rotation: 0, transformOrigin: "50% 0%" });
+            gsap.set(headliner, { opacity: 0, x: -22, y: -58, rotation: 0, transformOrigin: "center center" });
             gsap.set(wallTapes, { opacity: 0, scale: 0.5 });
             gsap.set(crateCard, { opacity: 0, y: 24 });
             gsap.set(crateTape, { opacity: 0, scale: 0.5 });
@@ -691,9 +706,10 @@ export default function MyTaste() {
             //    Rotation is now part of this same land tween too (Task
             //    4.1): starts level (0deg, set above) and settles INTO the
             //    card's own real tilt (headRotation), pivoting around the
-            //    tape's own anchor (transform-origin, set above) rather
-            //    than the card's center — reads as the sheet swinging into
-            //    its pinned tilt, not a ball dropping straight down.
+            //    card's center — the same origin `.my-taste-card` rests at,
+            //    so the clearProps handback below lands on exactly this
+            //    frame (see the restCards gsap.set note above for why the
+            //    settle isn't hinged at the pin).
             tl.to(headliner, {
                 motionPath: { path: [{ x: -22, y: -58 }, { x: 6, y: -20 }, { x: 0, y: -6 }], curviness: 1.25 },
                 opacity: 1,
@@ -716,7 +732,7 @@ export default function MyTaste() {
             // 3. Remaining 4 wall cards — plain vertical drop (no arc),
             //    staggered ~0.1s apart per the brief, same
             //    land-then-tape-snap pairing each (now with the same
-            //    PIN_BEAT_GAP and pin-pivot rotation as the headliner),
+            //    PIN_BEAT_GAP and center-pivot settle as the headliner),
             //    just batched via `stagger` instead of one-off tweens per
             //    card.
             tl.to(restCards, {
@@ -763,10 +779,10 @@ export default function MyTaste() {
             // the inline properties entirely, so the stylesheet (including
             // its own media queries) regains normal authority once this
             // section is done animating anything on its own. transformOrigin
-            // included for the cards specifically (Task 4.1's own pin-pivot
-            // addition) — same reasoning, a future transform on these cards
-            // (a hover effect, say) shouldn't inherit this entrance's
-            // top-center pivot.
+            // is cleared alongside it for hygiene only — the entrance sets it
+            // to the same `center center` the stylesheet already uses, so
+            // this just drops a redundant inline copy rather than changing
+            // any pivot.
             tl.set(wallCards, { clearProps: "transform,transformOrigin" });
             tl.set([headTape, ...restTapes], { clearProps: "transform" });
 
@@ -1051,6 +1067,25 @@ export default function MyTaste() {
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
+                                            {/* Stage 5 (continued) — a per-row
+                                                album thumbnail, shown only on
+                                                mobile (main.scss). Replaces the
+                                                fanned .my-taste-setlist-thumbs
+                                                trio at that breakpoint: this
+                                                numbered list IS the mobile "top
+                                                tracks" view now (the old
+                                                .my-taste-track-scroll swipe row
+                                                is gone), so each row carries its
+                                                own art rather than three floating
+                                                above five text rows. Same
+                                                PhotoSlot + --card-tint fallback
+                                                as every other image here. */}
+                                            <PhotoSlot
+                                                id={track.id}
+                                                className="my-taste-photo-slot--row"
+                                                imageUrl={track.imageUrl}
+                                                imageAlt={track.imageAlt}
+                                            />
                                             {/* index+track grouped as one flex
                                                 unit (found live, mobile fix):
                                                 without this, the OUTER row's own
@@ -1084,86 +1119,6 @@ export default function MyTaste() {
                         </div>
                     )}
                     </div>
-                    {/* Stage 5 — mobile-only track row: small cards
-                        (thumbnail + title + artist) in a second horizontal
-                        scroll-snap row, same row/snap/dots pattern as the
-                        wall's own mobile row above. Separate markup from
-                        .my-taste-crate's plain numbered list just above
-                        (CSS shows exactly one of the two per breakpoint) —
-                        the brief's own "small track cards" shape doesn't
-                        map onto reshaping <li> rows, and giving this new
-                        markup its own class names throughout keeps it from
-                        ever being matched by Task 4's own crate-scoped GSAP
-                        selectors above (.my-taste-setlist-item,
-                        .my-taste-photo-slot--thumb). No tape/torn edge on
-                        these chips — same "already the straightened, plain
-                        object" character the crate has carried since Task
-                        3.8, just extended to its mobile shape too.
-                        `track.imageUrl` already exists (pickImageUrl over
-                        track.album.images, used today for the crate's own
-                        top-3 thumbnails) — no new data dependency, and
-                        PhotoSlot's own --card-tint fallback still covers a
-                        missing/broken image exactly as it does everywhere
-                        else in this section. */}
-                    {tracks.status === "ready" && setlist.length > 0 && (
-                        <>
-                            {/* data-lenis-prevent-horizontal — see the same
-                                attribute on .my-taste-wall above. */}
-                            <div className="my-taste-track-scroll" ref={trackScrollRef} data-lenis-prevent-horizontal>
-                                {setlist.map((track) => {
-                                    /* Same seeded cardTransform() the artist wall
-                                       uses — deliberately the SAME function, not a
-                                       second one tuned to look similar, so the two
-                                       rows can never drift apart in tilt range,
-                                       jitter or tear vocabulary. Keying it on
-                                       track.id (as the wall keys on artist id)
-                                       means a given album is always crooked the
-                                       same way across reloads and re-renders.
-                                       Not TasteCard itself: that renders an
-                                       <article> wrapping an inner <a>, and this row
-                                       needs the card to BE the link so the whole
-                                       crooked card is one tap target. The classes
-                                       and custom properties below are the same
-                                       contract TasteCard sets, applied to an <a>. */
-                                    const { rotate, jitterX, jitterY, tear, tapeRotate } = cardTransform(track.id);
-                                    return (
-                                        <a
-                                            key={track.id}
-                                            className={`my-taste-track-card my-taste-card my-taste-card--tear-${tear}`}
-                                            style={{
-                                                "--card-rotate": `${rotate.toFixed(2)}deg`,
-                                                "--card-jitter-x": `${jitterX.toFixed(1)}px`,
-                                                "--card-jitter-y": `${jitterY.toFixed(1)}px`,
-                                                "--tape-rotate": `${tapeRotate.toFixed(1)}deg`,
-                                            }}
-                                            href={track.external_urls?.spotify}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            <div className="my-taste-card-tape" />
-                                            <PhotoSlot
-                                                id={track.id}
-                                                className="my-taste-photo-slot--track"
-                                                imageUrl={track.imageUrl}
-                                                imageAlt={track.imageAlt}
-                                            />
-                                            <span className="my-taste-track-card-title">{track.name}</span>
-                                            <span className="my-taste-track-card-artist">
-                                                {track.artists.map((a) => a.name).join(", ")}
-                                            </span>
-                                        </a>
-                                    );
-                                })}
-                            </div>
-                            {/* Same dots mechanism/aria-hidden reasoning as
-                                the wall's own row above. */}
-                            <div className="my-taste-track-dots" aria-hidden="true" ref={trackDotsRef}>
-                                {setlist.map((track, index) => (
-                                    <span key={track.id ?? index} className="my-taste-scroll-dot" />
-                                ))}
-                            </div>
-                        </>
-                    )}
                 </div>
             </div>
         </section>

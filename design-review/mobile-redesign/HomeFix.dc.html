@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden}
+    .nav{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+    .logo{font-weight:700;font-size:20px;letter-spacing:-.02em}
+    .burger{width:26px;height:12px;display:flex;flex-direction:column;justify-content:space-between}
+    .burger i{height:2px;background:#eef1f8;border-radius:2px}
+    .gap{height:44px}
+    .hero{padding:0 20px}
+    .name{font-family:"Poppins";font-weight:700;font-size:38px;letter-spacing:-.03em;line-height:1;margin:0}
+    .tag{color:#9aa3bd;font-size:18px;margin:10px 0 0}
+    .search{display:flex;align-items:center;gap:12px;margin:20px 20px 0;padding-bottom:13px;border-bottom:1px solid rgba(154,163,189,.4)}
+    .search .dot{width:22px;height:22px;border:1.5px solid #9aa3bd;border-radius:50%;position:relative;flex:0 0 auto}
+    .search .dot::after{content:"";position:absolute;inset:8px;border-radius:50%;background:#9aa3bd}
+    .search span{color:#9aa3bd;font-size:19px}
+    .deck{margin:18px 12px 0;height:432px;background:#1b1f2b;border-radius:18px;position:relative;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+    .platter{position:absolute;left:92px;top:52px;width:250px;height:250px;border-radius:50%;background:radial-gradient(circle,#20242f 0%,#171a22 70%);box-shadow:inset 0 0 0 12px rgba(255,255,255,.03),inset 0 0 44px rgba(0,0,0,.5)}
+    .platter::before{content:"";position:absolute;left:50%;top:50%;width:11px;height:11px;border-radius:50%;background:#eef1f8;transform:translate(-50%,-50%)}
+    .arm{position:absolute;right:24px;top:26px;width:5px;height:162px;background:#c8ccd6;border-radius:3px;transform:rotate(28deg);transform-origin:top}
+    .arm::before{content:"";position:absolute;left:-8px;top:-9px;width:20px;height:20px;border-radius:50%;background:#dfe2e9}
+    .fader{position:absolute;left:22px;top:52px;width:40px;height:250px;background:#12151d;border-radius:10px}
+    .fader i{position:absolute;left:6px;right:6px;top:104px;height:40px;background:#6f9bff;border-radius:6px;box-shadow:0 4px 12px rgba(111,155,255,.4)}
+    .play{position:absolute;left:16px;bottom:22px;width:56px;height:56px;border-radius:50%;background:#2b3040;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+    .play::after{content:"";position:absolute;left:22px;top:17px;border-left:14px solid #cfd4e0;border-top:11px solid transparent;border-bottom:11px solid transparent}
+    .note{margin:16px 20px 22px;font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#8fd0a6;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="nav"><div class="logo">D.</div><div class="burger"><i></i><i></i><i></i></div></div>
+  <div class="gap"></div>
+  <div class="hero">
+    <h1 class="name">Diego Damian</h1>
+    <p class="tag">welcome to my playground</p>
+  </div>
+  <div class="search"><span class="dot"></span><span>put a record on&hellip;</span></div>
+  <div class="deck">
+    <div class="fader"><i></i></div>
+    <div class="play"></div>
+    <div class="platter"></div>
+    <div class="arm"></div>
+  </div>
+  <div class="note">Same layout. Top gap 150&rarr;44. Deck bled to a 12px gutter and grown, so the platter is the anchor. <b>Fader handle 22&rarr;40px, play 38&rarr;56px</b> &mdash; both now real touch targets. Section ends near the fold instead of ~420px above it.</div>
+</div>
+</x-dc>
+</body>
+</html>

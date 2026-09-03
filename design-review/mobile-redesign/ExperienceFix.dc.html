@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden;padding-top:72px}
+    .title{font-family:"Poppins";font-weight:700;font-size:38px;letter-spacing:-.03em;text-align:center;margin:0}
+    .row{display:flex;gap:14px;margin:26px 0 0;padding:0 20px;overflow:hidden}
+    .card{flex:0 0 302px;height:412px;border-radius:16px;background:linear-gradient(180deg,#7a6f6a,#4a4038 45%,#20242c);position:relative;overflow:hidden}
+    .card.b{background:linear-gradient(180deg,#6a7280,#3a4250 45%,#20242c)}
+    .card .yr{position:absolute;left:14px;top:14px;font-family:"Space Mono",monospace;font-size:13px;font-weight:700;letter-spacing:.08em;padding:5px 10px;background:rgba(10,14,26,.66);border-radius:8px}
+    .card .cap{position:absolute;left:16px;right:16px;bottom:16px;font-weight:700;font-size:19px;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+    .dots{display:flex;gap:8px;justify-content:center;margin:20px 0 0}
+    .dots i{width:7px;height:7px;border-radius:50%;background:rgba(154,163,189,.3)}
+    .dots i.on{background:#6f9bff;width:22px;border-radius:4px}
+    .note{margin:24px 20px 22px;font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#8fd0a6;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <h1 class="title">Experience</h1>
+  <div class="row">
+    <div class="card"><span class="yr">2019</span><span class="cap">Colegio Peruano Brit&aacute;nico</span></div>
+    <div class="card b"><span class="yr">2021</span><span class="cap">Rutgers University</span></div>
+  </div>
+  <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div class="note">Keeps the swipe filmstrip. <b>Year tag moves onto the card</b> (no floating pill), the <b>next card peeks</b> so it clearly scrolls, and a <b>dot row</b> shows 1 / 6. Card shrinks so the peek and dots clear the fold; section ends right below.</div>
+</div>
+</x-dc>
+</body>
+</html>

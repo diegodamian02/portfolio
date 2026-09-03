@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Oswald:wght@400;500;600&family=Space+Mono:wght@400;700&family=Poppins:wght@400;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,sans-serif;font-weight:400;-webkit-font-smoothing:antialiased}
+    .phone{width:390px;background:#0a0e1a;position:relative;overflow:hidden;padding:64px 0 0}
+    .kick{font-family:"Space Mono",monospace;font-size:13px;font-weight:700;letter-spacing:.2em;color:#9aa3bd;padding:0 20px}
+    .zone{font-family:"Space Mono",monospace;font-size:12px;font-weight:700;letter-spacing:.2em;color:#9aa3bd;padding:0 20px;margin-top:28px}
+    .row{display:flex;gap:16px;padding:0 20px;margin-top:14px;overflow:hidden}
+    .tcard{flex:0 0 216px;background:#161b28;padding:11px 11px 15px;transform:rotate(-2deg);position:relative;box-shadow:0 14px 30px rgba(0,0,0,.4)}
+    .tcard:nth-child(2){transform:rotate(1.5deg)}
+    .tcard:nth-child(3){transform:rotate(-1deg)}
+    .tcard::before{content:"";position:absolute;left:50%;top:-10px;width:82px;height:21px;background:rgba(232,236,244,.5);box-shadow:0 1px 4px rgba(0,0,0,.35);transform:translateX(-50%) rotate(-4deg)}
+    .tcard .img{height:182px;background:linear-gradient(150deg,#3a4358,#242a3a)}
+    .tcard .nm{font-family:"Anton",sans-serif;font-size:22px;margin-top:10px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .acard{flex:0 0 138px}
+    .acard .img{height:138px;background:linear-gradient(150deg,#5a3a3a,#2a1f1f)}
+    .acard .t{font-family:"Anton",sans-serif;font-size:14px;margin-top:7px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .acard .a{font-family:"Space Mono",monospace;font-size:10.5px;color:#9aa3bd}
+    .dots{display:flex;gap:7px;padding:0 20px;margin-top:12px}
+    .dots i{width:6px;height:6px;border-radius:50%;background:rgba(154,163,189,.3)}
+    .dots i.on{background:#6f9bff;width:18px;border-radius:3px}
+    .note{margin:22px 20px;font-family:"Space Mono",monospace;font-size:10.5px;letter-spacing:.04em;color:#7f8ba6;line-height:1.6}
+    .note b{color:#8fd0a6;font-weight:400}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="kick">MY&nbsp;TASTE&nbsp; SPOTIFY&nbsp;&#8599;</div>
+  <div class="zone">MY&nbsp;TOP&nbsp;ARTISTS</div>
+  <div class="row">
+    <div class="tcard"><div class="img"></div><div class="nm">Oasis</div></div>
+    <div class="tcard"><div class="img"></div><div class="nm">Red Hot Chi&hellip;</div></div>
+  </div>
+  <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="zone">MY&nbsp;TOP&nbsp;5&nbsp;TRACKS</div>
+  <div class="row">
+    <div class="acard"><div class="img"></div><div class="t">Just Like He&hellip;</div><div class="a">The Cure</div></div>
+    <div class="acard"><div class="img"></div><div class="t">Alive</div><div class="a">Pearl Jam</div></div>
+    <div class="acard"><div class="img"></div><div class="t">Semi-Charm&hellip;</div><div class="a">Third Eye&hellip;</div></div>
+  </div>
+  <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+  <div class="note">Torn-poster cards stay &mdash; that&rsquo;s the section. The two <b>voids between zones close up</b>, the rows sit back to back. Cards <b>start flush at the 20px gutter</b> and snap to it, so the first card has a clean left edge instead of a half-card on both sides.</div>
+</div>
+</x-dc>
+</body>
+</html>
