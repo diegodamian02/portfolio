@@ -1,87 +1,127 @@
 // Section snapping — one swipe moves exactly one section, in either direction,
-// however hard the swipe was, and a new swipe is obeyed at once even if the
-// previous one is still animating.
+// however hard the swipe was; a new swipe is obeyed at once even if the
+// previous one is still animating or its momentum is still arriving; and a
+// horizontal gesture is left to whatever sideways scroller is under it.
 //
 // HISTORY, because this slot has held several mechanisms and each was replaced
 // for a measured reason rather than a preference:
 //
-//   1. `lenis/snap`, `proximity` mode. Snaps to the NEAREST stop after input
-//      settles. It drags the visitor BACKWARD onto the stop they just left, so
-//      a mouse wheel turned slower than its debounce had every notch undone —
-//      8 notches x 100px produced net 0px, permanently.
-//   2. `lenis/snap`, `lock` mode. Always advances one section, but a hard flick
-//      overshoots and its internal guard then blocks the correction, coming to
-//      rest BETWEEN sections (2 of 6 flicks).
-//   3. A hand-rolled version of (1) with a departure rule. Correct, but a
-//      CORRECTION model: it waits for the gesture to end, then fixes where you
-//      stopped. That wait is irreducible and read as lag.
+//   1. `lenis/snap`, `proximity` mode — snaps to the NEAREST stop after input
+//      settles, dragging the visitor BACKWARD onto the stop they just left. A
+//      mouse wheel turned slower than its debounce had every notch undone.
+//   2. `lenis/snap`, `lock` mode — always advances one section, but a hard
+//      flick overshoots and its guard then blocks the correction, coming to
+//      rest BETWEEN sections.
+//   3. A hand-rolled correction model — waits for the gesture to end, then
+//      fixes where you stopped. That wait is irreducible and read as lag.
 //   4. A navigation model that swallowed the rest of the flick by trying to
-//      detect, from the deltas, when the gesture had ended.
-//   5. The same, rate-limited by a fixed dwell per section.
+//      detect, from one delta magnitude, when the gesture had ended.
+//   5. (4) rate-limited by a fixed dwell per section — a mandatory pause on
+//      every section, the opposite of what this page is for.
 //
-// The lesson from (4) is the important one: WHEN A GESTURE ENDS CANNOT BE
-// RECOVERED FROM DELTA MAGNITUDES. Three detectors were tried and all three
-// failed against measurement:
+// The lesson from (4): WHEN A GESTURE ENDS CANNOT BE RECOVERED FROM A SINGLE
+// DELTA MAGNITUDE. Trackpad deltas carry ~+/-30% noise, so a decaying momentum
+// tail throws spikes over any per-event rise threshold, and requiring a run of
+// *small* events instead livelocks — sustained input never produces the run,
+// so a held drag advanced one section and then went dead.
 //
-//   - Per-event rise: trackpad deltas carry ~+/-30% noise, so a decaying tail
-//     throws spikes that clear any rise threshold. ~8% of hard flicks doubled.
-//   - Run-of-spent-events: strong input reset the run counter AND extended the
-//     deadline, so a held drag held its own exit shut. A 2.4s continuous drag
-//     advanced ONE section and then went dead — "sometimes it won't let me".
-//   - Decay ratio over a 0.5-1.2s horizon (momentum decays, a finger does not):
-//     across 600 trials per model, a wobbling held finger falls to 0.844 of its
-//     earlier peak while an extreme tail still reaches 0.898-0.995. The
-//     distributions OVERLAP. No threshold exists, at any window size.
+// The other lesson, from live testing rapid section-to-section swiping:
+// consecutive real swipes ALWAYS overlap in the event stream. macOS momentum
+// keeps firing for ~1s after you lift, so the second swipe begins on top of
+// the first's tail — there is almost never a clean gap between them. So gap
+// detection alone cannot carry this; the load-bearing signal is that a new
+// swipe's magnitude climbs ABOVE the previous flick's decaying tail.
 //
-// (5) sidestepped that by never asking the question, but it bought the answer
-// with a mandatory pause on every section, which is the opposite of what this
-// page is for.
+// This model, then, asks three questions, none from a single sample:
 //
-// So this asks a question that IS answerable from the stream. Two facts hold
-// regardless of how hard the swipe was:
+//   - GAP: a break in the strong-event stream longer than a tail's own
+//     spacing — fingers left the surface. Rare between fast swipes, decisive
+//     when it happens.
+//   - REVERSAL: a short run of opposite-direction events. Momentum never
+//     reverses, so this is unambiguously the visitor.
+//   - RISE: input that climbs and stays well above a frozen, decaying envelope
+//     of the previous flick. The envelope is captured over the flick's own
+//     finger-on window and then only decays, so the flick's tail sits under it
+//     while a returning finger climbs over it within ~100ms.
 //
-//   - Momentum never PAUSES. It is delivered at the display rate until it
-//     stops. Fingers leaving the surface and returning always leave a gap.
-//   - Momentum never REVERSES. An opposite-direction event is, without any
-//     ambiguity, the visitor.
+// Everything else is the tail of a swipe already acted on, and is swallowed,
+// so a strong swipe can never reach a second section.
 //
-// Everything else in the stream is treated as the tail of a swipe already
-// acted on and is swallowed, so a strong swipe can never reach a second
-// section. Nothing is inferred from magnitude, so nothing can be misread.
+// Touch never snaps (native touch scroll is not routed through Lenis here) and
+// there is no snap under prefers-reduced-motion (no Lenis instance exists).
 
-// The trip between two stops, and its curve. An out-ease is right because the
-// gesture is consumed instantly — the move should leave at once and settle.
-// Lenis's default scrollTo easing is expo-out, whose last 10% crawls; over a
-// full section that long slow finish is what read as sluggish.
-const TRAVEL_S = 0.45;
+// The trip between two stops, and its curve. Cubic-out because the gesture is
+// consumed instantly — the move should leave at once and settle, without the
+// long crawling finish of Lenis's default expo-out.
+const TRAVEL_S = 0.42;
 const TRAVEL_EASE = (t) => 1 - Math.pow(1 - t, 3);
 
-// A break in the event stream this long means the swipe ended and another
-// began. Momentum arrives at the display rate and thins only slightly as it
-// dies — the widest gap inside a modelled tail is 40ms — so this sits far
-// above anything a tail produces while staying under the time it takes to lift
-// and re-plant fingers.
-const NEW_GESTURE_GAP_MS = 110;
+// From trip start, the window over which incoming input is still assumed to be
+// the ORIGINATING flick — its finger-on phase. The envelope is raised across
+// this window (so it captures the flick's real plateau, not just its ramp's
+// first sample), and rise/gap interruption is not considered until it passes.
+const ACTIVE_WINDOW_MS = 170;
 
-// Insurance, not pacing: the floor between two trips. It exists so a single
-// janked frame in the wheel stream cannot read as a gap, and so two input
-// streams that briefly overlap cannot thrash the page back and forth. No human
-// re-swipes or turns around inside this, so it is never felt.
-const MIN_TRIP_GAP_MS = 130;
+// A break in the strong-event stream this long, with the next event itself
+// substantial, is a new gesture. A lone straggler after a stutter is not — it
+// must be the front of a sustained run (RISE_RUN), so this is really just a
+// fast path that lets a clean re-swipe after a real lift start without waiting
+// out the full rise confirmation.
+const NEW_GESTURE_GAP_MS = 120;
 
-// How many consecutive opposite-direction events count as turning around. One
-// is not enough: trackpad deltas jitter, and a single stray sample of the wrong
-// sign in the middle of a swipe would otherwise send the page back.
+// Rise-detection is gated on the stream having gone through a TROUGH since the
+// current trip started — a drop to a small fraction of the frozen envelope, or
+// below START_DELTA outright. A normal flick's tail decays faster than the
+// envelope and dips through this within ~400ms; a genuinely violent flick's
+// tail stays large relative to the envelope and never troughs, so it cannot
+// rise-trigger a second trip at all — it is bounded to one section, and the
+// next real swipe lands once its momentum has fully stopped.
+const TROUGH_RATIO = 0.45;
+
+// A gap this long is momentum genuinely STOPPING — real inter-event spacing in
+// a tail tops out around 40-50ms, and macOS halts momentum outright the instant
+// a finger touches back down. On such a gap the envelope is re-anchored to
+// whatever arrives next: if that is a returning finger, rise-detection then
+// calibrates against its small first events; if it is a violent tail resuming
+// after a main-thread stutter, the envelope re-anchors to the tail's own large
+// level and still can't be climbed. Either way, safe.
+const TROUGH_GAP_MS = 130;
+
+// Rise-detection also has an absolute floor: a gentle swipe (tiny deltas
+// throughout) must never rise-trigger off its own plateau once the envelope
+// has decayed beneath it. A real re-swipe clears this within its ramp.
+const RISE_MIN_DELTA = 16;
+
+// The floor between two trips — insurance against one janked frame reading as a
+// gap and against two briefly-overlapping streams thrashing. Below human
+// re-swipe latency, so never felt.
+const MIN_TRIP_GAP_MS = 110;
+
+// Consecutive opposite-direction events that count as turning around. The
+// counter DECAYS toward zero on same-direction events rather than resetting, so
+// a straggler from the outgoing flick's tail landing between two genuine
+// reversal events doesn't wipe the count and strand a down-then-up gesture.
 const REVERSE_RUN = 2;
 
-// How long after the last event the page is released. Until then Lenis stays
-// locked so the arriving tail cannot drag the page off the stop it landed on —
-// measured at 23px past every target when it was left unlocked.
-const IDLE_MS = 150;
+// How long the page stays locked after a trip lands with no further strong
+// input — long enough to swallow the immediate post-landing tail burst (which
+// would otherwise drag the page ~23px off the stop), short enough not to eat
+// the front of a deliberate follow-up swipe.
+const IDLE_MS = 100;
 
-// Smaller events than this can never START a trip. A dying tail ends in a
-// scatter of 1-4px events; without this floor one of those stragglers began a
-// whole extra trip.
+// Envelope decay constant, calibrated a little slower than real trackpad
+// momentum (which is roughly exponential, tau ~200-350ms) so the envelope
+// OVER-estimates where the tail is now — "clearly above the envelope" is then
+// a conservative test for a returning finger that the tail itself cannot pass.
+const ENV_TAU_MS = 300;
+
+// A returning finger must exceed the decayed envelope by this factor, for this
+// many consecutive events, to count as a new swipe with no gap.
+const RISE_FACTOR = 1.5;
+const RISE_RUN = 3;
+
+// Smaller events than this never start a trip and never feed the envelope —
+// they are tail dregs. They DO keep the post-trip lock alive while cooling.
 const START_DELTA = 6;
 
 // Treat the page as being AT a stop within this many px, so the "next stop in
@@ -90,15 +130,17 @@ const AT_STOP_PX = 8;
 
 export function createSectionSnap(lenis, getSnapPoints) {
     let travelling = false;
+    let cooling = false;
     let travelTarget = 0;
     let tripId = 0;
     let tripStartedAt = 0;
-    let lastEventAt = 0;
+    let lastStrongAt = 0;
     let lastDir = 0;
-    // Set once a swipe has been acted on. Everything that follows is its tail
-    // until the stream shows a gap or a reversal.
-    let consumed = false;
     let oppositeRun = 0;
+    let riseRun = 0;
+    let troughSinceTrip = true;
+    let env = 0;
+    let envAt = 0;
     let idleTimer = null;
     let failsafe = null;
     let paused = false;
@@ -106,10 +148,10 @@ export function createSectionSnap(lenis, getSnapPoints) {
 
     const currentY = () => lenis.actualScroll ?? window.scrollY;
 
-    // Always re-asserts rather than short-circuiting on `holdingLock`. Lenis
-    // clears isLocked itself when a scrollTo completes (its reset()), so a
-    // "we already hold it" early return leaves the flag false while this module
-    // believes otherwise — and the whole remaining tail then free-scrolls.
+    // Always re-asserts rather than short-circuiting on `holdingLock`: Lenis
+    // clears isLocked itself when a scrollTo completes (its reset()), so a "we
+    // already hold it" early return leaves the flag false while this module
+    // believes otherwise — and the remaining tail then free-scrolls.
     function grabLock() {
         holdingLock = true;
         lenis.isLocked = true;
@@ -120,12 +162,26 @@ export function createSectionSnap(lenis, getSnapPoints) {
         lenis.isLocked = false;
     }
 
+    // A new gesture broke through, or the visitor switched to a horizontal
+    // scroller. No drift correction — a fresh trip is about to move the page,
+    // or it is already on the stop.
+    function endCooling() {
+        clearTimeout(idleTimer);
+        cooling = false;
+        releaseLock();
+    }
+    // The cooling window expiring on its own: input has genuinely stopped.
+    // Absorb any residual tail drift in one shot, then let go.
+    function settleAndRelease() {
+        cooling = false;
+        if (holdingLock && Math.abs(currentY() - travelTarget) > 2) {
+            lenis.scrollTo(travelTarget, { immediate: true, force: true });
+        }
+        releaseLock();
+    }
     function restartIdle() {
         clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => {
-            consumed = false;
-            releaseLock();
-        }, IDLE_MS);
+        idleTimer = setTimeout(settleAndRelease, IDLE_MS);
     }
 
     function stopAfter(y, direction) {
@@ -136,33 +192,30 @@ export function createSectionSnap(lenis, getSnapPoints) {
             : [...points].reverse().find((value) => value < y - AT_STOP_PX);
     }
 
-    // Where the NEXT stop should be measured from. Mid-trip that is the target
-    // being animated towards, not the live scroll position: interrupting a trip
-    // half-way and measuring from the current pixel would find the stop beyond
-    // the one we are already heading to, which is exactly the two-section jump
-    // this is meant to prevent.
+    // Where the NEXT stop is measured from. Mid-trip that is the target being
+    // animated towards, not the live pixel: measuring from the pixel mid-trip
+    // finds the stop BEYOND the one already being approached — the two-section
+    // jump this exists to prevent.
     const anchor = () => (travelling ? travelTarget : currentY());
 
     function travelTo(target) {
         travelling = true;
+        cooling = false;
+        troughSinceTrip = false;
         travelTarget = target;
         tripStartedAt = performance.now();
         const id = ++tripId;
 
         clearTimeout(failsafe);
-        // If something interrupts the trip so onComplete never fires — an
-        // entrance hold's own forced scrollTo replacing the animation — this
+        // If something interrupts the trip so onComplete never fires, this
         // releases the guard rather than leaving snapping dead for the session.
         failsafe = setTimeout(() => endTravel(id), TRAVEL_S * 1000 + 400);
 
         grabLock();
-        // `force` is required because we hold isLocked ourselves, and Lenis
+        // `force` is required because we hold isLocked ourselves and Lenis
         // refuses a scrollTo while locked (lenis.mjs: `if ((this.isStopped ||
         // this.isLocked) && !force) return`). isStopped is checked separately
-        // by the caller, so forcing here cannot run over an entrance hold.
-        // `lock: true` keeps Lenis ignoring wheel input for the trip; it still
-        // EMITS virtual-scroll, which is why the guards below still see the
-        // tail.
+        // by the caller, so forcing here cannot run over an entrance freeze.
         lenis.scrollTo(target, {
             duration: TRAVEL_S,
             easing: TRAVEL_EASE,
@@ -178,65 +231,133 @@ export function createSectionSnap(lenis, getSnapPoints) {
         if (id !== tripId) return;
         clearTimeout(failsafe);
         travelling = false;
-        // Take the lock back the moment Lenis drops it, so the tail still
-        // arriving cannot pull the page off the stop it just reached. The idle
-        // timer is restarted alongside it — without that, a swipe whose tail
-        // ends before the trip does would leave the page locked forever.
+        // Re-take the lock the instant Lenis drops it, so the tail still
+        // arriving cannot pull the page off the stop it just reached.
+        cooling = true;
         grabLock();
         restartIdle();
     }
 
-    function onVirtualScroll({ deltaY, event }) {
+    // Match Lenis's own per-event opt-out: a gesture inside an element that
+    // keeps its own scroll is not ours. Horizontal-dominant gestures are
+    // already handled by the axis check; this covers a near-diagonal or
+    // vertical gesture that still belongs to a nested scroller.
+    function insidePreventScroll(event) {
+        if (!event || typeof event.composedPath !== "function") return false;
+        for (const node of event.composedPath()) {
+            if (node === document.body || node === document.documentElement) return false;
+            if (node && node.nodeType === 1 && typeof node.hasAttribute === "function" &&
+                (node.hasAttribute("data-lenis-prevent") ||
+                    node.hasAttribute("data-lenis-prevent-wheel"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function onVirtualScroll({ deltaX, deltaY, event }) {
         if (paused) return;
 
         // Touch is NOT a snap gesture. Lenis emits `virtual-scroll` for touch
-        // events as well as wheel ones, and missing this guard had two live
-        // consequences: every touch drag on a phone jumped a whole section
-        // (this module has always documented touch as untouched), and — worse
-        // — scratching the record scrolled the page instead. `.turntable-platter`
-        // sets `touch-action: none`, which stops the BROWSER scrolling but not
-        // this, so the scratch gesture was being read as a scroll and the page
-        // moved out from under the finger mid-stroke.
+        // too, and without this guard every touch drag jumped a section and —
+        // worse — scratching the record scrolled the page.
         if (event && typeof event.type === "string" && event.type.startsWith("touch")) return;
 
+        const ax = Math.abs(deltaX || 0);
+        const ay = Math.abs(deltaY || 0);
+
+        // Horizontal-dominant gesture — it belongs to a sideways scroller
+        // (Experience's filmstrip), never to section navigation. Lenis ignores
+        // these for page scroll; matching that stops a diagonal swipe over the
+        // filmstrip from both nudging it AND jumping the page. If we still hold
+        // the post-trip lock, drop it: the visitor has moved on to browsing
+        // sideways and the lock would freeze that.
+        if (ax >= ay || insidePreventScroll(event)) {
+            if (cooling) endCooling();
+            return;
+        }
+
         const now = performance.now();
-        const gap = lastEventAt ? now - lastEventAt : Infinity;
-        lastEventAt = now;
-        // Every event, however small, keeps the lock alive — the page must stay
-        // pinned to its stop for as long as anything is still arriving.
-        restartIdle();
+        const magnitude = ay;
+        const sinceTrip = now - tripStartedAt;
+        const inActiveWindow = travelling && sinceTrip < ACTIVE_WINDOW_MS;
 
-        const direction = Math.sign(deltaY || 0);
-        if (!direction || Math.abs(deltaY) < START_DELTA) return;
+        // Decayed envelope, read BEFORE folding in this event.
+        const envNow = envAt ? env * Math.exp(-(now - envAt) / ENV_TAU_MS) : 0;
 
-        oppositeRun = lastDir !== 0 && direction !== lastDir ? oppositeRun + 1 : 0;
+        if (magnitude < START_DELTA) {
+            // Tail dreg — never acts, but it IS the stream thinning out: mark
+            // the trough so a following re-swipe can rise-trigger. And while
+            // cooling it still means "input is still arriving", so the lock is
+            // held until the dregs truly stop — otherwise the idle timer fires
+            // mid-tail, unlocks, and the last few 1-3px events drift the page.
+            troughSinceTrip = true;
+            if (cooling) restartIdle();
+            return;
+        }
+
+        const gap = lastStrongAt ? now - lastStrongAt : Infinity;
+        lastStrongAt = now;
+        // The stream dropping well below the frozen envelope is the tail
+        // thinning out (a normal flick); a violent flick's tail stays large
+        // relative to the envelope and never trips this.
+        if (envNow > 0 && magnitude < envNow * TROUGH_RATIO) troughSinceTrip = true;
+
+        const longGap = gap >= TROUGH_GAP_MS;
+        if (longGap) {
+            troughSinceTrip = true;
+            riseRun = 0;
+        }
+
+        // The envelope is raised by live input only while idle or still inside
+        // the originating flick's finger-on window; once a trip's active window
+        // has passed (and through cooling) it can only decay, so a returning
+        // finger climbs over it instead of dragging it up. A long gap re-anchors
+        // it to whatever comes next (see TROUGH_GAP_MS).
+        const freezeEnv = !longGap && (cooling || (travelling && !inActiveWindow));
+        env = freezeEnv ? envNow : Math.max(longGap ? 0 : envNow, magnitude);
+        envAt = now;
+
+        const direction = Math.sign(deltaY);
+        oppositeRun = direction !== lastDir && lastDir !== 0
+            ? oppositeRun + 1
+            : Math.max(0, oppositeRun - 1);
         const reversed = oppositeRun >= REVERSE_RUN;
-        // A gap means fingers left the surface; a reversal means they moved the
-        // other way. Momentum can do neither, so either one is the visitor
-        // starting again — and a swipe that has already been acted on is
-        // otherwise still in progress, tail included.
-        const isNewGesture = gap >= NEW_GESTURE_GAP_MS || reversed;
-        if (consumed && !isNewGesture) return;
 
-        if (now - tripStartedAt < MIN_TRIP_GAP_MS) return;
+        riseRun = magnitude > envNow * RISE_FACTOR ? riseRun + 1 : 0;
+        const rising = riseRun >= RISE_RUN && troughSinceTrip && magnitude >= RISE_MIN_DELTA;
+
+        // A gap only counts with a substantial event behind it AND the tail
+        // already seen to thin (troughSinceTrip) — otherwise a main-thread
+        // stutter that bunches a violent flick's events reads as a lift and
+        // skips a section.
+        const gapNew = gap >= NEW_GESTURE_GAP_MS && magnitude >= RISE_MIN_DELTA && troughSinceTrip;
+
+        const isNewGesture = gapNew || reversed || rising;
+
+        if (inActiveWindow) return;          // still the originating flick
+        if (travelling && !isNewGesture) return;
+        if (cooling) {
+            if (!isNewGesture) {
+                restartIdle();
+                return;
+            }
+            endCooling();
+        }
+
+        if (sinceTrip < MIN_TRIP_GAP_MS) return;
 
         lastDir = direction;
         oppositeRun = 0;
+        riseRun = 0;
 
-        // A hold has frozen scrolling for an entrance cascade (about.jsx,
-        // my-taste.jsx, connect.jsx). Those call stop() on us too, but this
-        // also covers the frame before that lands — and it is what keeps the
-        // forced scrollTo above from overriding a deliberate freeze.
+        // A frame before an entrance cascade's forced scrollTo lands, or any
+        // other deliberate freeze.
         if (lenis.isStopped) return;
 
         const target = stopAfter(anchor(), direction);
-
-        // Nothing further in that direction — the top of the page or the last
-        // section. Leave the event alone so Lenis scrolls normally into the
-        // remaining slack rather than the gesture feeling dead.
         if (target === undefined) return;
 
-        consumed = true;
         travelTo(target);
     }
 
@@ -246,22 +367,23 @@ export function createSectionSnap(lenis, getSnapPoints) {
         clearTimeout(idleTimer);
         clearTimeout(failsafe);
         travelling = false;
-        consumed = false;
-        lastEventAt = 0;
+        cooling = false;
+        troughSinceTrip = true;
+        lastStrongAt = 0;
         lastDir = 0;
         oppositeRun = 0;
+        riseRun = 0;
+        env = 0;
+        envAt = 0;
         tripId++;
         releaseLock();
     }
 
     return {
-        // Same shape the entrance holds already call (about.jsx, my-taste.jsx,
-        // connect.jsx), so swapping the mechanism underneath needs no changes
-        // in those files.
+        // Same shape the entrance holds used to call — kept as the seam for
+        // anything that ever needs to suspend snapping again.
         stop() {
             paused = true;
-            // Never leave Lenis locked because a hold interrupted us — that
-            // would freeze the page for the rest of the session.
             reset();
         },
         start() {

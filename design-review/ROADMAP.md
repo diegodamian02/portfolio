@@ -941,9 +941,39 @@ Verified 0 violations: one swipe = one section at peaks 10–600 (tails
 uncancelled streams land on a stop line without thrashing; a second
 same-direction swipe mid-animation gives exactly two sections; lift-and-swipe
 at 0/150/400/900ms always obeyed. Full regression unchanged, 0 page errors,
-lint 7/2. Deliberate limitation: a *perfectly* uninterrupted drag is one
-gesture and moves one section — real drags contain >110ms micro-pauses and
-advance repeatedly.
+lint 7/2.
+
+**Also 2026-09-03 — the freeze between RAPID consecutive swipes, and a filmstrip
+jar.** Two reports: a "small freeze" swiping section-to-section, and a freeze
+swiping vertically while hovering Experience's cards. The freeze was severe once
+reproduced with realistic timing (~200ms between swipes, not the 1.4s earlier
+tests used): **three rapid down-swipes advanced one section over ~2s.**
+
+Root finding, and it demotes gap detection: **consecutive real swipes always
+overlap in the event stream** — macOS momentum fires for ~1s after you lift, so
+swipe 2 begins on top of swipe 1's live tail and there is almost never a clean
+gap. The load-bearing signal is instead **RISE**: a new swipe climbs above a
+frozen, decaying *envelope* of the previous flick's tail (captured over its
+~170ms finger-on window, decay-only thereafter). A violent flick still can't
+skip because rise is gated on the tail having *troughed* (dropped below
+`START_DELTA`, or below `TROUGH_RATIO` of the envelope) — a violent tail stays
+large relative to the envelope and never troughs, so it stays bounded to one
+section. Measured: 0 skips at any intensity; 3–5 rapid moderate swipes now
+advance 3–5 sections at 15–225ms per-swipe latency (was ~1800ms).
+
+The filmstrip jar: a diagonal/horizontal wheel gesture over Experience's cards
+was firing a section snap AND taking the Lenis lock (freezing the filmstrip).
+The snap now matches Lenis's own per-event axis check —
+`abs(deltaX) >= abs(deltaY)` returns early, `data-lenis-prevent*` ancestors are
+honoured, and a horizontal event drops the post-trip lock so sideways browsing
+right after a vertical snap isn't blocked.
+
+Deliberate limitation: rapid-fire *violent* flicks (three peak-300 flings ~60ms
+apart) under-count — a violent tail refuses to trough, so the follow-ups wait
+~450ms or drop. Rare input; the alternative re-opens the skip risk.
+
+Earlier deliberate limitation (a *perfectly* uninterrupted synthetic drag moves
+one section) is now moot — real drags trough and rise like any other input.
 
 Because free scrolling is gone, **a section taller than the screen would have
 had unreachable content** — sections are not all one screen (at 1280×680 the

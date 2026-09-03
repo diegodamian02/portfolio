@@ -1,14 +1,20 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-02 (**entrance holds removed from every section** — no
-section freezes scroll any more; that was the remaining "stall", and skipping
-an animation by scrolling away is now always possible. Reverses the
-2026-08-29 decision to keep holds on the three animated sections.) Prior, same
-day: (**scroll-snap fourth pass** — one swipe moves exactly
-one section at any intensity, and a new swipe is obeyed mid-animation.
+**Updated:** 2026-09-03 (**scroll-snap fifth pass** — the freeze between rapid
+consecutive swipes is gone, and a vertical swipe over the Experience filmstrip
+no longer jars. Root finding: consecutive real swipes ALWAYS overlap in the
+event stream — macOS momentum keeps firing for ~1s — so gap detection alone
+could not carry rapid section-to-section navigation. Added RISE detection: a
+new swipe climbing above a frozen, decaying envelope of the previous flick's
+tail, gated on the tail having troughed so a violent flick still can't
+rise-trigger a second trip.) Prior: 2026-09-02 (**entrance holds removed from
+every section** — no section freezes scroll any more; that was one of the
+stalls, and skipping an animation by scrolling away is now always possible.
+Reverses the 2026-08-29 decision to keep holds on the three animated
+sections.) Prior, same day: (**scroll-snap fourth pass** — one swipe moves
+exactly one section at any intensity, and a new swipe is obeyed mid-animation.
 Gesture-end proved unrecoverable from delta magnitudes across three detectors
-and 600 trials/model; replaced with gap + reversal detection, which the event
-stream can actually answer. `TRAVEL_S` 0.45s, cubic-out.) Prior:
+and 600 trials/model.) Prior:
 2026-09-01 (**Experience title + filmstrip centre as one unit** —
 the B29 spacer shell centred only the viewport, floating the title 87–122px
 above the cards; replaced with `justify-content: center` on the section so the
@@ -7789,6 +7795,82 @@ AudioWorklet, neither of which this machine reproduced.
 > landed. Those files are deliberately NOT in this commit. It also means the
 > repo-wide lint count and the bundle size were confounded during this pass and
 > are not quoted — `eslint` on only the files changed here is clean.
+
+### Scroll-snap, fifth pass — the freeze between rapid swipes, and the filmstrip jar *(2026-09-03)*
+
+Two live reports: *"swipe up and down in between sections you'll see a small
+freeze in between this scrolling behavior"*, and *"a bit of freeze when you are
+trying to swipe up and down in the experience section and you are hovering the
+sliding cards."* Plus the standing requirement: every swipe = one section, one
+at a time, never skip.
+
+**The "small freeze" was severe once reproduced properly.** Earlier tests put
+a full 1.4s settle between swipes; nobody had tested *rapid* consecutive
+swiping until now. With ~200ms between swipes, **three down-swipes advanced
+ONE section over ~2 seconds** — the machine jammed. Down-then-up jammed
+outright (`2 → 2`, no net move).
+
+**Root cause, and it retires "gap detection" as a primary signal:**
+consecutive real swipes ALWAYS overlap in the event stream. macOS momentum
+keeps firing for ~1s after you lift, so swipe 2 begins *on top of* swipe 1's
+still-live tail — there is almost never a clean ≥90ms gap between them. The
+previous pass's `NEW_GESTURE_GAP_MS` therefore almost never fired for a real
+re-swipe; the tail kept `consumed` alive and every follow-up swipe was
+swallowed until the tail finally died ~2s later.
+
+**The signal that does work: RISE.** Momentum only ever decays. So a frozen,
+exponentially-decaying **envelope** of the previous flick (captured over its
+own ~170ms finger-on window, then decay-only through the trip and cooldown)
+sits *under* its tail, and a returning finger *climbs over it* within ~100ms.
+`riseRun` (3 consecutive events above `RISE_FACTOR`×envelope, ≥`RISE_MIN_DELTA`
+absolute) is the new-gesture trigger for the common case.
+
+**Why a violent flick still can't skip:** rise is gated on `troughSinceTrip` —
+the stream must have been seen to thin out since the trip started, either by
+dropping below `START_DELTA` or below `TROUGH_RATIO` (0.45) of the envelope. A
+normal flick's tail decays *faster* than the envelope and troughs within
+~400ms; a genuinely violent flick's tail stays large *relative* to the
+envelope and never troughs, so it cannot rise-trigger anything — bounded to
+one section, and the next real swipe lands once its momentum stops. Measured:
+one swipe = one section at peaks 10→600, both directions, **0 skips** across
+repeated runs, while 3–5 rapid moderate swipes now advance 3–5 sections with
+**per-swipe start latency 15–225ms** (was ~1800ms).
+
+Supporting pieces:
+- A **long gap** (`TROUGH_GAP_MS` 130ms — longer than any real tail spacing)
+  re-anchors the envelope to whatever arrives next. A returning finger →
+  calibrates against its small first events; a violent tail resuming after a
+  main-thread stutter → re-anchors to the tail's own large level and still
+  can't be climbed. Either way safe, and it fixes "hard-flick, momentum
+  stopped by touching the pad, deliberate re-push" being swallowed.
+- **Envelope frozen from `tripStartedAt`, raised only over the active window**,
+  so it captures the flick's real plateau rather than freezing at its ramp's
+  first (tiny) sample — that bug let a flick's own plateau read as a rise.
+- `settleAndRelease()` does a one-shot `scrollTo(target, {immediate})` if the
+  page drifted >2px when the idle timer expires — the last few 1–3px tail
+  dregs were parking it ~16px off the stop.
+
+**The filmstrip jar (freeze #2):** a diagonal / horizontal-leaning wheel
+gesture over Experience's cards was firing a section snap AND taking the Lenis
+lock, which froze the filmstrip mid-scroll. Lenis itself ignores
+horizontal-dominant events for page scroll (its own per-event axis check); the
+snap now matches — `Math.abs(deltaX) >= Math.abs(deltaY)` returns early, and a
+`data-lenis-prevent` / `-prevent-wheel` ancestor is honoured too. A gesture
+still holding the post-trip lock drops it the moment a horizontal event
+arrives, so browsing sideways right after a vertical snap isn't blocked.
+Verified: horizontal-dominant over the filmstrip → page does not move;
+vertical → snaps once; filmstrip's own `overflow-x` still scrolls (regression
+test 3 unchanged).
+
+**Known limitation, deliberate:** rapid-fire *violent* flicks (three peak-300
+flings in a row, ~60ms apart) under-count — the second waits ~450ms and a
+third may be dropped, because a violent tail refuses to trough. Rare input,
+and the alternative is re-opening the skip risk. Moderate rapid swiping — the
+actual reported behaviour — is unaffected.
+
+Constants and the reason for each are at the top of
+`client/src/lib/section-snap.js`. Lint clean on the changed file; baseline
+7 errors / 2 warnings unchanged.
 
 ### Entrance holds REMOVED from every section *(2026-09-02)*
 
