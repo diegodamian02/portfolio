@@ -116,9 +116,23 @@ const HSL_LIGHTNESS_MAX = 0.94;
 // keeps a visible ramp for the darkest hue (2.3x) without flattening the
 // brightest (9x for mint). A darker footing also makes the lit tip pop harder,
 // which is the actual ask.
+//
+// Stage 11 pushed the whole light range DEEP, and this is the real fix for the
+// "the colours don't hit" the owner reported. The lesson from D27 is that alpha
+// trades SATURATION on a light ground — so the way to get a column that reads
+// as its colour without being flat opaque (which forces the text mask into a
+// visible pale band, see skyline-background.jsx) is to make the colour deep
+// enough that even at 0.7-0.9 alpha over paper it still lands as that hue
+// rather than a tint of it. base 0.11 -> 0.055; the peak band drops to
+// {0.10, 0.24} so that mint, cyan and chartreuse become a deep teal / forest
+// / moss instead of the pale-leaning teal 0.32 gave, and azure / violet /
+// magenta / orange (authored luminance 0.19-0.32) are pulled DOWN into it
+// rather than passing straight through. A light-theme column is now ink at the
+// foot and deep saturated colour at the tip — the same gradient dark theme
+// reads the other way up, just genuinely dark on both ends.
 const LUMINANCE_TARGETS = {
     dark: { base: 0.085, peak: { min: 0.18, max: 0.85 } },
-    light: { base: 0.11, peak: { min: 0.14, max: 0.32 } },
+    light: { base: 0.055, peak: { min: 0.10, max: 0.24 } },
 };
 
 // How long one palette step takes to cross over. Long enough to read as a

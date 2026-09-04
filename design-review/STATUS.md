@@ -1,6 +1,14 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-03 (**Footer — social icons redraw on hover**: the
+**Updated:** 2026-09-04 (**Stage 11 Phase 1 — hero skyline reads as colour in
+light theme**: the light-theme bars were a pale lavender wash; the light
+palette now solves DEEP (every hue a dark saturated ink, not a pastel), the
+light alpha ramp is opaque-bodied instead of fading to 0.42 at the tip, and a
+CSS "atmosphere floor" gradient sits behind the transparent canvas. Dark theme
+byte-unchanged. `.hero-tagline` contrast holds 5.17:1 (7.2 baseline was 5.15).
+First of 3 phases — next: per-item colour on `#my-taste`/`#projects` cards,
+then the warm "Studio Paper" ground + `#projects` tracklist rebuild. Full entry
+in §2.) Prior, 2026-09-03 (**Footer — social icons redraw on hover**: the
 LinkedIn/GitHub/Spotify icons now self-draw their strokes on hover/focus with
 a scale pop + a soft chip, and GitHub's tail draws then wags — dalelarroder.com
 style, done with GSAP `DrawSVGPlugin` (no new dependency). Footer text → name
@@ -71,6 +79,55 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 11 Phase 1 — hero skyline reads as colour in light theme *(2026-09-04)*
+
+**Branch:** `stage11-light-theme-colour` (off `main` @ `bd86b1e`). First of a
+three-phase "light theme & colour" pass the owner signed off on from a `/design`
+canvas: **(1) this** — the hero bars; (2) per-item colour on `#my-taste` +
+`#projects` card backgrounds, both themes; (3) the "Studio Paper" ground swap
+(`--bg-color` `#f6f7fb → #f3f0ea`, `--text-color → #191510`, light `--accent
+→ #b23a2b`) plus a "liner-note tracklist" rebuild of `#projects`. Owner reviews
+on the live site between phases.
+
+**The complaint:** in light theme the skyline "colours don't hit" — the bars
+read as a pale lavender wash (see `screenshots/stage7-2-hero-light.png`).
+**Root, measured:** a tall column's tip composited to a near-pastel over the
+paper — violet `#9b4dff` at the shipped 0.42 tip alpha over `#f6f7fb` is
+`rgb(206,171,243)`. Alpha trades *saturation* on a light ground (D27, from
+7.2), and the 7.2 light ramp still faded to 0.42 at the top despite 7.2's own
+comment concluding "the light theme gets ink instead" of an ethereal fade.
+
+**Four levers, all light-theme-only (dark unchanged — verified):**
+
+| File | Change |
+|---|---|
+| `lib/palette-cycle.js` | `LUMINANCE_TARGETS.light` pushed deep: `base 0.11 → 0.055`, `peak` band `{0.14,0.32} → {0.10,0.24}`. Every hue solves to a dark saturated ink — mint/cyan/chartreuse become deep teal/forest/moss, azure/violet/magenta/orange are pulled *down* into the band instead of passing through. |
+| `lib/skyline-spectrum.js` | `ALPHA_RAMPS.light` is high-alpha end to end: tip `0.42 → 0.72`, opaque by `at:0.45`. Plus a new per-zone `feather` field on the text mask. |
+| `components/skyline-background.jsx` | `THEME_RESPONSE.light.glowAlpha 0.34 → 0.28`. New `ZONE_FEATHER = { dark: undefined, light: 56 }` — a 96px mask feather climbing into the now-opaque tallest columns painted a visible band of paper across their upper third; 56 keeps the fade close to the text. |
+| `styles/main.scss` | `[data-theme="light"] .hero-skyline-canvas { background: linear-gradient(180deg, transparent 42%, color-mix(in srgb, var(--accent) 11%, transparent) 100%) }` — an "atmosphere floor". The canvas is `alpha:true`, so a CSS background sits behind the columns and gives them a horizon. Tied to `--accent` so it warms with Phase 3. |
+
+**Measured** (Playwright, real "Get Lucky" preview playing, worst case over all
+seven palette positions — contrast of the composited canvas pixel behind each
+element vs its computed text colour):
+
+| element | light worst | need |
+|---|---|---|
+| `.hero-tagline` (binding: 24px/400 on `--secondary-text`) | **5.17** | 4.5 |
+| `.hero-name` | 11.83 | 3 |
+| `.record-crate-input` | 8.24 | 4.5 |
+
+`.hero-tagline` 5.17 matches the 7.2 baseline (5.15) — the deep palette gives
+the mask a dark bar to knock back rather than a mid-tone, so copy strength
+stayed at 0.70. Lint 7 errors / 2 warnings (unchanged). Screenshots:
+`stage11-1-hero-{dark,light}.png` (heights frozen at one frame so the two
+themes line up for comparison).
+
+**Known, not chased in Phase 1:** the copy safe-zone still lightens a band
+behind the headline — inherent to protecting a ~250px block of text, and
+present on dark too (invisible there against the dark ground). Tighter now
+with the 56px feather; revisit after Phase 3's ground swap if the owner wants
+it smaller.
 
 ### Footer — social icons redraw on hover *(2026-09-03)*
 

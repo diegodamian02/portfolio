@@ -340,14 +340,31 @@ const ALPHA_RAMPS = {
     // move at all and light theme looked exactly as washed as before. The two
     // changes have to be sized together, against the target for the COMPOSITE:
     // ~0.85 inside a bar, and under 0.15 in the gap between two.
+    //
+    // Stage 11. 7.2 shipped this topping out at 0.42 at the tip and 0.66 a
+    // fifth of the way down, and — measured — that composites a tall column's
+    // upper half to a pale pastel over the paper: violet #9b4dff at 0.42 over
+    // #f3f0ea is rgb(206,171,243). That is the "the colours don't hit" the
+    // owner reported.
+    //
+    // Two changes fix it. The LUMINANCE TARGETS now solve the light palette
+    // deep (base 0.055, peak band capped at 0.24 — palette-cycle.js), so a
+    // column is a dark saturated ink rather than a mid tone; and this ramp is
+    // now high-alpha end to end. D27's own conclusion was that "the ethereal
+    // top belongs to the dark theme... the light theme gets ink instead" —
+    // 7.2 wrote that and then shipped a ramp that still faded out at the top.
+    // It no longer does. The tip is 0.72 (present, not a fade-to-nothing) and
+    // the body is opaque by a quarter of the way down. The tallest columns'
+    // tips are knocked back a little where they climb into the copy safe-zone's
+    // feather, which is above the text and soft; every other column is a solid
+    // object against the paper.
     light: {
         id: "light",
         stops: [
-            { at: 0.00, colour: "peak", alpha: 0.42 },
-            { at: 0.20, colour: "peak", alpha: 0.66 },
-            { at: 0.52, colour: "mid", alpha: 0.79 },
-            { at: 0.82, colour: "base", alpha: 0.88 },
-            { at: 1.00, colour: "base", alpha: 0.92 },
+            { at: 0.00, colour: "peak", alpha: 0.72 },
+            { at: 0.14, colour: "peak", alpha: 0.95 },
+            { at: 0.45, colour: "mid", alpha: 1.00 },
+            { at: 1.00, colour: "base", alpha: 1.00 },
         ],
     },
 };
@@ -851,9 +868,15 @@ export function createSkyline(canvas) {
                 for (const z of safeZones) {
                     const strength = clamp(z.strength, 0, 1);
                     if (strength <= 0) continue;
-                    const y0 = z.y - MASK_FEATHER_PX;
-                    const total = z.h + MASK_FEATHER_PX * 2;
-                    const ramp = MASK_FEATHER_PX / total;
+                    // Per-zone feather (Stage 11), defaulting to the module
+                    // constant. Light theme passes a shorter one: its columns
+                    // are opaque now, so a 96px feather ramping up into the
+                    // tallest columns visibly bleeds the paper into their upper
+                    // third. A tighter ramp keeps the fade close to the text.
+                    const feather = z.feather ?? MASK_FEATHER_PX;
+                    const y0 = z.y - feather;
+                    const total = z.h + feather * 2;
+                    const ramp = feather / total;
                     const g = maskCtx.createLinearGradient(0, y0, 0, y0 + total);
                     for (let k = 0; k <= MASK_RAMP_STOPS; k++) {
                         const t = k / MASK_RAMP_STOPS;

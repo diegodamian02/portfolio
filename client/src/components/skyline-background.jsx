@@ -59,7 +59,14 @@ const SETTLE_HEIGHT_THRESHOLD = 0.015;
 //     back between the bars, which is what makes them read as objects.
 const THEME_RESPONSE = {
     dark: { ramp: "dark", additiveGlow: true, glowAlpha: 0.9 },
-    light: { ramp: "light", additiveGlow: false, glowAlpha: 0.34 },
+    // Stage 11 dropped light 0.34 -> 0.28. The light halo is a soft coloured
+    // shadow drawn UNDER the columns, and 0.34 was sized against the old
+    // semi-transparent light ramp. Now that the columns are opaque
+    // (skyline-spectrum.js), the halo only shows in the gaps and above the
+    // tips — and a gap the halo has tinted reads as much more of an intrusion
+    // next to a crisp opaque column than next to a translucent one. 0.28 keeps
+    // the above-tip atmosphere without closing the paper gap.
+    light: { ramp: "light", additiveGlow: false, glowAlpha: 0.28 },
 };
 
 const MAX_DPR = 2;
@@ -99,10 +106,24 @@ const MAX_DPR = 2;
 // mind. The headline and the crate then follow with a wide margin.
 const ZONE_STRENGTH = {
     dark: { copy: 0.85, crate: 0.55 },
+    // Light copy stays at 0.70 (Stage 11 checked, not changed). The Stage 11
+    // deep light palette means the bar behind the tagline is a dark saturated
+    // ink even before the mask, so 0.70 still measures .hero-tagline (the
+    // binding element, 24px/400 on --secondary-text) at 5.1:1+ over the worst
+    // bar across all seven palette positions, and what the mask leaves behind
+    // reads as a dimmed column rather than the pale wash a lighter palette left.
     light: { copy: 0.70, crate: 0.55 },
 };
 const ZONE_PAD_X = 26;
 const ZONE_PAD_Y = 16;
+
+// Per-theme mask feather (Stage 11), passed through to the renderer per zone.
+// Dark keeps the renderer's own 96 (undefined -> module default). Light gets a
+// shorter ramp: its Stage 11 columns are opaque, so a 96px feather climbing
+// into the tallest columns paints a visible band of paper across their upper
+// third — a tighter fade keeps the knock-back close to the text it protects,
+// and on a full-width band there is no horizontal edge to notice (D26).
+const ZONE_FEATHER = { dark: undefined, light: 56 };
 
 // How much clear space to leave between the tallest possible column and the
 // bottom of the navbar.
@@ -186,6 +207,7 @@ export default function SkylineBackground() {
             const box = canvas.getBoundingClientRect();
             if (box.width === 0 || box.height === 0) return;
             const strength = ZONE_STRENGTH[themeName()];
+            const feather = ZONE_FEATHER[themeName()];
             // FULL-WIDTH bands, not boxes around the text.
             //
             // A box has left and right edges, and at the strength the taller
@@ -205,6 +227,7 @@ export default function SkylineBackground() {
                 w: box.width + ZONE_PAD_X * 2,
                 h: rect.height + ZONE_PAD_Y * 2,
                 strength,
+                feather,
             });
             const zones = [];
             // The union of the headline and the tagline, as one band.

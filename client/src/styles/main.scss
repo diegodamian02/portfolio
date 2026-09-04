@@ -634,6 +634,29 @@ html {
   pointer-events: none;
 }
 
+// Stage 11 — the "atmosphere floor", light theme only.
+//
+// The skyline columns are drawn on a transparent canvas (createSkyline uses
+// `alpha: true`), so a CSS background on the canvas element sits BEHIND every
+// column pixel and shows through the gaps and through the semi-transparent
+// top of each bar. On dark theme the near-black page is already a ground the
+// neon reads against; on light theme the bars had nothing behind them but flat
+// paper, so even the fixed light ramp read as floating. A soft accent wash on
+// the bottom of the canvas gives them a horizon to stand on and glow against.
+//
+// Tied to --accent (not a fixed hue) so it moves with the Stage 11 Phase 3
+// ground swap — blue now, warm red once that lands. It stops at 42% so it
+// never reaches the headline/tagline zone above it. `background`, not a
+// pseudo-element: no extra box, no z-index against the deck to get wrong, and
+// the mask's `destination-out` pass can't touch a CSS layer.
+[data-theme="light"] .hero-skyline-canvas {
+  background: linear-gradient(
+    180deg,
+    transparent 42%,
+    color-mix(in srgb, var(--accent) 11%, transparent) 100%
+  );
+}
+
 .hero-deck-stage {
   grid-area: deck;
   display: flex;

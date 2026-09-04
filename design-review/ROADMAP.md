@@ -11,7 +11,21 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-03, **footer
+## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11 Phase 1
+— hero skyline, light theme**: owner feedback that the light-theme bars "don't
+hit" and the light theme reads plain. Resolved from a `/design` canvas into a
+**3-phase pass** on branch `stage11-light-theme-colour`: (1) *this* — the light
+skyline palette now solves DEEP (every hue a dark saturated ink), the light
+alpha ramp is opaque-bodied instead of fading out at the tip, a CSS "atmosphere
+floor" gradient sits behind the transparent canvas, and the text mask gets a
+tighter per-theme feather; dark theme byte-unchanged; `.hero-tagline` contrast
+5.17:1 (7.2 baseline 5.15). (2, next) per-item "pressing" hue on `#my-taste` +
+`#projects` card backgrounds, both themes, via a `cardHueFor(id)` hash. (3)
+the "Studio Paper" ground swap — light `--bg-color #f6f7fb→#f3f0ea`,
+`--text-color→#191510`, light `--accent→#b23a2b` (dark accent stays `#6f9bff`)
+— plus a "liner-note tracklist" rebuild of `#projects` (Space Mono index
+numerals, no boxes). Owner reviews live between phases. Full note under the
+Stage table in §0 / STATUS.md's own dated entry. Prior 2026-09-03, **footer
 social-icon hover animation** — off-roadmap owner request: the
 LinkedIn/GitHub/Spotify icons self-draw on hover (GSAP `DrawSVGPlugin`, no new
 dep) + GitHub tail-wag, footer text trimmed to the name, light-theme
