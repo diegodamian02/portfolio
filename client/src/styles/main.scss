@@ -116,6 +116,31 @@
   --vinyl-4: #131f42; // midnight blue
   --vinyl-5: #454a52; // marbled smoke
 
+  // Card "pressing" hues — Stage 11 Phase 2. One per card on #my-taste and
+  // #projects, picked by a hash of the card's id (card-hue.js, the same
+  // mechanism as --vinyl-N / colorwayFor). Same record-store family as the
+  // vinyl colourways — deep, slightly desaturated — but chosen to still read
+  // as themselves at 7% tint on paper AND as a real colour panel at ~28% on
+  // ink, and to hold >=4.5:1 as small text against a near-white card (amber,
+  // the lightest, measures 4.6:1 on #fff — the binding case). Same in both
+  // themes; only the tint strength below flips.
+  --wax-1: #8a2233; // oxblood
+  --wax-2: #9a5a12; // amber (deeper than --vinyl-2 so it works as label text)
+  --wax-3: #22407a; // midnight
+  --wax-4: #1f5a45; // forest
+  --wax-5: #5c2c70; // plum
+
+  // The card surface itself: the pressing hue mixed into the page background.
+  // Redeclared under [data-theme="light"] with a much lower percentage — 28%
+  // of a deep hue on near-black reads as a coloured panel, 28% on near-white
+  // would be a garish wash, so light gets 8%. Same split reasoning as
+  // --vinyl-N's own per-theme redeclaration right above.
+  --card-tint-1: color-mix(in srgb, var(--wax-1) 28%, var(--bg-color));
+  --card-tint-2: color-mix(in srgb, var(--wax-2) 28%, var(--bg-color));
+  --card-tint-3: color-mix(in srgb, var(--wax-3) 28%, var(--bg-color));
+  --card-tint-4: color-mix(in srgb, var(--wax-4) 28%, var(--bg-color));
+  --card-tint-5: color-mix(in srgb, var(--wax-5) 28%, var(--bg-color));
+
   // Walkman (Stage 3 Task 11.2's own follow-up — the send-success takeover,
   // connect.jsx/walkman.jsx). Same "physical object gets its own token
   // family, tuned per theme rather than reusing page tokens" convention as
@@ -328,6 +353,19 @@
   --vinyl-3: #571422;
   --vinyl-4: #16244d;
   --vinyl-5: #3d424a;
+
+  // Card "pressing" tint — Stage 11 Phase 2. --wax-1..5 stay as declared in
+  // :root (they double as the saturated signal — tape, borders — and need to
+  // read the same in both themes); only the mix strength drops, 28% -> 12%,
+  // because the same deep hue that reads as a coloured panel on near-black is
+  // a heavy wash on near-white. 12% lands as a clear but soft warm/cool cast
+  // on the card, distinct card-to-card, with body text still ~13:1 against it
+  // (measured — see Phase 2 STATUS entry).
+  --card-tint-1: color-mix(in srgb, var(--wax-1) 12%, var(--bg-color));
+  --card-tint-2: color-mix(in srgb, var(--wax-2) 12%, var(--bg-color));
+  --card-tint-3: color-mix(in srgb, var(--wax-3) 12%, var(--bg-color));
+  --card-tint-4: color-mix(in srgb, var(--wax-4) 12%, var(--bg-color));
+  --card-tint-5: color-mix(in srgb, var(--wax-5) 12%, var(--bg-color));
 
   // Walkman case, lightened for a light page the same way --deck-ground
   // shifts below — a dark-navy-tuned case would read as a hole in a light
@@ -3416,7 +3454,12 @@ $taste-swipe-max: 1024px;
   // card) — safe to cut without touching the overlap math, unlike
   // margin/gap below.
   padding: var(--space-2);
-  background: var(--taste-card-bg);
+  // Stage 11 Phase 2 — the card's own "pressing" hue (--card-bg, set inline
+  // by TasteCard from cardHueFor(id)), falling back to the neutral
+  // --taste-card-bg for any card that doesn't get one (the setlist container).
+  // This is the "add colour to the card backgrounds" ask; the torn edge, tape
+  // and Anton headline are untouched.
+  background: var(--card-bg, var(--taste-card-bg));
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   transform:
     rotate(var(--card-rotate, 0deg))
@@ -3580,8 +3623,14 @@ $taste-swipe-max: 1024px;
   left: 50%;
   width: 56px;
   height: 20px;
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
-  opacity: 0.55;
+  // Stage 11 Phase 2 — the tape now carries the card's own pressing hue
+  // (--card-wax, set inline by TasteCard) instead of the site accent, so each
+  // card has a colour signature even where the --card-tint background is
+  // nearly invisible (light theme). Falls back to --accent for the setlist
+  // card, which has no hue and hides its tape below the swipe breakpoint
+  // anyway.
+  background: color-mix(in srgb, var(--card-wax, var(--accent)) 42%, transparent);
+  opacity: 0.6;
   transform: translateX(-50%) rotate(var(--tape-rotate, 0deg));
   pointer-events: none;
 
@@ -5339,10 +5388,17 @@ $taste-swipe-max: 1024px;
    independently on a phone and read as a tangle); the description shows as a
    2-line preview while collapsed and un-clamps once open. */
 .portfolio-item {
-  background: color-mix(in srgb, var(--text-color) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
+  // Stage 11 Phase 2 — each project card carries its own "pressing" hue
+  // (--card-bg / --card-wax, set inline by portfolio.jsx from
+  // cardHueFor(project.id)). Interim: Phase 3 rebuilds this section as a
+  // liner-note tracklist with no card boxes, where the hue mostly retires
+  // to the index numeral. Falls back to the old neutral 4% fill if no hue
+  // is set.
+  background: var(--card-bg, color-mix(in srgb, var(--text-color) 4%, transparent));
+  border: 1px solid color-mix(in srgb, var(--card-wax, var(--text-color)) 18%, transparent);
   border-radius: 12px;
   margin-bottom: var(--space-3);
+  box-shadow: 0 6px 20px -10px color-mix(in srgb, var(--card-wax, transparent) 30%, transparent);
   // Padding lives on the CARD, not each inner block — a `-webkit-box`
   // line-clamp element with its own padding-bottom leaks the next line
   // past the clamp (seen live). So the summary/details carry no padding of
@@ -5358,7 +5414,7 @@ $taste-swipe-max: 1024px;
   transition: border-color var(--theme-transition), background-color var(--theme-transition);
 
   &.is-open {
-    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    border-color: color-mix(in srgb, var(--card-wax, var(--accent)) 55%, transparent);
   }
 }
 

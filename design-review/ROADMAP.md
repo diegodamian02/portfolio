@@ -11,7 +11,13 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11 Phase 1
+## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11 Phase 2
+— per-item colour on card backgrounds**: `#my-taste` + `#projects` cards each
+get one of five "pressing" hues (oxblood/amber/midnight/forest/plum) by a hash
+of the card id — `cardHueFor` in `lib/card-hue.js`, same mechanism as
+`colorwayFor`. Dark: hue mixed 28% into the bg = a real coloured panel. Light:
+12% cast + a hue-coloured tape/border. Layout/interaction untouched. Phase 3
+next (warm ground + `#projects` tracklist). Prior, **Stage 11 Phase 1
 — hero skyline, light theme**: owner feedback that the light-theme bars "don't
 hit" and the light theme reads plain. Resolved from a `/design` canvas into a
 **3-phase pass** on branch `stage11-light-theme-colour`: (1) *this* — the light

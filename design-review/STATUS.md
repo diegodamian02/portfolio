@@ -1,6 +1,15 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-04 (**Stage 11 Phase 1 — hero skyline reads as colour in
+**Updated:** 2026-09-04 (**Stage 11 Phase 2 — per-item colour on the card
+backgrounds**: `#my-taste` artist cards and `#projects` cards each get one of
+five "pressing" hues (oxblood / amber / midnight / forest / plum) picked by a
+hash of the card's id — the same mechanism as the vinyl colourways. On dark the
+card paper becomes a real coloured panel (hue mixed 28% into the bg); on light
+it's a soft 12% cast plus a hue-coloured tape / border / shadow carrying the
+signal. Torn edges, tape geometry, Anton headlines, the accordion — all
+untouched. Body text ≥ 6:1 on every tinted card, both themes. Next: Phase 3
+(warm "Studio Paper" ground + `#projects` tracklist). Full entry in §2.) Prior,
+**Stage 11 Phase 1 — hero skyline reads as colour in
 light theme**: the light-theme bars were a pale lavender wash; the light
 palette now solves DEEP (every hue a dark saturated ink, not a pastel), the
 light alpha ramp is opaque-bodied instead of fading to 0.42 at the tip, and a
@@ -79,6 +88,57 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 11 Phase 2 — per-item colour on the card backgrounds *(2026-09-04)*
+
+**Branch:** `stage11-light-theme-colour` (stacked on Phase 1). The owner's ask
+was "add some colour to the background of the cards so it looks more eye
+pleasing," pointing at the `#my-taste` festival poster as the reference.
+
+**New** `client/src/lib/card-hue.js`: `cardHueFor(id)` → `1..5` via
+`hash32(\`${id}:card-hue\`)` — mirrors `colorwayFor` (vinyl-record.jsx), reuses
+`hash32`. Deterministic across reloads / theme flips; a card always lands on the
+same "pressing."
+
+**Tokens** (`main.scss`, in the `--vinyl-N` family):
+- `--wax-1..5` — the pure hues: oxblood `#8a2233`, amber `#9a5a12` (deepened
+  from `--vinyl-2`'s `#a3590c` so it works as label text), midnight `#22407a`,
+  forest `#1f5a45`, plum `#5c2c70`. Same in both themes.
+- `--card-tint-1..5` — `color-mix(in srgb, var(--wax-N) <p>, var(--bg-color))`,
+  redeclared per theme like `--vinyl-N`: **28%** on `:root` (dark), **12%** on
+  `[data-theme="light"]`. The same deep hue reads as a coloured panel on
+  near-black and a heavy wash on near-white.
+
+**`#my-taste`** (`my-taste.jsx` + `main.scss`): `TasteCard` sets `--card-bg` /
+`--card-wax` inline from `cardHueFor(id)` (new `neutral` prop opts the setlist
+container card out — it stays plain paper). `.my-taste-card` background is
+`var(--card-bg, var(--taste-card-bg))`; `.my-taste-card-tape` recolours from
+`--accent` → `--card-wax` at 42%, so each card has an unmissable colour signal
+even where the light tint is faint. No left-border accent (that trope stays
+out — the tape does the job).
+
+**`#projects`** (`portfolio.jsx` + `main.scss`) — *interim*, Phase 3 rebuilds
+this section as a tracklist: `.portfolio-item` gets `--card-bg` / `--card-wax`
+from `cardHueFor(project.title)` (keyed on the title, not the integer id —
+`hash32` clustered 3 of the 4 sequential ids onto one hue). Background, border,
+`.is-open` border and a soft hue-tinted shadow all pick up the hue.
+
+**Measured** (Playwright, computed card bg vs computed body-text colour,
+`color(srgb …)` and `rgb()` both normalised):
+
+| surface | dark | light | need |
+|---|---|---|---|
+| `#my-taste` card name/track text on tinted card | 14.4–15.4 | 14.2–15.4 | 4.5 |
+| `#projects` summary/role text on tinted card | 5.99–6.79 | 6.28–6.57 | 4.5 |
+
+Lint 7 errors / 2 warnings (unchanged — `TasteCard`'s new prop is inside the
+file's existing `eslint-disable react/prop-types` span). Screenshots:
+`stage11-2-{my-taste,projects}-{dark,light}.png`.
+
+**Reads better on dark than light right now** — the 12% light cast on the
+current cold `#f6f7fb` ground is subtle (the tape carries most of the signal).
+Phase 3 swaps the ground to warm `#f3f0ea`, which the cool tints (midnight,
+forest) will show against far more clearly.
 
 ### Stage 11 Phase 1 — hero skyline reads as colour in light theme *(2026-09-04)*
 

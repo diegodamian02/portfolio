@@ -4,6 +4,7 @@ import { useGSAP } from "@gsap/react";
 import { gsap, Flip, SIGNATURE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import { getActiveLenis } from "../lib/scroll.js";
+import { cardHueFor } from "../lib/card-hue.js";
 import projects from "../data/projectsData";
 import "../styles/main.scss";
 
@@ -322,11 +323,20 @@ export default function Portfolio() {
                     const isOpen = expandedProject === project.id;
                     const detailsId = `project-details-${project.id}`;
 
+                    // Stage 11 Phase 2 — per-project "pressing" hue, same hash
+                    // as #my-taste's cards. Keyed on the title, not the id:
+                    // there are only four projects and their ids are the
+                    // integers 1-4, which hash32 clusters (3 of 4 landed on one
+                    // hue); the titles are distinct strings and split cleanly.
+                    // Interim anyway — Phase 3 rebuilds this as a tracklist.
+                    const hue = cardHueFor(project.title);
+
                     return (
                         <div
                             key={project.id}
                             className={`portfolio-item${isOpen ? " is-open" : ""}`}
                             data-project-id={project.id}
+                            style={{ "--card-bg": `var(--card-tint-${hue})`, "--card-wax": `var(--wax-${hue})` }}
                         >
                             {/* Expandable Header — Stage 5 (continued): role is
                                 a kicker ABOVE the title now, not a second column

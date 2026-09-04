@@ -34,6 +34,7 @@ import "@fontsource/space-mono/latin-ext-700.css";
 import "../styles/main.scss";
 import { photoColorwayFor } from "../components/vinyl-record.jsx";
 import { seeded01 } from "../lib/hash.js";
+import { cardHueFor } from "../lib/card-hue.js";
 // Same theme-swapped pair footer.jsx's own Spotify link already uses — no
 // third icon asset, no icon library, per the brief's own instruction to
 // reuse whatever already renders platform marks on this site.
@@ -312,8 +313,13 @@ function rotationOf(card) {
 // each track inside it links individually, see the setlist markup below),
 // so `content` just falls back to plain `children`, unchanged from before
 // this task. One component, one conditional, not two card mechanisms.
-function TasteCard({ id, area, className, href, children }) {
+function TasteCard({ id, area, className, href, neutral, children }) {
     const { rotate, jitterX, jitterY, tear, tapeRotate } = cardTransform(id);
+    // Stage 11 Phase 2 — the card's own "pressing" hue, same deterministic
+    // hash as cardTransform/colorwayFor. `neutral` opts the setlist container
+    // card out (it wraps a list, not one artist — it stays the plain paper
+    // colour); the wall's featured/secondary cards each get one.
+    const hue = neutral ? null : cardHueFor(id);
     const content = href ? (
         <a className="my-taste-card-link" href={href} target="_blank" rel="noopener noreferrer">
             {children}
@@ -330,6 +336,7 @@ function TasteCard({ id, area, className, href, children }) {
                 "--card-jitter-x": `${jitterX.toFixed(1)}px`,
                 "--card-jitter-y": `${jitterY.toFixed(1)}px`,
                 "--tape-rotate": `${tapeRotate.toFixed(1)}deg`,
+                ...(hue ? { "--card-bg": `var(--card-tint-${hue})`, "--card-wax": `var(--wax-${hue})` } : null),
             }}
         >
             <div className="my-taste-card-tape" />
@@ -1040,7 +1047,7 @@ export default function MyTaste() {
                         exactly as-is; only the crate straightens. */}
                     <div className="my-taste-crate">
                     {tracks.status === "ready" && setlist.length > 0 ? (
-                        <TasteCard id="setlist" className="my-taste-card--setlist">
+                        <TasteCard id="setlist" className="my-taste-card--setlist" neutral>
                             <div className="my-taste-setlist-thumbs">
                                 {setlist.slice(0, 3).map((track) => (
                                     <PhotoSlot
