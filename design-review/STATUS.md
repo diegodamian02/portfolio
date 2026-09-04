@@ -1,6 +1,13 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-03 (**Stage 5 (continued) — mobile declutter pass**:
+**Updated:** 2026-09-03 (**Footer — social icons redraw on hover**: the
+LinkedIn/GitHub/Spotify icons now self-draw their strokes on hover/focus with
+a scale pop + a soft chip, and GitHub's tail draws then wags — dalelarroder.com
+style, done with GSAP `DrawSVGPlugin` (no new dependency). Footer text → name
+only (`Diego Damian`). Fixed en route: the white-only LinkedIn PNG was
+invisible on the light-theme footer — inline SVG + `currentColor` fixes it and
+retires the old per-theme PNG swap. Full entry in §2.) Prior, same day:
+(**Stage 5 (continued) — mobile declutter pass**:
 every section's mobile layout tightened against a two-direction `/design`
 mockup exploration. `#my-taste`'s second swipe row deleted for a numbered
 list; `#projects` rebuilt as preview cards; `#experience` filmstrip kept but
@@ -64,6 +71,65 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Footer — social icons redraw on hover *(2026-09-03)*
+
+**Branch:** `footer-social-icons`. Files: `components/social-icon.jsx` (new),
+`components/footer.jsx`, `main.scss` (the `//social links` region), three PNGs
+deleted.
+
+**Why.** Owner request: the footer socials (LinkedIn / GitHub / Spotify) did
+nothing on hover; wanted the [dalelarroder.com](https://dalelarroder.com)
+treatment, where each icon "self-draws" its strokes, pops slightly, gains a
+soft rounded background chip, and GitHub's octocat tail draws then wags on a
+loop (framer-motion `pathLength` there — the `pqoqubbw/icons` set). Also two
+decisions taken with the owner: footer text → name only (`Diego Damian`, no
+`©`/year); no email icon (the roadmap deliberately dropped exposed email in
+favour of the `#connect` form).
+
+**Mechanism.** GSAP `DrawSVGPlugin` — already registered in `lib/gsap.js`,
+already used for the `#connect` input underlines. `drawSVG: "0%" → "100%"` is
+the same effect as Dale's `pathLength` 0→1. **No new dependency** (framer-motion
+was never an option here). New `<SocialIcon name href />` component, modelled on
+`work-motif.jsx` (the existing "quiet, decorative, `useReducedMotion()`-gated
+SVG" pattern):
+- Inline stroke SVGs, `viewBox 24`. LinkedIn + GitHub are the lucide paths; the
+  GitHub tail (`M9 18c-4.51 2-5-2-7-2`) is its own `<path>` so it can draw last
+  and then wag (`rotation` yoyo loop, `svgOrigin: "9 18"` pins the pivot to the
+  tail's attach point). Spotify has no lucide equivalent — hand-built as an
+  outer ring + three broadcast arcs so it draws in consistently.
+- `onMouseEnter`/`onFocus` (`:focus-visible` only) plays a timeline: `scale
+  0.9→1` `back.out(1.7)` + `drawSVG 0→100%` on the paths, `stagger 0.07`,
+  `SIGNATURE_EASE`. `onMouseLeave`/`onBlur` kills the timeline + wag and snaps
+  the strokes back to fully drawn. Timeline + wag both held in refs and killed
+  on unmount / rapid re-hover.
+- `prefers-reduced-motion`: no `useGSAP` block at all — icons render fully drawn
+  and static; hover is just the CSS colour + chip (`main.scss .social-icon`).
+
+**Also fixed along the way.** `linkedin.png` was white-only and rendered
+regardless of theme — in light mode a white glyph on the `#f6f7fb` footer,
+effectively invisible. Inline SVG + `stroke: currentColor` makes all three
+theme-correct for free, which also retired `footer.jsx`'s `useState`/`useEffect`
+theme listener and its per-theme GitHub/Spotify PNG swap. `linkedin.png`,
+`github.png`, `github_black.png` deleted (unreferenced after this; the Spotify
+PNGs stay — `my-taste.jsx` still uses them).
+
+**CSS.** `.social-icon` — `inline-flex`, `padding: 8px` (the chip area),
+`border-radius: 10px`, `color: var(--secondary-text)` → `:hover,:focus-visible`
+`color: var(--text-color)` + `background: color-mix(in srgb, var(--accent) 14%,
+transparent)`. `.footer-links` `gap: 20px → 8px` to keep the same ~50px
+glyph-to-glyph pitch now each `<a>` carries its own 8px padding. The
+`@media (pointer: coarse)` 44px `::before` hit-area block is unchanged and still
+applies (`.social-icon` is still a `.footer-links a`).
+
+**Verified** (Playwright, dev server on 5173, nav to `#connect`): watermark
+reads `Diego Damian`, 3 icons, 0 console errors and 0 horizontal overflow at
+1440 and 390 across dark / light / reduced-motion. Icon contrast vs the footer
+`--bg-color`: rest **7.65:1** dark / **7.71:1** light (LinkedIn now visible in
+light — the bug), hover **17.0:1 / 17.4:1**. Coarse-pointer hit box **44×44px**.
+Strokes settle to `stroke-dashoffset: 0` (fully drawn); reduced-motion leaves
+`stroke-dasharray: none` (GSAP never touched them). `npm run lint` unchanged
+(7 errors / 2 warnings baseline); `npm run build` passes.
 
 ### Stage 5 (continued) — mobile declutter pass *(2026-09-03)*
 

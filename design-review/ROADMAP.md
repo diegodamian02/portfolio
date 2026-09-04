@@ -11,7 +11,12 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-03, **Stage 5
+## 0. Current state — quick summary *(updated 2026-09-03, **footer
+social-icon hover animation** — off-roadmap owner request: the
+LinkedIn/GitHub/Spotify icons self-draw on hover (GSAP `DrawSVGPlugin`, no new
+dep) + GitHub tail-wag, footer text trimmed to the name, light-theme
+LinkedIn-invisible bug fixed; full note under the Stage table in §0. Prior,
+same day, **Stage 5
 (continued) — mobile declutter pass**: every section's mobile layout tightened
 against a two-direction mockup exploration (`design-review/mobile-redesign/`).
 `#my-taste`'s second swipe row is gone — the top-5 is a plain numbered list
@@ -1083,6 +1088,18 @@ list). Full writeup: `STATUS.md`'s own dated entry.
 | **7 (perspective grid)** | The receding horizon grid with a vanishing point — the other half of the synthwave idiom. Deliberately **not** built in the rebuild: it is a decorative layer over a structure that has to be correct first, the same structural-before-motion split every prior stage took | The rebuild — done |
 | **7 (e+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done. **`meyda` is the flagged candidate if the visualizer wants real timbral features** (spectral flux/centroid/chroma); it was declined for the hero, where band splitting is fifteen lines |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
+
+**Done off-roadmap, 2026-09-03 — footer social-icon hover animation.** Direct
+owner request (match dalelarroder.com): the footer's LinkedIn/GitHub/Spotify
+icons now self-draw their strokes on hover/focus (GSAP `DrawSVGPlugin` — no new
+dependency), pop in scale, gain a soft accent chip, and GitHub's octocat tail
+draws then wags. New reusable `<SocialIcon>` component
+(`client/src/components/social-icon.jsx`), reduced-motion-gated like
+`work-motif.jsx`. Footer text trimmed to the name only (`Diego Damian`). Fixed
+en route: the white-only `linkedin.png` was invisible on the light-theme footer
+— inline SVG + `stroke: currentColor` fixes it and retires `footer.jsx`'s
+per-theme PNG swap (three PNGs deleted). Full writeup: `STATUS.md`'s dated
+entry.
 
 **Standing manual tasks (not code — need dashboard access), highest priority first:**
 1. ~~Set `RESEND_API_KEY` on Railway's server service~~ — **stale, corrected 2026-08-19.**

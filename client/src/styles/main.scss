@@ -5223,18 +5223,19 @@ $taste-swipe-max: 1024px;
 
 .footer-links {
   display: flex;
-  gap: 20px;
+  // Was 20px between bare ~30px icons. Each .social-icon now carries 8px of
+  // its own padding (the hover chip), so the gap drops to keep the same ~50px
+  // glyph-to-glyph pitch: 8 + 8 + 8 = 24px of clear space, ~like the old 20.
+  gap: 8px;
 
   // Stage 5 — LinkedIn / GitHub / Spotify measured 30-32px wide by 37px
   // tall, under the 44px floor, and these are the most recruiter-relevant
   // links on the page. Same ::before hit-area floor as the logo and the
-  // turntable transport; the icons themselves are untouched. The widest
-  // expansion here is (44 - 30) / 2 = 7px per side against this rule's own
-  // 20px gap, so neighbouring targets still cannot overlap.
+  // turntable transport; the icons themselves are untouched. The .social-icon
+  // box is now 26 + 2x8 = 42px, so ::before only has 2px left to add.
   @media (pointer: coarse) {
     a {
       position: relative;
-      display: block;
 
       &::before {
         content: "";
@@ -5249,21 +5250,37 @@ $taste-swipe-max: 1024px;
   }
 }
 
-//social links
+// social links — inline stroke SVGs (social-icon.jsx), theme-driven via
+// currentColor. The hover chip + colour lift are CSS; the stroke self-draw
+// and the GitHub tail wag are GSAP DrawSVGPlugin in the component, skipped
+// under prefers-reduced-motion (where this CSS is the whole interaction).
+.social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 10px;
+  color: var(--secondary-text);
+  transition: color 0.25s ease, background-color 0.25s ease;
 
-.linkedin-icon {
-  width: 32px;
-  height: 28px;
+  &:hover,
+  &:focus-visible {
+    color: var(--text-color);
+    background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  }
 }
 
-.github-icon {
-  width: 30px;
-  height: 30px;
-
-}
-.spotify-icon {
-  width: 30px;
-  height: 30px;
+.social-icon-svg {
+  display: block;
+  width: 26px;
+  height: 26px;
+  // The tail wag rotates a stroke past the nominal 24-unit box.
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 //portfolio
