@@ -1,15 +1,27 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-04 (**Stage 11 Phase 2 — per-item colour on the card
+**Updated:** 2026-09-04 (**Stage 11 Phase 3 — "Studio Paper": the light theme
+stops being plain**: the closing phase of the light-theme & colour pass. Light
+`--bg-color` warms from cold blue-white `#f6f7fb` to paper `#f3f0ea`,
+`--text-color` from navy `#0d1220` to warm ink `#191510`, `--accent` from flat
+`#1f3fae` to record-red `#b23a2b` (dark theme's own `#6f9bff` is untouched, by
+design). `#projects` is rebuilt as a liner-note tracklist — no card boxes,
+Space Mono index numerals in the accent, hairline rules, an inset accent bar +
+wash on hover/open — replacing Stage 5's cards; Phase 2's per-card hue there
+retires with the boxes. `.hero-tagline` re-measured at 5.04:1 (light copy mask
+0.70→0.74 to hold the ≥5:1 margin every other measurement on this page keeps).
+Phase 2's card tints read markedly stronger now that the ground they mix into
+is warm. Stage 11 is done — all three phases on `stage11-light-theme-colour`,
+not yet merged to `main`. Full entry in §2.) Prior, 2026-09-04, **Stage 11
+Phase 2 — per-item colour on the card
 backgrounds**: `#my-taste` artist cards and `#projects` cards each get one of
 five "pressing" hues (oxblood / amber / midnight / forest / plum) picked by a
 hash of the card's id — the same mechanism as the vinyl colourways. On dark the
 card paper becomes a real coloured panel (hue mixed 28% into the bg); on light
 it's a soft 12% cast plus a hue-coloured tape / border / shadow carrying the
 signal. Torn edges, tape geometry, Anton headlines, the accordion — all
-untouched. Body text ≥ 6:1 on every tinted card, both themes. Next: Phase 3
-(warm "Studio Paper" ground + `#projects` tracklist). Full entry in §2.) Prior,
-**Stage 11 Phase 1 — hero skyline reads as colour in
+untouched. Body text ≥ 6:1 on every tinted card, both themes. Full entry in
+§2.) Prior, **Stage 11 Phase 1 — hero skyline reads as colour in
 light theme**: the light-theme bars were a pale lavender wash; the light
 palette now solves DEEP (every hue a dark saturated ink, not a pastel), the
 light alpha ramp is opaque-bodied instead of fading to 0.42 at the tip, and a
@@ -88,6 +100,88 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 11 Phase 3 — "Studio Paper": ground, accent, `#projects` tracklist *(2026-09-04)*
+
+**Branch:** `stage11-light-theme-colour` (stacked on Phases 1–2; closes Stage
+11). Direction settled from the `/design` canvas the owner reviewed at the
+start of this pass: warm paper over the two alternatives (cool slate, full
+dark), and a "liner-note tracklist" for `#projects` over two others (tinted
+cards, a video contact-sheet grid).
+
+**Light token swap** (`main.scss`, `[data-theme="light"]`):
+
+| Token | From | To | Measured |
+|---|---|---|---|
+| `--bg-color` | `#f6f7fb` | `#f3f0ea` | — |
+| `--text-color` | `#0d1220` | `#191510` | 15.97:1 on `--bg-color` |
+| `--secondary-text` | `#454e68` | `#57503f` | 7.03:1 on `--bg-color` |
+| `--accent` | `#1f3fae` | `#b23a2b` | 5.23:1 on `--bg-color` |
+
+Dark theme's `--accent` (`#6f9bff`) is **unchanged** — a deliberate call
+(owner sign-off, Phase 3 planning): the codebase already runs per-theme
+accents, and this pass is scoped to the light theme.
+
+**Checked, not assumed, before adding anything:**
+- `--deck-ground` (`#bdc1cb`) vs the new paper: **16.8 L\*** apart — still
+  clear of the ~15 floor `.turntable`'s own comment sets, so the deck greys
+  didn't need to move.
+- A "raised card" token (`--card-bg-raised`) was drafted for the `#connect`
+  J-card and the Experience media frame, then **not added** — both already
+  sit on fixed, non-theme tokens (`--cassette-label`, `--deck-ground`) by
+  original design ("a printed label / a device chassis doesn't get lighter
+  because the page did"), and both still contrast correctly against the new
+  paper unmodified. `#my-taste`'s cards use Phase 2's `--card-tint-N`, not a
+  raised surface either. No consumer, so no token.
+- `--deck-edge` / `--deck-shadow` / `--deck-well-shadow` warmed from
+  blue-black `rgba(20,27,48,…)` to the new ink `rgba(25,21,16,…)` — the
+  original "pure black greys out against a cool page" reasoning inverts on a
+  warm one.
+- The 11 hardcoded white/`rgba(255,255,255,…)` literals the plan flagged for
+  audit turned out to all be turntable-sheen / walkman-detail highlights —
+  device surfaces, not page backgrounds — so none needed touching.
+
+**Skyline re-tune.** The Phase 1 atmosphere floor reads `--accent`, so it
+warmed automatically. `.hero-tagline`'s margin against the text mask thinned
+from 5.17:1 to 4.74:1 purely from `--secondary-text` getting lighter — still
+≥4.5 but the thinnest margin on the page. `ZONE_STRENGTH.light.copy` 0.70 →
+0.74 (`skyline-background.jsx`) restores 5.04:1, re-verified over all seven
+palette positions; dark's own 0.85 untouched.
+
+**`#projects` — the tracklist rebuild** (`portfolio.jsx` + `main.scss`):
+`.portfolio-item` loses its background/border/radius/shadow (and Phase 2's
+per-project hue with them — a tracklist's colour lives in one accent, not
+five); `.portfolio-list` gets a `border-top: 2px solid var(--text-color)`,
+each item a hairline `border-bottom`. A new `.project-index` — Space Mono 700,
+`var(--accent)`, `00`-padded — sits in its own fixed-width (`--track-index-w:
+3ch`) grid column ahead of the existing role/title pair; role-above-title
+(Stage 5's own mobile fix, for a real bug — a side-by-side split wrapped both
+columns independently) is kept exactly as-is rather than flattened into one
+row, which would have risked reintroducing it. Hover/`.is-open` = an inset
+accent bar (`box-shadow`, so it never shifts layout) + a faint accent wash,
+replacing the card border. `.portfolio-summary` indents by `--track-index-w`
+to align under the title. GSAP Flip, the video/links expand, and the whole
+accordion mechanism are untouched — verified open/close in both themes.
+`@fontsource/space-mono` (already a dependency, used by `#my-taste`) imported
+directly in `portfolio.jsx` too.
+
+**Measured** (Playwright): `.project-index`/`.project-title`/`.project-role`
+vs page bg — dark 7.16 / 17.03 / 7.65, light 5.23 / 15.97 / 7.03 (all ≥4.5).
+0px horizontal overflow at 320/390/1440. Lint 7 errors / 2 warnings
+(unchanged).
+
+**`#my-taste` cards, re-measured on the new ground:** 13.0–14.2:1 (was
+14.2–15.4 on the old cold ground — still comfortably clear; the drop is the
+new ink's own luminance, not a regression). Visually, the cool tints
+(midnight, forest) that read as barely-there on `#f6f7fb` are now clearly
+visible against warm paper — the prediction from the Phase 2 entry held.
+
+Screenshots: full `design-review/screenshots/` set regenerated (`home/about/
+experience/my-taste/projects/connect-{desktop,mobile}`, `home-light`,
+`about-light`); plus `stage11-3-hero-{dark,light}`, `stage11-3-my-taste-
+{dark,light}`, `stage11-3-projects-{dark,light}`, `-light-open`, `-light-390`.
+
+**Stage 11 is done, all three phases on one branch, not merged to `main`.**
 
 ### Stage 11 Phase 2 — per-item colour on the card backgrounds *(2026-09-04)*
 

@@ -11,28 +11,32 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11 Phase 2
-— per-item colour on card backgrounds**: `#my-taste` + `#projects` cards each
-get one of five "pressing" hues (oxblood/amber/midnight/forest/plum) by a hash
-of the card id — `cardHueFor` in `lib/card-hue.js`, same mechanism as
-`colorwayFor`. Dark: hue mixed 28% into the bg = a real coloured panel. Light:
-12% cast + a hue-coloured tape/border. Layout/interaction untouched. Phase 3
-next (warm ground + `#projects` tracklist). Prior, **Stage 11 Phase 1
+## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11 Phase 3
+— "Studio Paper," closing the light-theme & colour pass**: light `--bg-color`
+`#f6f7fb`→`#f3f0ea`, `--text-color`→`#191510`, `--accent`→`#b23a2b` (dark's own
+`#6f9bff` untouched — per-theme accents were already this codebase's pattern).
+`#projects` rebuilt as a liner-note tracklist — Space Mono index numerals in
+the accent, no card boxes, hairline rules, an inset accent bar on hover/open —
+replacing Stage 5's cards; Phase 2's per-project hue retires with the boxes
+(My Taste keeps its own). `.hero-tagline` re-measured 5.04:1 after the ground
+swap thinned it to 4.74 (light copy mask 0.70→0.74). Checked and skipped: a
+"raised card" token for `#connect`/Experience — both already use fixed tokens
+that contrast fine unmodified. **Stage 11 is done**, all 3 phases on
+`stage11-light-theme-colour`, not yet merged to `main`. Full note under the
+Stage table in §0 / STATUS.md's own dated entry. Prior, same day, **Stage 11
+Phase 2 — per-item colour on card backgrounds**: `#my-taste` + `#projects`
+cards each got one of five "pressing" hues (oxblood/amber/midnight/forest/
+plum) by a hash of the card id — `cardHueFor` in `lib/card-hue.js`, same
+mechanism as `colorwayFor`. Prior, **Stage 11 Phase 1
 — hero skyline, light theme**: owner feedback that the light-theme bars "don't
-hit" and the light theme reads plain. Resolved from a `/design` canvas into a
-**3-phase pass** on branch `stage11-light-theme-colour`: (1) *this* — the light
-skyline palette now solves DEEP (every hue a dark saturated ink), the light
-alpha ramp is opaque-bodied instead of fading out at the tip, a CSS "atmosphere
-floor" gradient sits behind the transparent canvas, and the text mask gets a
-tighter per-theme feather; dark theme byte-unchanged; `.hero-tagline` contrast
-5.17:1 (7.2 baseline 5.15). (2, next) per-item "pressing" hue on `#my-taste` +
-`#projects` card backgrounds, both themes, via a `cardHueFor(id)` hash. (3)
-the "Studio Paper" ground swap — light `--bg-color #f6f7fb→#f3f0ea`,
-`--text-color→#191510`, light `--accent→#b23a2b` (dark accent stays `#6f9bff`)
-— plus a "liner-note tracklist" rebuild of `#projects` (Space Mono index
-numerals, no boxes). Owner reviews live between phases. Full note under the
-Stage table in §0 / STATUS.md's own dated entry. Prior 2026-09-03, **footer
-social-icon hover animation** — off-roadmap owner request: the
+hit" and the light theme reads plain. Resolved from a `/design` canvas: the
+light skyline palette now solves DEEP (every hue a dark saturated ink), the
+light alpha ramp is opaque-bodied instead of fading out at the tip, a CSS
+"atmosphere floor" gradient sits behind the transparent canvas, and the text
+mask gets a tighter per-theme feather; dark theme byte-unchanged;
+`.hero-tagline` contrast 5.17:1 at the time (7.2 baseline 5.15). Prior
+2026-09-03, **footer social-icon hover animation** — off-roadmap owner
+request: the
 LinkedIn/GitHub/Spotify icons self-draw on hover (GSAP `DrawSVGPlugin`, no new
 dep) + GitHub tail-wag, footer text trimmed to the name, light-theme
 LinkedIn-invisible bug fixed; full note under the Stage table in §0. Prior,

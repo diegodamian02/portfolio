@@ -106,13 +106,15 @@ const MAX_DPR = 2;
 // mind. The headline and the crate then follow with a wide margin.
 const ZONE_STRENGTH = {
     dark: { copy: 0.85, crate: 0.55 },
-    // Light copy stays at 0.70 (Stage 11 checked, not changed). The Stage 11
-    // deep light palette means the bar behind the tagline is a dark saturated
-    // ink even before the mask, so 0.70 still measures .hero-tagline (the
-    // binding element, 24px/400 on --secondary-text) at 5.1:1+ over the worst
-    // bar across all seven palette positions, and what the mask leaves behind
-    // reads as a dimmed column rather than the pale wash a lighter palette left.
-    light: { copy: 0.70, crate: 0.55 },
+    // Light copy: 0.70 (Phase 1) -> 0.74 (Phase 3). The Studio Paper ground
+    // swap lightened --secondary-text (#454e68 -> #57503f, a warmer but
+    // higher-luminance ink) so .hero-tagline's own margin against the mask
+    // thinned from 5.17:1 to 4.74:1 — still >=4.5 but closer to the floor
+    // than every other measurement on this page, which all sit >=5. 0.74
+    // restores a >=5:1 margin (measured — see the Phase 3 STATUS entry) at
+    // the cost of a touch more knock-back on the tallest columns; not
+    // rechecked against dark, which keeps its own 0.85 untouched.
+    light: { copy: 0.74, crate: 0.55 },
 };
 const ZONE_PAD_X = 26;
 const ZONE_PAD_Y = 16;

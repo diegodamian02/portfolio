@@ -4,9 +4,14 @@ import { useGSAP } from "@gsap/react";
 import { gsap, Flip, SIGNATURE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import { getActiveLenis } from "../lib/scroll.js";
-import { cardHueFor } from "../lib/card-hue.js";
 import projects from "../data/projectsData";
 import "../styles/main.scss";
+// Stage 11 Phase 3 — Space Mono for .project-index (the tracklist numeral).
+// Already a dependency (my-taste.jsx's own setlist uses it); imported here
+// too rather than relied on transitively, so #projects doesn't depend on
+// #my-taste having mounted first to have the face available.
+import "@fontsource/space-mono/latin-700.css";
+import "@fontsource/space-mono/latin-ext-700.css";
 
 // Hand-drawn, stroke, currentColor — the one icon convention this codebase
 // has (about.jsx's fact chips, turntable.jsx's transport glyphs). No icon
@@ -319,36 +324,28 @@ export default function Portfolio() {
             <p className="portfolio-subtitle">Here are some of my selected projects worth sharing.</p>
 
             <div className="portfolio-list" ref={listRef}>
-                {projects.map((project) => {
+                {projects.map((project, i) => {
                     const isOpen = expandedProject === project.id;
                     const detailsId = `project-details-${project.id}`;
-
-                    // Stage 11 Phase 2 — per-project "pressing" hue, same hash
-                    // as #my-taste's cards. Keyed on the title, not the id:
-                    // there are only four projects and their ids are the
-                    // integers 1-4, which hash32 clusters (3 of 4 landed on one
-                    // hue); the titles are distinct strings and split cleanly.
-                    // Interim anyway — Phase 3 rebuilds this as a tracklist.
-                    const hue = cardHueFor(project.title);
 
                     return (
                         <div
                             key={project.id}
                             className={`portfolio-item${isOpen ? " is-open" : ""}`}
                             data-project-id={project.id}
-                            style={{ "--card-bg": `var(--card-tint-${hue})`, "--card-wax": `var(--wax-${hue})` }}
                         >
-                            {/* Expandable Header — Stage 5 (continued): role is
-                                a kicker ABOVE the title now, not a second column
-                                floated right (two columns each wrapped
-                                independently on a phone and read as a tangle).
-                                Chevron sits at the top-right. */}
+                            {/* Expandable Header — Stage 11 Phase 3: a track
+                                number ahead of the role/title kicker pair
+                                (role above title is Stage 5's own mobile fix,
+                                kept as-is — see the section comment above
+                                .portfolio-list). Chevron stays top-right. */}
                             <button
                                 className="portfolio-header"
                                 onClick={() => toggleProject(project.id)}
                                 aria-expanded={isOpen}
                                 aria-controls={detailsId}
                             >
+                                <span className="project-index" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
                                 <span className="project-role">{project.role}</span>
                                 <span className="project-title">{project.title}</span>
                                 <span className="portfolio-chevron"><ChevronIcon /></span>
