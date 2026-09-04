@@ -116,6 +116,48 @@
   --vinyl-4: #131f42; // midnight blue
   --vinyl-5: #454a52; // marbled smoke
 
+  // Card "pressing" hues — Stage 11 Phase 2. One per card on #my-taste and
+  // #projects, picked by a hash of the card's id (card-hue.js, the same
+  // mechanism as --vinyl-N / colorwayFor). Same record-store family as the
+  // vinyl colourways — deep, slightly desaturated — but chosen to still read
+  // as themselves at 7% tint on paper AND as a real colour panel at ~28% on
+  // ink, and to hold >=4.5:1 as small text against a near-white card (amber,
+  // the lightest, measures 4.6:1 on #fff — the binding case). Same in both
+  // themes; only the tint strength below flips.
+  --wax-1: #8a2233; // oxblood
+  --wax-2: #9a5a12; // amber (deeper than --vinyl-2 so it works as label text)
+  --wax-3: #22407a; // midnight
+  --wax-4: #1f5a45; // forest
+  --wax-5: #5c2c70; // plum
+
+  // Text-safe variant of the pressing hues — Stage 11 Phase 3 (revised),
+  // #projects' .project-index numeral. --wax-N above was tuned for the
+  // card-tint/tape jobs (mixed at 28% or 42% over a lighter surface, per the
+  // comments on those); read at full strength directly on --bg-color (the
+  // numeral now sits on the bare page, no card behind it) three of the five
+  // measured under 2.2:1 on this theme's near-black bg — caught live, not
+  // assumed from the hex values. A uniform color-mix(65% wax, 35% text-color)
+  // lifts every hue to 4.6-6.5:1 here while staying clearly "that" hue rather
+  // than washing toward white; light needs no lift (the same raw --wax-N
+  // already measures 4.8-9.0:1 on paper), so it's redeclared to just the
+  // plain hue below.
+  --wax-text-1: color-mix(in srgb, var(--wax-1) 65%, var(--text-color));
+  --wax-text-2: color-mix(in srgb, var(--wax-2) 65%, var(--text-color));
+  --wax-text-3: color-mix(in srgb, var(--wax-3) 65%, var(--text-color));
+  --wax-text-4: color-mix(in srgb, var(--wax-4) 65%, var(--text-color));
+  --wax-text-5: color-mix(in srgb, var(--wax-5) 65%, var(--text-color));
+
+  // The card surface itself: the pressing hue mixed into the page background.
+  // Redeclared under [data-theme="light"] with a much lower percentage — 28%
+  // of a deep hue on near-black reads as a coloured panel, 28% on near-white
+  // would be a garish wash, so light gets 8%. Same split reasoning as
+  // --vinyl-N's own per-theme redeclaration right above.
+  --card-tint-1: color-mix(in srgb, var(--wax-1) 28%, var(--bg-color));
+  --card-tint-2: color-mix(in srgb, var(--wax-2) 28%, var(--bg-color));
+  --card-tint-3: color-mix(in srgb, var(--wax-3) 28%, var(--bg-color));
+  --card-tint-4: color-mix(in srgb, var(--wax-4) 28%, var(--bg-color));
+  --card-tint-5: color-mix(in srgb, var(--wax-5) 28%, var(--bg-color));
+
   // Walkman (Stage 3 Task 11.2's own follow-up — the send-success takeover,
   // connect.jsx/walkman.jsx). Same "physical object gets its own token
   // family, tuned per theme rather than reusing page tokens" convention as
@@ -308,15 +350,46 @@
   --font-body: "Poppins", sans-serif;    // 400/regular — body text, UI
 }
 [data-theme="light"] {
-  --bg-color: #f6f7fb;
-  --text-color: #0d1220;
-  --secondary-text: #454e68;
-  --accent: #1f3fae;
+  // Stage 11 Phase 3 — "Studio Paper". The owner's read on the old light
+  // theme (#f6f7fb / #0d1220 / #1f3fae) was "plain," "meh" — a cold
+  // blue-white with a flat navy accent, no warmth anywhere. Settled from a
+  // `/design` canvas exploring three directions (warm paper, cool slate, full
+  // dark) — this is the warm one, drawn from the record-store world the hero
+  // and #my-taste already live in (liner notes, the maple crate) rather than
+  // a new palette invented for the occasion.
+  //
+  // --bg-color: a warm near-white paper, not pure white — chroma comes from
+  // the same family as --wax-2 (amber) at a whisper. --text-color: warm ink,
+  // not cold navy. --accent: "record red," pulled toward --wax-1 (oxblood) —
+  // replaces the flat #1f3fae that had no relationship to anything else on
+  // the page. Dark theme's own --accent (#6f9bff) is UNCHANGED — a deliberate
+  // call (owner sign-off): the codebase already runs per-theme accents, and
+  // this is scoped to fixing the light theme, not redesigning the dark one.
+  --bg-color: #f3f0ea;
+  --text-color: #191510;
+  // Measured on --bg-color: 7.03:1 — clear of the 4.5 body-text floor, and
+  // still >=4.5 on every --card-tint-N surface (Phase 2's cards sit closer to
+  // --bg-color than to --wax-N — the mix is only 12% hue).
+  --secondary-text: #57503f;
+  // Link/focus-ring colour. Measured: 5.23:1 on --bg-color (>=4.5 for link
+  // text; every --card-tint-N surface measures within 0.3 of this, since
+  // they're 88% --bg-color), clear of the 3:1 floor UI/focus-ring contexts
+  // need.
+  --accent: #b23a2b;
   --bg-inverted: #0a0e1a;
   --text-inverted: #eef1f8;
   --secondary-text-inverted: #9aa3bd;
 
-  // Less contrast between the maple and #f6f7fb than against navy —
+  // No "raised card" token turned out to be needed here — checked, not
+  // assumed. The two surfaces that looked like candidates (the #connect
+  // J-card, the Experience media frame) already sit on --cassette-label and
+  // --deck-ground respectively — both FIXED, non-theme tokens by original
+  // design (a printed paper label and a device chassis don't get lighter
+  // because the page did), and both still contrast correctly against the new
+  // paper without changing. Phase 2's #my-taste cards use --card-tint-N, not
+  // a raised surface. Nothing here needed a token with no consumer.
+
+  // Less contrast between the maple and the new paper than against navy —
   // compensate with a stronger shadow, not a darker/different wood.
   --crate-shadow-strength: 0.55;
 
@@ -328,6 +401,28 @@
   --vinyl-3: #571422;
   --vinyl-4: #16244d;
   --vinyl-5: #3d424a;
+
+  // Card "pressing" tint — Stage 11 Phase 2. --wax-1..5 stay as declared in
+  // :root (they double as the saturated signal — tape, borders — and need to
+  // read the same in both themes); only the mix strength drops, 28% -> 12%,
+  // because the same deep hue that reads as a coloured panel on near-black is
+  // a heavy wash on near-white. 12% lands as a clear but soft warm/cool cast
+  // on the card, distinct card-to-card, with body text still ~13:1 against it
+  // (measured — see Phase 2 STATUS entry).
+  --card-tint-1: color-mix(in srgb, var(--wax-1) 12%, var(--bg-color));
+  --card-tint-2: color-mix(in srgb, var(--wax-2) 12%, var(--bg-color));
+  --card-tint-3: color-mix(in srgb, var(--wax-3) 12%, var(--bg-color));
+  --card-tint-4: color-mix(in srgb, var(--wax-4) 12%, var(--bg-color));
+  --card-tint-5: color-mix(in srgb, var(--wax-5) 12%, var(--bg-color));
+
+  // --wax-text-N (#projects' .project-index): the raw --wax-N hues already
+  // measure 4.8-9.0:1 directly on this theme's paper bg — no lift needed like
+  // dark's own :root redeclaration above, so this is a straight alias.
+  --wax-text-1: var(--wax-1);
+  --wax-text-2: var(--wax-2);
+  --wax-text-3: var(--wax-3);
+  --wax-text-4: var(--wax-4);
+  --wax-text-5: var(--wax-5);
 
   // Walkman case, lightened for a light page the same way --deck-ground
   // shifts below — a dark-navy-tuned case would read as a hole in a light
@@ -343,13 +438,19 @@
   // dissolved into the ground and the turntable stopped looking like an object
   // resting on a surface. Dropping the ground the deck is mixed against takes
   // the plinth to a proper silver-grey without touching the page behind it.
+  // Re-checked against Stage 11 Phase 3's new --bg-color (#f3f0ea, was
+  // #f6f7fb): 16.8 L* apart — still clear of the ~15 floor, so --deck-ground
+  // itself didn't need to move with the paper.
   --deck-ground: #bdc1cb;
 
   // A LIT top edge, not the dark one the dark-theme expression produces here.
   --deck-bevel: rgba(255, 255, 255, 0.62);
   // Plus a hairline outer edge: on a light ground the silhouette needs a
   // terminator, where in dark theme the surrounding darkness supplies one.
-  --deck-edge: rgba(20, 27, 48, 0.18);
+  // Stage 11 Phase 3 warmed this from blue-black (20,27,48) to the new
+  // --text-color's own ink (25,21,16) — the terminator is a shadow of the
+  // deck against warm paper now, not a cool one left over from the old page.
+  --deck-edge: rgba(25, 21, 16, 0.18);
 
   // Three stacked shadows rather than one wide blur. The old single
   // `0 40px 80px -24px` had no contact layer at all, and a contact shadow is
@@ -357,17 +458,20 @@
   // reads as depth once something tight anchors the bottom edge.
   //
   // The ambient layer is deliberately no weaker than what it replaced
-  // (0.55 blue-black vs 0.6 pure black, at a wider -18px spread), so the two
-  // tighter layers are added density rather than a redistribution of it.
-  // Tinted toward blue-black: pure black greys out against a cool page.
+  // (0.55 vs 0.6 pure black, at a wider -18px spread), so the two tighter
+  // layers are added density rather than a redistribution of it. Stage 11
+  // Phase 3 moved the tint from blue-black to warm ink (25,21,16, matching
+  // --deck-edge and the new --text-color) — the original reasoning
+  // ("pure black greys out against a cool page") inverts on a warm one: a
+  // COOL shadow is what would grey out here.
   --deck-shadow:
-    0 3px 6px rgba(20, 27, 48, 0.22),
-    0 16px 28px -10px rgba(20, 27, 48, 0.32),
-    0 46px 74px -18px rgba(20, 27, 48, 0.55);
+    0 3px 6px rgba(25, 21, 16, 0.22),
+    0 16px 28px -10px rgba(25, 21, 16, 0.32),
+    0 46px 74px -18px rgba(25, 21, 16, 0.55);
 
   // Pays back the rim -> mat contrast lost to the darker ground — see the
-  // token's declaration in :root.
-  --deck-well-shadow: rgba(16, 22, 40, 0.66);
+  // token's declaration in :root. Warmed in step with --deck-shadow/-edge.
+  --deck-well-shadow: rgba(28, 22, 14, 0.66);
 }
 // --navbar-height per breakpoint, kept beside the base token so all three
 // values are readable at once. These are now declarations, not observations:
@@ -632,6 +736,29 @@ html {
   display: block;
   z-index: 0;
   pointer-events: none;
+}
+
+// Stage 11 — the "atmosphere floor", light theme only.
+//
+// The skyline columns are drawn on a transparent canvas (createSkyline uses
+// `alpha: true`), so a CSS background on the canvas element sits BEHIND every
+// column pixel and shows through the gaps and through the semi-transparent
+// top of each bar. On dark theme the near-black page is already a ground the
+// neon reads against; on light theme the bars had nothing behind them but flat
+// paper, so even the fixed light ramp read as floating. A soft accent wash on
+// the bottom of the canvas gives them a horizon to stand on and glow against.
+//
+// Tied to --accent (not a fixed hue) so it moves with the Stage 11 Phase 3
+// ground swap — blue now, warm red once that lands. It stops at 42% so it
+// never reaches the headline/tagline zone above it. `background`, not a
+// pseudo-element: no extra box, no z-index against the deck to get wrong, and
+// the mask's `destination-out` pass can't touch a CSS layer.
+[data-theme="light"] .hero-skyline-canvas {
+  background: linear-gradient(
+    180deg,
+    transparent 42%,
+    color-mix(in srgb, var(--accent) 11%, transparent) 100%
+  );
 }
 
 .hero-deck-stage {
@@ -2910,7 +3037,14 @@ $taste-swipe-max: 1024px;
     // no viewport-unit min-height on this block at all — kept out rather
     // than kept as a comment describing a rule that no longer exists.
     padding-top: var(--space-3);
-    padding-bottom: var(--space-7);
+    // space-7 (48px) -> space-6 (32px), direct feedback that the page-wide
+    // mobile rhythm felt uneven — this was the single largest bottom pad on
+    // the page, well past what About/Experience/Projects settle on (32px)
+    // once this section's own top (space-3, deliberately softer — see the
+    // comment above) is left alone. Brings the My Taste -> Projects gap back
+    // in line with every other section boundary instead of shrinking it to
+    // match the tightest one.
+    padding-bottom: var(--space-6);
   }
 
   // Grain (Task 3) removed here: a feTurbulence noise overlay across the
@@ -3393,7 +3527,12 @@ $taste-swipe-max: 1024px;
   // card) — safe to cut without touching the overlap math, unlike
   // margin/gap below.
   padding: var(--space-2);
-  background: var(--taste-card-bg);
+  // Stage 11 Phase 2 — the card's own "pressing" hue (--card-bg, set inline
+  // by TasteCard from cardHueFor(id)), falling back to the neutral
+  // --taste-card-bg for any card that doesn't get one (the setlist container).
+  // This is the "add colour to the card backgrounds" ask; the torn edge, tape
+  // and Anton headline are untouched.
+  background: var(--card-bg, var(--taste-card-bg));
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   transform:
     rotate(var(--card-rotate, 0deg))
@@ -3557,8 +3696,14 @@ $taste-swipe-max: 1024px;
   left: 50%;
   width: 56px;
   height: 20px;
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
-  opacity: 0.55;
+  // Stage 11 Phase 2 — the tape now carries the card's own pressing hue
+  // (--card-wax, set inline by TasteCard) instead of the site accent, so each
+  // card has a colour signature even where the --card-tint background is
+  // nearly invisible (light theme). Falls back to --accent for the setlist
+  // card, which has no hue and hides its tape below the swipe breakpoint
+  // anyway.
+  background: color-mix(in srgb, var(--card-wax, var(--accent)) 42%, transparent);
+  opacity: 0.6;
   transform: translateX(-50%) rotate(var(--tape-rotate, 0deg));
   pointer-events: none;
 
@@ -5298,6 +5443,12 @@ $taste-swipe-max: 1024px;
   // global box-sizing reset exists in this file, so it's opt-in per rule
   // that combines width:100% with its own padding.
   box-sizing: border-box;
+  // Stage 11 Phase 3 — one shared width for .project-index's own grid column
+  // and .portfolio-summary's indent below it, so the value isn't typed twice.
+  // Widened from 3ch (owner feedback: the numeral read as crowded against
+  // the title) — the numeral itself is 2 digits, so the extra ch is clear
+  // space between it and .portfolio-header's next column, not a wider glyph.
+  --track-index-w: 4.5ch;
 }
 
 .portfolio-title {
@@ -5310,58 +5461,102 @@ $taste-swipe-max: 1024px;
   margin-bottom: 2rem;
 }
 
-/* Expandable Sections — Stage 5 (continued): cards, not divider rows.
-   Each project is a distinct tappable card; the role is a mono-style kicker
-   ABOVE the title (the old two-column title/role split wrapped both columns
-   independently on a phone and read as a tangle); the description shows as a
-   2-line preview while collapsed and un-clamps once open. */
-.portfolio-item {
-  background: color-mix(in srgb, var(--text-color) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
-  border-radius: 12px;
-  margin-bottom: var(--space-3);
-  // Padding lives on the CARD, not each inner block — a `-webkit-box`
-  // line-clamp element with its own padding-bottom leaks the next line
-  // past the clamp (seen live). So the summary/details carry no padding of
-  // their own; the card frames all three.
-  padding: var(--space-4);
-  // GSAP Flip (portfolio.jsx) tweens this card's real height on open/close;
-  // hidden overflow keeps that grow/shrink reading as a clean reveal rather
-  // than content spilling past the card mid-tween — harmless at rest (the
-  // card is always sized to its own content). Same reasoning as the old
-  // border-bottom-divider version this replaces, and the same reason the
-  // header's stray scale(1.1) hover had to go (B34).
-  overflow: hidden;
-  transition: border-color var(--theme-transition), background-color var(--theme-transition);
+// Stage 11 Phase 3 — "liner-note tracklist," replacing Stage 5's cards. The
+// direction change (owner sign-off, from a `/design` canvas): no card boxes
+// — a numbered list reading like the back of a record, which is what makes
+// this section rhyme with #my-taste's own setlist instead of being an
+// unrelated UI pattern next to it. Per-project colour (Phase 2's
+// --card-bg/--card-wax) retired WITH the boxes at first — every .project-index
+// ran in a single --accent. Reinstated per later owner feedback ("the numbers
+// should have different colours, like different sections"): --card-wax comes
+// back as a per-row custom property (portfolio.jsx, keyed on project.title
+// same as #my-taste), just scoped to the numeral now instead of the whole
+// card surface — --card-bg stays retired, there's still no tint on the row
+// itself.
+//
+// The row/rule structure — .portfolio-list's own top rule plus a
+// border-bottom per item — is new; the GRID inside .portfolio-header (role
+// kicker ABOVE title, chevron in its own column) is Stage 5's own fix for a
+// real mobile bug (a role/title side-by-side split wrapped both columns
+// independently and read as a tangle) and is kept unchanged, just with an
+// index column added ahead of it rather than the whole row re-flattened —
+// re-flattening to index/title/role-in-one-line would risk reintroducing
+// exactly what Stage 5 fixed.
+.portfolio-list {
+  border-top: 2px solid var(--text-color);
+}
 
-  &.is-open {
-    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  }
+.portfolio-item {
+  border-bottom: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
+  // GSAP Flip (portfolio.jsx) tweens this item's real height on open/close;
+  // hidden overflow keeps that grow/shrink reading as a clean reveal rather
+  // than content spilling past it mid-tween — harmless at rest (the item is
+  // always sized to its own content). Same reason the header's stray
+  // scale(1.1) hover had to go (B34).
+  overflow: hidden;
+  transition: background-color var(--theme-transition);
 }
 
 .portfolio-header {
   display: grid;
-  grid-template-columns: 1fr auto;
+  // 3ch, not auto — a fixed index-column width is what lets .portfolio-summary
+  // below indent to the same stop without duplicating a magic number in two
+  // places (see --track-index-w).
+  grid-template-columns: var(--track-index-w) 1fr auto;
   grid-template-areas:
-    "role  chevron"
-    "title chevron";
+    "index role  chevron"
+    "index title chevron";
   align-items: start;
   column-gap: var(--space-3);
   row-gap: var(--space-1);
   width: 100%;
-  padding: 0;
+  padding: var(--space-3) var(--space-2);
   background: none;
   border: none;
   color: var(--text-color);
   text-align: left;
   cursor: pointer;
   font-family: var(--font-body);
+  transition: background-color var(--theme-transition), box-shadow 0.2s ease;
+
+  // The hover/open fill — a faint accent wash + an inset left bar, in place
+  // of Stage 5's card border. box-shadow doesn't take layout space, so this
+  // never shifts the row.
+  &:hover,
+  .portfolio-item.is-open & {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 70%
+    );
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
 
   &:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
     border-radius: 4px;
   }
+}
+
+.project-index {
+  grid-area: index;
+  align-self: center;
+  // Reuses #my-taste's own setlist face (Space Mono) rather than a second
+  // monospace choice — the two "tracklist" sections read as one idiom. Not
+  // var(--taste-font-mono): that token is scoped to .my-taste-section and
+  // isn't in scope here: hardcoded so this section doesn't depend on
+  // #my-taste's own CSS custom property existing.
+  font-family: "Space Mono", "Courier New", monospace;
+  font-weight: 700;
+  font-size: clamp(1.2rem, 3.2vw, 1.6rem);
+  // --card-wax: set inline per-row by portfolio.jsx (cardHueFor), one of the
+  // 5 --wax-N "pressing" hues from Phase 2. Falls back to --accent so the
+  // numeral still reads correctly if that inline custom property is ever
+  // missing (SSR/no-JS edge, same defensive pattern my-taste.jsx's own
+  // TasteCard uses for --card-bg).
+  color: var(--card-wax, var(--accent));
+  transition: color var(--theme-transition);
 }
 
 .project-role {
@@ -5409,11 +5604,13 @@ $taste-swipe-max: 1024px;
 // .is-open state below switches it back to normal block flow so the full
 // text shows — that height change lands in the same flushSync render
 // toggleProject drives, so Flip.from measures it (standard Flip accordion).
-// The classic recipe (display: -webkit-box, NO own padding) — see
-// .portfolio-item's padding note.
+// Sits OUTSIDE .portfolio-header (a <button>, so a <p> can't nest inside it
+// anyway) and indents to --track-index-w + the header's own column-gap, so it
+// reads as running under the title rather than the index numeral.
 .portfolio-summary {
-  margin: var(--space-2) 0 0;
+  margin: 0 var(--space-2) var(--space-3);
   padding: 0;
+  padding-left: calc(var(--track-index-w) + var(--space-3));
   color: var(--secondary-text);
   font-size: var(--text-sm);
   line-height: 1.55;
@@ -5812,7 +6009,13 @@ $taste-swipe-max: 1024px;
 
   /* Contact Section */
   .contact-section {
-    padding: 1rem;
+    // Vertical only, 1rem -> 2rem (32px) — direct feedback that the mobile
+    // rhythm felt uneven; this was the tightest top/bottom pad on the page
+    // (every real phone hits this 480px step, not just small ones), right
+    // before the footer. Horizontal stays 1rem — the base rule's own 2rem
+    // gutter was never the complaint, and this section's content (the J-card)
+    // already clamps its own width well inside it.
+    padding: 2rem 1rem;
   }
 
   /* Footer */

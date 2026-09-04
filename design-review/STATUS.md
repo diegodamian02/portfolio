@@ -1,6 +1,47 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-03 (**Footer — social icons redraw on hover**: the
+**Updated:** 2026-09-04 (**Stage 11 (follow-up) — tracklist polish**: after
+reviewing Phase 3 live, the owner asked for more breathing room between the
+`#projects` index numeral and the title (`--track-index-w` 3ch→4.5ch), the
+numerals back to per-project colour (a new `--wax-text-N` token, tuned to
+actually hold contrast as text rather than reusing Phase 2's card-tint hues
+unlifted), and "Check This Chess" dropped so 3 projects fit in one screen
+without scrolling (also deleted its now-unreferenced video asset). Still on
+`stage11-light-theme-colour`, not merged. Full entry in §2.) Prior, same day,
+**footer hover animation slowed + year added back** (owner: "love it, a bit
+slower" — `<SocialIcon>` timeline durations up ~40–60%, `.watermark-year`
+span restored; landed on `footer-tweaks`, concurrent with the Stage 11
+session below). Full entry in §2.) Prior, same day,
+**Stage 11 Phase 3 — "Studio Paper": the light theme
+stops being plain**: the closing phase of the light-theme & colour pass. Light
+`--bg-color` warms from cold blue-white `#f6f7fb` to paper `#f3f0ea`,
+`--text-color` from navy `#0d1220` to warm ink `#191510`, `--accent` from flat
+`#1f3fae` to record-red `#b23a2b` (dark theme's own `#6f9bff` is untouched, by
+design). `#projects` is rebuilt as a liner-note tracklist — no card boxes,
+Space Mono index numerals in the accent, hairline rules, an inset accent bar +
+wash on hover/open — replacing Stage 5's cards; Phase 2's per-card hue there
+retires with the boxes. `.hero-tagline` re-measured at 5.04:1 (light copy mask
+0.70→0.74 to hold the ≥5:1 margin every other measurement on this page keeps).
+Phase 2's card tints read markedly stronger now that the ground they mix into
+is warm. Stage 11 is done — all three phases on `stage11-light-theme-colour`,
+not yet merged to `main`. Full entry in §2.) Prior, 2026-09-04, **Stage 11
+Phase 2 — per-item colour on the card
+backgrounds**: `#my-taste` artist cards and `#projects` cards each get one of
+five "pressing" hues (oxblood / amber / midnight / forest / plum) picked by a
+hash of the card's id — the same mechanism as the vinyl colourways. On dark the
+card paper becomes a real coloured panel (hue mixed 28% into the bg); on light
+it's a soft 12% cast plus a hue-coloured tape / border / shadow carrying the
+signal. Torn edges, tape geometry, Anton headlines, the accordion — all
+untouched. Body text ≥ 6:1 on every tinted card, both themes. Full entry in
+§2.) Prior, **Stage 11 Phase 1 — hero skyline reads as colour in
+light theme**: the light-theme bars were a pale lavender wash; the light
+palette now solves DEEP (every hue a dark saturated ink, not a pastel), the
+light alpha ramp is opaque-bodied instead of fading to 0.42 at the tip, and a
+CSS "atmosphere floor" gradient sits behind the transparent canvas. Dark theme
+byte-unchanged. `.hero-tagline` contrast holds 5.17:1 (7.2 baseline was 5.15).
+First of 3 phases — next: per-item colour on `#my-taste`/`#projects` cards,
+then the warm "Studio Paper" ground + `#projects` tracklist rebuild. Full entry
+in §2.) Prior, 2026-09-03 (**Footer — social icons redraw on hover**: the
 LinkedIn/GitHub/Spotify icons now self-draw their strokes on hover/focus with
 a scale pop + a soft chip, and GitHub's tail draws then wags — dalelarroder.com
 style, done with GSAP `DrawSVGPlugin` (no new dependency). Footer text → name
@@ -72,6 +113,52 @@ working hero is design information the sections beneath it need.
 
 ## 2. What changed recently
 
+### Stage 11 (follow-up) — tracklist polish: index spacing, per-numeral colour, drop Check This Chess *(2026-09-04)*
+
+**Branch:** `stage11-light-theme-colour` (stacked on Phase 3; still not merged
+to `main`). Owner feedback after reviewing the tracklist live, three asks:
+
+1. **The index numeral read as crowded against the title.** `--track-index-w`
+   (`main.scss`, `.portfolio-section`) `3ch` → `4.5ch`. That one token already
+   drove both `.project-index`'s own grid column and `.portfolio-summary`'s
+   indent underneath it, so both widened together from a single edit — no risk
+   of the title and the description column drifting out of alignment with
+   each other.
+2. **"the numbers should have different colours, like different sections."**
+   Per-numeral colour is back — `.project-index` reads `--card-wax`, set
+   inline per row (`portfolio.jsx`) from `cardHueFor(project.title)`, the same
+   hash-to-one-of-5 mechanism Phase 2 built and `#my-taste` still uses. Not a
+   straight reuse of `--wax-N` though: that token was tuned for the 28%/12%
+   card-tint mix job, and measured live at full opacity directly on dark's
+   near-black page bg, 3 of the 5 hues fell under 2.2:1 — a real fail, not a
+   near-miss. New `--wax-text-1..5` token (`main.scss`, `:root` +
+   `[data-theme="light"]`): dark is `color-mix(in srgb, var(--wax-N) 65%,
+   var(--text-color))`, lifting every hue to 4.6–6.5:1; light is a straight
+   alias to `--wax-N` (already 4.8–9.0:1 unlifted, lightening it further would
+   push the wrong direction on a light ground). `--card-bg`/full-card tinting
+   stays retired — only the numeral carries colour now, matching what was
+   actually asked for.
+3. **"get rid of Check This Chess and just keep 3 projects so we can fit
+   altogether in one section."** Removed from `projectsData.js`; its video
+   (`client/public/videos/check-this-chess.webm`, 1.4MB, git-tracked) deleted
+   too — confirmed zero remaining references anywhere in `client/src` or
+   `client/public` first.
+
+**Measured** (Playwright, computed colours vs page bg, rest state — mouse
+moved off the row first so `:hover` doesn't leak into the read): index numeral
+contrast dark `6.53 / 4.70 / 4.62`, light `4.80 / 7.83 / 9.01` (all ≥4.5, the
+same bar this file holds itself to everywhere else). `#projects` collapsed
+height 655px at 1440×900, 709px at 390×844 — the full 3-item list reads inside
+one normal screen at both sizes, which was the point of trimming to 3. 0px
+horizontal overflow at 390. Lint unchanged: 7 errors / 2 warnings.
+
+Screenshots: `stage11-4-projects-{dark,light}`, `-light-open`, `-light-390`;
+plus the baseline `projects-desktop.png` / `projects-mobile.png` regenerated
+via `capture-screenshots.mjs` (now 3 rows, not 4). `projects-*-expanded.png`
+and `projects-scroll-into-view-*.png` are stale (predate the tracklist
+rebuild entirely, from Phase 3) — not regenerated here, out of scope for this
+pass same as they were for Phase 3.
+
 ### Footer — hover animation slowed, year added *(2026-09-04)*
 
 Direct owner feedback on the entry below ("love it, make it a bit slower"):
@@ -84,6 +171,188 @@ mark. **Branch:** `footer-tweaks`. *(Landed alongside a concurrent
 `stage11-light-theme-colour` session editing the hero skyline in the same
 working tree — this commit was scoped to the footer files only; the Stage 11
 skyline/palette changes were left uncommitted for that session.)*
+
+### Stage 11 Phase 3 — "Studio Paper": ground, accent, `#projects` tracklist *(2026-09-04)*
+
+**Branch:** `stage11-light-theme-colour` (stacked on Phases 1–2; closes Stage
+11). Direction settled from the `/design` canvas the owner reviewed at the
+start of this pass: warm paper over the two alternatives (cool slate, full
+dark), and a "liner-note tracklist" for `#projects` over two others (tinted
+cards, a video contact-sheet grid).
+
+**Light token swap** (`main.scss`, `[data-theme="light"]`):
+
+| Token | From | To | Measured |
+|---|---|---|---|
+| `--bg-color` | `#f6f7fb` | `#f3f0ea` | — |
+| `--text-color` | `#0d1220` | `#191510` | 15.97:1 on `--bg-color` |
+| `--secondary-text` | `#454e68` | `#57503f` | 7.03:1 on `--bg-color` |
+| `--accent` | `#1f3fae` | `#b23a2b` | 5.23:1 on `--bg-color` |
+
+Dark theme's `--accent` (`#6f9bff`) is **unchanged** — a deliberate call
+(owner sign-off, Phase 3 planning): the codebase already runs per-theme
+accents, and this pass is scoped to the light theme.
+
+**Checked, not assumed, before adding anything:**
+- `--deck-ground` (`#bdc1cb`) vs the new paper: **16.8 L\*** apart — still
+  clear of the ~15 floor `.turntable`'s own comment sets, so the deck greys
+  didn't need to move.
+- A "raised card" token (`--card-bg-raised`) was drafted for the `#connect`
+  J-card and the Experience media frame, then **not added** — both already
+  sit on fixed, non-theme tokens (`--cassette-label`, `--deck-ground`) by
+  original design ("a printed label / a device chassis doesn't get lighter
+  because the page did"), and both still contrast correctly against the new
+  paper unmodified. `#my-taste`'s cards use Phase 2's `--card-tint-N`, not a
+  raised surface either. No consumer, so no token.
+- `--deck-edge` / `--deck-shadow` / `--deck-well-shadow` warmed from
+  blue-black `rgba(20,27,48,…)` to the new ink `rgba(25,21,16,…)` — the
+  original "pure black greys out against a cool page" reasoning inverts on a
+  warm one.
+- The 11 hardcoded white/`rgba(255,255,255,…)` literals the plan flagged for
+  audit turned out to all be turntable-sheen / walkman-detail highlights —
+  device surfaces, not page backgrounds — so none needed touching.
+
+**Skyline re-tune.** The Phase 1 atmosphere floor reads `--accent`, so it
+warmed automatically. `.hero-tagline`'s margin against the text mask thinned
+from 5.17:1 to 4.74:1 purely from `--secondary-text` getting lighter — still
+≥4.5 but the thinnest margin on the page. `ZONE_STRENGTH.light.copy` 0.70 →
+0.74 (`skyline-background.jsx`) restores 5.04:1, re-verified over all seven
+palette positions; dark's own 0.85 untouched.
+
+**`#projects` — the tracklist rebuild** (`portfolio.jsx` + `main.scss`):
+`.portfolio-item` loses its background/border/radius/shadow (and Phase 2's
+per-project hue with them — a tracklist's colour lives in one accent, not
+five); `.portfolio-list` gets a `border-top: 2px solid var(--text-color)`,
+each item a hairline `border-bottom`. A new `.project-index` — Space Mono 700,
+`var(--accent)`, `00`-padded — sits in its own fixed-width (`--track-index-w:
+3ch`) grid column ahead of the existing role/title pair; role-above-title
+(Stage 5's own mobile fix, for a real bug — a side-by-side split wrapped both
+columns independently) is kept exactly as-is rather than flattened into one
+row, which would have risked reintroducing it. Hover/`.is-open` = an inset
+accent bar (`box-shadow`, so it never shifts layout) + a faint accent wash,
+replacing the card border. `.portfolio-summary` indents by `--track-index-w`
+to align under the title. GSAP Flip, the video/links expand, and the whole
+accordion mechanism are untouched — verified open/close in both themes.
+`@fontsource/space-mono` (already a dependency, used by `#my-taste`) imported
+directly in `portfolio.jsx` too.
+
+**Measured** (Playwright): `.project-index`/`.project-title`/`.project-role`
+vs page bg — dark 7.16 / 17.03 / 7.65, light 5.23 / 15.97 / 7.03 (all ≥4.5).
+0px horizontal overflow at 320/390/1440. Lint 7 errors / 2 warnings
+(unchanged).
+
+**`#my-taste` cards, re-measured on the new ground:** 13.0–14.2:1 (was
+14.2–15.4 on the old cold ground — still comfortably clear; the drop is the
+new ink's own luminance, not a regression). Visually, the cool tints
+(midnight, forest) that read as barely-there on `#f6f7fb` are now clearly
+visible against warm paper — the prediction from the Phase 2 entry held.
+
+Screenshots: full `design-review/screenshots/` set regenerated (`home/about/
+experience/my-taste/projects/connect-{desktop,mobile}`, `home-light`,
+`about-light`); plus `stage11-3-hero-{dark,light}`, `stage11-3-my-taste-
+{dark,light}`, `stage11-3-projects-{dark,light}`, `-light-open`, `-light-390`.
+
+**Stage 11 is done, all three phases on one branch, not merged to `main`.**
+
+### Stage 11 Phase 2 — per-item colour on the card backgrounds *(2026-09-04)*
+
+**Branch:** `stage11-light-theme-colour` (stacked on Phase 1). The owner's ask
+was "add some colour to the background of the cards so it looks more eye
+pleasing," pointing at the `#my-taste` festival poster as the reference.
+
+**New** `client/src/lib/card-hue.js`: `cardHueFor(id)` → `1..5` via
+`hash32(\`${id}:card-hue\`)` — mirrors `colorwayFor` (vinyl-record.jsx), reuses
+`hash32`. Deterministic across reloads / theme flips; a card always lands on the
+same "pressing."
+
+**Tokens** (`main.scss`, in the `--vinyl-N` family):
+- `--wax-1..5` — the pure hues: oxblood `#8a2233`, amber `#9a5a12` (deepened
+  from `--vinyl-2`'s `#a3590c` so it works as label text), midnight `#22407a`,
+  forest `#1f5a45`, plum `#5c2c70`. Same in both themes.
+- `--card-tint-1..5` — `color-mix(in srgb, var(--wax-N) <p>, var(--bg-color))`,
+  redeclared per theme like `--vinyl-N`: **28%** on `:root` (dark), **12%** on
+  `[data-theme="light"]`. The same deep hue reads as a coloured panel on
+  near-black and a heavy wash on near-white.
+
+**`#my-taste`** (`my-taste.jsx` + `main.scss`): `TasteCard` sets `--card-bg` /
+`--card-wax` inline from `cardHueFor(id)` (new `neutral` prop opts the setlist
+container card out — it stays plain paper). `.my-taste-card` background is
+`var(--card-bg, var(--taste-card-bg))`; `.my-taste-card-tape` recolours from
+`--accent` → `--card-wax` at 42%, so each card has an unmissable colour signal
+even where the light tint is faint. No left-border accent (that trope stays
+out — the tape does the job).
+
+**`#projects`** (`portfolio.jsx` + `main.scss`) — *interim*, Phase 3 rebuilds
+this section as a tracklist: `.portfolio-item` gets `--card-bg` / `--card-wax`
+from `cardHueFor(project.title)` (keyed on the title, not the integer id —
+`hash32` clustered 3 of the 4 sequential ids onto one hue). Background, border,
+`.is-open` border and a soft hue-tinted shadow all pick up the hue.
+
+**Measured** (Playwright, computed card bg vs computed body-text colour,
+`color(srgb …)` and `rgb()` both normalised):
+
+| surface | dark | light | need |
+|---|---|---|---|
+| `#my-taste` card name/track text on tinted card | 14.4–15.4 | 14.2–15.4 | 4.5 |
+| `#projects` summary/role text on tinted card | 5.99–6.79 | 6.28–6.57 | 4.5 |
+
+Lint 7 errors / 2 warnings (unchanged — `TasteCard`'s new prop is inside the
+file's existing `eslint-disable react/prop-types` span). Screenshots:
+`stage11-2-{my-taste,projects}-{dark,light}.png`.
+
+**Reads better on dark than light right now** — the 12% light cast on the
+current cold `#f6f7fb` ground is subtle (the tape carries most of the signal).
+Phase 3 swaps the ground to warm `#f3f0ea`, which the cool tints (midnight,
+forest) will show against far more clearly.
+
+### Stage 11 Phase 1 — hero skyline reads as colour in light theme *(2026-09-04)*
+
+**Branch:** `stage11-light-theme-colour` (off `main` @ `bd86b1e`). First of a
+three-phase "light theme & colour" pass the owner signed off on from a `/design`
+canvas: **(1) this** — the hero bars; (2) per-item colour on `#my-taste` +
+`#projects` card backgrounds, both themes; (3) the "Studio Paper" ground swap
+(`--bg-color` `#f6f7fb → #f3f0ea`, `--text-color → #191510`, light `--accent
+→ #b23a2b`) plus a "liner-note tracklist" rebuild of `#projects`. Owner reviews
+on the live site between phases.
+
+**The complaint:** in light theme the skyline "colours don't hit" — the bars
+read as a pale lavender wash (see `screenshots/stage7-2-hero-light.png`).
+**Root, measured:** a tall column's tip composited to a near-pastel over the
+paper — violet `#9b4dff` at the shipped 0.42 tip alpha over `#f6f7fb` is
+`rgb(206,171,243)`. Alpha trades *saturation* on a light ground (D27, from
+7.2), and the 7.2 light ramp still faded to 0.42 at the top despite 7.2's own
+comment concluding "the light theme gets ink instead" of an ethereal fade.
+
+**Four levers, all light-theme-only (dark unchanged — verified):**
+
+| File | Change |
+|---|---|
+| `lib/palette-cycle.js` | `LUMINANCE_TARGETS.light` pushed deep: `base 0.11 → 0.055`, `peak` band `{0.14,0.32} → {0.10,0.24}`. Every hue solves to a dark saturated ink — mint/cyan/chartreuse become deep teal/forest/moss, azure/violet/magenta/orange are pulled *down* into the band instead of passing through. |
+| `lib/skyline-spectrum.js` | `ALPHA_RAMPS.light` is high-alpha end to end: tip `0.42 → 0.72`, opaque by `at:0.45`. Plus a new per-zone `feather` field on the text mask. |
+| `components/skyline-background.jsx` | `THEME_RESPONSE.light.glowAlpha 0.34 → 0.28`. New `ZONE_FEATHER = { dark: undefined, light: 56 }` — a 96px mask feather climbing into the now-opaque tallest columns painted a visible band of paper across their upper third; 56 keeps the fade close to the text. |
+| `styles/main.scss` | `[data-theme="light"] .hero-skyline-canvas { background: linear-gradient(180deg, transparent 42%, color-mix(in srgb, var(--accent) 11%, transparent) 100%) }` — an "atmosphere floor". The canvas is `alpha:true`, so a CSS background sits behind the columns and gives them a horizon. Tied to `--accent` so it warms with Phase 3. |
+
+**Measured** (Playwright, real "Get Lucky" preview playing, worst case over all
+seven palette positions — contrast of the composited canvas pixel behind each
+element vs its computed text colour):
+
+| element | light worst | need |
+|---|---|---|
+| `.hero-tagline` (binding: 24px/400 on `--secondary-text`) | **5.17** | 4.5 |
+| `.hero-name` | 11.83 | 3 |
+| `.record-crate-input` | 8.24 | 4.5 |
+
+`.hero-tagline` 5.17 matches the 7.2 baseline (5.15) — the deep palette gives
+the mask a dark bar to knock back rather than a mid-tone, so copy strength
+stayed at 0.70. Lint 7 errors / 2 warnings (unchanged). Screenshots:
+`stage11-1-hero-{dark,light}.png` (heights frozen at one frame so the two
+themes line up for comparison).
+
+**Known, not chased in Phase 1:** the copy safe-zone still lightens a band
+behind the headline — inherent to protecting a ~250px block of text, and
+present on dark too (invisible there against the dark ground). Tighter now
+with the 56px feather; revisit after Phase 3's ground swap if the owner wants
+it smaller.
 
 ### Footer — social icons redraw on hover *(2026-09-03)*
 

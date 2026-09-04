@@ -5,7 +5,14 @@ import { gsap, Flip, SIGNATURE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import { getActiveLenis } from "../lib/scroll.js";
 import projects from "../data/projectsData";
+import { cardHueFor } from "../lib/card-hue.js";
 import "../styles/main.scss";
+// Stage 11 Phase 3 — Space Mono for .project-index (the tracklist numeral).
+// Already a dependency (my-taste.jsx's own setlist uses it); imported here
+// too rather than relied on transitively, so #projects doesn't depend on
+// #my-taste having mounted first to have the face available.
+import "@fontsource/space-mono/latin-700.css";
+import "@fontsource/space-mono/latin-ext-700.css";
 
 // Hand-drawn, stroke, currentColor — the one icon convention this codebase
 // has (about.jsx's fact chips, turntable.jsx's transport glyphs). No icon
@@ -318,27 +325,46 @@ export default function Portfolio() {
             <p className="portfolio-subtitle">Here are some of my selected projects worth sharing.</p>
 
             <div className="portfolio-list" ref={listRef}>
-                {projects.map((project) => {
+                {projects.map((project, i) => {
                     const isOpen = expandedProject === project.id;
                     const detailsId = `project-details-${project.id}`;
+                    // Stage 11 Phase 3 (revised) — the index numeral gets its
+                    // own colour back, reusing Phase 2's --wax-N "pressing"
+                    // hues (card-hue.js) even though the card tint they were
+                    // built for retired with the boxes. Keyed on project.title,
+                    // not .id: card-hue.js's own comment documents why —
+                    // sequential integer ids (1, 2, 3…) hash-clustered onto
+                    // the same wax colour for most of Phase 2's cards, and
+                    // titles are the distinct strings that don't.
+                    //
+                    // --wax-text-N, not --wax-N directly: the numeral sits at
+                    // full opacity straight on the page background now (no
+                    // card behind it to soften it), and measured live, 3 of
+                    // the 5 raw --wax-N hues fall under 2.2:1 on the dark
+                    // theme's near-black bg. --wax-text-N (main.scss) is a
+                    // lightened-for-text variant in dark, an alias to the
+                    // same hue in light (already fine there un-lifted).
+                    const hue = cardHueFor(project.title);
 
                     return (
                         <div
                             key={project.id}
                             className={`portfolio-item${isOpen ? " is-open" : ""}`}
                             data-project-id={project.id}
+                            style={{ "--card-wax": `var(--wax-text-${hue})` }}
                         >
-                            {/* Expandable Header — Stage 5 (continued): role is
-                                a kicker ABOVE the title now, not a second column
-                                floated right (two columns each wrapped
-                                independently on a phone and read as a tangle).
-                                Chevron sits at the top-right. */}
+                            {/* Expandable Header — Stage 11 Phase 3: a track
+                                number ahead of the role/title kicker pair
+                                (role above title is Stage 5's own mobile fix,
+                                kept as-is — see the section comment above
+                                .portfolio-list). Chevron stays top-right. */}
                             <button
                                 className="portfolio-header"
                                 onClick={() => toggleProject(project.id)}
                                 aria-expanded={isOpen}
                                 aria-controls={detailsId}
                             >
+                                <span className="project-index" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
                                 <span className="project-role">{project.role}</span>
                                 <span className="project-title">{project.title}</span>
                                 <span className="portfolio-chevron"><ChevronIcon /></span>
