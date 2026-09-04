@@ -5,6 +5,7 @@ import { gsap, Flip, SIGNATURE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import { getActiveLenis } from "../lib/scroll.js";
 import projects from "../data/projectsData";
+import { cardHueFor } from "../lib/card-hue.js";
 import "../styles/main.scss";
 // Stage 11 Phase 3 — Space Mono for .project-index (the tracklist numeral).
 // Already a dependency (my-taste.jsx's own setlist uses it); imported here
@@ -327,12 +328,30 @@ export default function Portfolio() {
                 {projects.map((project, i) => {
                     const isOpen = expandedProject === project.id;
                     const detailsId = `project-details-${project.id}`;
+                    // Stage 11 Phase 3 (revised) — the index numeral gets its
+                    // own colour back, reusing Phase 2's --wax-N "pressing"
+                    // hues (card-hue.js) even though the card tint they were
+                    // built for retired with the boxes. Keyed on project.title,
+                    // not .id: card-hue.js's own comment documents why —
+                    // sequential integer ids (1, 2, 3…) hash-clustered onto
+                    // the same wax colour for most of Phase 2's cards, and
+                    // titles are the distinct strings that don't.
+                    //
+                    // --wax-text-N, not --wax-N directly: the numeral sits at
+                    // full opacity straight on the page background now (no
+                    // card behind it to soften it), and measured live, 3 of
+                    // the 5 raw --wax-N hues fall under 2.2:1 on the dark
+                    // theme's near-black bg. --wax-text-N (main.scss) is a
+                    // lightened-for-text variant in dark, an alias to the
+                    // same hue in light (already fine there un-lifted).
+                    const hue = cardHueFor(project.title);
 
                     return (
                         <div
                             key={project.id}
                             className={`portfolio-item${isOpen ? " is-open" : ""}`}
                             data-project-id={project.id}
+                            style={{ "--card-wax": `var(--wax-text-${hue})` }}
                         >
                             {/* Expandable Header — Stage 11 Phase 3: a track
                                 number ahead of the role/title kicker pair

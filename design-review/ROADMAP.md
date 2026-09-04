@@ -11,7 +11,17 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11 Phase 3
+## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11
+(follow-up) — tracklist polish**: owner feedback on the live Phase 3 result —
+`#projects`' index numeral was too close to the title (`--track-index-w`
+3ch→4.5ch, one token drives both the header grid column and the summary
+indent so they widened together), the numerals wanted per-project colour back
+(new `--wax-text-N` token — Phase 2's `--wax-N` measured under 2.2:1 as raw
+text on dark's bg for 3 of 5 hues, so this is a text-safe lift, not a reuse),
+and "Check This Chess" is gone, down to 3 projects so the whole list reads in
+one screen (655px tall at 1440×900) without scrolling. Still on
+`stage11-light-theme-colour`, still not merged. Full note under the Stage
+table in §0 / STATUS.md §2.) Prior, same day, **Stage 11 Phase 3
 — "Studio Paper," closing the light-theme & colour pass**: light `--bg-color`
 `#f6f7fb`→`#f3f0ea`, `--text-color`→`#191510`, `--accent`→`#b23a2b` (dark's own
 `#6f9bff` untouched — per-theme accents were already this codebase's pattern).

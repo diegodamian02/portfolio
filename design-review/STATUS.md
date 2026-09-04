@@ -1,6 +1,14 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-04 (**Stage 11 Phase 3 — "Studio Paper": the light theme
+**Updated:** 2026-09-04 (**Stage 11 (follow-up) — tracklist polish**: after
+reviewing Phase 3 live, the owner asked for more breathing room between the
+`#projects` index numeral and the title (`--track-index-w` 3ch→4.5ch), the
+numerals back to per-project colour (a new `--wax-text-N` token, tuned to
+actually hold contrast as text rather than reusing Phase 2's card-tint hues
+unlifted), and "Check This Chess" dropped so 3 projects fit in one screen
+without scrolling (also deleted its now-unreferenced video asset). Still on
+`stage11-light-theme-colour`, not merged. Full entry in §2.) Prior, same day,
+**Stage 11 Phase 3 — "Studio Paper": the light theme
 stops being plain**: the closing phase of the light-theme & colour pass. Light
 `--bg-color` warms from cold blue-white `#f6f7fb` to paper `#f3f0ea`,
 `--text-color` from navy `#0d1220` to warm ink `#191510`, `--accent` from flat
@@ -100,6 +108,52 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 11 (follow-up) — tracklist polish: index spacing, per-numeral colour, drop Check This Chess *(2026-09-04)*
+
+**Branch:** `stage11-light-theme-colour` (stacked on Phase 3; still not merged
+to `main`). Owner feedback after reviewing the tracklist live, three asks:
+
+1. **The index numeral read as crowded against the title.** `--track-index-w`
+   (`main.scss`, `.portfolio-section`) `3ch` → `4.5ch`. That one token already
+   drove both `.project-index`'s own grid column and `.portfolio-summary`'s
+   indent underneath it, so both widened together from a single edit — no risk
+   of the title and the description column drifting out of alignment with
+   each other.
+2. **"the numbers should have different colours, like different sections."**
+   Per-numeral colour is back — `.project-index` reads `--card-wax`, set
+   inline per row (`portfolio.jsx`) from `cardHueFor(project.title)`, the same
+   hash-to-one-of-5 mechanism Phase 2 built and `#my-taste` still uses. Not a
+   straight reuse of `--wax-N` though: that token was tuned for the 28%/12%
+   card-tint mix job, and measured live at full opacity directly on dark's
+   near-black page bg, 3 of the 5 hues fell under 2.2:1 — a real fail, not a
+   near-miss. New `--wax-text-1..5` token (`main.scss`, `:root` +
+   `[data-theme="light"]`): dark is `color-mix(in srgb, var(--wax-N) 65%,
+   var(--text-color))`, lifting every hue to 4.6–6.5:1; light is a straight
+   alias to `--wax-N` (already 4.8–9.0:1 unlifted, lightening it further would
+   push the wrong direction on a light ground). `--card-bg`/full-card tinting
+   stays retired — only the numeral carries colour now, matching what was
+   actually asked for.
+3. **"get rid of Check This Chess and just keep 3 projects so we can fit
+   altogether in one section."** Removed from `projectsData.js`; its video
+   (`client/public/videos/check-this-chess.webm`, 1.4MB, git-tracked) deleted
+   too — confirmed zero remaining references anywhere in `client/src` or
+   `client/public` first.
+
+**Measured** (Playwright, computed colours vs page bg, rest state — mouse
+moved off the row first so `:hover` doesn't leak into the read): index numeral
+contrast dark `6.53 / 4.70 / 4.62`, light `4.80 / 7.83 / 9.01` (all ≥4.5, the
+same bar this file holds itself to everywhere else). `#projects` collapsed
+height 655px at 1440×900, 709px at 390×844 — the full 3-item list reads inside
+one normal screen at both sizes, which was the point of trimming to 3. 0px
+horizontal overflow at 390. Lint unchanged: 7 errors / 2 warnings.
+
+Screenshots: `stage11-4-projects-{dark,light}`, `-light-open`, `-light-390`;
+plus the baseline `projects-desktop.png` / `projects-mobile.png` regenerated
+via `capture-screenshots.mjs` (now 3 rows, not 4). `projects-*-expanded.png`
+and `projects-scroll-into-view-*.png` are stale (predate the tracklist
+rebuild entirely, from Phase 3) — not regenerated here, out of scope for this
+pass same as they were for Phase 3.
 
 ### Stage 11 Phase 3 — "Studio Paper": ground, accent, `#projects` tracklist *(2026-09-04)*
 

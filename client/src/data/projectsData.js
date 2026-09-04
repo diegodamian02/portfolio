@@ -35,17 +35,6 @@ const projects = [
         liveDemo: "https://diegospomodoro.com/",
         role: "FullStack Developer",
     },
-    {
-        id: 4,
-        title: "Check This Chess",
-        description:
-            "A fully functional chess game with a GUI, built in Java using JavaFX. Implements chess rules, and basic game functionality.",
-        video: "/videos/check-this-chess.webm",
-        videoWidth: 3420,
-        videoHeight: 1924,
-        github: "https://github.com/diegodamian02/check-this-chess",
-        role: "Backend Developer",
-    },
 ];
 
 export default projects;

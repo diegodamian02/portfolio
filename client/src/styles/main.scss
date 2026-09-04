@@ -130,6 +130,23 @@
   --wax-4: #1f5a45; // forest
   --wax-5: #5c2c70; // plum
 
+  // Text-safe variant of the pressing hues — Stage 11 Phase 3 (revised),
+  // #projects' .project-index numeral. --wax-N above was tuned for the
+  // card-tint/tape jobs (mixed at 28% or 42% over a lighter surface, per the
+  // comments on those); read at full strength directly on --bg-color (the
+  // numeral now sits on the bare page, no card behind it) three of the five
+  // measured under 2.2:1 on this theme's near-black bg — caught live, not
+  // assumed from the hex values. A uniform color-mix(65% wax, 35% text-color)
+  // lifts every hue to 4.6-6.5:1 here while staying clearly "that" hue rather
+  // than washing toward white; light needs no lift (the same raw --wax-N
+  // already measures 4.8-9.0:1 on paper), so it's redeclared to just the
+  // plain hue below.
+  --wax-text-1: color-mix(in srgb, var(--wax-1) 65%, var(--text-color));
+  --wax-text-2: color-mix(in srgb, var(--wax-2) 65%, var(--text-color));
+  --wax-text-3: color-mix(in srgb, var(--wax-3) 65%, var(--text-color));
+  --wax-text-4: color-mix(in srgb, var(--wax-4) 65%, var(--text-color));
+  --wax-text-5: color-mix(in srgb, var(--wax-5) 65%, var(--text-color));
+
   // The card surface itself: the pressing hue mixed into the page background.
   // Redeclared under [data-theme="light"] with a much lower percentage — 28%
   // of a deep hue on near-black reads as a coloured panel, 28% on near-white
@@ -397,6 +414,15 @@
   --card-tint-3: color-mix(in srgb, var(--wax-3) 12%, var(--bg-color));
   --card-tint-4: color-mix(in srgb, var(--wax-4) 12%, var(--bg-color));
   --card-tint-5: color-mix(in srgb, var(--wax-5) 12%, var(--bg-color));
+
+  // --wax-text-N (#projects' .project-index): the raw --wax-N hues already
+  // measure 4.8-9.0:1 directly on this theme's paper bg — no lift needed like
+  // dark's own :root redeclaration above, so this is a straight alias.
+  --wax-text-1: var(--wax-1);
+  --wax-text-2: var(--wax-2);
+  --wax-text-3: var(--wax-3);
+  --wax-text-4: var(--wax-4);
+  --wax-text-5: var(--wax-5);
 
   // Walkman case, lightened for a light page the same way --deck-ground
   // shifts below — a dark-navy-tuned case would read as a hole in a light
@@ -3011,7 +3037,14 @@ $taste-swipe-max: 1024px;
     // no viewport-unit min-height on this block at all — kept out rather
     // than kept as a comment describing a rule that no longer exists.
     padding-top: var(--space-3);
-    padding-bottom: var(--space-7);
+    // space-7 (48px) -> space-6 (32px), direct feedback that the page-wide
+    // mobile rhythm felt uneven — this was the single largest bottom pad on
+    // the page, well past what About/Experience/Projects settle on (32px)
+    // once this section's own top (space-3, deliberately softer — see the
+    // comment above) is left alone. Brings the My Taste -> Projects gap back
+    // in line with every other section boundary instead of shrinking it to
+    // match the tightest one.
+    padding-bottom: var(--space-6);
   }
 
   // Grain (Task 3) removed here: a feTurbulence noise overlay across the
@@ -5411,8 +5444,11 @@ $taste-swipe-max: 1024px;
   // that combines width:100% with its own padding.
   box-sizing: border-box;
   // Stage 11 Phase 3 — one shared width for .project-index's own grid column
-  // and .portfolio-summary's indent below it, so the "3ch" isn't typed twice.
-  --track-index-w: 3ch;
+  // and .portfolio-summary's indent below it, so the value isn't typed twice.
+  // Widened from 3ch (owner feedback: the numeral read as crowded against
+  // the title) — the numeral itself is 2 digits, so the extra ch is clear
+  // space between it and .portfolio-header's next column, not a wider glyph.
+  --track-index-w: 4.5ch;
 }
 
 .portfolio-title {
@@ -5430,9 +5466,13 @@ $taste-swipe-max: 1024px;
 // — a numbered list reading like the back of a record, which is what makes
 // this section rhyme with #my-taste's own setlist instead of being an
 // unrelated UI pattern next to it. Per-project colour (Phase 2's
-// --card-bg/--card-wax) retires WITH the boxes — a tracklist's colour lives
-// in one accent, not five, so .project-index below uses --accent for every
-// row rather than carrying Phase 2's hue forward.
+// --card-bg/--card-wax) retired WITH the boxes at first — every .project-index
+// ran in a single --accent. Reinstated per later owner feedback ("the numbers
+// should have different colours, like different sections"): --card-wax comes
+// back as a per-row custom property (portfolio.jsx, keyed on project.title
+// same as #my-taste), just scoped to the numeral now instead of the whole
+// card surface — --card-bg stays retired, there's still no tint on the row
+// itself.
 //
 // The row/rule structure — .portfolio-list's own top rule plus a
 // border-bottom per item — is new; the GRID inside .portfolio-header (role
@@ -5510,7 +5550,12 @@ $taste-swipe-max: 1024px;
   font-family: "Space Mono", "Courier New", monospace;
   font-weight: 700;
   font-size: clamp(1.2rem, 3.2vw, 1.6rem);
-  color: var(--accent);
+  // --card-wax: set inline per-row by portfolio.jsx (cardHueFor), one of the
+  // 5 --wax-N "pressing" hues from Phase 2. Falls back to --accent so the
+  // numeral still reads correctly if that inline custom property is ever
+  // missing (SSR/no-JS edge, same defensive pattern my-taste.jsx's own
+  // TasteCard uses for --card-bg).
+  color: var(--card-wax, var(--accent));
   transition: color var(--theme-transition);
 }
 
@@ -5959,7 +6004,13 @@ $taste-swipe-max: 1024px;
 
   /* Contact Section */
   .contact-section {
-    padding: 1rem;
+    // Vertical only, 1rem -> 2rem (32px) — direct feedback that the mobile
+    // rhythm felt uneven; this was the tightest top/bottom pad on the page
+    // (every real phone hits this 480px step, not just small ones), right
+    // before the footer. Horizontal stays 1rem — the base rule's own 2rem
+    // gutter was never the complaint, and this section's content (the J-card)
+    // already clamps its own width well inside it.
+    padding: 2rem 1rem;
   }
 
   /* Footer */
