@@ -136,16 +136,21 @@
   // comments on those); read at full strength directly on --bg-color (the
   // numeral now sits on the bare page, no card behind it) three of the five
   // measured under 2.2:1 on this theme's near-black bg — caught live, not
-  // assumed from the hex values. A uniform color-mix(65% wax, 35% text-color)
-  // lifts every hue to 4.6-6.5:1 here while staying clearly "that" hue rather
-  // than washing toward white; light needs no lift (the same raw --wax-N
-  // already measures 4.8-9.0:1 on paper), so it's redeclared to just the
-  // plain hue below.
-  --wax-text-1: color-mix(in srgb, var(--wax-1) 65%, var(--text-color));
-  --wax-text-2: color-mix(in srgb, var(--wax-2) 65%, var(--text-color));
-  --wax-text-3: color-mix(in srgb, var(--wax-3) 65%, var(--text-color));
-  --wax-text-4: color-mix(in srgb, var(--wax-4) 65%, var(--text-color));
-  --wax-text-5: color-mix(in srgb, var(--wax-5) 65%, var(--text-color));
+  // assumed from the hex values. First cut mixed 65% wax / 35% text-color,
+  // tuned only against --bg-color; a later reuse (--card-wax-text,
+  // .my-taste-featured-name/-secondary-name and #my-taste's own per-track
+  // --track-wax) reads this SAME token against --card-tint-N — lighter than
+  // --bg-color, since that's the 28%-mixed wax panel itself — and measured
+  // as low as 4.14:1 there. 55%/45% (this rule) is tuned against each hue's
+  // own --card-tint-N at 28%, its real worst case, not just --bg-color:
+  // 5.19-7.70:1 across all three consumers now. Light needs no lift for 4 of
+  // 5 hues (raw --wax-N already 4.8-9.0:1 on paper); wax-2 (amber) is the
+  // one exception, see the light redeclaration below.
+  --wax-text-1: color-mix(in srgb, var(--wax-1) 55%, var(--text-color));
+  --wax-text-2: color-mix(in srgb, var(--wax-2) 55%, var(--text-color));
+  --wax-text-3: color-mix(in srgb, var(--wax-3) 55%, var(--text-color));
+  --wax-text-4: color-mix(in srgb, var(--wax-4) 55%, var(--text-color));
+  --wax-text-5: color-mix(in srgb, var(--wax-5) 55%, var(--text-color));
 
   // The card surface itself: the pressing hue mixed into the page background.
   // Redeclared under [data-theme="light"] with a much lower percentage — 28%
@@ -415,11 +420,17 @@
   --card-tint-4: color-mix(in srgb, var(--wax-4) 12%, var(--bg-color));
   --card-tint-5: color-mix(in srgb, var(--wax-5) 12%, var(--bg-color));
 
-  // --wax-text-N (#projects' .project-index): the raw --wax-N hues already
-  // measure 4.8-9.0:1 directly on this theme's paper bg — no lift needed like
-  // dark's own :root redeclaration above, so this is a straight alias.
+  // --wax-text-N (#projects' .project-index, and later #my-taste's own
+  // --card-wax-text/--track-wax): the raw --wax-N hues measure 4.8-9.0:1
+  // directly on this theme's paper bg — no lift needed like dark's own
+  // :root redeclaration above, so 4 of 5 are a straight alias. --wax-2
+  // (amber) is the exception: measured live against --card-tint-2 (the
+  // 12%-mixed panel these later consumers actually sit on, not the bare
+  // page) at 4.11:1 — under the bar. Nudged 15% toward --text-color (dark
+  // ink, this theme's own lift direction) rather than reused raw: 4.98:1 at
+  // that same worst case, barely a visible shift off the original amber.
   --wax-text-1: var(--wax-1);
-  --wax-text-2: var(--wax-2);
+  --wax-text-2: color-mix(in srgb, var(--wax-2) 85%, var(--text-color));
   --wax-text-3: var(--wax-3);
   --wax-text-4: var(--wax-4);
   --wax-text-5: var(--wax-5);
@@ -3826,6 +3837,12 @@ $taste-swipe-max: 1024px;
   text-transform: uppercase;
   letter-spacing: 0.01em;
   margin: 0;
+  // Stage 11 (follow-up) — owner: colour the artist banners, each a
+  // different hue. --card-wax-text: set inline by TasteCard (my-taste.jsx)
+  // from the same cardHueFor(id) that already tints this card's own
+  // background/tape — falls back to --text-color for the same defensive
+  // reason every other --card-wax(-*) fallback in this file exists.
+  color: var(--card-wax-text, var(--text-color));
 
   @media (max-width: $taste-swipe-max) {
     // Stage 5 — converges to --secondary-name's own mobile treatment
@@ -3852,6 +3869,8 @@ $taste-swipe-max: 1024px;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   margin: 0;
+  // See .my-taste-featured-name's own comment just above — same mechanism.
+  color: var(--card-wax-text, var(--text-color));
 
   @media (max-width: $taste-swipe-max) {
     white-space: nowrap;
@@ -4038,6 +4057,12 @@ $taste-swipe-max: 1024px;
   flex: 1 1 auto;
   min-width: 0;
   font-weight: 700;
+  // Stage 11 (follow-up) — owner: colour the tracklist too, titles only
+  // (not .my-taste-setlist-index/-artist just below, deliberately left at
+  // --secondary-text). --track-wax: set inline per-<li> (my-taste.jsx) from
+  // cardHueFor(track.id) — the setlist card itself is `neutral` (TasteCard),
+  // so this is a second, independent hue source, not read off --card-wax.
+  color: var(--track-wax, var(--text-color));
 }
 
 .my-taste-setlist-artist {
@@ -5448,7 +5473,8 @@ $taste-swipe-max: 1024px;
   // Widened from 3ch (owner feedback: the numeral read as crowded against
   // the title) — the numeral itself is 2 digits, so the extra ch is clear
   // space between it and .portfolio-header's next column, not a wider glyph.
-  --track-index-w: 4.5ch;
+  // 4.5ch still read as tight on a second pass, so widened again to 6ch.
+  --track-index-w: 6ch;
 }
 
 .portfolio-title {
@@ -5519,17 +5545,21 @@ $taste-swipe-max: 1024px;
   font-family: var(--font-body);
   transition: background-color var(--theme-transition), box-shadow 0.2s ease;
 
-  // The hover/open fill — a faint accent wash + an inset left bar, in place
-  // of Stage 5's card border. box-shadow doesn't take layout space, so this
-  // never shifts the row.
+  // The hover/open fill — a faint wash + an inset left bar, in place of
+  // Stage 5's card border. box-shadow doesn't take layout space, so this
+  // never shifts the row. var(--card-wax, ...): owner feedback — the hover
+  // state should read as "this row's own colour," the same wax hue as its
+  // .project-index numeral, not a single site-wide --accent every row lit up
+  // in identically. Falls back to --accent for the same defensive reason
+  // .project-index's own color rule does.
   &:hover,
   .portfolio-item.is-open & {
     background: linear-gradient(
       90deg,
-      color-mix(in srgb, var(--accent) 10%, transparent),
+      color-mix(in srgb, var(--card-wax, var(--accent)) 10%, transparent),
       transparent 70%
     );
-    box-shadow: inset 3px 0 0 var(--accent);
+    box-shadow: inset 3px 0 0 var(--card-wax, var(--accent));
   }
 
   &:focus-visible {
@@ -5576,7 +5606,7 @@ $taste-swipe-max: 1024px;
   transition: color var(--theme-transition);
 
   .portfolio-header:hover & {
-    color: var(--accent);
+    color: var(--card-wax, var(--accent));
   }
 }
 
@@ -5596,7 +5626,7 @@ $taste-swipe-max: 1024px;
 
   .portfolio-item.is-open & {
     transform: rotate(180deg);
-    color: var(--accent);
+    color: var(--card-wax, var(--accent));
   }
 }
 

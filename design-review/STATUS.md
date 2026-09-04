@@ -1,13 +1,35 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-04 (**Stage 11 (follow-up) — tracklist polish**: after
+**Updated:** 2026-09-04 (**Stage 11 (follow-up round 2) — hover colour match,
+more index spacing, #my-taste titles coloured**: `#projects`'
+hover/`.is-open` fill (inset bar + wash), the title's hover colour, and the
+chevron's open colour all switched from a flat `--accent` to the row's own
+`--card-wax` — hovering a row now reads as "that row's colour," matching its
+numeral, not a fifth unrelated colour. `--track-index-w` widened again,
+6ch this time (4.5ch still read tight on a second pass) — real glyph-to-glyph
+gap now 20.6px, measured via Range, not the stretched grid-cell box (the
+first attempt at measuring this read a false-flat 12px, see §2). `#my-taste`:
+artist name banners (featured + secondary) and each track's title in "my top
+5 tracks" now carry their own colour too — same `cardHueFor` hash, titles
+only (index numbers, artist bylines, card backgrounds untouched). Doing this
+surfaced a real, measured contrast bug in `--wax-text-N` itself (built for
+Stage 11 Phase 3's `.project-index`, reused here): it was tuned only against
+`--bg-color`, and reading it against the lighter `--card-tint-N`/
+`--taste-card-bg` surfaces these new consumers actually sit on dropped 3 of 5
+hues under 4.5:1 in dark, and light's amber under 4.5:1 too — both retuned
+against their real worst-case background, not just the original one. All on
+`main` now, committed directly (this was a small, fully-verified follow-up
+to work already merged same day — `stage11-light-theme-colour` itself was
+merged into `main` right after Phase 3/the first follow-up round shipped).
+Full entry in §2.) Prior, same day,
+**Stage 11 (follow-up) — tracklist polish**: after
 reviewing Phase 3 live, the owner asked for more breathing room between the
 `#projects` index numeral and the title (`--track-index-w` 3ch→4.5ch), the
 numerals back to per-project colour (a new `--wax-text-N` token, tuned to
 actually hold contrast as text rather than reusing Phase 2's card-tint hues
 unlifted), and "Check This Chess" dropped so 3 projects fit in one screen
-without scrolling (also deleted its now-unreferenced video asset). Still on
-`stage11-light-theme-colour`, not merged. Full entry in §2.) Prior, same day,
+without scrolling (also deleted its now-unreferenced video asset). Full entry
+in §2.) Prior, same day,
 **footer hover animation slowed + year added back** (owner: "love it, a bit
 slower" — `<SocialIcon>` timeline durations up ~40–60%, `.watermark-year`
 span restored; landed on `footer-tweaks`, concurrent with the Stage 11
@@ -112,6 +134,78 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 11 (follow-up round 2) — hover colour match, more index spacing, #my-taste titles coloured *(2026-09-04)*
+
+**Branch:** `main` directly — the prior follow-up round's branch
+(`stage11-light-theme-colour`) was already merged in by this point (see the
+merge note under the Phase 3 entry below). Owner feedback, three asks:
+
+1. **"the hover of the projects also hover with the same color as the
+   numbers."** `.portfolio-header`'s hover/`.is-open` fill (the inset
+   `box-shadow` bar + the gradient wash) and `.project-title`'s hover colour
+   both read `var(--card-wax, var(--accent))` now, the exact same per-row
+   token `.project-index` already used — not a second `--accent`-driven
+   affordance beside a coloured numeral. `.portfolio-chevron`'s own
+   `.is-open` colour switched too, for the same reason (left at `--accent`
+   it would've been the one hover-state element still not matching the
+   row). `main.scss`, `.portfolio-header`/`.project-title`/`.portfolio-chevron`.
+2. **"still give them a bit more space in between the numbers and the
+   title."** `--track-index-w` (`.portfolio-section`) 4.5ch → 6ch. Caught a
+   real bug verifying this: a first measurement pass read the index-to-title
+   gap via `.project-index`'s own `getBoundingClientRect()` and got a flat
+   12px at every width tried — because a grid item's box **stretches to
+   fill its column** by default (`justify-self: stretch`), so the element's
+   own box always ends exactly at the column boundary regardless of how
+   much whitespace sits between its rendered glyph and that edge; only the
+   column-gap showed up, not the (real, growing) padding inside the
+   stretched box. Fixed by measuring a `Range` around the text node instead
+   of the element's box — the actual glyph-to-glyph distance, which is
+   20.6px now at every row/width tried, up from what 4.5ch was actually
+   rendering (not independently re-measured at the time, is the honest
+   note — the owner's own eyes calling it "still tight" is what caught what
+   the flawed script would have called correct).
+3. **"give all different colors to the banners of the artists, and also
+   the tracklist. Give colors to the titles only in my taste option."**
+   `#my-taste`'s `.my-taste-featured-name`/`.my-taste-secondary-name` (the
+   artist name under each wall card) and `.my-taste-setlist-track` (the
+   track name in "my top 5 tracks," NOT `.my-taste-setlist-index` or
+   `.my-taste-setlist-artist` — titles only, per the ask) now carry colour.
+   Wall cards reuse the same `cardHueFor(id)` already driving that card's
+   `--card-bg`/`--card-wax` (a new `--card-wax-text`, set alongside those
+   two in `TasteCard`, my-taste.jsx); the setlist card itself is `neutral`
+   (no hue of its own), so each `<li>` gets an independent
+   `--track-wax: var(--wax-text-${cardHueFor(track.id)})` inline.
+
+   **Found doing this, not assumed:** `--wax-text-N` (built for Stage 11
+   Phase 3's `.project-index`) was tuned only against `--bg-color` — the
+   numeral's own background. These new consumers sit on lighter surfaces
+   (`--card-tint-N`, the 28%/12%-mixed wax panel itself; `--taste-card-bg`,
+   a 6% mix) that the token was never checked against. Measured live: dark's
+   featured/secondary names landed at 4.14–4.18:1 against their own card's
+   `--card-tint-N` — under the 4.5:1 bar this file holds itself to, and a
+   real fail for `.my-taste-secondary-name` specifically (19.2px/500 weight
+   clears neither WCAG's large-text size nor bold threshold, so it needs the
+   full bar, not 3:1). Light's amber (`--wax-2`) read 4.11:1 against its own
+   `--card-tint-2` for the same reason. Retuned against the actual worst
+   case per theme, not the original `--bg-color`-only target: dark
+   `--wax-text-N` (`:root`) 65%→55% wax/text-color mix (lighter, more
+   margin — 5.19–7.70:1 against every hue's own `--card-tint-N` now, better
+   than before even against `--bg-color` itself); light's 4 non-amber hues
+   stay a straight `--wax-N` alias (already 5.9–7.4:1 against
+   `--card-tint-N`), `--wax-text-2` alone gets a new 85%/15% mix toward
+   `--text-color` (4.98:1 at its own worst case, a barely-visible shift off
+   the original amber). `main.scss`, `:root` and `[data-theme="light"]`.
+
+**Measured** (Playwright, both themes, real backgrounds not `--bg-color`
+proxies): `.my-taste-featured-name` 5.21–7.27:1, `.my-taste-secondary-name`
+5.21–6.40:1, `.my-taste-setlist-track` 5.17–7.86:1 — all ≥4.5 now. 0px
+horizontal overflow at 390 on both sections. Lint unchanged: 7 errors / 2
+warnings.
+
+Screenshots: `stage11-5-projects-{dark,light}-hover`, `stage11-5-my-taste-
+{dark,light}`; baseline `projects-{desktop,mobile}` and `my-taste-
+{desktop,mobile}` regenerated.
 
 ### Stage 11 (follow-up) — tracklist polish: index spacing, per-numeral colour, drop Check This Chess *(2026-09-04)*
 

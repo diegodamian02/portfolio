@@ -12,15 +12,29 @@ starts from zero.
 ---
 
 ## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11
-(follow-up) — tracklist polish**: owner feedback on the live Phase 3 result —
-`#projects`' index numeral was too close to the title (`--track-index-w`
-3ch→4.5ch, one token drives both the header grid column and the summary
-indent so they widened together), the numerals wanted per-project colour back
-(new `--wax-text-N` token — Phase 2's `--wax-N` measured under 2.2:1 as raw
-text on dark's bg for 3 of 5 hues, so this is a text-safe lift, not a reuse),
-and "Check This Chess" is gone, down to 3 projects so the whole list reads in
-one screen (655px tall at 1440×900) without scrolling. Still on
-`stage11-light-theme-colour`, still not merged. Full note under the Stage
+(follow-up round 2) — hover colour match, more index spacing, #my-taste
+titles coloured**: `#projects`' hover/open fill + title-hover + chevron all
+switched from flat `--accent` to the row's own `--card-wax` (owner: hover
+should read as "the numbers'" colour, not a fifth unrelated one);
+`--track-index-w` widened again (4.5ch→6ch — real glyph-gap now 20.6px,
+measured via a text Range after a first pass wrongly measured the stretched
+grid-cell box and read a flat 12px at every width); `#my-taste`'s artist name
+banners and each track title in "my top 5 tracks" now carry colour too
+(titles only, index/byline/backgrounds untouched) — which surfaced a real
+contrast bug in `--wax-text-N` itself: tuned only against `--bg-color`
+originally, it dropped under 4.5:1 against the lighter `--card-tint-N`/
+`--taste-card-bg` these new consumers actually sit on (3 of 5 hues in dark,
+amber in light) — retuned against each hue's own real worst case. All on
+`main` now. Full note under the Stage table in §0 / STATUS.md §2.) Prior,
+same day, **Stage 11 (follow-up) — tracklist polish**: owner feedback on the
+live Phase 3 result — `#projects`' index numeral was too close to the title
+(`--track-index-w` 3ch→4.5ch, one token drives both the header grid column
+and the summary indent so they widened together), the numerals wanted
+per-project colour back (new `--wax-text-N` token — Phase 2's `--wax-N`
+measured under 2.2:1 as raw text on dark's bg for 3 of 5 hues, so this is a
+text-safe lift, not a reuse), and "Check This Chess" is gone, down to 3
+projects so the whole list reads in one screen (655px tall at 1440×900)
+without scrolling. Merged to `main` same day. Full note under the Stage
 table in §0 / STATUS.md §2.) Prior, same day, **Stage 11 Phase 3
 — "Studio Paper," closing the light-theme & colour pass**: light `--bg-color`
 `#f6f7fb`→`#f3f0ea`, `--text-color`→`#191510`, `--accent`→`#b23a2b` (dark's own

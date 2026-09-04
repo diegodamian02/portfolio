@@ -320,6 +320,12 @@ function TasteCard({ id, area, className, href, neutral, children }) {
     // card out (it wraps a list, not one artist — it stays the plain paper
     // colour); the wall's featured/secondary cards each get one.
     const hue = neutral ? null : cardHueFor(id);
+    // Stage 11 (follow-up) — owner: colour the artist name banners too.
+    // --card-wax itself is the tape's own colour (a saturated fill under a
+    // semi-transparent mix — see .my-taste-card-tape), not tuned for a text
+    // read at full opacity directly against --card-bg; --card-wax-text is
+    // the same text-safe --wax-text-N variant #projects' index numeral uses
+    // (main.scss), applied here to .my-taste-featured-name/-secondary-name.
     const content = href ? (
         <a className="my-taste-card-link" href={href} target="_blank" rel="noopener noreferrer">
             {children}
@@ -336,7 +342,11 @@ function TasteCard({ id, area, className, href, neutral, children }) {
                 "--card-jitter-x": `${jitterX.toFixed(1)}px`,
                 "--card-jitter-y": `${jitterY.toFixed(1)}px`,
                 "--tape-rotate": `${tapeRotate.toFixed(1)}deg`,
-                ...(hue ? { "--card-bg": `var(--card-tint-${hue})`, "--card-wax": `var(--wax-${hue})` } : null),
+                ...(hue ? {
+                    "--card-bg": `var(--card-tint-${hue})`,
+                    "--card-wax": `var(--wax-${hue})`,
+                    "--card-wax-text": `var(--wax-text-${hue})`,
+                } : null),
             }}
         >
             <div className="my-taste-card-tape" />
@@ -862,6 +872,153 @@ export default function MyTaste() {
             };
         });
 
+        // Direct request, after seeing a mock-up of this same effect — the
+        // wall cards get their own entrance below 601px, reusing
+        // CARD_LAND_EASE/PIN_SNAP_EASE verbatim so it reads as the SAME
+        // effect as the desktop cascade above, not a separate knockoff.
+        //
+        // This section has run with NO entrance at all below 601px since
+        // Task 4 first built the desktop cascade — that task's own brief
+        // skipped mobile because the cascade pinned the section (reusing
+        // Experience's pin: true), and pinning a section 2.68x one screen
+        // tall would have trapped mobile scroll for real. That reasoning is
+        // stale now: the 2026-08-28 pass ("the entrance pins are gone")
+        // already dropped the pin from the fullMotion cascade above too —
+        // it's a plain one-shot ScrollTrigger with no pin, same as this
+        // block — so there's nothing left that made mobile unsafe, it was
+        // just never revisited once that changed.
+        //
+        // Scoped to the wall cards only, not a mobile copy of the whole
+        // desktop cascade — the kicker and "my top artists" title already
+        // render immediately on mobile today and weren't part of what was
+        // asked for; the crate/setlist below them is a plain numbered list
+        // on mobile (Stage 5, continued), not a card, and stays untouched.
+        // No SplitText here either, deliberately: fullMotion's own callback
+        // above already owns kickerRef/wallTitleRef's SplitText instances,
+        // and the two conditions are mutually exclusive by width but not
+        // guaranteed to revert-then-add in lockstep on a resize that crosses
+        // both queries at once — not wrapping the same nodes a second time
+        // here sidesteps that entirely rather than risking it.
+        //
+        // No headliner arc/MotionPathPlugin either: that was scoped to
+        // distinguish ONE card in the desktop grid's 2-featured/3-secondary
+        // hierarchy. Mobile's own CSS already converges all 5 cards to one
+        // uniform tier in a single swipeable row (main.scss, Stage 5) — a
+        // single unified batch, same treatment for every card, matches that
+        // decision instead of fighting it.
+        mm.add({
+            mobileMotion: `(max-width: ${SWIPE_MAX_PX}px) and (prefers-reduced-motion: no-preference)`,
+        }, (context) => {
+            if (!context.conditions.mobileMotion) return undefined;
+
+            const wallCards = gsap.utils.toArray(".my-taste-wall > .my-taste-card", rootRef.current);
+            const wallTapes = gsap.utils.toArray(".my-taste-wall > .my-taste-card > .my-taste-card-tape", rootRef.current);
+
+            // Defensive only, same reasoning as fullMotion's own check above —
+            // "ready" data implies non-empty, so finding nothing here would
+            // mean the DOM and this component's data state have desynced.
+            if (wallCards.length === 0) return undefined;
+
+            // Same "drop onto the card's own resting column" approach as the
+            // desktop cascade's restCards (jitterOf/rotationOf read back the
+            // SAME inline custom properties TasteCard already set, so a
+            // future cardTransform() change can't silently desync the two).
+            // A smaller drop distance (-22, was -36) — these cards render
+            // noticeably smaller than desktop's, and the same travel distance
+            // read as too big a jump relative to the card.
+            gsap.set(wallCards, {
+                opacity: 0,
+                x: (i, target) => jitterOf(target).jx,
+                y: -22,
+                rotation: 0,
+                transformOrigin: "center center",
+            });
+            gsap.set(wallTapes, { opacity: 0, scale: 0.5 });
+
+            // No hold, same as fullMotion above — this timeline has no
+            // ScrollTrigger of its own and finishes on GSAP's own ticker
+            // regardless of what scroll input does underneath it.
+            const tl = gsap.timeline({ paused: true });
+
+            let entranceStarted = false;
+            function beginEntrance() {
+                if (entranceStarted) return;
+                entranceStarted = true;
+                tl.play();
+            }
+            function resolveEntrance() {
+                if (entranceStarted) return;
+                entranceStarted = true;
+                tl.progress(1);
+            }
+
+            // One batch, one stagger — every card lands the same way, no
+            // headliner treated differently (see the top-of-block note).
+            tl.to(wallCards, {
+                x: (i, target) => jitterOf(target).jx,
+                y: (i, target) => jitterOf(target).jy,
+                rotation: (i, target) => rotationOf(target),
+                opacity: 1, duration: 0.4, ease: CARD_LAND_EASE, stagger: 0.1,
+            }, 0);
+            tl.to(wallCards, { scaleX: 1.05, scaleY: 0.92, duration: 0.4, ease: CARD_LAND_SQUASH_EASE, stagger: 0.1 }, "<");
+            // Same deliberate pause the desktop cascade uses (Task 4.1) —
+            // "the card arrives" and "it gets pinned" read as two beats, not
+            // one motion: ">+=0.15" holds on the card's own settled state for
+            // a beat before its tape does anything, and "<+=0.55" here is
+            // that same 0.4s land duration plus the 0.15s gap, self-
+            // consistent across the whole stagger the same way fullMotion's
+            // own restTapes comment explains.
+            tl.to(wallTapes, { opacity: 1, scale: 1, duration: 0.2, ease: "power2.out", stagger: 0.1 }, "<+=0.55");
+            tl.to(wallTapes, { rotation: "+=10", duration: 0.3, ease: PIN_SNAP_EASE, stagger: 0.1 }, "<");
+
+            // Hand transform authority back to plain CSS once settled — same
+            // reasoning as fullMotion's own clearProps call: left in place,
+            // GSAP's inline transform would permanently shadow
+            // .my-taste-card's own mobile `transform: none`-then-re-enabled
+            // rules (main.scss) the next time this runs.
+            tl.set(wallCards, { clearProps: "transform,transformOrigin" });
+            tl.set(wallTapes, { clearProps: "transform" });
+
+            const navbarHeight = () =>
+                parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--navbar-height")) || 0;
+
+            // Same plain, non-pinned reveal trigger as fullMotion above —
+            // once: true, no scrub, no hold.
+            const st = ScrollTrigger.create({
+                trigger: rootRef.current,
+                start: () => "top top+=" + (navbarHeight() + 32),
+                once: true,
+                onEnter: () => {
+                    if (isProgrammaticScrollActive()) {
+                        if (getLastNavTarget() === "my-taste") beginEntrance();
+                        else resolveEntrance();
+                        return;
+                    }
+                    beginEntrance();
+                },
+            });
+
+            if (rootRef.current.getBoundingClientRect().top < window.innerHeight * 0.9) {
+                if (isProgrammaticScrollActive() && getLastNavTarget() !== "my-taste") resolveEntrance();
+                else beginEntrance();
+            }
+
+            const unsubNav = onSectionNavigated((id) => {
+                if (id === "my-taste") beginEntrance();
+            });
+
+            const unsubscribe = onProgrammaticScrollChange((active) => {
+                if (active && tl.isActive() && getLastNavTarget() !== "my-taste") tl.progress(1);
+            });
+
+            return () => {
+                unsubscribe();
+                unsubNav();
+                st.kill();
+                tl.kill();
+            };
+        });
+
         return () => mm.revert();
     }, { scope: rootRef, dependencies: [artists.status, tracks.status] });
 
@@ -1061,7 +1218,18 @@ export default function MyTaste() {
                             </div>
                             <ol className="my-taste-setlist">
                                 {setlist.map((track, index) => (
-                                    <li key={track.id ?? index} className="my-taste-setlist-item">
+                                    // Stage 11 (follow-up) — owner: colour the
+                                    // tracklist too, titles only. Per-track hue
+                                    // (--track-wax, read by .my-taste-setlist-track
+                                    // in main.scss), same --wax-text-N text-safe
+                                    // token the artist banners above use — this
+                                    // card is `neutral` (TasteCard, above) so it
+                                    // carries no --card-wax of its own to reuse.
+                                    <li
+                                        key={track.id ?? index}
+                                        className="my-taste-setlist-item"
+                                        style={{ "--track-wax": `var(--wax-text-${cardHueFor(track.id ?? index)})` }}
+                                    >
                                         {/* Whole row is one <a> (Task 3.8),
                                             not just the track name — a
                                             bigger, single focusable/tappable
