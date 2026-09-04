@@ -72,6 +72,19 @@ working hero is design information the sections beneath it need.
 
 ## 2. What changed recently
 
+### Footer — hover animation slowed, year added *(2026-09-04)*
+
+Direct owner feedback on the entry below ("love it, make it a bit slower"):
+the `<SocialIcon>` hover timeline durations bumped ~40–60% — body draw
+`0.5s → 0.8s` (stagger `0.07 → 0.1`), scale pop `0.4 → 0.55`, GitHub tail
+draw `0.32 → 0.5`, tail wag `0.26 → 0.34`. Reset stays quick (`0.2s`). Footer
+text: the year is back next to the name as a dimmer `.watermark-year` span —
+`Diego Damian · 2026` (`new Date().getFullYear()`), name still the primary
+mark. **Branch:** `footer-tweaks`. *(Landed alongside a concurrent
+`stage11-light-theme-colour` session editing the hero skyline in the same
+working tree — this commit was scoped to the footer files only; the Stage 11
+skyline/palette changes were left uncommitted for that session.)*
+
 ### Footer — social icons redraw on hover *(2026-09-03)*
 
 **Branch:** `footer-social-icons`. Files: `components/social-icon.jsx` (new),

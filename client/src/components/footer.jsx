@@ -4,7 +4,7 @@ import SocialIcon from "./social-icon.jsx"
 export default function Footer() {
     return(
         <footer className="footer">
-            <p className="watermark">Diego Damian</p>
+            <p className="watermark">Diego Damian <span className="watermark-year">· {new Date().getFullYear()}</span></p>
             <div className="footer-links">
                 <SocialIcon name="linkedin" href="https://www.linkedin.com/in/diegodamian02/" />
                 <SocialIcon name="github" href="https://github.com/diegodamian02" />

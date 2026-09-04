@@ -5468,6 +5468,11 @@ $taste-swipe-max: 1024px;
   color: var(--text-color);
 }
 
+// The year sits next to the name but a step back — name stays the primary mark.
+.watermark-year {
+  color: var(--secondary-text);
+}
+
 // ── Mobile navigation (B4) ───────────────────────────────────────────────────
 // Both of these were `display: none` with no media query anywhere to re-enable
 // them, so the hamburger and its menu never rendered at any width. Desktop keeps

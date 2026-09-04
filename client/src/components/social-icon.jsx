@@ -85,20 +85,20 @@ export default function SocialIcon({ name, href }) {
 
         const tl = gsap.timeline();
         tlRef.current = tl;
-        tl.fromTo(svg, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: "back.out(1.7)" }, 0);
+        tl.fromTo(svg, { scale: 0.9 }, { scale: 1, duration: 0.55, ease: "back.out(1.7)" }, 0);
         tl.fromTo(body, { drawSVG: "0%" },
-            { drawSVG: "100%", duration: 0.5, stagger: 0.07, ease: SIGNATURE_EASE }, 0);
+            { drawSVG: "100%", duration: 0.8, stagger: 0.1, ease: SIGNATURE_EASE }, 0);
 
         if (tail) {
             tl.fromTo(tail, { drawSVG: "0%" },
-                { drawSVG: "100%", duration: 0.32, ease: SIGNATURE_EASE }, ">-0.08");
+                { drawSVG: "100%", duration: 0.5, ease: SIGNATURE_EASE }, ">-0.12");
             // ...then the octocat tail wags, like dalelarroder.com's does.
             // svgOrigin pins the pivot to the tail's attach point in the
             // SVG's own coordinate space (≈ where it meets the body).
             tl.add(() => {
                 wagRef.current = gsap.to(tail, {
                     rotation: 14, svgOrigin: "9 18",
-                    duration: 0.26, repeat: -1, yoyo: true, ease: "sine.inOut",
+                    duration: 0.34, repeat: -1, yoyo: true, ease: "sine.inOut",
                 });
             });
         }
