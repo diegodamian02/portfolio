@@ -907,6 +907,15 @@ LCD were confirmed untouched, not overlooked — deliberate, named exceptions, n
 commented as such in `main.scss` so a future audit doesn't read them as this same
 bug and "fix" them too.
 
+> **Update, Stage 12 (2026-09-05):** Poppins itself was swapped for Urbanist —
+> same token architecture, same two weights, same latin/latin-ext subsetting,
+> no consuming selector touched. A task brief for that stage described the
+> "Avenir Next"/no-`--font-body`-token state above as still current; it wasn't
+> — this note is what it should have been checked against. `#my-taste` and the
+> walkman LCD remain untouched, both exception comments now cite Stage 12
+> alongside Stage 10. Full writeup: `ROADMAP.md` §3 and `STATUS.md`'s own
+> Stage 12 entries. On branch `sitewide-typography-urbanist`, not yet merged.
+
 ### D12 — the mat is nearly invisible once a record is on the platter
 
 `.turntable-mat` is `inset: 6.5%` of the platter (radius 0.935) and `.vinyl-record` is

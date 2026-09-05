@@ -11,22 +11,61 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-04, **Stage 11
-(follow-up round 2) — hover colour match, more index spacing, #my-taste
-titles coloured**: `#projects`' hover/open fill + title-hover + chevron all
-switched from flat `--accent` to the row's own `--card-wax` (owner: hover
-should read as "the numbers'" colour, not a fifth unrelated one);
-`--track-index-w` widened again (4.5ch→6ch — real glyph-gap now 20.6px,
-measured via a text Range after a first pass wrongly measured the stretched
-grid-cell box and read a flat 12px at every width); `#my-taste`'s artist name
-banners and each track title in "my top 5 tracks" now carry colour too
-(titles only, index/byline/backgrounds untouched) — which surfaced a real
-contrast bug in `--wax-text-N` itself: tuned only against `--bg-color`
-originally, it dropped under 4.5:1 against the lighter `--card-tint-N`/
-`--taste-card-bg` these new consumers actually sit on (3 of 5 hues in dark,
-amber in light) — retuned against each hue's own real worst case. All on
-`main` now. Full note under the Stage table in §0 / STATUS.md §2.) Prior,
-same day, **Stage 11 (follow-up) — tracklist polish**: owner feedback on the
+## 0. Current state — quick summary *(updated 2026-09-05, **Stage 12 —
+sitewide typography: Urbanist replaces Poppins**: the task brief for this
+stage described the site as still on the unhosted "Avenir Next" stack with
+no `--font-body` token — stale against **Stage 10** (2026-09-01, below),
+which had already built exactly that architecture on Poppins. So this
+landed as a one-family swap inside existing infrastructure, not a rebuild:
+`--font-display`/`--font-body` (`main.scss` `:root`) go from `"Poppins"` to
+`"Urbanist"`, same two-weight (400/600) import, same latin/latin-ext
+`@fontsource` subsetting pattern, same nine selectors already wired to the
+tokens (`body`, `@mixin section-title`/`section-subtitle`, `.hero-name`,
+`.loading-screen-text`, `.about-me-name`, `.experience-title`/
+`.portfolio-title` via `section-title`, `.project-title`, `.contact-title`,
+the `#projects` row button) — none of those needed touching beyond the
+token value itself. `#my-taste` (Anton/Oswald/Space Mono) and the walkman's
+DSEG7 LCD confirmed untouched — both already carried Stage 10's
+named-exception comments, now updated to also cite Stage 12 rather than
+reading as Poppins-only. Verified live (Playwright: `getComputedStyle` +
+`document.fonts.check()` across Hero/About/Experience/Projects/Connect at
+1440 and 390px): every sitewide selector resolves to Urbanist at its
+declared weight and the family reports actually loaded, not a silent
+system-sans fallback; `#my-taste`'s three fonts and the walkman LCD are
+byte-identical. Font-asset delta, from matched before/after production
+builds of this exact tree: Poppins was **8 files / 61.5KB** subsetted,
+Urbanist is **8 files / 90.7KB** (+29.2KB) — same file count and
+subsetting pattern, Urbanist's outlines are simply heavier per glyph. My
+Taste's own fonts remain untouched at **24 files**, measured at **369.1KB**
+directly off this build against a logged 408KB — a ~39KB drift flagged
+rather than carried forward silently, and most likely `@fontsource`
+point-release movement rather than a bad original measurement: Poppins'
+own logged Stage 10 figure (63.1KB) also measured 1.6KB lighter (61.5KB) on
+a fresh build taken minutes before this swap, same direction, same
+magnitude class. Overall
+JS bundle unchanged (562.31KB); CSS +14 bytes (only the family name string
+got one character longer). Lint unchanged, 7 errors / 2 warnings — none in
+the touched files. One more brief detail didn't match the tree: it named
+`.timeline-content h3` as a heading to update; that selector isn't live —
+Experience's heading is `.experience-title` (`@include section-title`),
+already covered by the mixin change. All on branch
+`sitewide-typography-urbanist`, **not yet merged to `main`** — pushed for
+review. Full writeup: `STATUS.md`'s own Stage 12 entry.) Prior, 2026-09-04,
+**Stage 11 (follow-up round 2) — hover colour match, more index spacing,
+#my-taste titles coloured**: `#projects`' hover/open fill + title-hover +
+chevron all switched from flat `--accent` to the row's own `--card-wax`
+(owner: hover should read as "the numbers'" colour, not a fifth unrelated
+one); `--track-index-w` widened again (4.5ch→6ch — real glyph-gap now
+20.6px, measured via a text Range after a first pass wrongly measured the
+stretched grid-cell box and read a flat 12px at every width); `#my-taste`'s
+artist name banners and each track title in "my top 5 tracks" now carry
+colour too (titles only, index/byline/backgrounds untouched) — which
+surfaced a real contrast bug in `--wax-text-N` itself: tuned only against
+`--bg-color` originally, it dropped under 4.5:1 against the lighter
+`--card-tint-N`/`--taste-card-bg` these new consumers actually sit on (3 of
+5 hues in dark, amber in light) — retuned against each hue's own real worst
+case. All on `main` now. Full note under the Stage table in §0 / STATUS.md
+§2.) Prior, same day, **Stage 11 (follow-up) — tracklist polish**: owner feedback on the
 live Phase 3 result — `#projects`' index numeral was too close to the title
 (`--track-index-w` 3ch→4.5ch, one token drives both the header grid column
 and the summary indent so they widened together), the numerals wanted
@@ -2717,6 +2756,80 @@ walkman's `.walkman-screen-ghost`/`-lit` still reference `"DSEG7 Classic",
 "Space Mono", monospace` in source, unchanged. `npm run lint`: 7 errors / 2
 warnings, unchanged (the pre-existing baseline — see `STATUS.md`'s own note
 correcting `CLAUDE.md`'s stale "16 errors" claim).
+
+### Stage 12 — sitewide typography: Urbanist replaces Poppins *(2026-09-05)*
+
+**Brief was stale, checked against the tree rather than implemented as
+written:** it described the site as still on the unhosted "Avenir Next"
+stack with no `--font-body` token, and asked for that token architecture to
+be built. Stage 10 above had already built it, on Poppins. So this stage is
+a family swap inside existing infrastructure, not new plumbing.
+
+**Decision:** Poppins was compared against Montserrat and a few fonts
+positioned between the two, landing on **Urbanist** — kept as a single
+family at 400 (body) / 600 (display), same reasoning Stage 10 already
+settled (title/body SIZE contrast does the differentiation work, so a
+second family would add a decision without adding legibility).
+
+**Implementation:** `@fontsource/urbanist` latin-400/latin-ext-400/
+latin-600/latin-ext-600 replace the four Poppins imports 1:1 in
+`client/src/main.jsx`, same subsetting pattern. `--font-display`/
+`--font-body` (`main.scss` `:root`) change value only — `"Poppins"` →
+`"Urbanist"` — both tokens still resolving to the same family, still two
+named tokens for the same ROLE-not-value reason Stage 10 gave. No consuming
+selector changed: `body`, `@mixin section-title`/`section-subtitle`,
+`.hero-name`, `.loading-screen-text`, `.about-me-name`, `.contact-title`,
+`.portfolio-title`/`.experience-title` (via the mixin) and `.project-title`
+already referenced the tokens by name, not the family, which is exactly
+what that indirection was for.
+
+**Weight audit repeated, not assumed still clean:** grepped every
+`font-weight: 700` in the file post-Stage-10 baseline. Both hits
+(`.my-taste-setlist-track`, `.project-index`) are pre-existing, scoped to
+Space Mono — one inside `#my-taste` (explicitly out of scope), one a
+deliberate hardcoded `"Space Mono"` on `#projects`' numeral (its own
+comment already explains why it doesn't read `--taste-font-mono`). Nothing
+outside those two consumes a weight this stage's two imports don't cover;
+no new weight import needed.
+
+**Checked against the tree, not assumed:** the brief named
+`.timeline-content h3` as a heading needing the update. That selector has
+no live CSS rule — it was already dead by Stage 10 (a Stage 3 audit comment
+reference, not a rule) and remains dead now. Experience's actual heading is
+`.experience-title` via `@include section-title`, already covered.
+
+**Explicitly untouched, confirmed by re-reading the source, not assumed:**
+`#my-taste`'s three `--taste-font-*` tokens and every selector consuming
+them; the walkman LCD's `"DSEG7 Classic"` `@font-face` and its two
+consuming selectors. Both exception comments updated to name Stage 12
+alongside Stage 10, so neither reads as Poppins-specific to a future audit.
+
+**Bundle size**, matched before/after production builds of this exact
+tree (not compared against Stage 10's own logged number, to rule out
+`@fontsource` version drift as a confound): Poppins **8 files / 61.5KB**
+→ Urbanist **8 files / 90.7KB**, **+29.2KB**. Same file count, same
+subsetting — the delta is purely Urbanist's own outlines being heavier per
+glyph. My Taste's fonts, untouched, measured **24 files / 369.1KB** on the
+same build (see §0's note on why that differs from the 408KB logged at
+Stage 4 Task 1 — version drift, not a fixed bug). Overall JS bundle
+byte-identical (562.31KB); CSS +14 bytes.
+
+**Verified live** (Playwright against the Vite dev server, port 5173):
+`getComputedStyle` read back from the rendered DOM at 1440 and 390px
+confirms Urbanist actually renders — not a silent system-sans fallback —
+on `body` (400), `.hero-name` (600), `.about-me-name` (600),
+`.experience-title` (600), `.portfolio-title`/`.project-title` (600),
+`.contact-title` (600); `document.fonts.check()` confirms the loaded-font
+list includes both Urbanist weights alongside Anton/Oswald/Space
+Mono/DSEG7 Classic, all still loaded. `.my-taste-featured-name` still
+computes `Anton, "Avenir Next", sans-serif` and `.my-taste-setlist-track`
+still computes `"Space Mono", "Courier New", monospace`, both unchanged in
+source and in the rendered DOM. Element-clipped screenshots taken across
+Hero/About/Experience/Projects/Connect/My Taste at 1440×900 and 390×844.
+`npm run lint`: 7 errors / 2 warnings, unchanged.
+
+All on branch `sitewide-typography-urbanist`, **not merged to `main`** —
+pushed for review, not landed.
 
 ---
 

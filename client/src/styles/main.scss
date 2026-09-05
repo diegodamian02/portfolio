@@ -334,25 +334,26 @@
   --content-width: 45rem;        // 720px
   --content-width-wide: 68.75rem; // 1100px
 
-  // ---- 4. Typography (Stage 10) -----------------------------------------
+  // ---- 4. Typography (Stage 10, family swapped to Urbanist at Stage 12) --
   // Single edit point for the site-wide font, same reasoning as the tokens
   // above it: one selector-by-selector hardcode ("Avenir Next", Avenir,
   // "Helvetica Neue", sans-serif) used to appear at `body` and again on
   // .portfolio-header, and a future swap meant finding every copy by hand.
-  // Both tokens resolve to the SAME family, Poppins — a free self-hosted
-  // geometric-humanist stand-in for Avenir Next's body-text weight/warmth,
-  // chosen over a two-family pairing (Space Grotesk/Space Mono, Chakra
-  // Petch) because a single family keeps the system simpler and the
-  // title/body SIZE contrast already does the differentiation work. Two
-  // named tokens, not one, because the ROLE (display vs. body) is the thing
-  // worth keeping distinct even while the value is identical, the same way
-  // --taste-font-display/--taste-font-support stay separate tokens below
-  // despite both ultimately being self-hosted @fontsource families — if a
-  // future pass ever wants the two to diverge again, there's already a
+  // Both tokens resolve to the SAME family — Urbanist as of Stage 12,
+  // Poppins before it — chosen over a two-family pairing (Space Grotesk/
+  // Space Mono, Chakra Petch were both compared and dropped at Stage 10;
+  // Montserrat and a few fonts positioned between the two were compared and
+  // dropped at Stage 12) because a single family keeps the system simpler
+  // and the title/body SIZE contrast already does the differentiation work.
+  // Two named tokens, not one, because the ROLE (display vs. body) is the
+  // thing worth keeping distinct even while the value is identical, the
+  // same way --taste-font-display/--taste-font-support stay separate tokens
+  // below despite both ultimately being self-hosted @fontsource families —
+  // if a future pass ever wants the two to diverge again, there's already a
   // single line to change per role instead of a second file-wide audit.
-  --font-display: "Poppins", sans-serif; // 600/semibold — section titles,
-                                          // .hero-name, .about-me-name
-  --font-body: "Poppins", sans-serif;    // 400/regular — body text, UI
+  --font-display: "Urbanist", sans-serif; // 600/semibold — section titles,
+                                           // .hero-name, .about-me-name
+  --font-body: "Urbanist", sans-serif;    // 400/regular — body text, UI
 }
 [data-theme="light"] {
   // Stage 11 Phase 3 — "Studio Paper". The owner's read on the old light
@@ -2990,9 +2991,10 @@ $taste-swipe-max: 1024px;
   // Fonts <link>) keeps that need from costing a render-blocking request on
   // a section every visitor scrolls past — goal 2's whole 152MB→9.6MB
   // load-speed story would be working against itself otherwise.
-  // Stage 10 (sitewide Poppins swap) does not touch these three — same
-  // deliberate, named-exception status as DSEG7 Classic on the walkman
-  // below, not drift for a future audit to "fix."
+  // Stage 10 (sitewide Poppins swap) and Stage 12 (Poppins -> Urbanist)
+  // do not touch these three — same deliberate, named-exception status as
+  // DSEG7 Classic on the walkman below, not drift for a future audit to
+  // "fix."
   --taste-font-display: "Anton", "Avenir Next", sans-serif;
   --taste-font-support: "Oswald", "Avenir Next", sans-serif;
   --taste-font-mono: "Space Mono", "Courier New", monospace;
@@ -4580,7 +4582,10 @@ $taste-swipe-max: 1024px;
 // only, no compiled woff/woff2, so the two files here were built from
 // keshikan/DSEG's own GitHub release archive instead and checked in
 // directly — DSEG-LICENSE.txt (SIL OFL 1.1, free to embed) sits alongside
-// them, same folder.
+// them, same folder. Deliberate, named exception to the sitewide
+// --font-display/--font-body system, untouched by Stage 10's Poppins swap
+// or Stage 12's Poppins -> Urbanist swap — same status as #my-taste's own
+// three fonts above, not drift.
 @font-face {
   font-family: "DSEG7 Classic";
   src:
