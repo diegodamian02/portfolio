@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600&family=Space+Mono&display=swap">
+  <style>
+    body { margin: 0; background: #0a0e1a; }
+    a { color: #6f9bff; } a:hover { color: #8fb2ff; }
+
+    .stage {
+      position: relative; width: 1200px; height: 1000px; overflow: hidden;
+      background: #0a0e1a; color: #eef1f8;
+      font-family: "Urbanist", system-ui, sans-serif;
+      padding: 64px 72px; box-sizing: border-box;
+    }
+    .head h2 { font-size: 40px; font-weight: 600; margin: 0; letter-spacing: -.012em; }
+    .head p { font-size: 16px; font-weight: 400; color: #9aa3bd; margin: 12px 0 0;
+      max-width: 720px; line-height: 1.5; }
+
+    .rows { margin-top: 44px; display: flex; flex-direction: column; gap: 18px; }
+    .row { display: grid; grid-template-columns: 170px 1fr; gap: 28px; align-items: center; }
+    .row-name { display: block; font-size: 19px; font-weight: 600; text-transform: lowercase; }
+    .row-note { display: block; font-family: "Space Mono", monospace; font-size: 11px;
+      letter-spacing: .06em; color: #6f7893; margin-top: 5px; }
+    .row-barwrap {
+      position: relative; height: 92px; border-radius: 12px; overflow: hidden;
+      -webkit-mask: radial-gradient(circle at center, #000 30%, rgba(0,0,0,0) 40%) 0 0 / 16px 16px;
+      -webkit-mask-repeat: repeat;
+              mask: radial-gradient(circle at center, #000 30%, rgba(0,0,0,0) 40%) 0 0 / 16px 16px;
+              mask-repeat: repeat;
+    }
+    .row-bar { position: absolute; inset: 0; }
+    .row-bar::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(10,14,26,0), rgba(10,14,26,.5));
+    }
+    .tag-lo { position: absolute; left: 72px; bottom: 30px;
+      font-family: "Space Mono", monospace; font-size: 12px; letter-spacing: .12em;
+      color: #6f7893; text-transform: uppercase; }
+  </style>
+</helmet>
+
+<div class="stage">
+  <div class="head">
+    <h2>One scheme per song</h2>
+    <p>No rainbow &mdash; each record plays inside a single colour family, tone shifting across the columns and up each one. When the next record starts, the hero moves to the next scheme (the site already shifts its accent hue per track &mdash; this widens that to the whole background).</p>
+  </div>
+
+  <div class="rows">
+    <sc-for list="{{schemes}}" as="s" hint-placeholder-count="6">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-name">{{s.name}}</span>
+          <span class="row-note">{{s.note}}</span>
+        </div>
+        <div class="row-barwrap"><div class="row-bar" style="background-image: {{s.grad}}"></div></div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div class="tag-lo">Dot-matrix hero &mdash; scheme reference</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1200,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const SCHEMES = [
+      { name: "Cobalt",   note: "teal-blue → indigo → blue-violet", tones: ["#1AACEA","#2C90FF","#3E82FF","#4C7DFF","#5F6DFF","#7A59FF"] },
+      { name: "Amethyst", note: "blue-violet → purple → magenta",   tones: ["#7E5BFF","#9B4DFF","#AE48F5","#C247E4","#D74DD0","#EA4DBE"] },
+      { name: "Ember",    note: "orange → red → rose",               tones: ["#FF7A33","#FF5A3E","#FF4351","#FF3567","#F5386F","#E83C86"] },
+      { name: "Rose",     note: "coral → pink → orchid",             tones: ["#FF8A5C","#FF6B8E","#FF4DA6","#FF3BB0","#EA4DC8","#D95CD0"] },
+      { name: "Citrine",  note: "amber → gold → lime",               tones: ["#FFB81E","#FFCE2E","#FFE23D","#EEEF3A","#D6F736","#BFF82E"] },
+      { name: "Fern",     note: "teal → green → lime",               tones: ["#17DDB4","#22F0B0","#3AF29E","#5AF58C","#78F07A","#93EA66"] },
+    ];
+    return {
+      schemes: SCHEMES.map((s) => ({
+        name: s.name,
+        note: s.note,
+        grad: "linear-gradient(90deg, " + s.tones.join(", ") + ")",
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>
