@@ -28,6 +28,23 @@ Design exploration for **replacing the hero skyline-spectrum background**
 | Citrine | amber → gold → lime |
 | Fern | teal → green → lime |
 
+## Try it — audio demo
+
+`audio-demo.html` is a **standalone, no-server** test: the dot-matrix renderer
+(canvas, real log-frequency bucketing + attack/release ballistics + auto-gain,
+same math as `skyline-spectrum.js`) wired to the Web Audio `AnalyserNode`.
+
+- **Open the file in a browser.** Hit **Synth demo** for an instant pattern, or
+  **Audio file…** to pick a local track. Watch it fade up on play and settle
+  out on Stop. Each new source advances the colour scheme; the dropdown / *next
+  scheme* pick one directly.
+- **Microphone** needs a secure context — from this folder run
+  `python3 -m http.server` and open `http://localhost:8000/audio-demo.html`.
+
+It is a *mockup renderer*, not the site's component — it's for judging look,
+motion, and the per-song scheme behaviour before wiring the real thing into
+`skyline-background.jsx`.
+
 ## Files
 
 | file | what |
