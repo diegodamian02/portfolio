@@ -5456,6 +5456,34 @@ $taste-swipe-max: 1024px;
 //portfolio
 .portfolio-section {
   @include content-column;
+  // Reserve one navbar-cleared screen and vertically centre the
+  // title/subtitle/list block in it — the same min-height + flex-column
+  // structure #about (centred, via about.jsx) and .experience-section
+  // (top-aligned) already use, so #projects stops being the one main section
+  // with no vertical structure at all. Before this it was pure content
+  // height (~628px desktop / ~678px mobile) and #connect crowded straight up
+  // under the last row (measured: 34px between them at 390×844) — the
+  // accordion read as "sitting on the bottom edge." min-height against
+  // --scroll-offset, not --navbar-height alone, to match .experience-section:
+  // a nav click lands the top 24px below the bar (the B3 scroll-margin-top
+  // rule). svh not dvh, same measured scroll-jump reason every other section
+  // here switched (2026-09-02). box-sizing: border-box below is load-bearing
+  // — without it the padding adds ON TOP of min-height and the box overflows
+  // the fold by its own vertical padding (the gotcha .navbar /
+  // .experience-section both document).
+  display: flex;
+  flex-direction: column;
+  // `center` for the resting (all-collapsed) state the section spends most
+  // of its life in. `safe` hands off to start-alignment the moment an
+  // expanded row makes the content taller than the reserved screen, so the
+  // title can never be pushed up under the fixed navbar — .experience-section
+  // avoids that same collision by staying flex-start outright. A browser too
+  // old for `safe center` keeps plain `center`, whose only failure mode is
+  // that clip on an over-tall expanded row.
+  justify-content: center;
+  justify-content: safe center;
+  min-height: calc(100vh - var(--scroll-offset));
+  min-height: calc(100svh - var(--scroll-offset));
   // 2rem === --space-6 exactly — swapped for the token, not a value change.
   padding: var(--space-6);
   color: var(--text-color);
@@ -5479,12 +5507,19 @@ $taste-swipe-max: 1024px;
 
 .portfolio-title {
   @include section-title;
+  // Kill the UA <h2> margin-block-start (~0.83em ≈ 33px at --text-xl) so the
+  // flex-centred block above is centred on its real content, not biased down
+  // by a phantom gap over the title. section-title sets margin-bottom only.
+  margin-top: 0;
 }
 
 .portfolio-subtitle {
   color: var(--secondary-text);
   font-size: 1rem;
   margin-bottom: 2rem;
+  // Centre it under the (already centred) title so the header reads as one
+  // block. It was the only element in this section left at text-align: start.
+  text-align: center;
 }
 
 // Stage 11 Phase 3 — "liner-note tracklist," replacing Stage 5's cards. The
