@@ -1,6 +1,14 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-04 (**Stage 11 (follow-up round 2) — hover colour match,
+**Updated:** 2026-09-06 (**Record crate — chipboard flip bin**: the hero
+search panel is now a record-shop chipboard flip bin with cream paper
+track-cards, each carrying a `cardHueFor` pressing-colour spine and the
+album artwork; the maple fretboard and its `--crate-maple-*` / fret / inlay
+tokens are gone. Mobile is a bottom sheet — slides up, drag-handle or
+scrim to dismiss (closes **D32**: touch could never dismiss the panel).
+Chipboard themes per-mode; the oxblood end panel and cream cards are fixed.
+Branched from `main`, still Poppins. Full entry in §2.) Prior, 2026-09-04,
+**Stage 11 (follow-up round 2) — hover colour match,
 more index spacing, #my-taste titles coloured**: `#projects`'
 hover/`.is-open` fill (inset bar + wash), the title's hover colour, and the
 chevron's open colour all switched from a flat `--accent` to the row's own
@@ -134,6 +142,57 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Record crate — chipboard flip bin, replacing the roasted-maple fretboard *(2026-09-06)*
+
+The hero search panel is no longer a maple board. It is a record-shop
+**chipboard flip bin**: a themed surface (deep warm-grey particleboard on
+navy, lighter on Studio Paper — `--crate-chip-*` redeclared under
+`[data-theme="light"]`, unlike the maple which was a fixed material), an
+oxblood **end panel** binding the left edge (`--crate-end`, the `--wax-1`
+family — fixed, like `--cassette-label`), and a kraft **divider tab**
+carrying the query.
+
+Results are cream **paper track-cards** (`--crate-card`, the cassette-label
+tone) rather than fret-divided rows. Each card keeps the 27→30px album
+artwork thumbnail and gains a **pressing-colour spine** — `--wax-1..5`
+picked per track by `cardHueFor(track.id)` (`card-hue.js`), the exact hash
+`#my-taste` already runs, so a track keeps its colour across the crate and
+the tracklist. Title is `--font-display` weight 600; artist and the
+divider/end-panel labels are Space Mono. Card artist + status text moved to
+a darker `--crate-card-secondary` (#645a48, measured 5.7:1 on the cream).
+
+**Mobile (< 768px) is a bottom sheet.** The bin drops its rect-anchored
+`fixed` styles and docks full-width to the bottom edge with a scrim behind
+it and the front rail reordered to the top as an oxblood drag handle. It
+slides up on open (GSAP, 360ms); the handle drags down to dismiss (GSAP
+`Draggable`, 64px threshold) and the scrim taps to dismiss. Desktop still
+opens upward from the input, unchanged in position. Cards drop into the bin
+staggered on each fresh result set; hover/active lifts a card forward.
+Reduced motion lands everything at rest with no slide.
+
+The panel is now kept mounted through the close animation (a `mounted`
+state, unmounted by the tween's `onComplete`) — the maple panel vanished
+instantly, fine for a small dropdown but not a full-width sheet.
+
+Closes **D32** — the outside-dismiss handler moved `mousedown` →
+`pointerdown`, and the mobile scrim is a real tap target, so touch now
+dismisses the panel (it never could before).
+
+**Verified** (Playwright, dev server on 5173): search returns and renders
+5 cards; select / reopen / Escape all work; zero console or page errors;
+both themes; desktop 1440 and mobile 390. `npm run lint` unchanged (7
+errors / 2 warnings baseline). `vite build` clean. Fonts still Poppins —
+this branched from `main`, not from the discarded Urbanist work.
+
+Tokens removed: `--crate-maple-1/2/3`, `--crate-maple-grain`,
+`--crate-fret-light/-dark`, `--crate-inlay`, `--crate-text`,
+`--crate-text-secondary`, `--crate-row-hover`. Added: `--crate-chip-1/2`,
+`--crate-chip-band`, `--crate-end`, `--crate-end-ink`, `--crate-card`,
+`--crate-card-hi`, `--crate-card-active`, `--crate-card-ink`,
+`--crate-card-secondary`, `--crate-divider`, `--crate-divider-ink`,
+`--crate-scrim`, `--crate-fleck-opacity` (kept: `--crate-sleeve-shadow`,
+`--crate-shadow-strength`).
 
 ### Stage 11 (follow-up round 2) — hover colour match, more index spacing, #my-taste titles coloured *(2026-09-04)*
 

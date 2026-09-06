@@ -664,7 +664,7 @@ that phase needs to know whether the arm is mid-travel anyway.
 > 0.6s swallow is unchanged and `DECK.CUEING` is still the right fix — it just no longer
 > has a phase attached to it. Whoever picks it up owns the whole thing.
 
-### D32 — the crate's outside-click handler is bound to `mousedown`, so touch never dismisses it
+### D32 — the crate's outside-click handler is bound to `mousedown`, so touch never dismisses it — **FIXED (2026-09-06)**
 
 `record-crate.jsx:158` registers `handlePointerDown` — the function's own name — on
 **`mousedown`**, not `pointerdown`. A touch drag produces no `mousedown` (browsers
@@ -681,6 +681,14 @@ Pre-existing and unrelated to Phase 8, so it was left alone rather than fixed in
 pass. One-word change if it's wanted; the only reason for hesitation is that switching
 to `pointerdown` would also start dismissing the panel on touch, which is a behaviour
 change nobody has asked for and which nothing currently depends on either way.
+
+> **Fixed 2026-09-06** in the chipboard-flip-bin rebuild (STATUS §2). The document
+> listener is now `pointerdown`, so a touch outside the panel dismisses it. That
+> "behaviour change nobody asked for" turned out to be exactly what the rebuild
+> wanted: on mobile the panel is a bottom sheet, and dismissing it by tapping
+> outside is the expected gesture. On mobile a full-viewport `.record-crate-scrim`
+> is the primary tap target (it also carries its own `onClick`); `pointerdown`
+> covers desktop and is the backstop. Escape already worked and is unchanged.
 
 ### B74 — `100dvh` made every section re-height while the mobile URL bar moved, jumping content mid-scroll — **FOUND AND FIXED (2026-09-02)**
 

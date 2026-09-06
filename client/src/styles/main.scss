@@ -81,25 +81,30 @@
   // against the bar reads as cramped even when it is technically visible.
   --scroll-offset: calc(var(--navbar-height) + 24px);
 
-  // Record crate — roasted maple fretboard. The board is a fixed warm
-  // material, not a themed surface: it stays roughly the same amber in
-  // both themes (per spec), so these live only in :root. --text-inverted
-  // isn't reusable here — it flips to a LIGHT color in light theme (meant
-  // for inverting the page's own bg/text), which would be unreadable on
-  // a board that's light in both themes. Dedicated dark-on-light tokens
-  // instead, only the shadow strength is compensated per theme below.
-  --crate-maple-1: #c08c4e;
-  --crate-maple-2: #ab7940;
-  --crate-maple-3: #b8834a;
-  --crate-maple-grain: rgba(58, 32, 10, 0.09);
-  --crate-fret-light: #f2efe8;
-  --crate-fret-dark: #a49d90;
-  --crate-inlay: rgba(40, 26, 12, 0.42);
-  --crate-text: #20150a;
-  --crate-text-secondary: rgba(45, 30, 14, 0.62);
-  --crate-row-hover: rgba(255, 248, 232, 0.32);
-  --crate-sleeve-shadow: rgba(60, 35, 10, 0.45);
-  --crate-shadow-strength: 0.4;
+  // Record crate — a record-shop chipboard flip bin, replacing the
+  // roasted-maple fretboard. Unlike the maple, the chipboard body IS a themed
+  // surface: a deep warm-grey particleboard on the navy page, a lighter
+  // warm-grey on Studio Paper — redeclared under [data-theme="light"] below.
+  // The oxblood end panel and the cream track-cards are FIXED (same reasoning
+  // as --cassette-label / --deck-*): a laminated bin edge and a paper sleeve
+  // don't relight because the page did. Spines are --wax-1..5, picked per
+  // track by cardHueFor (card-hue.js) — the same hash #my-taste already runs.
+  --crate-chip-1: #423d36;          // chipboard, lit face
+  --crate-chip-2: #33302a;          // chipboard, shaded face
+  --crate-chip-band: #24211d;       // melamine edge banding + front rail
+  --crate-end: #8a2233;             // oxblood end panel (the --wax-1 family)
+  --crate-end-ink: #e7cdb0;         // kraft label lettering on the end panel
+  --crate-card: #efe9db;            // cream track-card stock (--cassette-label family)
+  --crate-card-hi: #f6efe0;         // card top highlight
+  --crate-card-active: #fff7e7;     // active/hovered card
+  --crate-card-ink: #2c2718;        // card title
+  --crate-card-secondary: #645a48;  // card artist + status text — 5.7:1 on --crate-card
+  --crate-divider: #ddc8a2;         // kraft guide-card tab carrying the query
+  --crate-divider-ink: #3a2a1c;
+  --crate-sleeve-shadow: rgba(40, 24, 6, 0.4);
+  --crate-scrim: rgba(4, 6, 12, 0.58);   // mobile bottom-sheet backdrop
+  --crate-fleck-opacity: 0.06;      // particleboard speckle (feTurbulence layer)
+  --crate-shadow-strength: 0.45;
 
   // Vinyl colourways — the "special pressing" feel of a record store. Chosen
   // per track by a hash of its id (see vinyl-record.jsx), never at random, so a
@@ -394,9 +399,16 @@
   // paper without changing. Phase 2's #my-taste cards use --card-tint-N, not
   // a raised surface. Nothing here needed a token with no consumer.
 
-  // Less contrast between the maple and the new paper than against navy —
-  // compensate with a stronger shadow, not a darker/different wood.
-  --crate-shadow-strength: 0.55;
+  // Chipboard lightens with the page — a lighter warm particleboard, so the
+  // bin still reads as an object resting on the paper rather than a hole in
+  // it. The cream cards and oxblood end panel stay put (fixed, per :root).
+  // Shadow deepened to hold the lighter bin off the warm ground — same move
+  // the maple panel made in this theme before it.
+  --crate-chip-1: #d2c7b0;
+  --crate-chip-2: #c2b69c;
+  --crate-chip-band: #a89a80;
+  --crate-fleck-opacity: 0.05;
+  --crate-shadow-strength: 0.6;
 
   // Same five pressings, deepened. The plinth here is ~#d8dae0, so every
   // colourway has plenty of separation — these are richer rather than lighter,
@@ -1607,67 +1619,113 @@ html {
   }
 }
 
-// The board. Portaled to <body> and positioned via inline `fixed` styles
-// computed from the input row's own rect (see record-crate.jsx) — never
-// reflows the name/tagline, and escapes .home's overflow:hidden (needed
-// for the deck's crop bleed) so a downward-opening panel near a short
-// viewport's bottom edge can't get vertically clipped by it.
+// The bin. Portaled to <body>. On desktop it is positioned via inline `fixed`
+// styles computed from the input row's own rect (see record-crate.jsx) — never
+// reflows the name/tagline, and escapes .home's overflow:hidden (needed for the
+// deck's crop bleed). On mobile (< 768px) it drops the inline styles and
+// becomes a bottom sheet instead — the .record-crate-panel-sheet rules below.
 .record-crate-panel {
   z-index: 50;
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 0 24px; // the extra left clears the oxblood end panel
+  border-radius: 13px;
   overflow: hidden;
-  background: linear-gradient(165deg, var(--crate-maple-1), var(--crate-maple-2), var(--crate-maple-3));
+  // Chipboard body — a themed surface (deep particleboard on navy, lighter on
+  // Studio Paper; see the --crate-chip-* tokens and their light redeclaration).
+  background: linear-gradient(168deg, var(--crate-chip-1), var(--crate-chip-2));
   box-shadow:
-    inset 0 1px 0 rgba(255, 240, 214, 0.3),
-    0 24px 48px -16px rgba(20, 10, 0, var(--crate-shadow-strength)),
-    0 8px 20px -8px rgba(20, 10, 0, calc(var(--crate-shadow-strength) - 0.1));
+    inset 0 1px 0 rgba(255, 246, 230, 0.1),
+    0 26px 52px -18px rgba(10, 6, 0, var(--crate-shadow-strength)),
+    0 10px 22px -10px rgba(10, 6, 0, calc(var(--crate-shadow-strength) - 0.12));
 
-  // Grain — ONE repeating-linear-gradient with irregular stop spacing
-  // (3px, 11px, 13px, 19px gaps). Evenly-spaced stops read as a barcode;
-  // the irregularity is what reads as wood, not a pattern. Kept at very
-  // low opacity (--crate-maple-grain alpha ~0.09) — maple is the clean,
-  // tight-grained wood, unlike rosewood/pau ferro.
-  // Widened from an initial 48px tile — at ~800px panel width that
-  // repeated ~17 times and the rhythm read as a barcode even though each
-  // individual gap was irregular. A wider tile (76px, ~10-11 repeats)
-  // plus slightly varied line widths breaks up the repeat further.
+  // Particleboard speckle — the same feTurbulence-in-a-data-URI recipe the
+  // maple panel used for its noise layer, coarsened (baseFrequency 0.65) and
+  // lifted from 0.03 to ~0.06 so it reads as chipboard fleck, not a faint haze.
+  // No mix-blend-mode: the fleck sits at low opacity over the body directly, so
+  // it works on both the dark and the light chipboard without a per-theme flip.
   &::before {
     content: "";
     position: absolute;
     inset: 0;
-    background: repeating-linear-gradient(
-      91deg,
-      transparent 0px,
-      transparent 5px,
-      var(--crate-maple-grain) 5px,
-      var(--crate-maple-grain) 6px,
-      transparent 6px,
-      transparent 24px,
-      var(--crate-maple-grain) 24px,
-      var(--crate-maple-grain) 25.5px,
-      transparent 25.5px,
-      transparent 45px,
-      var(--crate-maple-grain) 45px,
-      var(--crate-maple-grain) 46px,
-      transparent 46px,
-      transparent 75px,
-      var(--crate-maple-grain) 75px,
-      var(--crate-maple-grain) 76.5px
-    );
+    opacity: var(--crate-fleck-opacity);
     pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px;
   }
 
-  // Faint feTurbulence noise to kill vector flatness — barely visible
-  // by design (opacity 0.03); if it reads as texture, it's too strong.
+  // Melamine edge banding along the top lip.
   &::after {
     content: "";
     position: absolute;
-    inset: 0;
-    opacity: 0.03;
-    mix-blend-mode: overlay;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 6px;
+    background: var(--crate-chip-band);
     pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
+}
+
+// Oxblood end panel — the short side of the bin, facing out. Fixed colour
+// (the --wax-1 family), proud of the box with its own inset shadow.
+.record-crate-bin-end {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 17px;
+  z-index: 2;
+  border-radius: 13px 0 0 13px;
+  background: linear-gradient(180deg, #98283a, #7c1e2e);
+  box-shadow: inset -2px 0 5px rgba(0, 0, 0, 0.35), inset 1px 0 0 rgba(255, 220, 220, 0.14);
+
+  span {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    font-family: "Space Mono", "Courier New", monospace;
+    font-size: 9px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--crate-end-ink);
+    white-space: nowrap;
+  }
+}
+
+// Divider guide-card — a kraft tab above the cards carrying the query, the way
+// an artist divider stands up in a real bin.
+.record-crate-divider {
+  position: relative;
+  z-index: 1; // behind the cards — a guide card stands up behind the records
+  align-self: flex-start;
+  max-width: 200px;
+  margin: 0 0 -4px 18px; // slight overlap so the first card sits in front of it
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 10px 12px;
+  border-radius: 5px 5px 0 0;
+  background: linear-gradient(180deg, var(--crate-divider), color-mix(in srgb, var(--crate-divider) 82%, #000));
+  box-shadow: inset 0 1px 0 rgba(255, 248, 232, 0.6), 0 3px 6px -3px rgba(20, 12, 4, 0.5);
+  font-family: "Space Mono", "Courier New", monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--crate-divider-ink);
+}
+
+.record-crate-divider-q {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-crate-divider-n {
+  flex: none;
+  opacity: 0.65;
 }
 
 .record-crate-list {
@@ -1675,68 +1733,89 @@ html {
   z-index: 1;
   list-style: none;
   margin: 0;
-  padding: 0;
-  max-height: min(280px, 60vh);
+  padding: 2px 0 4px;
+  max-height: min(280px, 46vh);
   overflow-y: auto;
 }
 
 .record-crate-status-row {
-  padding: 14px;
-  font-size: 0.85rem;
-  color: var(--crate-text-secondary);
+  margin: 2px 0 8px;
+  padding: 16px 14px;
+  border-radius: 3px;
+  background: var(--crate-card);
+  color: var(--crate-card-secondary);
+  font-size: 0.8rem;
   text-align: center;
 }
 
-// Frets — the row dividers. border-image lets a gradient render as a
-// border (a flat border-color can't gradient), reading as a rounded
-// nickel wire catching light rather than a flat rule.
-.record-crate-list li + li > .record-crate-row {
-  border-top: 1.5px solid;
-  border-image: linear-gradient(180deg, var(--crate-fret-light), var(--crate-fret-dark)) 1;
-}
-
-.record-crate-row {
+// Track-card — one search result. A cream paper sleeve with a
+// pressing-coloured spine (--spine, set per-track from cardHueFor in the JSX,
+// falling back to --wax-1). Cards overlap slightly, like flipping a bin; the
+// active/hovered one pulls forward the way you tug a sleeve out to read it.
+.record-crate-card {
   all: unset;
   box-sizing: border-box;
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 44px;
-  padding: 8px 14px;
+  min-height: 48px;
+  margin-top: -4px;
+  padding: 8px 14px 8px 17px;
   cursor: pointer;
-  position: relative;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--crate-card-hi), var(--crate-card));
+  box-shadow: inset 0 1px 0 rgba(255, 250, 240, 0.9), 0 8px 13px -7px rgba(20, 12, 4, 0.5);
+  // Portaled outside .record-crate, so the shared no-transform/no-opacity
+  // transition rule up top doesn't reach these — a short transform/shadow
+  // transition here is safe and is what makes the hover lift read as a pull.
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
 
-  &.is-active,
-  &:hover {
-    background: var(--crate-row-hover);
-  }
+.record-crate-list li:first-child .record-crate-card {
+  margin-top: 0;
+}
 
-  // Inlay dot — decorative only, echoing a fretboard's single 3rd-fret
-  // marker. Not tied to any real data, just marks one row as a nod to
-  // the material.
-  &.has-inlay::before {
-    content: "";
-    position: absolute;
-    left: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--crate-inlay);
-  }
+.record-crate-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 6px;
+  border-radius: 2px 0 0 2px;
+  background: var(--spine, var(--wax-1));
+}
+
+.record-crate-card.is-active,
+.record-crate-card:hover {
+  background: linear-gradient(180deg, var(--crate-card-active), #f6efdd);
+  // translateY only — the bin is overflow:hidden to clip its chipboard
+  // texture and the bleeding rail/end panel, so a sideways pull would be
+  // cropped. The lift + deeper shadow + brighter spine carry the "pulled
+  // out to read the label" read on their own.
+  transform: translateY(-3px);
+  box-shadow: 0 13px 22px -9px rgba(20, 12, 4, 0.55);
+  z-index: 4;
+}
+
+.record-crate-card.is-active::before,
+.record-crate-card:hover::before {
+  width: 7px;
+  box-shadow: 0 0 9px var(--spine, var(--wax-1));
 }
 
 .record-crate-sleeve {
   flex: none;
-  width: 27px;
-  height: 27px;
+  width: 30px;
+  height: 30px;
   border-radius: 2px;
-  background-color: color-mix(in srgb, var(--crate-text) 15%, transparent);
+  background-color: color-mix(in srgb, var(--crate-card-ink) 12%, transparent);
   background-size: cover;
   background-position: center;
-  box-shadow: 1px 1px 0 var(--crate-sleeve-shadow);
+  box-shadow: 1px 1px 0 var(--crate-sleeve-shadow), 0 0 0 1px rgba(20, 12, 4, 0.08);
 }
 
 .record-crate-meta {
@@ -1749,18 +1828,107 @@ html {
 .record-crate-title {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--crate-text);
+  color: var(--crate-card-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .record-crate-artist {
-  font-size: 0.75rem;
-  color: var(--crate-text-secondary);
+  font-family: "Space Mono", "Courier New", monospace;
+  font-size: 0.66rem;
+  color: var(--crate-card-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+// Cue triangle — appears when a card is active/hovered; nods to the play glyph
+// the deck shows once the record is on.
+.record-crate-cue {
+  flex: none;
+  width: 0;
+  height: 0;
+  border: 6px solid transparent;
+  border-left-color: var(--crate-end);
+  border-right-width: 0;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.record-crate-card.is-active .record-crate-cue,
+.record-crate-card:hover .record-crate-cue {
+  opacity: 0.9;
+}
+
+// Front rail — the bin's lower lip. Decorative on desktop; on mobile it is
+// reordered to the top and becomes the sheet's drag handle (see -sheet below).
+.record-crate-rail {
+  position: relative;
+  z-index: 1;
+  height: 22px;
+  margin: 4px -12px 0 -24px;
+  border-radius: 0 0 13px 13px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--crate-chip-1) 70%, #000), var(--crate-chip-band));
+  box-shadow: inset 0 2px 4px rgba(255, 246, 230, 0.08), inset 0 -3px 7px rgba(0, 0, 0, 0.4);
+}
+
+// Mobile bottom sheet — the bin docks to the bottom edge full width, the rail
+// moves to the top as a grabber, and a scrim sits behind it (the D32 fix: a
+// real tap target that dismisses the panel on touch).
+.record-crate-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 49;
+  background: var(--crate-scrim);
+  opacity: 0; // GSAP fades it in; kept here so the pre-tween frame isn't opaque
+}
+
+.record-crate-panel-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-height: 74vh;
+  transform: translateY(110%); // parked off-screen until the reveal tween runs
+  padding: 0 12px max(16px, env(safe-area-inset-bottom)) 24px;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -18px 42px -12px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 246, 230, 0.1);
+
+  &::after {
+    border-radius: 20px 20px 0 0;
+  }
+
+  .record-crate-bin-end {
+    border-radius: 20px 0 0 0;
+  }
+
+  .record-crate-rail {
+    order: -1;
+    height: 26px;
+    margin: 0 -12px 6px -24px;
+    border-radius: 20px 20px 0 0;
+    background: none;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    touch-action: none;
+
+    &::after {
+      content: "";
+      width: 44px;
+      height: 5px;
+      border-radius: 3px;
+      background: var(--crate-end);
+    }
+  }
+
+  .record-crate-list {
+    max-height: min(340px, 52vh);
+  }
 }
 
 //Navbar section
