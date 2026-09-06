@@ -1,0 +1,161 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600&family=Space+Mono&display=swap">
+  <style>
+    body { margin: 0; background: #0a0e1a; }
+    a { color: #6f9bff; } a:hover { color: #8fb2ff; }
+
+    .stage {
+      position: relative; width: 1440px; height: 900px; overflow: hidden;
+      background: radial-gradient(1300px 800px at 50% 60%, #0d121d, #0a0e1a 72%);
+      color: #eef1f8; font-family: "Urbanist", system-ui, sans-serif;
+      --hue: #7CF9DE; --hue-deep: #0d3a34; --hue-soft: #46d9c0;
+    }
+    .viz { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+
+    /* --- oscilloscope horizon ------------------------------------- */
+    .os-grid {
+      position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+      background:
+        linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px) 0 0 / 100% 90px,
+        linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px) 0 0 / 90px 100%;
+      -webkit-mask: radial-gradient(1100px 620px at 50% 62%, #000, transparent 78%);
+              mask: radial-gradient(1100px 620px at 50% 62%, #000, transparent 78%);
+    }
+    .os-mid {
+      position: absolute; left: 6%; right: 6%; top: 62%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(238,241,248,.14) 20%,
+        rgba(238,241,248,.14) 80%, transparent);
+    }
+    .os-svg {
+      position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+      overflow: visible;
+      filter: drop-shadow(0 0 8px var(--hue)) drop-shadow(0 0 26px color-mix(in srgb, var(--hue) 60%, transparent));
+    }
+    .os-move { animation: os-scroll 8.5s linear infinite; }
+    @keyframes os-scroll { to { transform: translateX(-1440px); } }
+    .os-amp { transform-origin: 720px 558px;
+      animation: os-amp 5.6s ease-in-out infinite; }
+    @keyframes os-amp { 0%,100% { transform: scaleY(.82); } 50% { transform: scaleY(1.14); } }
+    .os-line { fill: none; stroke: var(--hue); stroke-width: 2.6;
+      stroke-linecap: round; stroke-linejoin: round; }
+
+    /* --- shared hero chrome ---------------------------------------- */
+    .chrome { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+    .safe {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: radial-gradient(760px 440px at 380px 380px,
+        rgba(10,14,26,.8), rgba(10,14,26,0) 72%);
+    }
+    .copy { position: absolute; left: 96px; top: 300px; max-width: 620px; }
+    .copy h1 { font-size: 76px; font-weight: 600; line-height: 1.03;
+      margin: 0; letter-spacing: -.012em; }
+    .copy .tag { font-size: 23px; font-weight: 400; color: #9aa3bd; margin: 14px 0 0; }
+    .crate { display: flex; align-items: center; gap: 10px; margin-top: 36px;
+      max-width: 360px; border-bottom: 1px solid rgba(238,241,248,.25);
+      padding-bottom: 9px; color: #9aa3bd; font-size: 16px; }
+    .crate-ic { width: 16px; height: 16px; flex: none; }
+    .deck { position: absolute; right: 90px; top: 210px; width: 460px; }
+    .np { font-family: "Space Mono", monospace; font-size: 12px; letter-spacing: .14em;
+      color: #9aa3bd; text-transform: uppercase; margin: 0 0 16px;
+      display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    .np-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--hue);
+      box-shadow: 0 0 10px var(--hue); }
+    .deck-art { width: 460px; height: 460px; display: block; }
+    .deck-grooves { animation: deck-spin 9s linear infinite;
+      transform-origin: 230px 230px; }
+    @keyframes deck-spin { to { transform: rotate(360deg); } }
+    .tag-lo { position: absolute; left: 96px; bottom: 54px; z-index: 3;
+      font-family: "Space Mono", monospace; font-size: 12px; letter-spacing: .12em;
+      color: #6f7893; text-transform: uppercase; }
+  </style>
+</helmet>
+
+<div class="stage" style="--hue: {{c.hue}}; --hue-deep: {{c.deep}}; --hue-soft: {{c.soft}}">
+  <div class="viz">
+    <div class="os-grid"></div>
+    <svg class="os-svg" viewBox="0 0 1440 900" preserveAspectRatio="none">
+      <g class="os-amp">
+        <g class="os-move">
+          <path class="os-line" d="{{wave}}"></path>
+        </g>
+      </g>
+    </svg>
+    <div class="os-mid"></div>
+  </div>
+
+  <div class="safe"></div>
+
+  <div class="chrome">
+    <div class="copy">
+      <h1>Diego Damian</h1>
+      <p class="tag">welcome to my playground</p>
+      <div class="crate">
+        <svg class="crate-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"></circle><line x1="20.5" y1="20.5" x2="16.5" y2="16.5"></line>
+        </svg>
+        <span>put a record on&hellip;</span>
+      </div>
+    </div>
+    <div class="deck">
+      <p class="np"><span class="np-dot"></span>Now playing &mdash; sample track</p>
+      <svg class="deck-art" viewBox="0 0 460 460" aria-hidden="true">
+        <rect x="10" y="10" width="440" height="440" rx="28" fill="#12161f" stroke="#232a3a"></rect>
+        <circle cx="230" cy="230" r="182" fill="#0b0e16"></circle>
+        <circle cx="230" cy="230" r="182" fill="none" stroke="#1d2432" stroke-width="1"></circle>
+        <g class="deck-grooves" stroke="#1b2130" fill="none">
+          <circle cx="230" cy="230" r="156"></circle>
+          <circle cx="230" cy="230" r="134"></circle>
+          <circle cx="230" cy="230" r="112"></circle>
+          <circle cx="230" cy="230" r="90"></circle>
+          <circle cx="230" cy="230" r="68"></circle>
+        </g>
+        <circle cx="230" cy="230" r="52" style="fill: var(--hue)" opacity="0.92"></circle>
+        <circle cx="230" cy="230" r="52" fill="none" stroke="#0a0e1a" stroke-width="2"></circle>
+        <circle cx="230" cy="230" r="6" fill="#0a0e1a"></circle>
+        <line x1="410" y1="66" x2="252" y2="248" stroke="#8b93a7" stroke-width="6" stroke-linecap="round"></line>
+        <circle cx="410" cy="66" r="12" fill="#2a3040" stroke="#6f7789" stroke-width="2"></circle>
+        <rect x="236" y="236" width="30" height="12" rx="3" fill="#9aa3bd" transform="rotate(37 251 242)"></rect>
+      </svg>
+    </div>
+  </div>
+
+  <div class="tag-lo">Option &mdash; Oscilloscope horizon</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"hue":{"editor":"enum","default":"mint","options":["mint","cyan","azure","violet","magenta","orange","chartreuse"],"section":"Palette (per-track hue)"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const PAL = {
+      mint:       { hue: "#7CF9DE", soft: "#46d9c0", deep: "#0d3a34" },
+      cyan:       { hue: "#00E5FF", soft: "#3fb8d8", deep: "#08323e" },
+      azure:      { hue: "#4C7DFF", soft: "#4a6fd6", deep: "#13224e" },
+      violet:     { hue: "#9B4DFF", soft: "#7b45cf", deep: "#221041" },
+      magenta:    { hue: "#FF2BC0", soft: "#d43fa9", deep: "#3a0f31" },
+      orange:     { hue: "#FF6B15", soft: "#d9702f", deep: "#3a1a08" },
+      chartreuse: { hue: "#C6FF29", soft: "#a9d43c", deep: "#26340b" },
+    };
+    // One period is 1440 wide; the path spans 2880 so a -1440 scroll is seamless.
+    const base = 558, step = 30;
+    const amp = [0,-16,26,-52,18,74,-26,-104,34,12,-40,64,-18,120,-64,-22,50,-88,22,54,
+                 -36,18,-72,40,-14,96,-50,-28,32,-18,0,-20,30,-58,22,80,-30,-96,30,14,
+                 -44,62,-16,110,-58,-24,48,-84];
+    let d = "M0," + base;
+    for (let k = 0; k < 96; k++) {
+      const x = (k + 1) * step;
+      const y = base + amp[(k + 1) % amp.length];
+      d += " L" + x + "," + y;
+    }
+    return { c: PAL[this.props.hue] ?? PAL.mint, wave: d };
+  }
+}
+</script>
+</body>
+</html>
