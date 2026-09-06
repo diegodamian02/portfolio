@@ -5624,36 +5624,38 @@ $taste-swipe-max: 1024px;
 //portfolio
 .portfolio-section {
   @include content-column;
-  // Reserve one navbar-cleared screen and vertically centre the
-  // title/subtitle/list block in it — the same min-height + flex-column
-  // structure #about (centred, via about.jsx) and .experience-section
-  // (top-aligned) already use, so #projects stops being the one main section
-  // with no vertical structure at all. Before this it was pure content
-  // height (~628px desktop / ~678px mobile) and #connect crowded straight up
-  // under the last row (measured: 34px between them at 390×844) — the
-  // accordion read as "sitting on the bottom edge." min-height against
-  // --scroll-offset, not --navbar-height alone, to match .experience-section:
-  // a nav click lands the top 24px below the bar (the B3 scroll-margin-top
-  // rule). svh not dvh, same measured scroll-jump reason every other section
-  // here switched (2026-09-02). box-sizing: border-box below is load-bearing
-  // — without it the padding adds ON TOP of min-height and the box overflows
-  // the fold by its own vertical padding (the gotcha .navbar /
-  // .experience-section both document).
+  // Reserve one navbar-cleared screen and top-align the title/subtitle/list
+  // block in it — the exact structure .experience-section (the other
+  // title-plus-list section) uses, so the two sections read the same. Before
+  // this #projects had no vertical structure at all: pure content height
+  // (~628px desktop / ~678px mobile), so #connect crowded straight up under
+  // the last row (34px between them at 390×844) and the block read as
+  // sitting on the bottom edge. Now the content starts near the top and the
+  // reserved height below it pools as clear space before #connect.
+  //
+  // flex-start, not center: on a desktop viewport the collapsed list is well
+  // under half the screen, so centring left a big unused gap between the
+  // tall navbar and the title (owner feedback). flex-start also means
+  // expanding a row just grows the list downward with no realignment of the
+  // title — a centred layout jumps the title on overflow.
+  //
+  // min-height against --scroll-offset (navbar + 24px), not --navbar-height
+  // alone, to match .experience-section — a nav click lands the top 24px
+  // below the bar (B3 scroll-margin-top). svh not dvh, same measured
+  // scroll-jump reason every other section here switched (2026-09-02).
+  // box-sizing: border-box below is load-bearing — without it the padding
+  // adds ON TOP of min-height and the box overflows the fold by its own
+  // vertical padding (the gotcha .navbar / .experience-section both document).
   display: flex;
   flex-direction: column;
-  // `center` for the resting (all-collapsed) state the section spends most
-  // of its life in. `safe` hands off to start-alignment the moment an
-  // expanded row makes the content taller than the reserved screen, so the
-  // title can never be pushed up under the fixed navbar — .experience-section
-  // avoids that same collision by staying flex-start outright. A browser too
-  // old for `safe center` keeps plain `center`, whose only failure mode is
-  // that clip on an over-tall expanded row.
-  justify-content: center;
-  justify-content: safe center;
+  justify-content: flex-start;
   min-height: calc(100vh - var(--scroll-offset));
   min-height: calc(100svh - var(--scroll-offset));
-  // 2rem === --space-6 exactly — swapped for the token, not a value change.
-  padding: var(--space-6);
+  // Small top pad — the section already sits 24px below the navbar via
+  // --scroll-offset, so the title lands "almost at the top," the same as
+  // .experience-section's own `var(--space-4) 0 var(--space-6)`. Horizontal
+  // stays --space-6 (was `padding: var(--space-6)` all round).
+  padding: var(--space-4) var(--space-6) var(--space-6);
   color: var(--text-color);
   // content-column sets width:100% (needed so max-width actually caps a
   // narrower viewport instead of overflowing it) — under the default
@@ -5675,9 +5677,9 @@ $taste-swipe-max: 1024px;
 
 .portfolio-title {
   @include section-title;
-  // Kill the UA <h2> margin-block-start (~0.83em ≈ 33px at --text-xl) so the
-  // flex-centred block above is centred on its real content, not biased down
-  // by a phantom gap over the title. section-title sets margin-bottom only.
+  // Kill the UA <h2> margin-block-start (~0.83em ≈ 33px) so the title sits
+  // tight against the section's small top pad instead of a phantom gap on
+  // top of it. section-title sets margin-bottom only.
   margin-top: 0;
 }
 
@@ -5685,8 +5687,8 @@ $taste-swipe-max: 1024px;
   color: var(--secondary-text);
   font-size: 1rem;
   margin-bottom: 2rem;
-  // Centre it under the (already centred) title so the header reads as one
-  // block. It was the only element in this section left at text-align: start.
+  // Centre it under the (centred) title so the header reads as one block.
+  // It was the only element in this section left at text-align: start.
   text-align: center;
 }
 
