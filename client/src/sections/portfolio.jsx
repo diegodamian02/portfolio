@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import { useGSAP } from "@gsap/react";
 import { gsap, Flip, SIGNATURE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
-import { getActiveLenis } from "../lib/scroll.js";
+import { getActiveLenis, scrollToSection } from "../lib/scroll.js";
 import projects from "../data/projectsData";
 import { cardHueFor } from "../lib/card-hue.js";
 import "../styles/main.scss";
@@ -114,6 +114,29 @@ function scrollExpandedRowIntoView(rowEl, { instant }) {
     }
 }
 
+// Owner request — after a row is CLOSED (not swapped), ride back to the whole
+// #projects section if the collapse left the reader stranded. Closing a row
+// that was scrolled into view — the last one especially — drops 400-1000px
+// out of the page; without this the reader is left parked low in the
+// now-short section, or below it entirely, looking at #connect's reserved
+// (and, until its own entrance fires, blank) screen. Reuses scrollToSection —
+// the exact path a nav click takes, honouring --scroll-offset and reduced
+// motion — rather than a second bespoke scroll.
+//
+// Gated: only when the section's own top has scrolled above where a nav click
+// lands it, OR its bottom has risen past mid-viewport (the reader is mostly
+// looking at what's below). An open→close with no scrolling in between never
+// trips either check, so it doesn't jump.
+function reframeProjectsAfterClose() {
+    const section = document.getElementById("projects");
+    if (!section) return;
+    const navOffset = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
+    const rect = section.getBoundingClientRect();
+    if (rect.top < navOffset - 12 || rect.bottom < window.innerHeight * 0.6) {
+        scrollToSection("projects");
+    }
+}
+
 // Stage 3 Task 10 (#projects) — refined list, single-open accordion, GSAP
 // entrance. Direction from ROADMAP.md's Q1 still applies: shared design
 // system (type scale, spacing, content-width tokens, main.scss), not
@@ -167,11 +190,13 @@ export default function Portfolio() {
             // in sight) still needs a frame to happen; measuring before that
             // computes a target that's already stale by the next paint.
             flushSync(() => setExpandedProject(nextId));
-            if (nextId !== null) {
-                requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (nextId !== null) {
                     scrollExpandedRowIntoView(container.querySelector(`[data-project-id="${nextId}"]`), { instant: true });
-                });
-            }
+                } else {
+                    reframeProjectsAfterClose();
+                }
+            });
             return;
         }
 
@@ -255,25 +280,27 @@ export default function Portfolio() {
                 // .portfolio-list resumes sizing itself off its real
                 // children.
                 container.style.height = "";
-                // The scroll-into-view check runs HERE, after Flip's own
-                // tween has finished, not before — see
-                // scrollExpandedRowIntoView's own comment for why. One
-                // extra frame first: the whatever-it-is browser mechanism
-                // that comment describes doesn't necessarily finish
-                // reacting in the exact same frame Flip's onComplete fires
-                // (measured live: without this, the correction consistently
-                // undershot by single-digit-to-teens pixels, not the large
-                // miss an actually-wrong calculation would produce — a
-                // one-frame-late measurement, not a wrong one). Swap case
-                // (row A closes, row B opens) scrolls toward B, the row the
-                // visitor is actually trying to see — closing a row with
-                // nothing new opening never reaches this at all (nextId is
-                // only non-null when something is opening).
-                if (nextId !== null) {
-                    requestAnimationFrame(() => {
+                // The scroll correction runs HERE, after Flip's own tween has
+                // finished, not before — see scrollExpandedRowIntoView's own
+                // comment for why. One extra frame first: the whatever-it-is
+                // browser mechanism that comment describes doesn't necessarily
+                // finish reacting in the exact same frame Flip's onComplete
+                // fires (measured live: without this, the correction
+                // consistently undershot by single-digit-to-teens pixels, not
+                // the large miss an actually-wrong calculation would produce —
+                // a one-frame-late measurement, not a wrong one).
+                //
+                // Two cases: opening (or swap — row A closes, row B opens)
+                // scrolls toward the row being revealed; a pure close reframes
+                // the whole section if the collapse stranded the reader (see
+                // reframeProjectsAfterClose).
+                requestAnimationFrame(() => {
+                    if (nextId !== null) {
                         scrollExpandedRowIntoView(container.querySelector(`[data-project-id="${nextId}"]`), { instant: false });
-                    });
-                }
+                    } else {
+                        reframeProjectsAfterClose();
+                    }
+                });
             },
         });
     };

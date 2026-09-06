@@ -407,12 +407,21 @@ export default function Connect() {
 
             const st = ScrollTrigger.create({
                 trigger: rootRef.current,
-                // Start line just below where a nav click lands the section
-                // (--scroll-offset = navbar + 24), so onEnter fires on an
-                // organic downward scroll AND on a nav/deep-link landing that
-                // stops at the offset. The organic hold then snaps back to the
-                // exact offset, so +32 only needs to be >24.
-                start: () => 'top top+=' + (navbarHeight() + 32),
+                // Fire as #connect first clears the fold, NOT when its top
+                // reaches the navbar. The `.from()` tweens above pre-hide the
+                // title/description/J-card (immediateRender), so between those
+                // two lines the section is present but blank. With a #projects
+                // row expanded that section runs ~1000px tall, so the old
+                // `top top+=navbar+32` start left this one sitting empty across
+                // most of a screen of scrolling below it — a dead void, then a
+                // late pop that read as the text overlapping the projects list
+                // it appeared next to. `top bottom-=120` starts the ~1.2s
+                // cascade the moment the section edges into view, so it plays
+                // AS the reader scrolls up to it and is never caught blank. Nav
+                // clicks / deep links are unaffected: they land well past this
+                // line, and onEnter's isProgrammaticScrollActive branch plus
+                // onSectionNavigated below both still fire the reveal.
+                start: () => 'top bottom-=120',
                 once: true,
                 onEnter: () => {
                     // A nav click / deep link TO this section plays the reveal
