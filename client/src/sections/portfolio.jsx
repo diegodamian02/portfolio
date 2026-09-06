@@ -133,7 +133,11 @@ function reframeProjectsAfterClose() {
     const navOffset = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
     const rect = section.getBoundingClientRect();
     if (rect.top < navOffset - 12 || rect.bottom < window.innerHeight * 0.6) {
-        scrollToSection("projects");
+        // Short fixed tween, not Lenis's default lerp glide — the reframe is a
+        // correction, not a tour, so it should snap back on roughly the same
+        // beat as the 0.4s Flip collapse that precedes it (cubic-out matches
+        // section-snap.js's own jump curve).
+        scrollToSection("projects", { duration: 0.4, easing: (t) => 1 - Math.pow(1 - t, 3) });
     }
 }
 

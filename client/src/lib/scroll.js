@@ -103,7 +103,12 @@ function notifySectionNavigated(id) {
 // main.scss. Both scroll paths below honour it natively — see the comments
 // on each — so nothing in this file reads --scroll-offset directly. Do NOT
 // also subtract a navbar height here; it would be counted twice.
-export function scrollToSection(id) {
+// `options` — an optional { duration, easing } passed straight through to
+// Lenis. Nav clicks and deep links call this with nothing and keep Lenis's
+// default lerp-based settle (a soft glide with a long tail); callers that
+// want a short, decisive ride — #projects' close-reframe (portfolio.jsx) —
+// pass an explicit duration so it snaps back rather than drifts.
+export function scrollToSection(id, { duration, easing } = {}) {
     const target = document.getElementById(id);
     if (!target) return;
 
@@ -132,6 +137,10 @@ export function scrollToSection(id) {
             // instant this fires, so this isn't fighting that — it's what
             // makes the hand-off work.
             force: true,
+            // Only forwarded when a caller asked for a fixed tween; left off
+            // entirely otherwise so Lenis falls back to its lerp settle.
+            ...(duration != null && { duration }),
+            ...(easing != null && { easing }),
             onComplete: () => {
                 programmaticScrollDepth = Math.max(0, programmaticScrollDepth - 1);
                 if (programmaticScrollDepth === 0) setProgrammaticScrollActive(false);
