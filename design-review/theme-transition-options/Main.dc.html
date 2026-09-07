@@ -1,0 +1,190 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: #6f9bff; } a:hover { color: #9db8ff; }
+
+    :root {
+      --dur: 460ms;
+      --x: 88%; --y: 8%;
+      --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stage {
+      position: relative;
+      width: 440px; height: 600px;
+      overflow: hidden;
+      font-family: "Poppins", system-ui, sans-serif;
+      background: var(--bg);
+      transition: background-color var(--dur) var(--ease);
+    }
+    .stage[data-theme="dark"]  { --bg:#0a0e1a; --fg:#eef1f8; --mut:#9aa3bd; --acc:#6f9bff; }
+    .stage[data-theme="light"] { --bg:#f3f0ea; --fg:#191510; --mut:#57503f; --acc:#b23a2b; }
+
+    .topbar {
+      position: absolute; top: 24px; left: 28px; right: 22px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .mark {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: var(--acc); display: grid; place-items: center;
+      transition: background-color var(--dur) var(--ease);
+    }
+    .mark::after {
+      content: ""; width: 9px; height: 9px; border-radius: 50%;
+      background: var(--bg); transition: background-color var(--dur) var(--ease);
+    }
+
+    .toggle {
+      position: relative; width: 44px; height: 44px;
+      border: 0; padding: 0; background: none; cursor: pointer;
+      border-radius: 50%; display: grid; place-items: center;
+      transition: transform .4s var(--ease);
+    }
+    .toggle:hover { transform: scale(1.1); }
+    .toggle:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
+    .toggle svg {
+      position: absolute; width: 26px; height: 26px;
+      fill: none; stroke: var(--fg); stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round;
+      transition: opacity var(--dur) var(--ease), transform .45s var(--ease), stroke var(--dur) var(--ease);
+    }
+    .stage[data-theme="dark"]  .i-sun  { opacity: 0; transform: scale(.7) rotate(180deg); }
+    .stage[data-theme="light"] .i-moon { opacity: 0; transform: scale(.7) rotate(-180deg); }
+
+    .hero { position: absolute; left: 30px; top: 45%; transform: translateY(-50%); }
+    .headline {
+      margin: 0; font-weight: 600; font-size: 33px; line-height: 1.05;
+      letter-spacing: -.015em; color: var(--fg);
+      transition: color var(--dur) var(--ease);
+    }
+    .tagline {
+      margin: 11px 0 0; font-weight: 400; font-size: 14.5px; color: var(--mut);
+      transition: color var(--dur) var(--ease);
+    }
+
+    .floor {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 44%; pointer-events: none;
+      background: linear-gradient(180deg, transparent 32%,
+        color-mix(in srgb, var(--acc) 10%, transparent) 76%, transparent 100%);
+    }
+
+    .caption { position: absolute; left: 30px; right: 28px; bottom: 26px; }
+    .cap-k {
+      margin: 0; font-weight: 600; font-size: 11px; letter-spacing: .09em;
+      text-transform: uppercase; color: var(--acc);
+      display: flex; align-items: center; gap: 8px;
+      transition: color var(--dur) var(--ease);
+    }
+    .tag {
+      font-weight: 600; font-size: 9.5px; letter-spacing: .04em;
+      padding: 2px 7px; border-radius: 999px;
+      background: color-mix(in srgb, var(--acc) 16%, transparent);
+    }
+    .cap-t {
+      margin: 7px 0 0; font-weight: 400; font-size: 12px; line-height: 1.5;
+      color: var(--mut); text-wrap: pretty;
+      transition: color var(--dur) var(--ease);
+    }
+
+    /* The mechanism: the incoming theme irises out from the toggle button.
+       In production this is document.startViewTransition() + these same
+       ::view-transition keyframes; browsers without it (Firefox) fall through
+       to the plain colour crossfade the .stage transitions above already do. */
+    ::view-transition-old(root),
+    ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+    ::view-transition-new(root) { animation: iris var(--dur) var(--ease) both; }
+    @keyframes iris {
+      from { clip-path: circle(0% at var(--x) var(--y)); }
+      to   { clip-path: circle(130% at var(--x) var(--y)); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .stage, .stage * { transition-duration: 1ms !important; }
+      ::view-transition-new(root) { animation: none; }
+    }
+  </style>
+</helmet>
+
+<div class="stage" data-theme="dark">
+  <div class="topbar">
+    <span class="mark" aria-hidden="true"></span>
+    <button class="toggle" type="button" aria-label="Toggle colour theme">
+      <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.4"></circle>
+        <path d="M12 1.8v2.6M12 19.6v2.6M4.2 4.2l1.9 1.9M17.9 17.9l1.9 1.9M1.8 12h2.6M19.6 12h2.6M4.2 19.8l1.9-1.9M17.9 6.1l1.9-1.9"></path>
+      </svg>
+      <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20.5 14.2A8.2 8.2 0 1 1 9.8 3.5a6.4 6.4 0 0 0 10.7 10.7z"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="hero">
+    <h1 class="headline">Diego Damian</h1>
+    <p class="tagline">welcome to my playground</p>
+  </div>
+
+  <div class="floor" aria-hidden="true"></div>
+
+  <div class="caption">
+    <p class="cap-k">Circular reveal <span class="tag">RECOMMENDED</span></p>
+    <p class="cap-t">The incoming theme irises out from the toggle. Production is the View Transitions API with a crossfade fallback for Firefox. Costs no more than the crossfade and reads as a deliberate moment, not a blink. Honours reduced-motion.</p>
+  </div>
+</div>
+
+<script data-dc-script data-props='{"duration":{"editor":"range","default":460,"min":140,"max":900,"step":10,"unit":"ms","section":"Motion","tsType":"number"},"$preview":{"width":440,"height":600}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+
+  applyDur() {
+    const d = (this.props && +this.props.duration) || 460;
+    document.documentElement.style.setProperty('--dur', d + 'ms');
+  }
+
+  componentDidMount() {
+    this.applyDur();
+    this._onClick = (e) => {
+      const btn = e.target && e.target.closest && e.target.closest('.toggle');
+      if (btn) this.flip(btn);
+    };
+    document.addEventListener('click', this._onClick);
+  }
+
+  componentDidUpdate() { this.applyDur(); }
+
+  componentWillUnmount() { document.removeEventListener('click', this._onClick); }
+
+  flip(btn) {
+    const stage = document.querySelector('.stage');
+    if (!stage) return;
+    const cur = stage.getAttribute('data-theme') || 'dark';
+    const next = cur === 'dark' ? 'light' : 'dark';
+
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || typeof document.startViewTransition !== 'function') {
+      stage.setAttribute('data-theme', next);
+      return;
+    }
+
+    const s = stage.getBoundingClientRect();
+    const b = btn.getBoundingClientRect();
+    const rs = document.documentElement.style;
+    rs.setProperty('--x', (b.left - s.left + b.width / 2) + 'px');
+    rs.setProperty('--y', (b.top - s.top + b.height / 2) + 'px');
+    document.startViewTransition(() => stage.setAttribute('data-theme', next));
+  }
+}
+</script>
+</body>
+</html>

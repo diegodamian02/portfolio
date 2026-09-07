@@ -1,0 +1,18 @@
+{
+  "artboards": [
+    { "file": "Crossfade.dc.html", "x": 0, "y": 0, "w": 440, "h": 600, "title": "Crossfade — shipped today", "is_interactive": true },
+    { "file": "Main.dc.html", "x": 540, "y": 0, "w": 440, "h": 600, "title": "Circular reveal — recommended", "is_interactive": true },
+    { "file": "Wipe.dc.html", "x": 1080, "y": 0, "w": 440, "h": 600, "title": "Directional wipe", "is_interactive": true },
+    { "file": "Dip.dc.html", "x": 1620, "y": 0, "w": 440, "h": 600, "title": "Fade through black", "is_interactive": true }
+  ],
+  "annotations": [
+    {
+      "id": "intro",
+      "x": 0,
+      "y": -232,
+      "w": 900,
+      "text": "THEME-TOGGLE MOTION — four options on the real diegodamian.com tokens (#0a0e1a / #f3f0ea, Poppins, record-red + cobalt accents). Click each sun/moon toggle; the Motion slider on each artboard retimes it.\n\nCrossfade is what shipped today (the D8 system). Circular reveal is the recommended step up — the View Transitions API, same cost as the crossfade, reads as deliberate; it falls back to the crossfade on Firefox and honours reduced-motion. Wipe and Dip are here for contrast, not as recommendations.\n\nSchematic hero, not the full turntable — sun/moon are placeholder SVGs (the site masks PNGs)."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}
