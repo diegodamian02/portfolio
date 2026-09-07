@@ -747,29 +747,26 @@ html {
 // control, so without it the whole hero would be inert.
 .hero-skyline-canvas {
   position: absolute;
-  // Bottom is inset by the gap between the navbar's bottom edge and where a
-  // section actually comes to rest (--scroll-offset is --navbar-height + 24px).
-  // Found live: snapped to #about with a track playing, the hero's spectrum
-  // bars were visible in that 24px band, because the band shows the BOTTOM of
-  // the previous section and the navbar only covers as far as its own height.
-  // Measured: navbar bottom 144, #about top 168, canvas bottom 168 — 24px of
-  // hero canvas on screen under a section it does not belong to. Every other
-  // section has a flat background there so nothing showed; this one is
-  // animated, so it did.
+  // Full-bleed — the matrix reaches every edge of the hero, its horizon on the
+  // real bottom of the section (owner: "the hero should cover the entire page").
   //
-  // Derived from the two tokens rather than hard-coded 24px, so it stays
-  // correct if either is retuned. The columns' horizon sits on the canvas's
-  // bottom edge, so this lifts the whole skyline by that much — against a
-  // uniform --bg-color the band below it is invisible.
-  // height is explicit, NOT left to the bottom inset: <canvas> is a replaced
-  // element, so with `height: auto` it uses its own intrinsic aspect ratio
-  // instead of the inset-derived box — measured, it collapsed to 720px against
-  // an 826px slot the first time this was written that way.
+  // This used to be inset ~24px from the bottom: snapped to #about with a track
+  // playing, that band (navbar bottom 144 -> #about top 168) showed the BOTTOM
+  // of the hero canvas under a section it doesn't belong to, and it was still
+  // ANIMATING there. The inset traded a visible seam at the hero's own bottom
+  // edge for hiding that peek. The peek is handled in skyline-background.jsx
+  // now instead — the IntersectionObserver's rootMargin drops `inView` (and the
+  // loop clears the canvas) once the hero is scrolled up behind that band — so
+  // the box can go full height with no animated peek.
+  //
+  // height is explicit (100%, not auto): <canvas> is a replaced element, so
+  // `height: auto` would use its intrinsic aspect ratio instead of the box —
+  // measured, it collapsed to 720px against an 826px slot when written that way.
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
-  height: calc(100% - (var(--scroll-offset) - var(--navbar-height)));
+  height: 100%;
   display: block;
   z-index: 0;
   pointer-events: none;
@@ -788,11 +785,20 @@ html {
 // short of the headline/tagline zone. `background`, not a pseudo-element: no
 // extra box, no z-index against the deck to get wrong, and the mask's
 // `destination-out` pass can't touch a CSS layer.
+//
+// The accent floor is fully faded out BEFORE the bottom of the canvas: it
+// peaks ~96px up and is back to transparent by `--scroll-offset -
+// --navbar-height + 8px` (32px) from the bottom edge. The canvas is full-bleed
+// now, so any accent still alive at the bottom edge shows in the ~24px band
+// under the fixed navbar once you're snapped to #about — a faint accent line
+// above the section (orange on light theme). Keeping the whole bottom band
+// dead transparent, not just tapering into it, is what removes that line.
 .hero-skyline-canvas {
   background: linear-gradient(
     180deg,
     transparent 58%,
-    color-mix(in srgb, var(--accent) 6%, transparent) 100%
+    color-mix(in srgb, var(--accent) 6%, transparent) calc(100% - 96px),
+    transparent calc(100% - (var(--scroll-offset) - var(--navbar-height)) - 8px)
   );
 }
 
@@ -800,7 +806,8 @@ html {
   background: linear-gradient(
     180deg,
     transparent 42%,
-    color-mix(in srgb, var(--accent) 11%, transparent) 100%
+    color-mix(in srgb, var(--accent) 11%, transparent) calc(100% - 96px),
+    transparent calc(100% - (var(--scroll-offset) - var(--navbar-height)) - 8px)
   );
 }
 
@@ -2311,7 +2318,12 @@ html {
   // portrait's height ceiling below can read the SAME number rather than
   // duplicating it — a mismatch between the two is exactly how the
   // short-viewport overflow bug (next comment) happened in the first place.
-  --about-vpad: var(--space-9);
+  //
+  // --space-7 (was --space-9): #about snaps 24px below the navbar (--scroll-
+  // offset), so this padding-top is the WHOLE gap on top of that. 96px on a
+  // tall desktop window left a visible empty band between the navbar and the
+  // card (owner). 48px still reads as a top margin, not a collision.
+  --about-vpad: var(--space-7);
   padding-top: var(--about-vpad);
   padding-bottom: var(--about-vpad);
   padding-left: 0;
@@ -2607,11 +2619,19 @@ html {
   // as the fallback, same dual-declaration order as before.
   min-height: calc(100vh - var(--scroll-offset));
   min-height: calc(100svh - var(--scroll-offset));
-  // Top padding is small on purpose ("title almost at the top") — the section
-  // already sits 24px below the navbar via --scroll-offset, so this is the
-  // whole remaining gap. Bottom padding is nominal; flex-start means the
-  // leftover height pools below the filmstrip regardless of its value.
-  padding: var(--space-4) 0 var(--space-6);
+  // No top padding — the [title + filmstrip] block sits as high as it can, flush
+  // to the section's top edge. That edge is already 24px below the navbar via
+  // --scroll-offset, which is the floor here (dropping --scroll-offset is a
+  // global change, not this section's call). justify-content: flex-start means
+  // the freed height just pools below the filmstrip, section height unchanged.
+  // Bottom padding is nominal for the same reason.
+  padding: 0 0 var(--space-6);
+  // A breather between the end of #about and the top of this section. Collapses
+  // through the plain `<section id="experience">` wrapper, so the gap lands
+  // above #experience's border box — snap-to-#experience scrolls past it, it
+  // reads as extra room below #about on the way down. Off-scale on purpose
+  // (past --space-9 / 96px) — a deliberately large separator here, tuned live.
+  margin-top: 10rem;
 
   @media (max-width: 768px) {
     // Stage 5 (continued) — content height, not one forced screen. The
@@ -2621,7 +2641,11 @@ html {
     // section just means #my-taste's kicker peeks below, which reads as
     // "keep going" rather than a void.
     min-height: 0;
-    padding: var(--space-4) 0 var(--space-6);
+    padding: 0 0 var(--space-6);
+    // Smaller breather on a phone — the section is content-height here, so the
+    // gap above it is the whole separation from #about. --space-9 (96px) is the
+    // top of the scale; desktop goes past it with a raw 10rem.
+    margin-top: var(--space-9);
   }
 }
 
@@ -2629,15 +2653,17 @@ html {
   @include section-title;
   @include content-column($width: var(--content-width-wide));
   color: var(--text-color);
-  // section-title's own margin-bottom is the ENTIRE gap between the title and
-  // the filmstrip. flex-shrink: 0 so a short window can't crush it.
+  // Override section-title's --space-6 margin-bottom down to --space-2 — the
+  // title sits right on top of the filmstrip now. Scoped here, NOT in the
+  // shared mixin (that gap is tuned per section). flex-shrink: 0 so a short
+  // window can't crush it. There is still ~16px of headroom inside the
+  // viewport above the card (--experience-vp-height) — the floor, since that
+  // equals the active card's scale-up.
+  margin-bottom: var(--space-2);
   flex-shrink: 0;
 
   @media (max-width: 768px) {
-    // Trim the title -> filmstrip gap (section-title's --space-6) on a phone
-    // — with the rail strip shrunk too, the default left the title floating
-    // well clear of the strip.
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-2);
   }
 }
 
@@ -2731,10 +2757,10 @@ html {
   // card height = card-w / aspect; viewport height = rail + that + headroom
   // so the active card's 1.08x center-focus scale-up (experience.jsx) never
   // presses against this element's own overflow: hidden edge. Headroom is
-  // 2 × space-6 (was space-7) since the desktop one-screen-fit pass — 32px
-  // each side still clears an 8% scale-up on a ~400px card (~16px/side),
-  // and the 32px it frees is what lets this section fit a 768px window.
-  --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-6));
+  // 2 × space-4 (16px each side) — that's the floor: it equals the 8% scale-up
+  // on a ~400px card (~16px/side) with no margin, so the scaled active card
+  // just touches the overflow edge. Don't go lower.
+  --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-4));
   // Centered as part of the [title + viewport] pair by justify-content:
   // center on .experience-section (the shell just carries it there) — not by
   // its own top/left math against the whole section. Still not
@@ -5785,12 +5811,19 @@ $taste-swipe-max: 1024px;
   // tight against the section's small top pad instead of a phantom gap on
   // top of it. section-title sets margin-bottom only.
   margin-top: 0;
+  // Override section-title's --space-6 down to --space-2, same as
+  // .experience-title — the header block sits close to the tracklist now.
+  // Scoped here, not in the shared mixin.
+  margin-bottom: var(--space-2);
 }
 
 .portfolio-subtitle {
   color: var(--secondary-text);
   font-size: 1rem;
-  margin-bottom: 2rem;
+  // Trimmed from 2rem — the gap above the first tracklist row was the other
+  // half of the "headroom above the card" here (the list itself has no top
+  // padding, just its rule).
+  margin-bottom: var(--space-4);
   // Centre it under the (centred) title so the header reads as one block.
   // It was the only element in this section left at text-align: start.
   text-align: center;

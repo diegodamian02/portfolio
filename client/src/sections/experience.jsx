@@ -2,7 +2,6 @@ import { useRef } from "react";
 import "../styles/main.scss";
 import costaVerde from "../assets/about/costa-verde.jpg";
 import rutgersCampus from "../assets/about/rutgers-campus.jpg";
-import trump from "../assets/trump.jpeg";
 import codewiz from "../assets/codewiz.jpeg";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger, SIGNATURE_EASE } from "../lib/gsap.js";
@@ -51,14 +50,6 @@ const EXPERIENCE_ENTRIES = [
         caption: "B.S. Computer Science, minor in Music Technology.",
         image: rutgersCampus,
         imageAlt: "The gate at Old Queens, Rutgers University's original campus building",
-    },
-    {
-        id: "trump",
-        year: "2024",
-        role: "Trump National Golf Club",
-        caption: "Food runner at Clubhouse.",
-        image: trump,
-        imageAlt: "The Clubhouse team at Trump National Golf Club",
     },
     {
         id: "codewiz",

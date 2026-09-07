@@ -3685,6 +3685,16 @@ shorter. Measure the section against `innerHeight` before anchoring anything to
 its lower edge — several sections in this project carry padding that makes them
 taller than the window.
 
+> **Premise now stale (2026-09-07).** `.home` was later fixed to `box-sizing:
+> border-box` on `height: 100vh`, so the padding is drawn *inside* the viewport
+> and `.home` measures exactly `innerHeight` (verified 982==982 at 1512×982,
+> and at every other size). `.hero-skyline-canvas` is full-bleed again (its
+> Stage 7 24px bottom inset removed 2026-09-07 — see STATUS §2). The `baseline`
+> clamp described in the Fix still runs and is still the right guard, it just
+> resolves to ~1 now; the horizon sits on the true fold. The `#about`-band peek
+> that the inset used to hide is handled by an IntersectionObserver gate in
+> `skyline-background.jsx` instead.
+
 ### D24 — a spectrum display normalised to its peak has almost no dynamic range; the SPAN has to be normalised — **FOUND AND FIXED, Stage 7 rebuild**
 
 The skyline's first build auto-gained the way the obvious approach suggests:
