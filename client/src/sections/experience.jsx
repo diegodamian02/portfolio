@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import "../styles/main.scss";
 import costaVerde from "../assets/about/costa-verde.jpg";
-import rutgers from "../assets/rutgers.jpg";
+import graduation from "../assets/graduation.jpg";
 import globalLogic from "../assets/global-logic.jpg";
 import codewiz from "../assets/codewiz.jpeg";
 import { useGSAP } from "@gsap/react";
@@ -49,7 +49,7 @@ const EXPERIENCE_ENTRIES = [
         year: "2021",
         role: "Rutgers University",
         caption: "B.S. Computer Science, minor in Music Technology.",
-        image: rutgers,
+        image: graduation,
         imageAlt: "Diego in Rutgers commencement robes tossing his cap under the Old Queens gate",
     },
     {
