@@ -652,6 +652,31 @@ Three things worth carrying forward:
   Anything added later that needs a non-D8 property (`opacity`, `transform`) to transition
   *during* a theme flip has the same problem.
 
+**Follow-up 2 (2026-09-07, same day) — `.is-theme-switching` retired as the primary,
+kept as fallback.** Owner tested the deploy: the crossfade was janky. Frame-sampled
+the live hero — a `transition` on every element + pseudo, then a `data-theme` flip,
+forces one page-wide synchronous style recalc: **~90ms** before the first frame
+moved, 60–80ms main-thread stalls after, so the background looked like a snap, and
+`.hero-name` (no `color` transition of its own) jumped when the class was removed
+mid-tween. This is the fragility the D8 comment warned a *permanent* universal
+transition would cause — it turns out a 180–300ms one on this DOM (turntable, crate,
+every section) is already enough.
+
+Rebuilt on **`document.startViewTransition()`** — one compositor cross-dissolve of a
+before/after snapshot, no per-element transition, no recalc. Two things worth
+carrying:
+
+- **The live page must snap, not ease, during a View Transition.** If element
+  transitions keep running, the "new" snapshot is captured half-formed (light bg,
+  text still dark) and the dissolve reveals it. Pinning `--theme-transition-duration:
+  0s` on `:root` for the length of the capture (one inherited custom property) makes
+  every `var(--theme-transition)` tween instant without a universal selector.
+- **A plain opacity dissolve is fine under `prefers-reduced-motion`** — same call D8
+  made for the CSS crossfade. A directional reveal (clip-path/translate) would not be.
+
+`.is-theme-switching` stays for browsers without the API (Firefox); its jank and the
+`.hero-name` snap are unchanged there and accepted for that slice.
+
 ### D9 — the navbar has no entrance or scroll-linked motion
 
 It is simply present at full opacity from the first frame, and its only state change is

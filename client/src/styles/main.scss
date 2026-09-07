@@ -6479,19 +6479,18 @@ $taste-swipe-max: 1024px;
   }
 }
 
-// D8 — the catch-all, in effect ONLY while a toggle is in flight.
+// D8 — the catch-all. Now the FALLBACK path only: navbar.jsx reaches for
+// document.startViewTransition() first (the ::view-transition rules below) and
+// only adds .is-theme-switching where that's unavailable (Firefox) or under
+// prefers-reduced-motion.
 //
-// Routing the known surfaces through --theme-transition fixed the big ones, but
-// every element that re-declares its own `color` or `background-color` still
-// snapped: `body`'s transition animates body's colour, and a descendant with
-// its own declaration never inherits that animated value. Measured, .hero-name
-// changed in 16ms while the page behind it took 218ms.
-//
-// Enumerating every such element is the fragile thing this token exists to
-// avoid, so this covers them all — but only during the switch. navbar.jsx adds
-// .is-theme-switching for the token's own duration and removes it after; a
-// PERMANENT universal transition would make every hover, focus and active state
-// on the site 180ms and would fire on class changes unrelated to theming.
+// Why it stopped being the primary: lending every element + pseudo on the page
+// a `transition` and then flipping data-theme forces one enormous synchronous
+// style recalc. Measured on the live hero — turntable, crate, every section —
+// the recalc delayed the first frame ~90ms and starved the rest, so the
+// background read as a snap; and text `color` (no transition of its own) jumped
+// when the class came off mid-tween. A compositor crossfade has none of that
+// cost. Kept because it is a correct, universal fallback with no API dependency.
 //
 // No !important, and this sits last on purpose. Specificity ties with
 // element-level rules are broken by source order, so this wins over anything
@@ -6513,4 +6512,34 @@ $taste-swipe-max: 1024px;
     color var(--theme-transition),
     fill var(--theme-transition),
     stroke var(--theme-transition);
+}
+
+// D8, primary path — the light↔dark crossfade, on the compositor.
+//
+// navbar.jsx wraps the data-theme flip in document.startViewTransition(); the
+// browser snapshots the old frame, runs the swap, and cross-dissolves the two
+// full-page snapshots. Every surface moves together by construction — no
+// selector to widen, no element that re-declares its colour to chase, no class
+// lifetime to mistime. The whole page is ONE group ("root"), so this is the
+// only rule it needs.
+//
+// 220ms, a touch longer than the token's 180ms: a snapshot dissolve keeps each
+// layer internally readable (old text over old bg, new over new) instead of
+// pushing background and text through mid-grey together, so the unreadable
+// window the 180ms figure was sized to hold basically isn't there.
+//
+// The hero canvas and the GSAP turntable sit inside the snapshot. Both are
+// static at rest, which is when a toggle happens; if a track is mid-play the
+// visualizer freezes for 220ms, which is acceptable and rare. If that ever
+// needs excluding: `view-transition-name: none` on .hero-skyline-canvas.
+// Kept ON under prefers-reduced-motion, deliberately: this is a plain opacity
+// dissolve between two still frames — no slide, scale or spin — which D8 judged
+// is not "motion", and it is gentler than snapping the whole viewport between
+// two luminance extremes. A `@media (prefers-reduced-motion)` override that set
+// `animation: none` here would bring that flash back. If a directional reveal
+// (clip-path, translate) is ever added, THAT is what reduced-motion must drop.
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: var(--theme-transition-ease);
 }

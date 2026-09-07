@@ -38,57 +38,94 @@ export default function Navbar() {
     const hamburgerRef = useRef(null);
     const menuRef = useRef(null);
 
-    // This effect also runs on mount, where it applies the stored theme. That
-    // application must NOT crossfade — the page would visibly fade in from the
-    // wrong theme on every load.
-    const themeApplied = useRef(false);
+    // Holds the theme this effect last actually applied. null = never run, so
+    // the mount application is told apart from a real switch (mount must NOT
+    // crossfade — the page would fade in from the wrong theme every load) and a
+    // StrictMode double-invoke is a no-op instead of a phantom transition.
+    const appliedTheme = useRef(null);
+    // Token for the in-flight View Transition, so only the latest one's cleanup
+    // restores the transition duration (rapid double-toggles otherwise race).
+    const vtToken = useRef(0);
 
     const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
     useEffect(() => {
         const root = document.documentElement;
-        let timer;
-
-        // D8 — every surface changes on one duration. Enumerating each element
-        // that sets its own colour is the fragile approach; instead a class
-        // enables a catch-all transition (see main.scss, last rule) for exactly
-        // as long as the switch takes, so nothing else on the site inherits a
-        // permanent 180ms transition on hover and focus.
-        if (themeApplied.current) {
-            root.classList.add("is-theme-switching");
-            // Read from the token rather than repeating the number here, so the
-            // class can never outlive or undercut the transition it enables.
-            const ms = parseFloat(
-                getComputedStyle(root).getPropertyValue("--theme-transition-duration"),
-            ) || 180;
-            timer = setTimeout(() => root.classList.remove("is-theme-switching"), ms + 60);
-        }
-        themeApplied.current = true;
-
-        root.setAttribute("data-theme", theme);
+        if (appliedTheme.current === theme) return undefined;
+        const isFirst = appliedTheme.current === null;
+        appliedTheme.current = theme;
         localStorage.setItem("theme", theme);
 
-        // Mobile browser chrome (the iOS status/address bar, Android's) reads
-        // <meta name="theme-color">, not data-theme, so it has to be kept in
-        // step by hand or it stays on whichever theme loaded. Read --bg-color
-        // straight back from the cascade rather than repeating the two hexes
-        // here — a custom property isn't animated, so this is already the
-        // destination value the moment the attribute flips. Mobile Safari and
-        // Chrome crossfade the bar to the new colour on their own.
-        const bg = getComputedStyle(root).getPropertyValue("--bg-color").trim();
-        if (bg) {
+        // The one place the theme is actually applied. The theme-color meta
+        // (mobile status/address bar) reads data-theme only indirectly, so it
+        // has to be set by hand. Literal hexes, NOT getComputedStyle(--bg-color):
+        // reading a computed style here forces a full-tree style recalc at the
+        // instant the switch starts, and on this page (turntable, crate, every
+        // section) that recalc is heavy enough to starve the first frames of the
+        // transition. Keep the two values in step with --bg-color in main.scss.
+        const applyTheme = () => {
+            root.setAttribute("data-theme", theme);
             let meta = document.querySelector('meta[name="theme-color"]');
             if (!meta) {
                 meta = document.createElement("meta");
                 meta.setAttribute("name", "theme-color");
                 document.head.appendChild(meta);
             }
-            meta.setAttribute("content", bg);
+            meta.setAttribute("content", theme === "dark" ? "#0a0e1a" : "#f3f0ea");
+            window.dispatchEvent(new Event("themeChange"));
+        };
+
+        if (isFirst) {
+            applyTheme();
+            return undefined;
         }
 
-        window.dispatchEvent(new Event("themeChange"));
+        // D8, rebuilt. The old mechanism lent every element + pseudo on the page
+        // a `transition` for the length of the switch (`.is-theme-switching`, a
+        // universal selector). Measured on the live hero: flipping data-theme
+        // with that attached forced a ~90ms synchronous style recalc before the
+        // first frame, then starved the rest — the background read as a snap and
+        // text `color` (which has no transition of its own) jumped when the
+        // class came off mid-tween.
+        //
+        // startViewTransition() captures the page once and crossfades old→new on
+        // the compositor: no per-element transition set-up, no recalc storm,
+        // nothing to mistime. It runs under prefers-reduced-motion too — the
+        // animation here is a plain opacity dissolve, which D8 already decided
+        // is not "motion" and is gentler than an instant luminance flip (see
+        // the ::view-transition rules in main.scss). The `.is-theme-switching`
+        // path below is only for browsers without the API (Firefox).
+        let timer;
 
-        return () => clearTimeout(timer);
+        if (typeof document.startViewTransition === "function") {
+            // Neutralise every var(--theme-transition) tween for the length of
+            // the capture: with the View Transition owning the crossfade, the
+            // live page must snap straight to the new theme so BOTH snapshots it
+            // dissolves between are internally consistent. Left running, `body`
+            // eases its background over 180ms while text (no transition of its
+            // own) snaps — and the View Transition would reveal that half-formed
+            // frame. One inherited custom property, not a universal selector.
+            root.style.setProperty("--theme-transition-duration", "0s");
+            const token = ++vtToken.current;
+            const restore = () => {
+                if (vtToken.current === token) {
+                    root.style.removeProperty("--theme-transition-duration");
+                }
+            };
+            document.startViewTransition(applyTheme).finished.finally(restore);
+        } else {
+            root.classList.add("is-theme-switching");
+            const ms = parseFloat(
+                getComputedStyle(root).getPropertyValue("--theme-transition-duration"),
+            ) || 180;
+            timer = window.setTimeout(
+                () => root.classList.remove("is-theme-switching"),
+                ms + 120,
+            );
+            applyTheme();
+        }
+
+        return () => window.clearTimeout(timer);
     }, [theme]);
 
     // Drives only the navbar's own background: transparent over the hero,

@@ -11,8 +11,14 @@ light-theme visitors got on every load without the once-per-session intro. The
 hero "atmosphere floor" gradient moved off the `<canvas>` onto `.hero-atmosphere`
 `::before`/`::after` that opacity-crossfade (a `background-image` can't
 interpolate); the dot-matrix canvas itself fades out/in through a flip via WAAPI
-in `skyline-background.jsx` (D8's `.is-theme-switching` catch-all can't reach a
-canvas, and ties+beats a CSS `transition` on it). 180ms duration unchanged.
+in `skyline-background.jsx`. **Then, same day:** owner tested the deploy and the
+crossfade was janky — `.is-theme-switching` puts a `transition` on every element
+on the page, which forces a ~90ms style-recalc stall before the first frame and
+snaps `.hero-name` when the class comes off. Rebuilt the flip on
+`document.startViewTransition()` — one compositor cross-dissolve, no recalc
+storm; `--theme-transition-duration` pinned to `0s` during the capture so the
+live page snaps and both snapshot frames stay readable; `.is-theme-switching`
+kept as the Firefox-only fallback; `::view-transition` retimed to 220ms.
 Branch `hero-dot-matrix`; lint/build clean. Full entry in §2.) Prior, same day,
 **Hero full-bleed + section spacing pass**: owner
 review of the dot-matrix hero and the sections under it. `.hero-skyline-canvas`
@@ -265,10 +271,47 @@ it's invisible, and fades back. A no-op at rest — the canvas is genuinely blan
 then. Verified both `prefers-reduced-motion` states: animation runs, opacity
 returns to 1, `getAnimations()` clears, no console errors.
 
-**Duration unchanged** — 180ms. D8's reasoning (the duration *is* the length of
-the mid-flip window where background and text both sit near mid-grey and text
-contrast dips toward 1:1) still holds; the token is a one-line change if it
-reads quick once the rest lands.
+**Then, same day — the crossfade itself was janky, and D8's mechanism was the
+cause.** Owner tested the deploy: *"the background transition doesn't change at
+all + there's a delay with the fonts and the background."* Frame-sampled the live
+hero: flipping `data-theme` with `.is-theme-switching` attached (a `transition`
+on **every element + pseudo** on the page — turntable, crate, every section)
+forces one enormous synchronous style recalc. Measured: ~90ms dead before the
+first frame moved, then 60–80ms main-thread stalls through the rest, so the
+background read as a snap; and `.hero-name` (no `color` transition of its own)
+jumped from mid-grey to final ink the instant the class came off. The
+`getComputedStyle(--bg-color)` read added above made the recalc worse.
+
+Rebuilt the flip on **`document.startViewTransition()`**:
+
+- `navbar.jsx` wraps the `data-theme` flip in it. The browser captures the page
+  once and cross-dissolves the old and new snapshots on the compositor — no
+  per-element `transition` set-up, no recalc storm, nothing to mistime.
+- For the length of the capture, `--theme-transition-duration` is pinned to `0s`
+  on `:root` (one inherited custom property, **not** a universal selector) so the
+  live page snaps straight to the new theme and both frames the View Transition
+  dissolves between are internally consistent — otherwise `body` eases its bg
+  over 180ms while text snaps, and the VT reveals that half-formed frame. A
+  per-transition token guards the restore against rapid double-toggles.
+- Runs under `prefers-reduced-motion` too: it's a plain opacity dissolve, which
+  D8 already ruled is not "motion" and is gentler than an instant luminance flip.
+- `theme-color` meta switched to literal hexes (`#0a0e1a` / `#f3f0ea`) — the
+  `getComputedStyle` read it replaced was part of the recalc cost.
+- `.is-theme-switching` stays, now **fallback only** (Firefox — no API). Its jank
+  and the `.hero-name` snap are unchanged there; acceptable for that slice.
+- `::view-transition-old/new(root)` retimed to **220ms** / the site's ease. A
+  touch longer than 180ms because a snapshot dissolve keeps each layer readable
+  (old text over old bg, new over new) instead of pushing bg and text through
+  mid-grey together — the unreadable window the 180ms figure was sized for
+  basically isn't there.
+
+The hero canvas and the GSAP turntable sit inside the VT snapshot; both are
+static at rest (when a toggle happens), and a mid-play visualizer just freezes
+for 220ms. `view-transition-name: none` on `.hero-skyline-canvas` is the escape
+hatch if a device ever hitches on the capture. Verified: clean crossfade
+sampled mid-transition (page readable throughout), `--theme-transition-duration`
+restored to 180ms after, double-toggle safe, fallback + reduced-motion paths
+intact, no console errors.
 
 `npm run lint` unchanged (7 errors / 2 warnings, the standing baseline);
 `vite build` clean.
