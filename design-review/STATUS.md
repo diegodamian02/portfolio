@@ -1,13 +1,21 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-06 (**Record crate — chipboard flip bin**: the hero
-search panel is now a record-shop chipboard flip bin with cream paper
+**Updated:** 2026-09-06 (**Record crate — dark blue end panel + mobile "dig"
+takeover**: owner feedback on the flip bin. The end panel and track-cards
+are theme-aware now — dark gets a painted blue end panel (`--wax-3` family,
+matching dark's `--accent`) and dimmer kraft cards; light re-pins the
+original oxblood + cream. Mobile drops the bottom sheet for a full-screen
+takeover: `.record-crate` goes `position: fixed; inset: 0`, the search
+field pins under the navbar, and the cards fill the space above the
+keyboard — a `visualViewport` listener (`--crate-kb`) keeps the last card
+clear of it, fixing the sheet's results-behind-the-keyboard problem on iOS.
+Chevron / Escape / pick-a-track to dismiss. **D32** stays fixed. Full entry
+in §2.) Prior, same day, **Record crate — chipboard flip bin**: the hero
+search panel became a record-shop chipboard flip bin with cream paper
 track-cards, each carrying a `cardHueFor` pressing-colour spine and the
 album artwork; the maple fretboard and its `--crate-maple-*` / fret / inlay
-tokens are gone. Mobile is a bottom sheet — slides up, drag-handle or
-scrim to dismiss (closes **D32**: touch could never dismiss the panel).
-Chipboard themes per-mode; the oxblood end panel and cream cards are fixed.
-Branched from `main`, still Poppins. Full entry in §2.) Prior, 2026-09-04,
+tokens are gone. Chipboard themes per-mode. Branched from `main`, still
+Poppins. Full entry in §2.) Prior, 2026-09-04,
 **Stage 11 (follow-up round 2) — hover colour match,
 more index spacing, #my-taste titles coloured**: `#projects`'
 hover/`.is-open` fill (inset bar + wash), the title's hover colour, and the
@@ -142,6 +150,59 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Record crate — blue end panel on dark, mobile "dig" takeover *(2026-09-06)*
+
+Owner feedback on the shipped flip bin: desktop reads well; two changes.
+
+**The end panel and track-cards are theme-aware now.** They were fixed
+(oxblood + cream, both themes). On the navy page the cream sleeve glared
+and the oxblood panel fought the cool ground, so `:root` (dark) gets a
+painted **blue end panel** — `--crate-end: #284a86`, the `--wax-3` midnight
+family, lining up with dark's own `--accent` — and **dimmer kraft card
+stock** (`--crate-card: #d8cdb7`, card ink 11.3:1, artist text 5.7:1
+measured). `[data-theme="light"]` re-pins the original oxblood `#8a2233` +
+cream `#efe9db` it was drawn with. `.record-crate-bin-end`'s gradient was a
+hard-coded `#98283a→#7c1e2e`; it derives from `--crate-end` now (via
+`color-mix`) so it actually flips. The card dim is deliberately modest —
+keeps the paper identity — and is one token change from going darker.
+
+**Mobile is a full-screen "dig" takeover, replacing the bottom sheet.**
+The sheet's results docked to the bottom edge — exactly where the iOS
+keyboard sits (fixed elements pin to the layout viewport, which the
+keyboard just overlays), so the list opened *behind* the keyboard. Now,
+below 768px, the whole `.record-crate` goes `position: fixed; inset: 0`
+(class `is-digging`, z-index 60 — under the navbar, which stays usable):
+the search field pins to a chipboard shelf under the navbar and the
+track-cards fill the band between it and the keyboard. A `visualViewport`
+listener writes the covered height to `--crate-kb`, which the list reserves
+as foot padding so the last card always clears the keyboard (on Android,
+where the keyboard resizes the layout viewport, that computes ~0 and
+nothing changes — correct). Opens with a slide-up + fade (GSAP `yPercent` +
+`autoAlpha`, 340ms); dismiss via a **chevron-down button** on the shelf,
+Escape, or picking a track. Desktop dropdown is untouched.
+
+Dropped with the sheet: the drag-down-to-dismiss handle and the scrim
+(a full-screen opaque takeover has no "outside" — the button + Escape are
+the dismiss). **D32 stays fixed** — the outside handler is still
+`pointerdown`, and the chevron button is a real touch target.
+
+Gotcha logged: a CSS `transform` on `.is-digging` for the off-screen park
+made GSAP *stack* its animated `transform` onto that one (the takeover
+ended ~180% down-screen). Park with `opacity: 0` instead and let GSAP own
+the transform — same trap the tonearm rotor hit.
+
+**Verified** (Playwright, 5173): desktop + mobile × dark + light — blue
+panel on dark / oxblood on light, 5 cards, title & artist contrast ≥ 5.6:1
+AA; takeover is `fixed`, covers the viewport, `role="dialog"`, field pinned
+at the navbar line; `--crate-kb` plumbs to list padding (+260px → +260px);
+select / Escape / chevron all dismiss; reduced motion lands at rest; zero
+crate console errors. `npm run lint` unchanged (7/2 baseline). `vite build`
+clean. Branched from `main` — still Poppins.
+
+Tokens: `--crate-end` / `--crate-end-ink` / `--crate-card*` / `--crate-divider*`
+moved from fixed to per-theme; `--crate-scrim` removed (no scrim). Added at
+runtime only: `--crate-kb` (inline, from JS).
 
 ### Record crate — chipboard flip bin, replacing the roasted-maple fretboard *(2026-09-06)*
 

@@ -689,6 +689,14 @@ change nobody has asked for and which nothing currently depends on either way.
 > outside is the expected gesture. On mobile a full-viewport `.record-crate-scrim`
 > is the primary tap target (it also carries its own `onClick`); `pointerdown`
 > covers desktop and is the backstop. Escape already worked and is unchanged.
+>
+> **Still fixed after the mobile takeover (2026-09-06, same day).** The bottom
+> sheet — and its scrim — were replaced by a full-screen "dig" takeover
+> (STATUS §2). A full-viewport opaque takeover has no "outside" to tap, so the
+> dismiss on mobile is now an explicit **chevron-down button** on the search
+> shelf plus Escape (the field keeps focus, so its keydown handler stays live).
+> `pointerdown` still covers desktop. D32's underlying concern — a touch can
+> dismiss the panel — holds.
 
 ### B74 — `100dvh` made every section re-height while the mobile URL bar moved, jumping content mid-scroll — **FOUND AND FIXED (2026-09-02)**
 

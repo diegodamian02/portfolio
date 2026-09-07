@@ -85,24 +85,26 @@
   // roasted-maple fretboard. Unlike the maple, the chipboard body IS a themed
   // surface: a deep warm-grey particleboard on the navy page, a lighter
   // warm-grey on Studio Paper — redeclared under [data-theme="light"] below.
-  // The oxblood end panel and the cream track-cards are FIXED (same reasoning
-  // as --cassette-label / --deck-*): a laminated bin edge and a paper sleeve
-  // don't relight because the page did. Spines are --wax-1..5, picked per
-  // track by cardHueFor (card-hue.js) — the same hash #my-taste already runs.
+  // The end panel and track-cards ARE theme-aware now (owner call, 2026-09-06):
+  // on the navy page a bright cream sleeve glares and the oxblood end panel
+  // fights the cool ground, so dark gets a painted BLUE end panel (the --wax-3
+  // midnight family, lining up with this theme's own --accent) and a dimmer
+  // kraft card stock; Studio Paper keeps the oxblood + cream it was designed
+  // with (redeclared under [data-theme="light"]). Spines stay --wax-1..5,
+  // picked per track by cardHueFor (card-hue.js) — the hash #my-taste runs.
   --crate-chip-1: #423d36;          // chipboard, lit face
   --crate-chip-2: #33302a;          // chipboard, shaded face
   --crate-chip-band: #24211d;       // melamine edge banding + front rail
-  --crate-end: #8a2233;             // oxblood end panel (the --wax-1 family)
-  --crate-end-ink: #e7cdb0;         // kraft label lettering on the end panel
-  --crate-card: #efe9db;            // cream track-card stock (--cassette-label family)
-  --crate-card-hi: #f6efe0;         // card top highlight
-  --crate-card-active: #fff7e7;     // active/hovered card
-  --crate-card-ink: #2c2718;        // card title
-  --crate-card-secondary: #645a48;  // card artist + status text — 5.7:1 on --crate-card
-  --crate-divider: #ddc8a2;         // kraft guide-card tab carrying the query
-  --crate-divider-ink: #3a2a1c;
+  --crate-end: #284a86;             // painted blue end panel (the --wax-3 family)
+  --crate-end-ink: #cfdcf3;         // pale-blue label lettering on the end panel — 6.3:1
+  --crate-card: #d8cdb7;            // dimmed kraft track-card stock (cream on light)
+  --crate-card-hi: #e2d8c2;         // card top highlight
+  --crate-card-active: #ece2cb;     // active/hovered card
+  --crate-card-ink: #221d13;        // card title — 11.3:1 on --crate-card
+  --crate-card-secondary: #524832;  // card artist + status text — 5.7:1 on --crate-card
+  --crate-divider: #cabb92;         // kraft guide-card tab carrying the query
+  --crate-divider-ink: #33261a;
   --crate-sleeve-shadow: rgba(40, 24, 6, 0.4);
-  --crate-scrim: rgba(4, 6, 12, 0.58);   // mobile bottom-sheet backdrop
   --crate-fleck-opacity: 0.06;      // particleboard speckle (feTurbulence layer)
   --crate-shadow-strength: 0.45;
 
@@ -401,14 +403,26 @@
 
   // Chipboard lightens with the page — a lighter warm particleboard, so the
   // bin still reads as an object resting on the paper rather than a hole in
-  // it. The cream cards and oxblood end panel stay put (fixed, per :root).
-  // Shadow deepened to hold the lighter bin off the warm ground — same move
-  // the maple panel made in this theme before it.
+  // it. Shadow deepened to hold the lighter bin off the warm ground — same
+  // move the maple panel made in this theme before it.
   --crate-chip-1: #d2c7b0;
   --crate-chip-2: #c2b69c;
   --crate-chip-band: #a89a80;
   --crate-fleck-opacity: 0.05;
   --crate-shadow-strength: 0.6;
+
+  // The end panel and cards revert to their original oxblood + cream here —
+  // the warm pair the flip bin was drawn with. Only the dark navy page needed
+  // the cooler blue panel and the toned-down card stock (see :root).
+  --crate-end: #8a2233;             // oxblood end panel (the --wax-1 family)
+  --crate-end-ink: #e7cdb0;         // kraft label lettering on the end panel
+  --crate-card: #efe9db;            // cream track-card stock (--cassette-label family)
+  --crate-card-hi: #f6efe0;
+  --crate-card-active: #fff7e7;
+  --crate-card-ink: #2c2718;
+  --crate-card-secondary: #645a48;  // 5.7:1 on --crate-card
+  --crate-divider: #ddc8a2;
+  --crate-divider-ink: #3a2a1c;
 
   // Same five pressings, deepened. The plinth here is ~#d8dae0, so every
   // colourway has plenty of separation — these are richer rather than lighter,
@@ -1619,11 +1633,12 @@ html {
   }
 }
 
-// The bin. Portaled to <body>. On desktop it is positioned via inline `fixed`
-// styles computed from the input row's own rect (see record-crate.jsx) — never
-// reflows the name/tagline, and escapes .home's overflow:hidden (needed for the
-// deck's crop bleed). On mobile (< 768px) it drops the inline styles and
-// becomes a bottom sheet instead — the .record-crate-panel-sheet rules below.
+// The bin. On desktop it is portaled to <body> and positioned via inline
+// `fixed` styles computed from the input row's own rect (see record-crate.jsx)
+// — never reflows the name/tagline, and escapes .home's overflow:hidden
+// (needed for the deck's crop bleed). On mobile (< 768px) it is a plain child
+// of the .is-digging takeover and only flattens itself — the
+// .record-crate-panel-dig rules further down.
 .record-crate-panel {
   z-index: 50;
   display: flex;
@@ -1667,8 +1682,9 @@ html {
   }
 }
 
-// Oxblood end panel — the short side of the bin, facing out. Fixed colour
-// (the --wax-1 family), proud of the box with its own inset shadow.
+// The painted end panel — the short side of the bin, facing out. Colour comes
+// from --crate-end (blue on the navy page, oxblood on Studio Paper); proud of
+// the box with its own inset shadow.
 .record-crate-bin-end {
   position: absolute;
   left: 0;
@@ -1677,8 +1693,12 @@ html {
   width: 17px;
   z-index: 2;
   border-radius: 13px 0 0 13px;
-  background: linear-gradient(180deg, #98283a, #7c1e2e);
-  box-shadow: inset -2px 0 5px rgba(0, 0, 0, 0.35), inset 1px 0 0 rgba(255, 220, 220, 0.14);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--crate-end), #fff 9%),
+    color-mix(in srgb, var(--crate-end), #000 12%)
+  );
+  box-shadow: inset -2px 0 5px rgba(0, 0, 0, 0.35), inset 1px 0 0 rgba(255, 255, 255, 0.14);
 
   span {
     position: absolute;
@@ -1873,61 +1893,139 @@ html {
   box-shadow: inset 0 2px 4px rgba(255, 246, 230, 0.08), inset 0 -3px 7px rgba(0, 0, 0, 0.4);
 }
 
-// Mobile bottom sheet — the bin docks to the bottom edge full width, the rail
-// moves to the top as a grabber, and a scrim sits behind it (the D32 fix: a
-// real tap target that dismisses the panel on touch).
-.record-crate-scrim {
+// Mobile "dig" takeover — below MOBILE_BREAKPOINT the whole .record-crate goes
+// position:fixed and fills the screen: the search field pins to a shelf under
+// the navbar and the track-cards fill the band between it and the on-screen
+// keyboard. This replaces the old bottom sheet, whose results sat behind the
+// iOS keyboard (fixed elements pin to the layout viewport, which the keyboard
+// just overlays). The list reserves --crate-kb (measured live from
+// visualViewport in record-crate.jsx) at its foot so every card stays
+// reachable above the keyboard. Dismiss: the chevron button, Escape, or
+// picking a track (D32 stays fixed — the button is a real touch target).
+.record-crate.is-digging {
   position: fixed;
   inset: 0;
-  z-index: 49;
-  background: var(--crate-scrim);
-  opacity: 0; // GSAP fades it in; kept here so the pre-tween frame isn't opaque
-}
+  z-index: 60; // over the hero, under the navbar (1000) — nav stays usable
+  margin: 0;
+  padding: var(--navbar-height) 0 0; // clear the fixed navbar
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left; // .home centres text on mobile; the crate reads left here
+  // Parked with opacity, not transform: the reveal tween animates `yPercent`,
+  // and a CSS `transform` on the same element makes GSAP stack its animated
+  // value onto this one instead of replacing it (the takeover ended up
+  // translated ~180% down). GSAP owns the transform; this only hides the frame
+  // between the class landing and the tween's first render.
+  opacity: 0;
+  background: linear-gradient(168deg, var(--crate-chip-1), var(--crate-chip-2));
+  box-shadow: 0 -18px 42px -12px rgba(0, 0, 0, 0.55);
 
-.record-crate-panel-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: auto;
-  max-height: 74vh;
-  transform: translateY(110%); // parked off-screen until the reveal tween runs
-  padding: 0 12px max(16px, env(safe-area-inset-bottom)) 24px;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -18px 42px -12px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 246, 230, 0.1);
-
-  &::after {
-    border-radius: 20px 20px 0 0;
+  // Particleboard speckle — same feTurbulence recipe as .record-crate-panel.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: var(--crate-fleck-opacity);
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px;
   }
 
-  .record-crate-bin-end {
-    border-radius: 20px 0 0 0;
-  }
+  // The search field becomes a shelf at the top of the takeover.
+  .record-crate-input-row {
+    flex: none;
+    position: relative;
+    z-index: 1;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--crate-chip-band);
 
-  .record-crate-rail {
-    order: -1;
-    height: 26px;
-    margin: 0 -12px 6px -24px;
-    border-radius: 20px 20px 0 0;
-    background: none;
-    box-shadow: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: grab;
-    touch-action: none;
-
-    &::after {
-      content: "";
-      width: 44px;
-      height: 5px;
-      border-radius: 3px;
-      background: var(--crate-end);
+    &:focus-within {
+      border-bottom-color: var(--crate-chip-band); // no accent flip in the bin
     }
   }
 
+  .record-crate-glyph {
+    color: var(--text-color);
+  }
+
+  .record-crate-card {
+    min-height: 58px;
+    padding: 10px 14px 10px 18px;
+  }
+
+  .record-crate-sleeve {
+    width: 40px;
+    height: 40px;
+  }
+
+  .record-crate-title {
+    font-size: 0.9rem;
+  }
+
+  .record-crate-artist {
+    font-size: 0.72rem;
+  }
+}
+
+// The chevron-down dismiss button — only rendered inside the takeover.
+.record-crate-close {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin: -4px -6px -4px -6px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 9px;
+  color: var(--text-color);
+  cursor: pointer;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--text-color) 14%, transparent);
+  }
+}
+
+// The panel, flattened: no chipboard of its own (the takeover container is the
+// surface), just a flex column that fills the space under the shelf.
+.record-crate-panel-dig {
+  position: static;
+  z-index: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 6px 12px 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+
+  &::before,
+  &::after {
+    display: none;
+  }
+
+  .record-crate-divider {
+    margin: 2px 0 -4px 6px;
+  }
+
   .record-crate-list {
-    max-height: min(340px, 52vh);
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    // Reserve the keyboard's height (plus a little) at the foot so the last
+    // card can scroll clear of it. --crate-kb is 0 until the keyboard opens.
+    padding: 2px 3px calc(20px + var(--crate-kb, 0px) + env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
   }
 }
 
