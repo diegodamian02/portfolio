@@ -1,12 +1,26 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-06 (**Record crate — dark blue end panel + mobile "dig"
-takeover**: owner feedback on the flip bin. The end panel and track-cards
-are theme-aware now — dark gets a painted blue end panel (`--wax-3` family,
-matching dark's `--accent`) and dimmer kraft cards; light re-pins the
-original oxblood + cream. Mobile drops the bottom sheet for a full-screen
-takeover: `.record-crate` goes `position: fixed; inset: 0`, the search
-field pins under the navbar, and the cards fill the space above the
+**Updated:** 2026-09-06 (**Hero background — dot matrix + per-song colour
+schemes**: the neon skyline bars are replaced by a colour DOT MATRIX rising
+from the horizon. Same presence model (blank until a track plays, an eased
+fade-up on play, a measured settle to nothing on stop), same audio pipeline.
+Colour changed from a travelling 7-hue ring to ONE analogous SCHEME per song
+— six families (cobalt / amethyst / ember / rose / citrine / fern), each ~6
+tones, advancing one step per track with a crossfade. `palette-cycle.js` →
+`hero-palette.js` (keeps the saturation-pinned luminance solve; adds
+foot/body/tip targets per theme — electric on dark, deep ink on light).
+`skyline-spectrum.js`'s `render()` rewritten for dots; the bars-only dither /
+tip caps / per-bucket gradient tiling are gone. `skyline-background.jsx`'s
+loop, gating, deck coupling and settle probe are unchanged. Verified in the
+running app both themes — dark tagline 5.5:1 over the dots. Merged to `main`.
+Studio Paper scheme tuning + a proper light-theme contrast measurement still
+open. Full entry in §2.) Prior, same day, **Record crate — dark blue end
+panel + mobile "dig" takeover**: owner feedback on the flip bin. The end
+panel and track-cards are theme-aware now — dark gets a painted blue end
+panel (`--wax-3` family, matching dark's `--accent`) and dimmer kraft cards;
+light re-pins the original oxblood + cream. Mobile drops the bottom sheet for
+a full-screen takeover: `.record-crate` goes `position: fixed; inset: 0`, the
+search field pins under the navbar, and the cards fill the space above the
 keyboard — a `visualViewport` listener (`--crate-kb`) keeps the last card
 clear of it, fixing the sheet's results-behind-the-keyboard problem on iOS.
 Chevron / Escape / pick-a-track to dismiss. **D32** stays fixed. Full entry
@@ -150,6 +164,71 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Hero background — dot matrix + one colour scheme per song *(2026-09-06)*
+
+The Stage 7 synthwave skyline (neon columns + a travelling 7-hue ring) is
+replaced by a colour **dot matrix**. Settled through a `/design` canvas and a
+standalone audio demo (`design-review/hero-background-options/`), which the
+owner reviewed and picked: "not a rainbow — one scheme of colours per song,"
+and "not dotted everywhere — appear when the music plays."
+
+What is unchanged: the whole presence / gating / audio machine in
+`skyline-background.jsx` — the RAF loop, the four gates (in-view, tab-visible,
+playing, settling), the synchronous reveal via `deck-state.js` in
+`playCached()`'s own tick, the measured settle probe reading real column
+heights, the reduced-motion single-frame branch. And in `skyline-spectrum.js`:
+the log-frequency bucketing, the attack-instant / release-`exp(-dt/0.34)`
+ballistics, the two-reference span auto-gain (FINDINGS B55), the spectral
+tilt, the downscaled-buffer glow, and the text safe-zone `destination-out`
+mask.
+
+What changed:
+
+- **`lib/palette-cycle.js` → `lib/hero-palette.js`.** `PALETTE` (7 electric
+  hues) → `SCHEMES`: six analogous families — cobalt, amethyst, ember, rose,
+  citrine, fern — each ~6 tones spanning ~60°. `createPaletteCycle` →
+  `createSchemeCycle`; `advanceTo(trackId)` still steps once per track (no-op
+  on the first, unbounded counter, `smoothstep` crossfade over 1.4s) but the
+  step is now a whole family. `waveState`/`sample` → `schemeState(theme)` →
+  `{ version, fading, toneAt(u) }`, where `u ∈ [0,1]` is a column's position
+  and `toneAt` returns a solved `{ foot, body, tip }`. The
+  saturation-pinned luminance solve (`adapt` / `adaptToBand`) is kept
+  verbatim; `LUMINANCE_TARGETS` gains foot/body/tip stops per theme — dark
+  solves the tones electric (tip mixed toward white), light solves them DEEP
+  (near-black ink foot, saturated-but-dark tip, no white — D27's rule).
+- **`lib/skyline-spectrum.js` — `render()` rewritten for dots.** Grid from
+  width (`CELL_PX ≈ 20`, 22–76 columns, dot radius 0.3·cell); per column,
+  `round(displayed[c] · rows)` dots drawn bottom-up from the horizon, colour
+  lerped foot→body→tip by the dot's height in its column; nothing above the
+  lit dots. A 32-entry tone LUT rebuilt only on a theme flip / resize / active
+  crossfade. Deleted with the bars: `DITHER_*` + the second noise fill,
+  `TIP_CAP_*`, the per-bucket `createLinearGradient` tiling
+  (`BUCKETS_PER_ENTRY`).
+- **`skyline-background.jsx`.** Cycle API swapped; `THEME_RESPONSE` loses
+  `ramp` (the solve moved into `hero-palette.js`), keeps the per-theme glow
+  (`lighter` on dark, `source-over` on light). New: an eased `revealProgress`
+  (0→1 on play, →0 on settle, `1 - exp(-dt/0.3)`) passed to `render()` as a
+  global-alpha + an ~18px upward lift — the fade-up the owner liked in the
+  demo. The settle probe now also waits for that fade to finish before
+  releasing the loop.
+- **`main.scss` — `.hero-skyline-canvas`.** The Stage 11 light-theme
+  "atmosphere floor" gradient behind the transparent canvas is kept and a
+  fainter version extended to dark (`--accent` at 6% from 58%).
+
+**Measured, in the running app, playing a real preview, both themes:** dark
+theme headline 12.3:1, tagline **5.5:1**, crate 5.3:1 over the composited
+dots (the site holds ≥5:1). Light theme reads clean with the safe-zone halo —
+a precise composited-pixel measurement of light still owes a screenshot-sample
+harness (the canvas CSS background + body ground don't show in
+`getImageData`). Idle hero byte-unchanged. `npm run lint` unaffected (7
+errors / 2 warnings, the standing baseline); `vite build` clean. **Merged to
+`main`.**
+
+**Still open:** citrine / fern read brighter on dark than the blue-family
+schemes (their tones clamp near the `body` band ceiling — a candidate for
+tightening `LUMINANCE_TARGETS.dark.body.max`); the light-theme scheme solve
+wants an eye on real playback; screenshots regen.
 
 ### Record crate — blue end panel on dark, mobile "dig" takeover *(2026-09-06)*
 
