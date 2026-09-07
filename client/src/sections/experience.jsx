@@ -4,6 +4,7 @@ import colegio from "../assets/colegio.jpg";
 import graduation from "../assets/graduation.jpg";
 import globalLogic from "../assets/global-logic.jpg";
 import codewiz from "../assets/codewiz.jpeg";
+import capgemini from "../assets/capgemini.jpeg";
 import { useGSAP } from "@gsap/react";
 import { gsap, ScrollTrigger, SIGNATURE_EASE } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
@@ -73,7 +74,12 @@ const EXPERIENCE_ENTRIES = [
         year: "2026",
         role: "Capgemini — Test Engineer",
         caption: "Weekly regression testing on Archy, McDonald's AI drive-thru system.",
-        motif: "scan",
+        image: capgemini,
+        imageAlt: "The Capgemini logo",
+        // A logo, not a photo — object-fit: contain on a clean ground rather
+        // than cover (see .experience-media--logo in main.scss). The scan
+        // motif this card used to carry is dropped: it needs a clean field.
+        logo: true,
         // cdn.simpleicons.org/capgemini 404s (tested, unchanged since Task 7)
         // — no Capgemini mark exists in the icon set, so the lockup stays
         // mixed: "Capgemini" as text, the real McDonald's mark for the half
@@ -104,7 +110,7 @@ function ClientBadge() {
 /* eslint-disable react/prop-types */
 function EntryMedia({ entry }) {
     return (
-        <div className="experience-media">
+        <div className={"experience-media" + (entry.logo ? " experience-media--logo" : "")}>
             {entry.image && <img src={entry.image} alt={entry.imageAlt} className="experience-image" />}
             {entry.motif && <WorkMotif variant={entry.motif} />}
             {entry.clientBadge && <ClientBadge />}
