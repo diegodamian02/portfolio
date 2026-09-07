@@ -82,20 +82,19 @@
   --scroll-offset: calc(var(--navbar-height) + 24px);
 
   // Record crate — a record-shop chipboard flip bin, replacing the
-  // roasted-maple fretboard. Unlike the maple, the chipboard body IS a themed
-  // surface: a deep warm-grey particleboard on the navy page, a lighter
-  // warm-grey on Studio Paper — redeclared under [data-theme="light"] below.
-  // The end panel and track-cards ARE theme-aware now (owner call, 2026-09-06):
-  // on the navy page a bright cream sleeve glares and the oxblood end panel
-  // fights the cool ground, so dark gets a painted BLUE end panel (the --wax-3
-  // midnight family, lining up with this theme's own --accent) and a dimmer
-  // kraft card stock; Studio Paper keeps the oxblood + cream it was designed
-  // with (redeclared under [data-theme="light"]). Spines stay --wax-1..5,
-  // picked per track by cardHueFor (card-hue.js) — the hash #my-taste runs.
-  --crate-chip-1: #423d36;          // chipboard, lit face
-  --crate-chip-2: #33302a;          // chipboard, shaded face
-  --crate-chip-band: #24211d;       // melamine edge banding + front rail
-  --crate-end: #284a86;             // painted blue end panel (the --wax-3 family)
+  // roasted-maple fretboard. The chipboard body IS a themed surface, and on
+  // the navy page it's a cool blue-slate (owner call, 2026-09-06 round 2 — a
+  // warm-grey bin fought the cool ground); Studio Paper keeps a warm
+  // particleboard, redeclared under [data-theme="light"] below.
+  // The end panel and track-cards are theme-aware too: dark gets a painted
+  // BLUE end panel (the --wax-3 midnight family, lining up with this theme's
+  // --accent) and a dimmer kraft card stock; Studio Paper keeps the oxblood +
+  // cream it was designed with. Spines stay --wax-1..5, picked per track by
+  // cardHueFor (card-hue.js) — the hash #my-taste runs.
+  --crate-chip-1: #2b333f;          // chipboard, lit face — cool blue-slate
+  --crate-chip-2: #20262f;          // chipboard, shaded face
+  --crate-chip-band: #171b22;       // melamine edge banding + front rail
+  --crate-end: #2f5290;             // painted blue end panel (the --wax-3 family)
   --crate-end-ink: #cfdcf3;         // pale-blue label lettering on the end panel — 6.3:1
   --crate-card: #d8cdb7;            // dimmed kraft track-card stock (cream on light)
   --crate-card-hi: #e2d8c2;         // card top highlight
@@ -107,6 +106,10 @@
   --crate-sleeve-shadow: rgba(40, 24, 6, 0.4);
   --crate-fleck-opacity: 0.06;      // particleboard speckle (feTurbulence layer)
   --crate-shadow-strength: 0.45;
+  // Mobile "dig" takeover: the fixed search shelf's height (input's 50px
+  // border-box + 2×16px row padding). One measured constant, like
+  // --navbar-height — the panel below reserves navbar + this.
+  --crate-shelf-h: 82px;
 
   // Vinyl colourways — the "special pressing" feel of a record store. Chosen
   // per track by a hash of its id (see vinyl-record.jsx), never at random, so a
@@ -1639,12 +1642,11 @@ html {
   }
 }
 
-// The bin. On desktop it is portaled to <body> and positioned via inline
-// `fixed` styles computed from the input row's own rect (see record-crate.jsx)
-// — never reflows the name/tagline, and escapes .home's overflow:hidden
-// (needed for the deck's crop bleed). On mobile (< 768px) it is a plain child
-// of the .is-digging takeover and only flattens itself — the
-// .record-crate-panel-dig rules further down.
+// The bin. Always portaled to <body> — never a descendant of .record-crate —
+// so animating it can't reflow the hero grid. Desktop: positioned via inline
+// `fixed` styles from the input row's rect, opening upward (escapes .home's
+// overflow:hidden, needed for the deck's crop bleed). Mobile (< 768px): a
+// full-screen sheet — the .record-crate-panel-dig rules further down.
 .record-crate-panel {
   z-index: 50;
   display: flex;
@@ -1899,80 +1901,59 @@ html {
   box-shadow: inset 0 2px 4px rgba(255, 246, 230, 0.08), inset 0 -3px 7px rgba(0, 0, 0, 0.4);
 }
 
-// Mobile "dig" takeover — below MOBILE_BREAKPOINT the whole .record-crate goes
-// position:fixed and fills the screen: the search field pins to a shelf under
-// the navbar and the track-cards fill the band between it and the on-screen
-// keyboard. This replaces the old bottom sheet, whose results sat behind the
-// iOS keyboard (fixed elements pin to the layout viewport, which the keyboard
-// just overlays). The list reserves --crate-kb (measured live from
-// visualViewport in record-crate.jsx) at its foot so every card stays
-// reachable above the keyboard. Dismiss: the chevron button, Escape, or
-// picking a track (D32 stays fixed — the button is a real touch target).
+// Mobile "dig" takeover — below MOBILE_BREAKPOINT the expanded bin fills the
+// screen: the search field pins to a chipboard shelf under the navbar and the
+// track-cards fill the band between it and the on-screen keyboard. Replaces
+// the old bottom sheet, whose results sat behind the iOS keyboard (fixed
+// elements pin to the layout viewport, which the keyboard just overlays). The
+// list reserves --crate-kb (written live from visualViewport in
+// record-crate.jsx) at its foot so every card stays reachable above the
+// keyboard. Dismiss: the chevron button, Escape, or picking a track (D32 stays
+// fixed — the button is a real touch target).
+//
+// The chipboard surface is .record-crate-panel-dig, a <body>-portaled element
+// — NOT .record-crate itself. .record-crate stays in the hero grid; making it
+// position:fixed pulled it out of the grid and reflowed the deck on every
+// open, which is the jank the first version had. All .record-crate.is-digging
+// does now is hold its own row height and lift its z-index so the fixed shelf
+// paints above the portaled panel.
 .record-crate.is-digging {
-  position: fixed;
-  inset: 0;
-  z-index: 60; // over the hero, under the navbar (1000) — nav stays usable
-  margin: 0;
-  padding: var(--navbar-height) 0 0; // clear the fixed navbar
-  max-width: none;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  z-index: 61; // shelf (inside) must clear the portaled panel (z 60)
+  min-height: 59px; // == the resting input-row height, so the deck can't jump
   text-align: left; // .home centres text on mobile; the crate reads left here
-  // Parked with opacity, not transform: the reveal tween animates `yPercent`,
-  // and a CSS `transform` on the same element makes GSAP stack its animated
-  // value onto this one instead of replacing it (the takeover ended up
-  // translated ~180% down). GSAP owns the transform; this only hides the frame
-  // between the class landing and the tween's first render.
-  opacity: 0;
-  background: linear-gradient(168deg, var(--crate-chip-1), var(--crate-chip-2));
-  box-shadow: 0 -18px 42px -12px rgba(0, 0, 0, 0.55);
+  // The container still occupies its (transparent) 59px grid box while digging;
+  // without this it would sit over the portaled panel (z 61 > 60) and eat taps
+  // on the cards behind it. Only the fixed shelf re-enables pointer events.
+  pointer-events: none;
 
-  // Particleboard speckle — same feTurbulence recipe as .record-crate-panel.
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    opacity: var(--crate-fleck-opacity);
-    pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 200px;
-  }
-
-  // The search field becomes a shelf at the top of the takeover.
   .record-crate-input-row {
-    flex: none;
-    position: relative;
-    z-index: 1;
-    gap: 12px;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--crate-chip-band);
-
-    &:focus-within {
-      border-bottom-color: var(--crate-chip-band); // no accent flip in the bin
-    }
+    pointer-events: auto;
   }
+}
+
+// The search field, pinned as the takeover's top shelf. position:fixed on just
+// the row (not .record-crate) keeps the grid intact. GSAP fades it in with the
+// panel; opacity:0 is the pre-tween park.
+.record-crate.is-digging .record-crate-input-row {
+  position: fixed;
+  top: var(--navbar-height);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  box-sizing: border-box;
+  min-height: var(--crate-shelf-h);
+  gap: 12px;
+  padding: 16px;
+  opacity: 0;
+  // Flat --crate-chip-1 so it meets the panel's chipboard (which is near
+  // chip-1 at its top) with no visible step; the soft shadow reads it as a
+  // shelf the list scrolls under.
+  background: var(--crate-chip-1);
+  border-bottom: none; // also kills the base row's :focus-within accent line
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.5);
 
   .record-crate-glyph {
     color: var(--text-color);
-  }
-
-  .record-crate-card {
-    min-height: 58px;
-    padding: 10px 14px 10px 18px;
-  }
-
-  .record-crate-sleeve {
-    width: 40px;
-    height: 40px;
-  }
-
-  .record-crate-title {
-    font-size: 0.9rem;
-  }
-
-  .record-crate-artist {
-    font-size: 0.72rem;
   }
 }
 
@@ -2002,19 +1983,27 @@ html {
   }
 }
 
-// The panel, flattened: no chipboard of its own (the takeover container is the
-// surface), just a flex column that fills the space under the shelf.
+// The full-screen chipboard layer. Portaled to <body> (like the desktop panel)
+// so its slide-up tween is a clean compositor layer with nothing in the hero
+// grid to relayout. Parked at opacity:0 (not a transform — a CSS transform on
+// the tweened element makes GSAP stack its animated value onto it).
 .record-crate-panel-dig {
-  position: static;
-  z-index: auto;
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 6px 12px 0;
+  position: fixed;
+  inset: 0;
+  z-index: 60; // over the hero, under the navbar (1000) — nav stays usable
+  display: flex;
+  flex-direction: column;
+  // Clear the fixed navbar AND the fixed input-row shelf sitting on top of it.
+  padding: calc(var(--navbar-height) + var(--crate-shelf-h)) 12px 0;
   border-radius: 0;
-  background: none;
+  overflow: hidden;
+  opacity: 0;
+  will-change: transform, opacity; // keep it on its own layer for the slide
+  background: linear-gradient(168deg, var(--crate-chip-1), var(--crate-chip-2));
   box-shadow: none;
-  overflow: visible;
 
+  // No feTurbulence fleck here — a full-screen SVG filter is a needless raster
+  // cost on the open, and at 0.06 opacity it barely reads on a phone anyway.
   &::before,
   &::after {
     display: none;
@@ -2022,6 +2011,24 @@ html {
 
   .record-crate-divider {
     margin: 2px 0 -4px 6px;
+  }
+
+  .record-crate-card {
+    min-height: 58px;
+    padding: 10px 14px 10px 18px;
+  }
+
+  .record-crate-sleeve {
+    width: 40px;
+    height: 40px;
+  }
+
+  .record-crate-title {
+    font-size: 0.9rem;
+  }
+
+  .record-crate-artist {
+    font-size: 0.72rem;
   }
 
   .record-crate-list {

@@ -41,20 +41,16 @@ export default function RecordCrate({ onSelect }) {
     const [results, setResults] = useState([]);
     const [activeIndex, setActiveIndex] = useState(-1);
     const [panelStyle, setPanelStyle] = useState(null);
-    // Below MOBILE_BREAKPOINT the expanded bin is a full-screen "dig" takeover
-    // (CSS-positioned, the whole .record-crate goes position:fixed); above it,
-    // a rect-anchored `fixed` dropdown portaled to <body>.
+    // Below MOBILE_BREAKPOINT the expanded bin is a full-screen "dig" takeover;
+    // above it, a rect-anchored `fixed` dropdown. Either way the panel is
+    // portaled to <body> (never a descendant of .record-crate) so animating it
+    // can't reflow the hero grid.
     const [isMobile, setIsMobile] = useState(
         () => typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT
     );
     // Kept mounted through the close animation, then unmounted by its onComplete —
     // a full-screen takeover must slide away, not just vanish.
     const [mounted, setMounted] = useState(false);
-    // How much of the viewport the on-screen keyboard covers (mobile only). iOS
-    // pins position:fixed to the layout viewport, so without this the lower half
-    // of the takeover — the results — sits behind the keyboard. See the
-    // visualViewport effect below; consumed as --crate-kb by the list padding.
-    const [kbInset, setKbInset] = useState(0);
 
     const wrapRef = useRef(null);
     const inputRowRef = useRef(null);
@@ -64,6 +60,11 @@ export default function RecordCrate({ onSelect }) {
     const requestIdRef = useRef(0);
     const tlRef = useRef(null);
     const revealedRef = useRef(false);
+    // The keyboard inset is written straight to the panel's --crate-kb custom
+    // property (rAF-throttled) rather than held in React state — the keyboard
+    // slide fires a burst of visualViewport events, and a setState per event
+    // would re-render the whole component mid-open-animation.
+    const kbRafRef = useRef(0);
 
     const runSearch = useCallback(async (term) => {
         const reqId = ++requestIdRef.current;
@@ -110,9 +111,9 @@ export default function RecordCrate({ onSelect }) {
     }, []);
 
     const showPanel = open && query.trim().length > 0;
-    // The takeover is live: .record-crate is a fixed full-screen layer. Kept
-    // true through the close animation (keys off `mounted`, not `showPanel`) so
-    // the container doesn't snap back into the hero grid mid-slide-out.
+    // The takeover is live: the input row is a fixed shelf and the portaled
+    // panel fills the screen. Keyed off `mounted` (not `showPanel`) so it holds
+    // through the close animation.
     const digging = isMobile && mounted;
 
     // Intent to be open pulls the panel into the DOM; the close animation's
@@ -121,13 +122,10 @@ export default function RecordCrate({ onSelect }) {
         if (showPanel) setMounted(true);
     }, [showPanel]);
 
-    // Desktop only: the bin is portaled to <body> and positioned with `fixed`
-    // coords from the input row's own rect — NOT a descendant of .record-crate.
-    // .home has overflow:hidden (needed for the deck's right-edge crop bleed)
-    // and the hero is exactly 100vh, so a same-ancestor panel near the bottom
-    // of a short viewport would get vertically clipped. It opens upward from
-    // the input. The mobile takeover needs none of this — .record-crate itself
-    // goes position:fixed and fills the screen.
+    // Desktop: position the portaled panel with `fixed` coords from the input
+    // row's own rect. It opens upward from the input, escaping .home's
+    // overflow:hidden (needed for the deck's crop bleed). Mobile needs none of
+    // this — the panel is a CSS-positioned full-screen sheet.
     useLayoutEffect(() => {
         if (!mounted || isMobile) return;
 
@@ -152,46 +150,54 @@ export default function RecordCrate({ onSelect }) {
         };
     }, [mounted, isMobile, showPanel]);
 
-    // Mobile only: track how much the on-screen keyboard covers, so the list
-    // can reserve that much space at its foot and every card stays reachable
-    // above the keyboard. On Android (keyboard resizes the layout viewport)
-    // this computes ~0 and nothing changes, which is correct.
+    // Mobile only: keep the result list clear of the on-screen keyboard. iOS
+    // pins position:fixed to the layout viewport, so the lower half of the
+    // takeover would sit behind the keyboard; visualViewport reports how much
+    // is covered. Written straight to the panel node, rAF-throttled — no
+    // setState, so the keyboard-slide event burst can't re-render mid-anim.
+    // On Android (keyboard resizes the layout viewport) this computes ~0.
     useEffect(() => {
         if (!mounted || !isMobile) return;
         const vv = window.visualViewport;
         if (!vv) return;
-        const update = () => {
-            setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+        const apply = () => {
+            kbRafRef.current = 0;
+            const px = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            panelRef.current?.style.setProperty("--crate-kb", `${px}px`);
         };
-        update();
-        vv.addEventListener("resize", update);
-        vv.addEventListener("scroll", update);
+        const onChange = () => {
+            if (!kbRafRef.current) kbRafRef.current = requestAnimationFrame(apply);
+        };
+        apply();
+        vv.addEventListener("resize", onChange);
+        vv.addEventListener("scroll", onChange);
         return () => {
-            vv.removeEventListener("resize", update);
-            vv.removeEventListener("scroll", update);
-            setKbInset(0);
+            vv.removeEventListener("resize", onChange);
+            vv.removeEventListener("scroll", onChange);
+            if (kbRafRef.current) cancelAnimationFrame(kbRafRef.current);
+            kbRafRef.current = 0;
         };
     }, [mounted, isMobile]);
 
-    // Reveal / dismiss. Desktop: fade + 8px rise, matching the old maple panel.
-    // Mobile: the whole takeover slides up (yPercent) and fades (autoAlpha) from
-    // the bottom edge, and on close slides/fades back down before unmounting.
-    // GSAP owns the transform — the CSS park on .is-digging is `opacity: 0`, not
-    // a transform, because a CSS transform on the tweened element makes GSAP
-    // stack its animated value onto it instead of replacing it. revealedRef
-    // gates the "in" animation to once per open — the desktop position effect
-    // calls setPanelStyle on every scroll, and without the gate each of those
-    // would restart the fade-in.
+    // Reveal / dismiss. The portaled panel is the animated element in every
+    // case (a <body> child — its transform/opacity tween can't touch the hero
+    // grid). Desktop: fade + 8px rise. Mobile: the panel slides up from the
+    // bottom edge and the input-row shelf fades in with it; on close both
+    // reverse before unmounting. The CSS park on .record-crate-panel-dig is
+    // `opacity: 0` (not a transform — a CSS transform on the tweened element
+    // makes GSAP stack its animated value onto it). revealedRef gates the "in"
+    // animation to once per open — the desktop position effect calls
+    // setPanelStyle on every scroll and each would otherwise restart the fade.
     useEffect(() => {
         if (!mounted) return;
-        const wrapEl = wrapRef.current;
         const panelEl = panelRef.current;
-        const el = isMobile ? wrapEl : panelEl;
-        if (!el) return;
+        const rowEl = inputRowRef.current;
+        if (!panelEl) return;
 
         const finishClose = () => {
             setMounted(false);
-            if (wrapEl) gsap.set(wrapEl, { clearProps: "transform,opacity,visibility" });
+            gsap.set(panelEl, { clearProps: "transform,opacity,visibility" });
+            if (rowEl) gsap.set(rowEl, { clearProps: "opacity,visibility" });
         };
 
         if (showPanel) {
@@ -199,14 +205,16 @@ export default function RecordCrate({ onSelect }) {
             revealedRef.current = true;
             tlRef.current?.kill();
             if (reduced) {
-                gsap.set(el, isMobile ? { yPercent: 0, autoAlpha: 1 } : { opacity: 1, y: 0 });
+                gsap.set(panelEl, isMobile ? { yPercent: 0, autoAlpha: 1 } : { opacity: 1, y: 0 });
+                if (isMobile && rowEl) gsap.set(rowEl, { autoAlpha: 1 });
                 return;
             }
             const tl = gsap.timeline();
             if (isMobile) {
-                tl.fromTo(el, { yPercent: 100, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: 0.34, ease: "power3.out" }, 0);
+                tl.fromTo(panelEl, { yPercent: 100, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: 0.3, ease: "power2.out" }, 0);
+                if (rowEl) tl.fromTo(rowEl, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.18, ease: "power1.out" }, 0);
             } else {
-                tl.fromTo(el, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.24, ease: "power2.out" }, 0);
+                tl.fromTo(panelEl, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.24, ease: "power2.out" }, 0);
             }
             tlRef.current = tl;
             return;
@@ -222,9 +230,10 @@ export default function RecordCrate({ onSelect }) {
         }
         const tl = gsap.timeline({ onComplete: finishClose });
         if (isMobile) {
-            tl.to(el, { yPercent: 100, autoAlpha: 0, duration: 0.24, ease: "power2.in" }, 0);
+            tl.to(panelEl, { yPercent: 100, autoAlpha: 0, duration: 0.22, ease: "power2.in" }, 0);
+            if (rowEl) tl.to(rowEl, { autoAlpha: 0, duration: 0.16, ease: "power1.in" }, 0);
         } else {
-            tl.to(el, { opacity: 0, y: 6, duration: 0.14, ease: "power2.in" }, 0);
+            tl.to(panelEl, { opacity: 0, y: 6, duration: 0.14, ease: "power2.in" }, 0);
         }
         tlRef.current = tl;
     }, [showPanel, mounted, isMobile, reduced, panelStyle]);
@@ -250,7 +259,7 @@ export default function RecordCrate({ onSelect }) {
         // pointerdown, not mousedown: a touch drag never synthesises a mousedown
         // (only a tap does, after touchend), so the panel could not be dismissed
         // by touch at all (FINDINGS D32). On mobile the takeover is full-screen
-        // so nothing is ever "outside" it — the ✕/chevron button and Escape are
+        // so nothing is ever "outside" it — the chevron button and Escape are
         // the dismiss there; this covers desktop and is the backstop.
         function handlePointerDown(e) {
             const insideWrap = wrapRef.current && wrapRef.current.contains(e.target);
@@ -323,6 +332,9 @@ export default function RecordCrate({ onSelect }) {
             className={`record-crate-panel${isMobile ? " record-crate-panel-dig" : ""}`}
             style={isMobile ? undefined : panelStyle || undefined}
             ref={panelRef}
+            {...(isMobile
+                ? { role: "dialog", "aria-modal": "true", "aria-label": "Search the crate", "data-lenis-prevent": "" }
+                : {})}
         >
             {!isMobile && (
                 <span className="record-crate-bin-end" aria-hidden="true">
@@ -377,19 +389,13 @@ export default function RecordCrate({ onSelect }) {
         </div>
     );
 
-    const panel = isMobile
-        ? (mounted && panelBody)
-        : (mounted && panelStyle && createPortal(panelBody, document.body));
+    const panel = mounted && (isMobile || panelStyle) && createPortal(panelBody, document.body);
 
     return (
         <div
             className={`record-crate${digging ? " is-digging" : ""}`}
             ref={wrapRef}
-            style={digging ? { "--crate-kb": `${kbInset}px` } : undefined}
             data-lenis-prevent={digging ? "" : undefined}
-            role={digging ? "dialog" : undefined}
-            aria-modal={digging ? "true" : undefined}
-            aria-label={digging ? "Search the crate" : undefined}
         >
             <div className="record-crate-input-row" ref={inputRowRef}>
                 {digging && (

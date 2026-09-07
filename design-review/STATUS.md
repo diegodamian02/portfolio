@@ -1,7 +1,15 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-06 (**Hero background — dot matrix + per-song colour
-schemes**: the neon skyline bars are replaced by a colour DOT MATRIX rising
+**Updated:** 2026-09-06 (**Record crate — cool dark chipboard + smoother
+mobile open**: the dark chipboard is a cool blue-slate now (`--crate-chip-*`,
+was warm grey-brown) so the bin reads with the navy / blue-vinyl / dot-matrix
+vibe instead of against it; light keeps its warm particleboard. The mobile
+takeover was re-architected — `.record-crate` stays in the hero grid (only
+the input row pins; the panel portals to `<body>`), killing a measured
+first-open frame-drop from the grid reflowing when it went `position: fixed`.
+Full entry in §2.) Prior, same day (**Hero background — dot matrix + per-song
+colour schemes**: the neon skyline bars are replaced by a colour DOT MATRIX
+rising
 from the horizon. Same presence model (blank until a track plays, an eased
 fade-up on play, a measured settle to nothing on stop), same audio pipeline.
 Colour changed from a travelling 7-hue ring to ONE analogous SCHEME per song
@@ -164,6 +172,47 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Record crate — cool dark chipboard, smoother mobile open *(2026-09-06)*
+
+Owner feedback on the "dig" takeover: liked it, but the mobile open "looks
+kinda laggy," and the dark chipboard "isn't the most suitable" for the vibe.
+
+**The dark chipboard is a cool blue-slate now** — `--crate-chip-1 #2b333f`,
+`-2 #20262f`, `-band #171b22` (was a warm grey-brown `#423d36`). A warm
+cardboard bin fought the navy page, the blue vinyl, the blue accent and the
+new dot-matrix hero; a cool slate bin reads as part of that world and lets
+the warm kraft cards pop against it. Studio Paper keeps its warm
+particleboard. The blue end panel went a touch brighter (`#2f5290`) so it
+still separates from the now-blue chipboard.
+
+**The mobile open was re-architected to kill the hitch.** The first version
+made the whole `.record-crate` `position: fixed`, which pulled it out of the
+hero grid and reflowed the deck on every open — a measured ~2 dropped frames
+on the first open (CPU-throttled trace: a `UpdateLayoutTree` + `Layout` spike
+right as the takeover mounts). Now:
+
+- `.record-crate` **stays in the grid**. `.is-digging` only lifts its
+  z-index and holds its row height (`min-height: 59px` = the resting input
+  row) so the deck can't jump; `pointer-events: none` on the container with
+  `auto` on the shelf so it doesn't eat taps on the cards behind it.
+- The chipboard panel is **portaled to `<body>`** (like the desktop
+  dropdown always was) — a clean compositor layer with nothing in the grid
+  to relayout. `will-change: transform, opacity`; the fleck `feTurbulence`
+  is dropped on mobile (needless full-screen raster, invisible at 0.06).
+- Only `.record-crate-input-row` goes `position: fixed`, pinned to a
+  chipboard shelf at the navbar line (`--crate-shelf-h: 82px`, one measured
+  constant; the panel reserves `navbar + shelf` as `padding-top`).
+- Open is a shorter slide + fade (`power2.out`, 300ms). `--crate-kb` is
+  written straight to the panel node, rAF-throttled — no `setState`, so the
+  keyboard-slide event burst can't re-render mid-animation.
+
+**Verified** (Playwright, 5173, CPU 6×): every mobile open — first included —
+is a steady 60fps, zero dropped frames (was 83ms + 33ms on open #1). Desktop
++ mobile × dark + light: 5 cards, shelf at the navbar line, panel portaled &
+covering, clears navbar+shelf, `role="dialog"`, select / Escape / chevron all
+dismiss, resting DOM clean after close (no leftover inline styles, deck
+doesn't jump), 0 crate console errors. `lint` unchanged (7/2). `build` clean.
 
 ### Hero background — dot matrix + one colour scheme per song *(2026-09-06)*
 
