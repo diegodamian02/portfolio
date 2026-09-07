@@ -1,6 +1,20 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-07 (**Hero full-bleed + section spacing pass**: owner
+**Updated:** 2026-09-07 (**Theme-toggle smoothing**: closing the surfaces the D8
+crossfade structurally can't reach. `<meta name="theme-color">` was OS-keyed —
+now one tag `navbar.jsx` rewrites to the resolved `--bg-color` on every flip, so
+the mobile status/address bar follows the in-page toggle (and its stale light
+value `#f6f7fb` → the real `#f3f0ea`). `color-scheme` declared per theme
+(scrollbar / controls / overscroll track the toggle). A 9-line inline `<head>`
+script applies the stored theme before first paint — kills the dark→light flash
+light-theme visitors got on every load without the once-per-session intro. The
+hero "atmosphere floor" gradient moved off the `<canvas>` onto `.hero-atmosphere`
+`::before`/`::after` that opacity-crossfade (a `background-image` can't
+interpolate); the dot-matrix canvas itself fades out/in through a flip via WAAPI
+in `skyline-background.jsx` (D8's `.is-theme-switching` catch-all can't reach a
+canvas, and ties+beats a CSS `transition` on it). 180ms duration unchanged.
+Branch `hero-dot-matrix`; lint/build clean. Full entry in §2.) Prior, same day,
+**Hero full-bleed + section spacing pass**: owner
 review of the dot-matrix hero and the sections under it. `.hero-skyline-canvas`
 goes full-bleed (was inset 24px from the bottom) — the animated-matrix peek in
 the navbar band above `#about` is prevented in JS now (a shared IntersectionObserver
@@ -186,6 +200,78 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Theme-toggle smoothing — mobile chrome, `color-scheme`, atmosphere crossfade, load flash *(2026-09-07)*
+
+Owner: *"work on the transition between light and dark — it looks great so far
+but we can smooth it, and keep mobile in mind."* The D8 crossfade (one 180ms
+`--theme-transition` on every colour surface, enabled during the switch by
+`.is-theme-switching`) was already doing the heavy lifting; this closes the
+surfaces it structurally can't reach. Branch `hero-dot-matrix`.
+
+**Mobile browser chrome now follows the in-page toggle.** `<meta
+name="theme-color">` was two `prefers-color-scheme` media entries — keyed to the
+OS, not the site's own dark-first toggle — so on an OS-dark phone the iOS
+status/address bar stayed dark after switching the page to light, and never
+crossfaded. Now one plain `<meta name="theme-color" content="#0a0e1a">` that
+`navbar.jsx` rewrites to the resolved `--bg-color` (`getComputedStyle`, read
+straight back from the cascade — a custom property isn't animated so it's
+already the destination value) inside the same effect that flips `data-theme`.
+Mobile Safari and Chrome animate the bar to the new colour themselves. The old
+light value was also stale — `#f6f7fb`, the pre-"Studio Paper" bg; the real one
+is `#f3f0ea`.
+
+**`color-scheme` declared** — `dark` on `:root`, `light` on `[data-theme="light"]`.
+The scrollbar, form controls, spellcheck underline and the overscroll edge now
+track the toggle instead of the OS; before, a light page on an OS-dark device
+kept a dark scrollbar that snapped on switch.
+
+**The on-load dark flash is gone.** `data-theme` was applied by React after
+mount, and the `:root` token defaults are the dark set, so a light-theme visitor
+got a full-viewport dark→light flash on every load that skips the once-per-session
+intro (return visits, reduced motion). A 9-line inline `<script>` in `<head>`
+now reads `localStorage.theme` and sets `data-theme` + the `theme-color` meta
+before first paint. Only the attribute — the built stylesheet is render-blocking
+so the tokens resolve before paint. `navbar.jsx`'s existing `themeApplied` ref
+already stops this first application from crossfading. Verified: `data-theme` is
+`"light"` and `theme-color` is `#f3f0ea` at `commit` (pre-React); `body`
+background is `rgb(243,240,234)` by `load`, never the dark value.
+
+**Hero "atmosphere floor" crossfades.** The faint accent glow under the dot
+matrix was a `linear-gradient` on the canvas element, swapped wholesale per
+theme — a `background-image` can't interpolate (D8's own first lesson), so the
+accent snapped blue↔orange under the page's fade. Moved off the canvas onto
+`.hero-atmosphere` (a new `pointer-events:none` element rendered first in
+`home.jsx`, so DOM order keeps it under the canvas): `::before` carries the dark
+gradient, `::after` the light one, and they opacity-crossfade past each other on
+`--theme-transition`. Both are 6–11% accent so the brief mid-transition overlap
+reads as a crossfade, not a doubling. Selectors are scoped `.home
+.hero-atmosphere::before` **on purpose** — a bare `.hero-atmosphere::before` is
+(0,1,1), ties the `.is-theme-switching *::before` catch-all, and loses on source
+order (D8 sits last), which would swap in the catch-all's `transition` list
+(no `opacity`) for exactly the 180ms it needs to animate. Sampled through a
+flip: `::before` 0 → 0.31 → 0.84 → 1.0 while `::after` mirrors it, in lockstep
+with `body` 243→171→48→10.
+
+**Hero dot-matrix canvas fades through the flip.** The per-dot colour *solve*
+differs hard between themes (electric vs deep ink, `hero-palette.js`) with
+nothing to tween, and it's a `<canvas>` so D8 can't reach it — a theme change
+mid-track snapped every dot in one frame. `skyline-background.jsx`'s two
+`data-theme` observers now route through `fadeThroughThemeFlip()`: when the
+matrix is actually on screen (`skylineState` playing / settling / static-playing)
+it fades the canvas to 0 with the **Web Animations API** (not a CSS transition —
+same catch-all specificity trap), lets the repaint swap colours underneath while
+it's invisible, and fades back. A no-op at rest — the canvas is genuinely blank
+then. Verified both `prefers-reduced-motion` states: animation runs, opacity
+returns to 1, `getAnimations()` clears, no console errors.
+
+**Duration unchanged** — 180ms. D8's reasoning (the duration *is* the length of
+the mid-flip window where background and text both sit near mid-grey and text
+contrast dips toward 1:1) still holds; the token is a one-line change if it
+reads quick once the rest lands.
+
+`npm run lint` unchanged (7 errors / 2 warnings, the standing baseline);
+`vite build` clean.
 
 ### Hero full-bleed + section spacing pass *(2026-09-07)*
 

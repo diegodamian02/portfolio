@@ -67,6 +67,25 @@ export default function Navbar() {
 
         root.setAttribute("data-theme", theme);
         localStorage.setItem("theme", theme);
+
+        // Mobile browser chrome (the iOS status/address bar, Android's) reads
+        // <meta name="theme-color">, not data-theme, so it has to be kept in
+        // step by hand or it stays on whichever theme loaded. Read --bg-color
+        // straight back from the cascade rather than repeating the two hexes
+        // here — a custom property isn't animated, so this is already the
+        // destination value the moment the attribute flips. Mobile Safari and
+        // Chrome crossfade the bar to the new colour on their own.
+        const bg = getComputedStyle(root).getPropertyValue("--bg-color").trim();
+        if (bg) {
+            let meta = document.querySelector('meta[name="theme-color"]');
+            if (!meta) {
+                meta = document.createElement("meta");
+                meta.setAttribute("name", "theme-color");
+                document.head.appendChild(meta);
+            }
+            meta.setAttribute("content", bg);
+        }
+
         window.dispatchEvent(new Event("themeChange"));
 
         return () => clearTimeout(timer);

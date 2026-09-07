@@ -633,6 +633,25 @@ Three things worth carrying forward:
   filter to rendered elements: a display-hidden element reports its declared transition
   but does not run it.
 
+**Follow-up (2026-09-07) — the surfaces D8 structurally can't reach.** Full entry in
+`STATUS.md`. Four gaps, all closed on branch `hero-dot-matrix`:
+
+- **`<meta name="theme-color">` was OS-keyed** (two `prefers-color-scheme` entries), so
+  the mobile status/address bar ignored the site's own dark-first toggle and never
+  crossfaded. Now one tag, rewritten to the resolved `--bg-color` in `navbar.jsx`'s
+  theme effect. The old light value `#f6f7fb` was also stale (pre-"Studio Paper").
+- **No `color-scheme`.** Declared `dark` / `light` per theme — scrollbar, controls and
+  the overscroll edge now follow the toggle, not the OS.
+- **On-load flash.** `data-theme` was React-applied post-mount over dark token defaults;
+  a 9-line inline `<head>` script now applies the stored theme before first paint.
+- **The `.is-theme-switching` catch-all cannot reach two things:** a `<canvas>` (the
+  dot-matrix — handled with a WAAPI opacity fade in `skyline-background.jsx`), and it
+  **ties on specificity** with any element-level rule, losing on source order because it
+  sits last. A `.hero-atmosphere::before` needed `.home` prepended to out-specify it, or
+  the catch-all's `opacity`-less `transition` list would win for the length of the switch.
+  Anything added later that needs a non-D8 property (`opacity`, `transform`) to transition
+  *during* a theme flip has the same problem.
+
 ### D9 — the navbar has no entrance or scroll-linked motion
 
 It is simply present at full opacity from the first frame, and its only state change is

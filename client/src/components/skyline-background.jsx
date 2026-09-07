@@ -179,6 +179,46 @@ export default function SkylineBackground() {
 
         const dpr = () => Math.min(window.devicePixelRatio || 1, MAX_DPR);
 
+        // A theme flip re-solves every dot's colour at once, and the two
+        // per-theme solves aren't on a line (electric on dark, deep ink on
+        // light — hero-palette.js), so there is nothing to tween: left alone it
+        // lands in a single frame while the page behind it crossfades over
+        // --theme-transition. When the matrix is actually on screen, fade the
+        // canvas out, repaint at the new solve while it's invisible, fade back.
+        //
+        // WAAPI, not a CSS transition on the element: the D8 catch-all
+        // (main.scss, last rule) puts a `transition` shorthand on every element
+        // for the length of the switch and would win the specificity tie here.
+        // A no-op at rest — the canvas is genuinely blank then.
+        const FADE_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"; // == --theme-transition-ease
+        let themeFade = null;
+        let themeRepaintTimer = 0;
+        const fadeThroughThemeFlip = (repaint) => {
+            cycle.invalidate();
+
+            const state = canvas.dataset.skylineState;
+            if (state !== "playing" && state !== "settling" && state !== "static-playing") {
+                repaint();
+                return;
+            }
+
+            const ms = parseFloat(
+                getComputedStyle(canvas).getPropertyValue("--theme-transition-duration"),
+            ) || 180;
+
+            themeFade?.cancel();
+            window.clearTimeout(themeRepaintTimer);
+
+            // One keyframe -> animates from the live opacity to 0; forwards fill
+            // holds it there until the repaint swaps the colours underneath.
+            themeFade = canvas.animate([{ opacity: 0 }], { duration: ms, easing: FADE_EASE, fill: "forwards" });
+            themeRepaintTimer = window.setTimeout(() => {
+                repaint();
+                themeFade?.cancel();
+                themeFade = canvas.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: FADE_EASE });
+            }, ms);
+        };
+
         /**
          * Where the horizon sits, as a fraction of the canvas height.
          *
@@ -340,8 +380,8 @@ export default function SkylineBackground() {
                 drawStatic();
             };
             const staticTheme = new MutationObserver(() => {
-                cycle.invalidate();
-                drawStatic();
+                // fadeThroughThemeFlip already calls cycle.invalidate().
+                fadeThroughThemeFlip(drawStatic);
             });
             staticTheme.observe(document.documentElement, {
                 attributes: true, attributeFilter: ["data-theme"],
@@ -368,6 +408,8 @@ export default function SkylineBackground() {
                 staticObserver.disconnect();
                 staticTheme.disconnect();
                 window.removeEventListener("resize", onResizeStatic);
+                window.clearTimeout(themeRepaintTimer);
+                themeFade?.cancel();
                 skyline.dispose();
                 if (import.meta.env.DEV) delete window.__skylineDebug;
             };
@@ -513,9 +555,14 @@ export default function SkylineBackground() {
         // safe zones now carry a per-theme strength, and a settled canvas has to
         // be repainted by hand because no frame is coming to do it.
         const themeObserver = new MutationObserver(() => {
-            cycle.invalidate();
             measureSafeZones();
-            if (rafId === null && canvas.dataset.skylineState !== "idle") paint();
+            // fadeThroughThemeFlip owns cycle.invalidate() and, while a track
+            // is up, hides the colour swap behind an opacity fade. The repaint
+            // it runs only matters for a settled/paused canvas that still has
+            // pixels on it — the running loop re-solves on its own next frame.
+            fadeThroughThemeFlip(() => {
+                if (rafId === null && canvas.dataset.skylineState !== "idle") paint();
+            });
         });
         themeObserver.observe(document.documentElement, {
             attributes: true, attributeFilter: ["data-theme"],
@@ -586,6 +633,8 @@ export default function SkylineBackground() {
             window.removeEventListener("resize", onResize);
             observer?.disconnect();
             themeObserver.disconnect();
+            window.clearTimeout(themeRepaintTimer);
+            themeFade?.cancel();
             if (rafId !== null) cancelAnimationFrame(rafId);
             skyline.clear();
             skyline.dispose();

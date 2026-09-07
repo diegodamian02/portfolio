@@ -18,9 +18,32 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-  <!-- Browser chrome follows the site's own theme tokens. -->
-  <meta name="theme-color" content="#0a0e1a" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme: light)" />
+  <!-- Browser chrome follows the site's OWN theme, not the OS. The site is
+       dark-first and OS-independent (navbar.jsx: localStorage "theme" || "dark"),
+       so a prefers-color-scheme media query here would desync the mobile
+       address/status bar from the in-page toggle. Dark is the default content;
+       the inline script below and navbar.jsx rewrite it to the light
+       --bg-color (#f3f0ea) whenever the visitor has chosen the light theme. -->
+  <meta name="theme-color" content="#0a0e1a" />
+  <script>
+    /* Anti-FOUC: apply the stored theme before first paint. Without this a
+       light-theme visitor gets a full-viewport dark flash on every load that
+       does not play the once-per-session intro (return visits, reduced motion)
+       — the token defaults on :root are the dark set and React only sets
+       data-theme after it mounts. Only the attribute is set here: the built
+       stylesheet is render-blocking, so the tokens resolve before paint.
+       navbar.jsx reads the same localStorage value and its themeApplied ref
+       stops this first application from crossfading. */
+    (function () {
+      try {
+        if (localStorage.getItem("theme") === "light") {
+          document.documentElement.setAttribute("data-theme", "light");
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute("content", "#f3f0ea");
+        }
+      } catch (e) { /* private mode / storage disabled — stay on the dark default */ }
+    })();
+  </script>
 
   <!-- Open Graph / Facebook / LinkedIn / iMessage. og:image MUST be an
        absolute URL — crawlers do not resolve relative paths, which is the

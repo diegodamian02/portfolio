@@ -29,6 +29,11 @@ export default function Home() {
 
     return (
         <section className="home">
+            {/* The accent "atmosphere floor" the dot matrix sits on. A plain
+                element, not the canvas's own background, so the dark and light
+                gradients can be stacked and opacity-crossfaded on a theme flip
+                (main.scss). First in the DOM so it stays under the canvas. */}
+            <div className="hero-atmosphere" aria-hidden="true" />
             {/* Stage 7 — full-bleed, behind everything, pointer-events:none.
                 First in the DOM so it paints under the positioned hero
                 content even before z-index is considered. Replaces the

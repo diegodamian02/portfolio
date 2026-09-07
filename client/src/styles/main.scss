@@ -1,4 +1,11 @@
 :root {
+  // Dark-first, OS-independent (navbar.jsx defaults to "dark" with no stored
+  // choice). Declaring it means the scrollbar, form controls, spellcheck
+  // underlines and the overscroll edge follow the in-page toggle instead of
+  // the OS setting — otherwise a light-theme page on an OS-dark device keeps a
+  // dark scrollbar, and it snaps rather than crossfades on toggle.
+  color-scheme: dark;
+
   --bg-color: #0a0e1a;
   --text-color: #eef1f8;
   --secondary-text: #9aa3bd;
@@ -368,6 +375,10 @@
   --font-body: "Poppins", sans-serif;    // 400/regular — body text, UI
 }
 [data-theme="light"] {
+  // Pair for the :root declaration — flips the native UI (scrollbar, controls,
+  // overscroll edge) with the tokens.
+  color-scheme: light;
+
   // Stage 11 Phase 3 — "Studio Paper". The owner's read on the old light
   // theme (#f6f7fb / #0d1220 / #1f3fae) was "plain," "meh" — a cold
   // blue-white with a flat navy accent, no warmth anywhere. Settled from a
@@ -776,30 +787,51 @@ html {
   display: block;
   z-index: 0;
   pointer-events: none;
+  // No `transition` here: the per-dot colour SOLVE differs hard between themes
+  // (electric on dark, deep ink on light — hero-palette.js) and can't tween,
+  // and the D8 catch-all's `transition` shorthand would clobber a declaration
+  // on this element anyway (it sits last and ties on specificity). The flip is
+  // hidden instead by fading the whole canvas out and back with the Web
+  // Animations API in skyline-background.jsx — only while a track is up; the
+  // canvas is genuinely blank at rest.
 }
 
-// The "atmosphere floor" behind the transparent dot-matrix canvas.
+// The "atmosphere floor" — the faint accent glow the dot matrix sits on. Was a
+// linear-gradient background on the canvas element, swapped wholesale per
+// theme; a background-image can't crossfade (D8) so the accent snapped
+// blue->orange under the page's own fade. Split onto two pseudo-elements —
+// ::before is the dark gradient, ::after the light one — that opacity-crossfade
+// past each other on a flip. Both faint (6–11% accent), so the brief overlap
+// mid-transition reads as a crossfade, not a doubling. Rendered first in .home
+// (home.jsx) so DOM order keeps it under the canvas.
 //
-// The dots are drawn on a transparent canvas (createSkyline uses
-// `alpha: true`), so a CSS background on the canvas element sits BEHIND every
-// dot and fills the gaps between them. It gives the matrix a horizon to sit on
-// and glow against instead of floating — most needed on light theme (where the
-// dots are deep ink over flat paper), so that gradient is stronger; dark theme
-// gets a whisper, since the near-black page is already a ground.
-//
-// Tied to --accent (not a fixed hue) so it moves with the theme. Stops well
-// short of the headline/tagline zone. `background`, not a pseudo-element: no
-// extra box, no z-index against the deck to get wrong, and the mask's
-// `destination-out` pass can't touch a CSS layer.
-//
-// The accent floor is fully faded out BEFORE the bottom of the canvas: it
-// peaks ~96px up and is back to transparent by `--scroll-offset -
-// --navbar-height + 8px` (32px) from the bottom edge. The canvas is full-bleed
-// now, so any accent still alive at the bottom edge shows in the ~24px band
-// under the fixed navbar once you're snapped to #about — a faint accent line
-// above the section (orange on light theme). Keeping the whole bottom band
-// dead transparent, not just tapering into it, is what removes that line.
-.hero-skyline-canvas {
+// The ::before / ::after selectors are scoped under `.home` for one reason:
+// specificity. The D8 `.is-theme-switching *::before` catch-all sits last in
+// this file and would tie a bare `.hero-atmosphere::before` (0,1,1) and win on
+// source order, replacing the `transition` shorthand with its own list (which
+// has no `opacity`) for the length of every switch — i.e. exactly when this
+// needs to animate. `.home .hero-atmosphere::before` is (0,2,1) and clears it.
+.hero-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.home .hero-atmosphere::before,
+.home .hero-atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transition: opacity var(--theme-transition);
+}
+
+// The accent floor must be fully transparent BEFORE the bottom edge: the hero
+// is full-bleed, so anything still tinted there shows in the ~24px band under
+// the fixed navbar once you're snapped to #about (a faint accent line above the
+// section). Same calc the canvas background used.
+.home .hero-atmosphere::before {
+  opacity: 1;
   background: linear-gradient(
     180deg,
     transparent 58%,
@@ -808,7 +840,8 @@ html {
   );
 }
 
-[data-theme="light"] .hero-skyline-canvas {
+.home .hero-atmosphere::after {
+  opacity: 0;
   background: linear-gradient(
     180deg,
     transparent 42%,
@@ -816,6 +849,18 @@ html {
     transparent calc(100% - (var(--scroll-offset) - var(--navbar-height)) - 8px)
   );
 }
+
+[data-theme="light"] .home .hero-atmosphere::before { opacity: 0; }
+[data-theme="light"] .home .hero-atmosphere::after { opacity: 1; }
+
+// (The "atmosphere floor" that used to live here — a linear-gradient on the
+// canvas element — moved up to `.hero-atmosphere`, next to the canvas rule, so
+// the dark and light gradients can be stacked and opacity-crossfaded on a
+// theme flip. The old notes: the dots are on a transparent canvas so the
+// gradient sat behind them and filled the gaps; it is stronger on light theme
+// where the dots are deep ink over flat paper, a whisper on dark; and it dies
+// before the bottom edge so no accent shows in the band under the navbar when
+// you're snapped to #about.)
 
 .hero-deck-stage {
   grid-area: deck;
