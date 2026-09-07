@@ -1,12 +1,14 @@
 import { useEffect, useRef } from "react";
 import { createSkyline } from "../lib/skyline-spectrum.js";
-import { createPaletteCycle } from "../lib/palette-cycle.js";
+import { createSchemeCycle } from "../lib/hero-palette.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import { DECK, onDeckState, getDeckState } from "../lib/deck-state.js";
 import * as audio from "../lib/turntable-audio.js";
 
-// The hero background: a neon skyline whose columns are the track's own
-// spectrum.
+// The hero background: a colour dot matrix whose columns are the track's own
+// spectrum. (Evolved from the Stage 7 neon skyline — the loop, gating and
+// presence model below are unchanged; the mark is dots now and the colour is
+// one analogous SCHEME per song, `hero-palette.js`.)
 //
 // This REPLACES the WebGL2 fluid of Stages 7a-7d outright — solver, component
 // and the `simplex-noise` dependency are deleted, not deprecated in place.
@@ -41,33 +43,23 @@ const SETTLE_MAX_MS = 3000;
 const SETTLE_PROBE_INTERVAL_MS = 120;
 const SETTLE_HEIGHT_THRESHOLD = 0.015;
 
-// Theme-dependent compositing — see skyline-spectrum.js's render(). `ramp`
-// selects one of the renderer's two alpha ramps; it replaced a single ramp with
-// a per-theme multiplier in 7.2, because scaling a ramp that starts at zero
-// still starts at zero, and zero alpha on a white page is not a faint column,
-// it is no column.
-//
-// The glow numbers moved with it, in the opposite direction, and the two
-// changes are the same idea:
+// Theme-dependent compositing — see skyline-spectrum.js's render(). The
+// per-theme colour SOLVE moved into hero-palette.js (dots solve electric on
+// dark, deep ink on light), so all that is left here is the glow:
 //
 //   * On a near-black page the halo is LIGHT — it adds to the background, so
-//     it reads as glow and the gaps between columns stay black.
-//   * On a near-white page it is a soft coloured shadow that fills the gaps
-//     with the same wash as the columns. At 0.72 the whole lower hero was one
-//     continuous pink field with white stripes cut into it: the GAP had become
-//     the figure and the column the ground. Cutting it to 0.34 puts the paper
-//     back between the bars, which is what makes them read as objects.
+//     it reads as glow and the gaps between dots stay black.
+//   * On a near-white page adding light moves the glow TOWARD the background,
+//     so light theme composites the halo normally and keeps it faint — a gap
+//     the halo has tinted reads as an intrusion next to a crisp ink dot.
 const THEME_RESPONSE = {
-    dark: { ramp: "dark", additiveGlow: true, glowAlpha: 0.9 },
-    // Stage 11 dropped light 0.34 -> 0.28. The light halo is a soft coloured
-    // shadow drawn UNDER the columns, and 0.34 was sized against the old
-    // semi-transparent light ramp. Now that the columns are opaque
-    // (skyline-spectrum.js), the halo only shows in the gaps and above the
-    // tips — and a gap the halo has tinted reads as much more of an intrusion
-    // next to a crisp opaque column than next to a translucent one. 0.28 keeps
-    // the above-tip atmosphere without closing the paper gap.
-    light: { ramp: "light", additiveGlow: false, glowAlpha: 0.28 },
+    dark: { additiveGlow: true, glowAlpha: 0.9 },
+    light: { additiveGlow: false, glowAlpha: 0.28 },
 };
+
+// How fast the whole matrix fades and lifts in on play / out on settle. A
+// settle, not a slide — ~0.3s to most of the way there.
+const REVEAL_TAU = 0.3;
 
 const MAX_DPR = 2;
 
@@ -157,7 +149,7 @@ export default function SkylineBackground() {
         }
 
         const host = canvas.parentElement;
-        const cycle = createPaletteCycle();
+        const cycle = createSchemeCycle();
 
         const themeName = () =>
             (document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark");
@@ -260,11 +252,16 @@ export default function SkylineBackground() {
         };
         sizeToHost();
 
-        const paint = (waveAtMs) => {
+        // 0..1, eased in `frame()` — fades and lifts the whole matrix in on play
+        // and out on settle. Stays at 1 on the reduced-motion branch (which
+        // shows/hides by clearing the canvas, not by fading).
+        let revealProgress = 1;
+
+        const paint = () => {
             const theme = themeName();
             skyline.render(
-                cycle.waveState(theme, waveAtMs),
-                { ...THEME_RESPONSE[theme], baseline, maxHeightFraction },
+                cycle.schemeState(theme),
+                { ...THEME_RESPONSE[theme], baseline, maxHeightFraction, reveal: revealProgress },
             );
         };
 
@@ -285,28 +282,15 @@ export default function SkylineBackground() {
                 }
                 sizeToHost();
                 skyline.loadStaticProfile();
-                // The wave is sampled at t=0 — a FIXED REFERENCE STATE, not a
-                // frozen instant of the live animation.
+                // One static frame — the fixed reduced-motion column profile in
+                // the current scheme, at full reveal (no fade-in animation).
                 //
-                // Both were on the table. A frozen instant would show whatever
-                // phase the wave happened to be in when the visitor pressed
-                // play, so the one frame a reduced-motion visitor ever sees
-                // would depend on timing they cannot perceive or repeat.
-                //
-                // The SPATIAL half of the wave is fully present: columns still
-                // sample different points on the ring by index, so the static
-                // frame carries the same colour band across the skyline that
-                // the animated one does. Only the travel is removed, which is
-                // the part that is motion. Verified: the per-column bucket
-                // DELTAS are byte-identical across two cold loads.
-                //
-                // What still varies between visits is the palette's own
-                // starting position, which is seeded from the clock and has
-                // been since 7c so that a first visit is not always mint. That
-                // is deliberate and unrelated to motion — a reduced-motion
-                // visitor sees the same hue everyone else would that session,
-                // just not moving.
-                paint(0);
+                // What still varies between visits is the scheme's own starting
+                // position, seeded from the clock so a first visit is not always
+                // the same family. Deliberate and unrelated to motion — a
+                // reduced-motion visitor sees the scheme everyone else would
+                // this session, just not moving.
+                paint();
                 canvas.dataset.skylineState = "static-playing";
             };
 
@@ -339,11 +323,8 @@ export default function SkylineBackground() {
                     get frames() { return skyline.frameCount; },
                     get columns() { return skyline.columnCount; },
                     get heights() { return skyline.heights; },
-                    get palette() { return cycle.sample(themeName()); },
-                    // The spatial half of the wave is present in the static
-                    // frame; the travel is not. These are what prove it.
-                    get columnBuckets() { return skyline.columnBuckets; },
-                    get bucketsPerEntry() { return skyline.bucketsPerEntry; },
+                    get scheme() { return cycle.schemeState(themeName()); },
+                    get toneLut() { return skyline.toneLut; },
                     get maxHeightFraction() { return maxHeightFraction; },
                     get baseline() { return baseline; },
                 };
@@ -396,13 +377,22 @@ export default function SkylineBackground() {
             } else {
                 // Settling: nothing new goes in, and the columns fall by their
                 // own release ballistics rather than by a separate fade. Probed
-                // on real heights instead of guessing at the exponential tail.
+                // on real heights instead of guessing at the exponential tail —
+                // and on the reveal fade too, so the loop runs long enough to
+                // draw the matrix all the way out.
                 skyline.silence();
                 if (now >= lastProbeAt + SETTLE_PROBE_INTERVAL_MS) {
                     lastProbeAt = now;
-                    if (skyline.peak() < SETTLE_HEIGHT_THRESHOLD) settleUntil = 0;
+                    if (skyline.peak() < SETTLE_HEIGHT_THRESHOLD && revealProgress < 0.02) {
+                        settleUntil = 0;
+                    }
                 }
             }
+
+            // Fade + lift toward playing / away on settle. exp() keeps it
+            // frame-rate independent, same as the column ballistics.
+            const revealTarget = playing ? 1 : 0;
+            revealProgress += (revealTarget - revealProgress) * (1 - Math.exp(-Math.max(dt, 0) / REVEAL_TAU));
 
             skyline.advance(dt);
             paint();
@@ -452,10 +442,15 @@ export default function SkylineBackground() {
                 cycle.advanceTo(audio.getState().trackId);
                 playing = true;
                 settleUntil = 0;
-                // A fresh track gets fresh ballistics and a fresh auto-gain
-                // reference — otherwise the first seconds of a quiet preview
-                // inherit a loud one's normalisation, and vice versa.
-                if (previous !== DECK.PAUSED) skyline.reset();
+                // A fresh track gets fresh ballistics, a fresh auto-gain
+                // reference and a fresh fade-in — otherwise the first seconds
+                // of a quiet preview inherit a loud one's normalisation, and
+                // the matrix pops in at full strength. Resuming from a pause
+                // keeps the ballistics/gain and just eases the reveal back up.
+                if (previous !== DECK.PAUSED) {
+                    skyline.reset();
+                    revealProgress = 0;
+                }
                 sizeToHost();
                 sync();
             } else if (previous === DECK.PLAYING) {
@@ -523,9 +518,9 @@ export default function SkylineBackground() {
                 get columnEdgesHz() { return skyline.columnEdgesHz; },
                 get binRanges() { return skyline.binRanges; },
                 get peak() { return skyline.peak(); },
+                get reveal() { return revealProgress; },
                 get safeZones() { return skyline.safeZones; },
                 get usesFilter() { return skyline.usesFilter; },
-                get usesRoundRect() { return skyline.usesRoundRect; },
                 get theme() { return themeName(); },
                 // The app's OWN audio module instance. Re-importing
                 // turntable-audio.js from a harness can hand back a second,
@@ -536,30 +531,18 @@ export default function SkylineBackground() {
                 // actually playing.
                 get audioState() { return audio.getState(); },
                 get analyser() { return audio.getAnalyser(); },
-                get palette() { return cycle.sample(themeName()); },
-                get paletteIndex() { return cycle.index; },
-                get paletteTrackId() { return cycle.trackId; },
-                get paletteSize() { return cycle.size; },
-                get wave() { return cycle.wave; },
-                get waveState() {
-                    const w = cycle.waveState(themeName());
-                    return { version: w.version, ringSize: w.ringSize, position: w.position, span: w.span };
-                },
-                get columnBuckets() { return skyline.columnBuckets; },
+                get scheme() { return cycle.schemeState(themeName()); },
+                get schemeIndex() { return cycle.index; },
+                get schemeTrackId() { return cycle.trackId; },
+                get schemeCount() { return cycle.size; },
+                get schemePosition() { return cycle.position; },
+                get toneLut() { return skyline.toneLut; },
                 set freezeHeights(v) { skyline.freezeHeights = v; },
                 get freezeHeights() { return skyline.freezeHeights; },
-                get bucketsPerEntry() { return skyline.bucketsPerEntry; },
                 get maxHeightFraction() { return maxHeightFraction; },
                 get baseline() { return baseline; },
-                /** The ring position a given column is sampling, right now. */
-                ringAt: (i) => {
-                    const w = cycle.waveState(themeName());
-                    const n = skyline.columnCount;
-                    return w.position + (n > 1 ? (w.span / (n - 1)) * i : 0);
-                },
-                stopsAtRing: (position) => cycle.stopsAtRing(themeName(), position),
                 solvedFor: (theme) => cycle.solvedFor(theme),
-                setPalette: (i) => { cycle.setIndex(i); if (rafId === null) paint(); },
+                setScheme: (i) => { cycle.setIndex(i); if (rafId === null) paint(); },
                 paint,
             };
         }

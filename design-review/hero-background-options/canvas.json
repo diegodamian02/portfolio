@@ -1,0 +1,61 @@
+{
+  "pages": [
+    { "id": "dotmatrix", "name": "Dot-Matrix (chosen)" },
+    { "id": "explored", "name": "Explored — earlier options" }
+  ],
+  "artboards": [
+    { "file": "Idle.dc.html", "page": "dotmatrix", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Idle — before play" },
+    { "file": "Main.dc.html", "page": "dotmatrix", "x": 1560, "y": 0, "w": 1440, "h": 900, "title": "Playing — one scheme (Cobalt)" },
+    { "file": "Mobile.dc.html", "page": "dotmatrix", "x": 3120, "y": 0, "w": 390, "h": 844, "title": "Playing — mobile (Fern)" },
+    { "file": "Schemes.dc.html", "page": "dotmatrix", "x": 0, "y": 1140, "w": 1200, "h": 1000, "title": "The scheme set" },
+
+    { "file": "Current.dc.html", "page": "explored", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Current — Skyline spectrum" },
+    { "file": "GrooveRings.dc.html", "page": "explored", "x": 1560, "y": 0, "w": 1440, "h": 900, "title": "Groove Rings" },
+    { "file": "Oscilloscope.dc.html", "page": "explored", "x": 3120, "y": 0, "w": 1440, "h": 900, "title": "Oscilloscope horizon" },
+    { "file": "Aurora.dc.html", "page": "explored", "x": 0, "y": 1320, "w": 1440, "h": 900, "title": "Aurora field" },
+    { "file": "Contour.dc.html", "page": "explored", "x": 1560, "y": 1320, "w": 1440, "h": 900, "title": "Contour lines" }
+  ],
+  "annotations": [
+    {
+      "id": "intro",
+      "page": "dotmatrix",
+      "x": -600,
+      "y": 0,
+      "w": 500,
+      "text": "DOT-MATRIX HERO BACKGROUND\n\nPresence model: nothing until a track plays, then a dot spectrum fades up from the bottom edge and settles back to nothing on stop.\n\nCOLOUR — no rainbow. Each song plays inside ONE scheme: a single colour family, tone shifting across the columns and up each dot (deep foot → bright tip), plus a small in-family shimmer. The next record moves to the next scheme.\n\nSix schemes so far — see \"The scheme set\" board below. Flip Main / Mobile through them with the Scheme chip; the Deck chip toggles play / idle.\n\nDark theme only — Studio Paper next."
+    },
+    {
+      "id": "n-idle",
+      "page": "dotmatrix",
+      "x": 0,
+      "y": -300,
+      "w": 460,
+      "text": "IDLE — before play\n\nJust the hero: name, tagline, crate prompt, parked deck. No matrix, no motion — the \"genuinely blank\" state the skyline holds when nothing plays. Most of the visit is spent here."
+    },
+    {
+      "id": "n-main",
+      "page": "dotmatrix",
+      "x": 1560,
+      "y": -320,
+      "w": 480,
+      "text": "PLAYING — one scheme\n\n• Fades + rises in over ~0.7s on play, settles out on stop.\n• 64 columns rising from the bottom edge only; clean above.\n• Colour stays in ONE family per song (here: Cobalt — teal-blue through indigo to blue-violet). Tone varies column to column and up each dot; a ±20° shimmer keeps it alive without leaving the family.\n• The deck label + \"now playing\" dot pick up the scheme's mid tone.\n• Scheme chip: Cobalt · Amethyst · Ember · Rose · Citrine · Fern.\n• Copy still gets its knock-back mask (dark vignette)."
+    },
+    {
+      "id": "n-mobile",
+      "page": "dotmatrix",
+      "x": 3120,
+      "y": -320,
+      "w": 450,
+      "text": "MOBILE — one screen\n\nSame reveal, coarser pitch (~15px, 24 columns), hero stacked and centred. Shown on the Fern scheme.\n\nSTILL PENDING (code, your call): the hero is `.home { height: 100vh }` in main.scss — on phones `100vh` is the tall viewport, so the section overflows the visible screen and the next one peeks as you swipe. Every other section already uses the dual `100vh` / `100svh` declaration (svh over dvh, 2026-09-02, B74). Bringing `.home` in line + checking the snap step in smooth-scroll.jsx is the fix. Say the word."
+    },
+    {
+      "id": "n-explored",
+      "page": "explored",
+      "x": -560,
+      "y": 0,
+      "w": 460,
+      "text": "The six starting directions, kept for reference. \"Groove Rings\" keeps its name; the rest are as first drawn. The chosen direction lives on the Dot-Matrix page."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "dotmatrix" }
+}
