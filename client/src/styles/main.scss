@@ -2980,6 +2980,23 @@ html {
   object-fit: cover;
 }
 
+// Capgemini's card carries the logo, not a photo (experience.jsx `logo: true`).
+// A wordmark cover-cropped into the 3:2 box loses its own ends the way the
+// Rutgers mark did; contain-fit on a fixed white ground keeps it whole and
+// matches the logo file's own baked-in white margin, so the letterbox bands
+// read as one surface. White in BOTH themes on purpose — it's the brand's
+// ground, and the active-card scrim (dark navy, rising from the bottom) stays
+// legible over it exactly as it does over every photo.
+.experience-media--logo {
+  background: #fff;
+}
+
+.experience-media--logo .experience-image {
+  object-fit: contain;
+  box-sizing: border-box; // no global reset — pad inside the 100%/100% box
+  padding: var(--space-4);
+}
+
 // work-motif.jsx's root element (svg or div, depending on variant) — same
 // rules as the old build, just filling a much smaller .experience-media
 // instead of a full-bleed .timeline-panel. inset: 0 means these need no
@@ -3146,15 +3163,15 @@ html {
 }
 
 // Capgemini's client-lockup pill — preserved since Task 7 (same "Capgemini"
-// text + real McDonald's mark fallback). Cards are large enough at every
-// breakpoint now that the mobile-only collision Task 8 found (B19 follow-
-// up: this badge's bottom edge overlapping .experience-info's always-on
-// mobile caption by ~21px) doesn't reproduce — .experience-info here only
-// shows on the ACTIVE card or on hover/focus, never unconditionally the way
-// Task 8's always-visible touch fallback did, and there's much more vertical
-// room between this badge (rail strip) and .experience-info (bottom of a
-// much taller card) regardless. Re-verified empirically rather than assumed
-// (STATUS.md) before leaving this without a mobile override.
+// text + real McDonald's mark fallback). The B19 collision Task 8 found (this
+// badge's bottom edge over .experience-info's caption) still doesn't reproduce
+// — .experience-info only shows on the active/hovered card, and there's ample
+// room between the rail strip and the bottom of a much taller card.
+//
+// It does collide at the TOP-LEFT on mobile, though: Stage 5 (continued) moved
+// .experience-date off the rail and onto the card's top-left corner on phones,
+// exactly where this pill sits. The mobile override below sends the pill to the
+// top-RIGHT so the two tags don't stack.
 .experience-client-badge {
   position: absolute;
   top: var(--space-2);
@@ -3171,6 +3188,13 @@ html {
   font-weight: 600;
   line-height: 1.2;
   z-index: 1;
+
+  @media (max-width: 768px) {
+    // Clear .experience-date, which sits at the card's top-left on mobile.
+    left: auto;
+    right: var(--space-2);
+    top: calc(var(--experience-rail-h) + var(--space-2));
+  }
 }
 
 .experience-client-badge-x {
