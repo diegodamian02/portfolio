@@ -1,0 +1,58 @@
+{
+  "pages": [
+    { "id": "the-crate", "name": "The Crate" },
+    { "id": "round-1", "name": "Round 1 — earlier directions" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "the-crate", "x": 0, "y": 0, "w": 1600, "h": 1120, "title": "The Crate" },
+    { "file": "Card.dc.html", "page": "the-crate", "x": 1760, "y": 0, "w": 1080, "h": 900, "title": "Paper track-card — anatomy" },
+    { "file": "Mobile.dc.html", "page": "the-crate", "x": 0, "y": 1460, "w": 1560, "h": 1120, "title": "Mobile — the bottom sheet" },
+
+    { "file": "DeckFeed.dc.html", "page": "round-1", "x": 0, "y": 3400, "w": 1600, "h": 1100, "title": "Round 1 · B — The Deck Feed" },
+    { "file": "LinerNotes.dc.html", "page": "round-1", "x": 1760, "y": 3400, "w": 1600, "h": 1100, "title": "Round 1 · C — Liner Notes" },
+    { "file": "Current.dc.html", "page": "round-1", "x": 0, "y": 4700, "w": 1600, "h": 1100, "title": "Round 1 · Current — roasted maple" }
+  ],
+  "annotations": [
+    {
+      "id": "intro",
+      "page": "the-crate",
+      "x": -720,
+      "y": 0,
+      "w": 620,
+      "text": "THE CRATE — refined\n\nYou picked \"The Crate\" from round one; this page is the redesign. Same idea — flip through a bin of records — but rebuilt as a record-shop chipboard flip bin instead of the maple fretboard, with the paper track-cards from \"Liner Notes\" as the results and a per-track pressing-colour spine on each.\n\n· Main — the panel, both themes, with motion.\n· Mobile — the bottom sheet in depth (rest, open, dismiss).\n· Paper track-card — the result component on its own.\n\nRound one (Deck Feed, Liner Notes, current maple) is on the second page. Sample results are one artist; run-times invented."
+    },
+    {
+      "id": "note-main",
+      "page": "the-crate",
+      "x": 0,
+      "y": -450,
+      "w": 640,
+      "text": "WHAT CHANGED FROM ROUND ONE\n\n·  Material: roasted-maple fretboard  ->  warm chipboard flip bin with an oxblood end panel (the light theme's own accent family, --wax-1). It themes properly now — warm grey chipboard in Studio Paper, deep chipboard in dark — instead of a fixed wood.\n·  Rows: maple fret dividers  ->  cream paper track-cards, each with a pressing-coloured spine and a catalogue tab.\n·  The reveal: cards drop into the bin and settle, rather than a flat fade.\n\nKept: the divider tab carrying the query, the front rail (which becomes the mobile handle), the 5-result cap."
+    },
+    {
+      "id": "note-mobile",
+      "page": "the-crate",
+      "x": -740,
+      "y": 1460,
+      "w": 640,
+      "text": "THE PART YOU LIKED\n\nThe bin becomes a bottom sheet: it rises into the bottom third on a tap, results under the thumb, an oxblood grip to drag it away, a scrim to tap it away. That scrim is the fix for D32 — today nothing dismisses the panel on touch.\n\nNo fake status bar or keyboard — the OS draws those on top, so that space is left empty (matches the current hero, which draws no chrome either).\n\nThe centre phone loops the full open, hold, close. 360ms up, 200ms down."
+    },
+    {
+      "id": "note-card",
+      "page": "the-crate",
+      "x": 1760,
+      "y": -330,
+      "w": 620,
+      "text": "PAPER TRACK-CARD\n\nThe part of \"Liner Notes\" you liked, kept as the result row. Cream stock, Space Mono catalogue tab and meta, Urbanist 600 title. Two states only: rest, and pulled-forward active.\n\nThe spine colour is the same per-track hash the site already runs for --vinyl-N and --wax-N — a song always gets the same pressing colour, in the crate and on #my-taste."
+    },
+    {
+      "id": "r1-intro",
+      "page": "round-1",
+      "x": -720,
+      "y": 3400,
+      "w": 560,
+      "text": "ROUND ONE — for reference\n\nThe three directions from the first pass. \"The Crate\" (was A) won and moved to the first page, rebuilt. Deck Feed and Liner Notes are kept here; Liner Notes' paper cards live on in the refined design. Current maple is what ships today.\n\nThe D32 note on the current panel still applies — every proposal fixes it with a scrim."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "the-crate" }
+}

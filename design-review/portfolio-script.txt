@@ -1,0 +1,20 @@
+PORTFOLIO SCRIPT:
+=====================
+
+HERO:
+============
+Diego Damian - title
+play your favorite tune - subtitle
+
+#mobile only:
+under play your favorite tune:
+remember to set the silent button off - we need to rewrite this, we are looking for them to listen to the song
+
+
+
+ABOUT ME
+==============
+About Me
+Hola! This is Diego. I am a Software Engineer, with a passion for coding, developing & music. Play your favorite tune & enjoy the ride!
+
+
