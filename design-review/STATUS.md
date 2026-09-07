@@ -1,16 +1,27 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-06 (**Record crate — cool dark chipboard, smoother open,
-iPad fix**: the dark chipboard is a cool blue-slate now (was warm grey-brown)
-so the bin reads with the navy / blue-vinyl / dot-matrix vibe; light keeps
-warm particleboard. The mobile takeover was re-architected — `.record-crate`
-stays in the hero grid (only the input row pins; the panel portals to
-`<body>`), killing a measured first-open frame-drop. **And the crate now
-works on iPad** — the touch/dropdown decision is `matchMedia("(pointer:
-coarse), (max-width: 768px)")`, so every tablet gets the takeover (an
-`innerWidth < 768` check had failed at exactly 768px — iPad Mini portrait —
-and opened the dropdown off the top of the screen). Full entry in §2.) Prior,
-same day (**Hero background — dot matrix + per-song
+**Updated:** 2026-09-07 (**Hero full-bleed + section spacing pass**: owner
+review of the dot-matrix hero and the sections under it. `.hero-skyline-canvas`
+goes full-bleed (was inset 24px from the bottom) — the animated-matrix peek in
+the navbar band above `#about` is prevented in JS now (a shared IntersectionObserver
+`rootMargin` that clears the canvas once the hero scrolls off), and the
+atmosphere-floor gradient is faded to transparent before the bottom band so no
+accent line shows above `#about`. `#about` `--about-vpad` `--space-9` → `--space-7`
+(less headroom over the card). `#experience` gets `margin-top: 10rem`, a flush
+top (padding-top → 0), a tighter title→filmstrip gap and 16px card headroom;
+`#projects` title/subtitle gaps tightened to match. Trump National Golf Club
+dropped from the Experience filmstrip. Lint baseline unchanged; build clean.
+Merged to `main`. Full entry in §2.) Prior (2026-09-06), **Record crate — cool
+dark chipboard, smoother open, iPad fix**: the dark chipboard is a cool
+blue-slate now (was warm grey-brown) so the bin reads with the navy /
+blue-vinyl / dot-matrix vibe; light keeps warm particleboard. The mobile
+takeover was re-architected — `.record-crate` stays in the hero grid (only the
+input row pins; the panel portals to `<body>`), killing a measured first-open
+frame-drop. **And the crate now works on iPad** — the touch/dropdown decision
+is `matchMedia("(pointer: coarse), (max-width: 768px)")`, so every tablet gets
+the takeover (an `innerWidth < 768` check had failed at exactly 768px — iPad
+Mini portrait — and opened the dropdown off the top of the screen). Full entry
+in §2.) Prior, same day (**Hero background — dot matrix + per-song
 colour schemes**: the neon skyline bars are replaced by a colour DOT MATRIX
 rising
 from the horizon. Same presence model (blank until a track plays, an eased
@@ -175,6 +186,74 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Hero full-bleed + section spacing pass *(2026-09-07)*
+
+Owner review of the shipped dot-matrix hero and the sections beneath it. One
+branch (`hero-dot-matrix`), merged to `main`.
+
+**`.hero-skyline-canvas` is full-bleed.** It was inset ~24px from the bottom
+(`height: calc(100% - (--scroll-offset - --navbar-height))`) — the only thing
+stopping the *animated* matrix from drawing in the band that shows below the
+fixed navbar when you're snapped to `#about`. The cost was a visible flat seam
+at the hero's own bottom edge in fullscreen (owner: "the hero section should
+cover the entire page"). Now `height: 100%`, and the peek is handled in JS
+instead: `skyline-background.jsx` gains a shared `makeHeroObserver()` whose
+IntersectionObserver `rootMargin` shrinks the viewport's top edge by
+`navbar height + 40px`, so `inView` drops once the hero is essentially scrolled
+off — `sync()` then cancels the RAF loop **and** clears the canvas
+(`skyline.clear()` already ran on every stop), and the reduced-motion branch
+(which had no scroll gate at all before) clears its static frame the same way.
+Observer rebuilt on resize — `--navbar-height` steps at two breakpoints.
+Verified at 1512×982 / 1920×1080 / 1440×1200 / 900×1000 / 390×844: canvas ==
+hero == viewport, `skylineState` is `idle`/`static-hidden` at `#about`, resumes
+on scroll-up.
+
+**`.hero-skyline-canvas` atmosphere-floor gradient — dead before the bottom.**
+Full-bleed, the accent floor's strongest stop sat on the very bottom edge and
+showed as a faint accent line above `#about` in that navbar band (orange —
+`--accent` `#b23a2b` at 11% — on light theme; a whisper of blue on dark). The
+gradient now peaks ~96px up and is fully transparent by
+`--scroll-offset - --navbar-height + 8px` (32px) from the bottom, so the whole
+strip that can peek is transparent, not tapering into it. Sampled rendered
+pixels down the navbar→`#about` transition (screenshot → in-page canvas →
+`getImageData`): uniformly `#f3f0ea` (light) / `#0a0e1a` (dark), no accent
+contribution anywhere.
+
+**`#about` — `--about-vpad` `--space-9` → `--space-7`** (96 → 48px). `#about`
+already snaps 24px below the navbar (`--scroll-offset`), so this section
+`padding-top` is the entire gap on top of that; 96px left a visible empty band
+between the navbar and the card on a tall window (owner: "headroom on top").
+The token stays one shared number (padding-top, padding-bottom, and the
+portrait's height-ceiling `calc`). Nav-bottom → card gap: 120 → 72px; card
+still clears the viewport at every size tested (incl. 1440×735 and 390×844).
+
+**`#experience` — spacing.** `margin-top: 10rem` above the section — a breather
+after `#about`; it collapses through the plain `<section id="experience">`
+wrapper, so the snap-to-`#experience` scrolls past it and it reads as room
+below `#about` on the way down. `padding-top` `--space-4` → 0 (the
+[title + filmstrip] block sits flush to the section's top edge; `flex-start`
+means the freed height just pools below). Title → filmstrip gap:
+`.experience-title` `margin-bottom` overridden `--space-6` → `--space-2` (scoped
+here, **not** the shared `section-title` mixin), and `--experience-vp-height`
+headroom `2 × --space-6` → `2 × --space-4` (16px each side — the floor, it
+equals the active card's 1.08× centre-focus scale-up).
+
+**`#projects` — spacing, to match.** `.portfolio-title` `margin-bottom`
+`--space-6` → `--space-2` (scoped). `.portfolio-subtitle` `margin-bottom`
+`2rem` → `--space-4` — the other half of the gap above the first tracklist row.
+
+**`#experience` roster — Trump National Golf Club dropped** (owner). Filmstrip
+is now Colegio → Rutgers → CodeWiz → GlobalLogic → Capgemini. `trump.jpeg`
+import removed; the asset file is now unreferenced anywhere in `client/src`.
+
+`npm run lint` unaffected (7 errors / 2 warnings, the standing baseline);
+`vite build` clean. **Merged to `main`.**
+
+**Still open:** on tall windows `#about` now shows more empty space *below* the
+card than above — the section still reserves a full navbar-cleared screen by
+design (keeps `#experience`'s title from peeking); a real fix would centre the
+card in that reserved height. Screenshots regen (`capture-screenshots.mjs`).
 
 ### Record crate — cool dark chipboard, smoother open, works on iPad *(2026-09-06)*
 

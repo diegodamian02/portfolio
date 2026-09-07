@@ -151,6 +151,29 @@ export default function SkylineBackground() {
         const host = canvas.parentElement;
         const cycle = createSchemeCycle();
 
+        // "Is the visitor actually looking at the hero" — the gate that lets
+        // .hero-skyline-canvas be full-bleed without the matrix overlapping
+        // #about. Snapped to #about the hero still owns the strip above it:
+        // viewport 0 -> navbar bottom is covered by the opaque fixed navbar,
+        // then a ~24px gap (#about lands at --scroll-offset = navbar + 24) shows
+        // the hero's bottom edge. A plain threshold:0 observer treats any of
+        // that as "in view" and the matrix keeps drawing in the gap. Shrinking
+        // the observer's top edge past the whole strip (navbar + 24 + a few px
+        // of slack, since a zero-area touch still reports isIntersecting at
+        // threshold 0) makes the hero read as gone once it's essentially
+        // scrolled off — sync()/drawStatic() then clear the canvas. Both
+        // branches use this; rebuilt on resize because --navbar-height steps at
+        // two breakpoints.
+        const makeHeroObserver = (onChange) => {
+            const navH = document.querySelector(".navbar")?.getBoundingClientRect().height ?? 144;
+            const obs = new IntersectionObserver(
+                ([entry]) => onChange(entry.isIntersecting),
+                { threshold: 0, rootMargin: `-${Math.round(navH + 40)}px 0px 0px 0px` },
+            );
+            if (host) obs.observe(host);
+            return obs;
+        };
+
         const themeName = () =>
             (document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark");
 
@@ -159,11 +182,12 @@ export default function SkylineBackground() {
         /**
          * Where the horizon sits, as a fraction of the canvas height.
          *
-         * The hero is taller than the window — 1080 against 900 on desktop,
-         * 1004 against 844 on a phone — and everything below the crate is
-         * padding. Anchoring the columns to the canvas's bottom edge puts the
-         * horizon 180px below the fold, so the skyline reads as bars running
-         * off the screen rather than as standing on anything.
+         * The canvas is full-bleed (== the hero, == one viewport tall), so
+         * `innerHeight / box.height` is ~1 and the horizon lands on the canvas's
+         * own bottom edge — the fold. The clamp still matters: if the canvas
+         * ever measures TALLER than the window (a short mobile viewport, a
+         * transient resize), baseline drops below 1 to keep the horizon at the
+         * viewport bottom rather than letting it fall off-screen.
          *
          * Derived from the window height, not from the canvas's CURRENT top:
          * the hero is the first section, so its document position is the top of
@@ -273,11 +297,15 @@ export default function SkylineBackground() {
         // later start animating.
         if (reduced) {
             let staticPlaying = getDeckState() === DECK.PLAYING;
+            // Same gate as the animated branch: without it the static frame's
+            // bottom edge overlaps #about in the band under the navbar once the
+            // hero is scrolled away (the canvas is full-bleed).
+            let inView = true;
 
             const drawStatic = () => {
-                if (!staticPlaying) {
+                if (!staticPlaying || !inView) {
                     skyline.clear();
-                    canvas.dataset.skylineState = "static-idle";
+                    canvas.dataset.skylineState = staticPlaying ? "static-hidden" : "static-idle";
                     return;
                 }
                 sizeToHost();
@@ -305,7 +333,12 @@ export default function SkylineBackground() {
                 }
             });
 
-            const onResizeStatic = () => drawStatic();
+            let staticObserver = makeHeroObserver((v) => { inView = v; drawStatic(); });
+            const onResizeStatic = () => {
+                staticObserver.disconnect();
+                staticObserver = makeHeroObserver((v) => { inView = v; drawStatic(); });
+                drawStatic();
+            };
             const staticTheme = new MutationObserver(() => {
                 cycle.invalidate();
                 drawStatic();
@@ -332,6 +365,7 @@ export default function SkylineBackground() {
 
             return () => {
                 offDeckStatic();
+                staticObserver.disconnect();
                 staticTheme.disconnect();
                 window.removeEventListener("resize", onResizeStatic);
                 skyline.dispose();
@@ -467,14 +501,12 @@ export default function SkylineBackground() {
         };
         document.addEventListener("visibilitychange", onVisibility);
 
-        // Observes the hero SECTION rather than the canvas: the same box today,
-        // but the section is the thing whose visibility actually means "the
-        // visitor is looking at the hero".
-        const observer = new IntersectionObserver(
-            ([entry]) => { inView = entry.isIntersecting; sync(); },
-            { threshold: 0 },
-        );
-        if (host) observer.observe(host);
+        // Observes the hero SECTION (not the canvas): the section is the thing
+        // whose visibility means "the visitor is looking at the hero". When it
+        // reads as gone, sync() cancels the loop AND clears the canvas, so a
+        // full-bleed canvas can't overlap #about below the navbar.
+        let observer = makeHeroObserver((v) => { inView = v; sync(); });
+        const reobserveHero = () => { observer.disconnect(); observer = makeHeroObserver((v) => { inView = v; sync(); }); };
 
         // The theme can change mid-track. Three things depend on it and none of
         // them recompute on their own: the cycle caches its solve per theme, the
@@ -495,6 +527,7 @@ export default function SkylineBackground() {
         // several hundred pixels at a constant canvas size.
         const onResize = () => {
             sizeToHost();
+            reobserveHero();
             if (rafId === null && playing) paint();
         };
         window.addEventListener("resize", onResize);
@@ -551,7 +584,7 @@ export default function SkylineBackground() {
             offDeck();
             document.removeEventListener("visibilitychange", onVisibility);
             window.removeEventListener("resize", onResize);
-            observer.disconnect();
+            observer?.disconnect();
             themeObserver.disconnect();
             if (rafId !== null) cancelAnimationFrame(rafId);
             skyline.clear();

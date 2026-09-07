@@ -11,7 +11,20 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-06, **Stage 7.3 — hero
+## 0. Current state — quick summary *(updated 2026-09-07, **Hero full-bleed +
+section spacing pass**: owner review of the dot-matrix hero and the sections
+under it. `.hero-skyline-canvas` goes full-bleed (was inset 24px from the
+bottom) — the animated-matrix peek in the navbar band above `#about` is
+prevented in JS now (a shared IntersectionObserver `rootMargin` in
+`skyline-background.jsx` that clears the canvas once the hero scrolls off,
+including the reduced-motion branch), and the atmosphere-floor gradient is faded
+to transparent before that band so no accent line shows above `#about`. `#about`
+`--about-vpad` `--space-9` → `--space-7` (less headroom over the card).
+`#experience`: `margin-top: 10rem`, flush top (`padding-top` → 0), tighter
+title→filmstrip gap (`--space-6` → `--space-2`, scoped) + 16px card headroom.
+`#projects` title/subtitle gaps tightened to match. Trump National Golf Club
+dropped from the Experience filmstrip. Lint baseline unchanged; build clean.
+Merged to `main`. Full note: STATUS.md §2. Prior, 2026-09-06, **Stage 7.3 — hero
 background re-skinned as a colour dot matrix, one scheme per song**: the neon
 skyline bars become a dot matrix rising from the horizon; the travelling 7-hue
 ring becomes six analogous colour SCHEMES (cobalt/amethyst/ember/rose/citrine/
@@ -1145,7 +1158,7 @@ list). Full writeup: `STATUS.md`'s own dated entry.
 | **7 (a–d)** | ~~Hero fluid background, presence-gating and audio routing, vibrancy/energy pass, spectrum-bound ribbons~~ — **superseded and DELETED, see the rebuild above.** | — |
 | **7 (rebuild)** | ~~Hero synthwave skyline spectrum — Canvas2D renderer, standalone palette module, presence + synchronous reveal~~ — **done, above.** | — |
 | **7.1** | ~~Electric palette, navbar-derived height ceiling, travelling colour wave, neon glow pass~~ — **done, above.** | — |
-| **7.3 (re-skin)** | ~~Hero background re-skinned as a colour DOT MATRIX with one analogous scheme per song~~ (bars → dots, 7-hue ring → 6 schemes; `palette-cycle.js` → `hero-palette.js`; loop/gating/settle untouched) — **done, merged to `main` 2026-09-06.** Open: dark citrine/fern brightness, light-theme scheme tuning, screenshot regen. Settled via a `/design` canvas + audio demo (`design-review/hero-background-options/`) | Stage 7.1 — done |
+| **7.3 (re-skin)** | ~~Hero background re-skinned as a colour DOT MATRIX with one analogous scheme per song~~ (bars → dots, 7-hue ring → 6 schemes; `palette-cycle.js` → `hero-palette.js`; loop/gating/settle untouched) — **done, merged to `main` 2026-09-06.** Follow-up 2026-09-07: `.hero-skyline-canvas` made full-bleed (was inset 24px), the `#about`-band peek moved from a CSS inset to a JS IntersectionObserver `rootMargin` gate, atmosphere-floor gradient faded out before the bottom band. Open: dark citrine/fern brightness, light-theme scheme tuning, screenshot regen. Settled via a `/design` canvas + audio demo (`design-review/hero-background-options/`) | Stage 7.1 — done |
 | **7 (perspective grid)** | The receding horizon grid with a vanishing point — the other half of the synthwave idiom. Deliberately **not** built in the rebuild: it is a decorative layer over a structure that has to be correct first, the same structural-before-motion split every prior stage took | The rebuild — done |
 | **7 (e+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done. **`meyda` is the flagged candidate if the visualizer wants real timbral features** (spectral flux/centroid/chroma); it was declined for the hero, where band splitting is fifteen lines |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
