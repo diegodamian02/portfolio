@@ -1,0 +1,261 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    :root {
+      --navy: #0a0e1a; --ink: #eef1f8; --dim: #9aa3bd; --accent: #6f9bff;
+      --paper: #f3f0ea; --paper-ink: #191510; --paper-dim: #57503f; --paper-accent: #b23a2b;
+      --lcd-bg: #0b1410; --lcd-lit: #6dffb0;
+      --wax-2: #9a5a12;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: var(--accent); } a:hover { color: #8fb2ff; }
+
+    .board {
+      position: relative; width: 1600px; height: 1100px; overflow: hidden;
+      background: radial-gradient(1200px 700px at 30% -10%, #121a33, var(--navy) 60%);
+      color: var(--ink); font-family: "Urbanist", system-ui, sans-serif; padding: 60px 64px;
+    }
+    .eyebrow { font-family: "Space Mono","Courier New",monospace; font-size: 13px;
+      letter-spacing: .22em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+    .title { font-size: 44px; font-weight: 600; letter-spacing: -.015em; margin: 0; }
+    .concept { font-size: 19px; color: var(--dim); margin: 10px 0 0; max-width: 880px; line-height: 1.5; }
+    .zones { display: flex; gap: 56px; margin-top: 44px; align-items: flex-start; }
+    .zone-label { font-family: "Space Mono","Courier New",monospace; font-size: 12px;
+      letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin: 0 0 16px; }
+
+    .collapsed { display: flex; align-items: center; gap: 10px; width: 380px;
+      border-bottom: 1px solid rgba(238,241,248,.25); padding-bottom: 9px; margin-bottom: 34px; }
+    .collapsed svg { width: 15px; height: 15px; color: var(--dim); flex: none; }
+    .collapsed span { font-size: 16px; color: var(--dim); }
+    .caret { width: 1px; height: 16px; background: var(--accent); margin-left: -4px;
+      animation: blink 1.1s step-end infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ---- DECK FEED panel ---- */
+    .deck {
+      position: relative; width: 430px; padding: 14px 4px 8px; overflow: hidden;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #10201a, #0a1410 70%);
+      border: 1px solid rgba(109,255,176,.16);
+      box-shadow: 0 26px 54px -20px rgba(0,0,0,.6), inset 0 0 40px rgba(0,0,0,.4);
+      animation: deck-cycle 8s cubic-bezier(.16,.84,.44,1) infinite;
+    }
+    @keyframes deck-cycle {
+      0%,4% { opacity: 0; transform: translateY(-8px) scale(.98); }
+      9% { opacity: 1; transform: translateY(0) scale(1); }
+      74% { opacity: 1; transform: translateY(0) scale(1); }
+      80%,100% { opacity: 0; transform: translateY(-8px) scale(.98); }
+    }
+    .deck::before { /* scanlines */
+      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+      background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.22) 2px 3px);
+    }
+    .deck::after { /* vignette */
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(120% 90% at 50% 0%, transparent 55%, rgba(0,0,0,.45));
+    }
+    .wire {
+      position: absolute; top: 0; left: 0; height: 2px; width: 100%;
+      background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--lcd-lit) 65%, transparent);
+      box-shadow: 0 0 12px rgba(111,155,255,.7);
+      transform-origin: left; animation: wire-cycle 8s cubic-bezier(.16,.84,.44,1) infinite;
+    }
+    @keyframes wire-cycle {
+      0%,4% { transform: scaleX(0); } 10%,74% { transform: scaleX(1); } 80%,100% { transform: scaleX(0); }
+    }
+    .scan {
+      position: absolute; left: 0; right: 0; height: 46px; z-index: 4; pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgba(109,255,176,.16), transparent);
+      animation: scan-cycle 8s linear infinite;
+    }
+    @keyframes scan-cycle {
+      0%,5% { opacity: 0; top: -46px; }
+      6% { opacity: 1; }
+      14% { top: 100%; opacity: 1; }
+      15%,100% { opacity: 0; top: 100%; }
+    }
+    .deck-head {
+      position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center;
+      padding: 0 14px 10px; font-family: "Space Mono","Courier New",monospace; font-size: 10px;
+      letter-spacing: .18em; text-transform: uppercase; color: #6b8f83;
+    }
+    .cues { position: relative; z-index: 2; list-style: none; margin: 0; padding: 0; }
+    .cue {
+      display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 10px 14px;
+      border-top: 1px solid rgba(255,255,255,.05);
+      animation: cue-cycle 8s cubic-bezier(.16,.84,.44,1) infinite;
+    }
+    .cue:nth-child(1){ animation-delay: .04s; } .cue:nth-child(2){ animation-delay: .09s; }
+    .cue:nth-child(3){ animation-delay: .14s; } .cue:nth-child(4){ animation-delay: .19s; }
+    .cue:nth-child(5){ animation-delay: .24s; }
+    @keyframes cue-cycle {
+      0%,5% { opacity: 0; transform: translateX(-8px); }
+      13%,74% { opacity: 1; transform: translateX(0); }
+      80%,100% { opacity: 0; transform: translateX(-8px); }
+    }
+    .cue-no { font-family: "Space Mono","Courier New",monospace; font-size: 12px; color: #4f7a6d; flex: none; width: 18px; }
+    .cue-meta { flex: 1; min-width: 0; }
+    .cue-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cue-artist { font-size: 12.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cue-len { font-family: "Space Mono","Courier New",monospace; font-size: 11px; color: #6b8f83; flex: none; }
+    .cue-play { flex: none; width: 22px; height: 22px; border-radius: 50%;
+      border: 1px solid rgba(109,255,176,.4); display: flex; align-items: center; justify-content: center; }
+    .cue-play svg { width: 8px; height: 8px; color: var(--lcd-lit); }
+    .cue.is-active { background: rgba(111,155,255,.10); box-shadow: inset 3px 0 0 var(--lcd-lit); }
+    .cue.is-active .cue-play { background: var(--lcd-lit); border-color: var(--lcd-lit); }
+    .cue.is-active .cue-play svg { color: #06130d; }
+
+    /* ---- phone: feeds the deck ---- */
+    .phone { position: relative; width: 300px; height: 620px; border-radius: 40px;
+      background: #05070d; padding: 12px; box-shadow: 0 0 0 2px #2a3040, 0 40px 70px -30px rgba(0,0,0,.7); overflow: hidden; }
+    .screen { position: absolute; inset: 12px; border-radius: 30px; overflow: hidden;
+      background: radial-gradient(420px 300px at 50% 0%, #16203c, var(--navy) 62%); }
+    .mini-deck { position: absolute; top: 40px; left: 50%; transform: translateX(-50%);
+      width: 168px; height: 168px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 42%, #1b2233 0 22%, #0c1017 23% 70%, #0a0e18 71%);
+      box-shadow: 0 12px 30px -12px rgba(0,0,0,.6), inset 0 0 0 1px #1f2740;
+      animation: deck-glow 8s ease-in-out infinite; }
+    @keyframes deck-glow {
+      0%,9% { box-shadow: 0 12px 30px -12px rgba(0,0,0,.6), inset 0 0 0 1px #1f2740; }
+      16%,74% { box-shadow: 0 12px 40px -10px rgba(109,255,176,.35), inset 0 0 0 1px rgba(109,255,176,.4); }
+      80%,100% { box-shadow: 0 12px 30px -12px rgba(0,0,0,.6), inset 0 0 0 1px #1f2740; }
+    }
+    .mini-dot { position: absolute; top: 116px; left: 50%; width: 26px; height: 26px;
+      transform: translateX(-50%); border-radius: 50%; background: var(--wax-2); }
+    .mini-input { position: absolute; bottom: 150px; left: 22px; right: 22px;
+      display: flex; align-items: center; gap: 8px; padding-bottom: 7px;
+      border-bottom: 1px solid var(--lcd-lit); font-size: 13px; color: var(--dim); z-index: 3; }
+    .mini-input svg { width: 13px; height: 13px; color: var(--lcd-lit); }
+    .feed {
+      position: absolute; left: 14px; right: 14px; bottom: 178px; z-index: 2;
+      border-radius: 12px 12px 4px 4px; overflow: hidden;
+      background: linear-gradient(180deg, #10201a, #0a1410);
+      border: 1px solid rgba(109,255,176,.18); border-bottom: none;
+      box-shadow: 0 -16px 34px -10px rgba(0,0,0,.5);
+      clip-path: inset(100% 0 0 0);
+      animation: feed-cycle 8s cubic-bezier(.16,.84,.44,1) infinite;
+    }
+    @keyframes feed-cycle {
+      0%,4% { clip-path: inset(100% 0 0 0); }
+      12%,74% { clip-path: inset(0 0 0 0); }
+      80%,100% { clip-path: inset(100% 0 0 0); }
+    }
+    .feed .cue { min-height: 46px; padding: 8px 12px; animation: none; opacity: 1; transform: none; }
+    .feed .cue-title { font-size: 13.5px; }
+    .feed-handle { display: flex; justify-content: center; padding: 6px 0 2px; }
+    .feed-handle span { width: 34px; height: 4px; border-radius: 3px; background: rgba(109,255,176,.35); }
+
+    /* ---- studio paper ---- */
+    .paper-wrap { background: var(--paper); border-radius: 12px; padding: 26px 24px 24px; width: 340px;
+      color: var(--paper-ink); box-shadow: 0 20px 44px -20px rgba(0,0,0,.5); }
+    .paper-wrap .zone-label { color: var(--paper-dim); }
+    .deck.paper {
+      animation: none; opacity: 1; transform: none; width: 292px;
+      background: #e9e1d2; border: 1px solid #cbbfa6;
+      box-shadow: 0 18px 38px -18px rgba(0,0,0,.4);
+    }
+    .deck.paper::before, .deck.paper::after, .deck.paper .scan { display: none; }
+    .deck.paper .wire { animation: none; transform: none;
+      background: linear-gradient(90deg, transparent, var(--paper-accent) 40%, transparent); box-shadow: none; }
+    .deck.paper .deck-head { color: #8a7d63; }
+    .deck.paper .cue { animation: none; opacity: 1; transform: none; border-top-color: rgba(139,125,99,.28); }
+    .deck.paper .cue-no { color: #a08d6a; }
+    .deck.paper .cue-title { color: var(--paper-ink); }
+    .deck.paper .cue-artist, .deck.paper .cue-len { color: var(--paper-dim); }
+    .deck.paper .cue-play { border-color: rgba(178,58,43,.5); }
+    .deck.paper .cue-play svg { color: var(--paper-accent); }
+    .deck.paper .cue.is-active { background: rgba(178,58,43,.08); box-shadow: inset 3px 0 0 var(--paper-accent); }
+    .deck.paper .cue.is-active .cue-play { background: var(--paper-accent); border-color: var(--paper-accent); }
+    .deck.paper .cue.is-active .cue-play svg { color: #fff; }
+
+    .spec { margin-top: 22px; font-family: "Space Mono","Courier New",monospace; font-size: 11px;
+      line-height: 1.9; color: var(--paper-dim); border-top: 1px solid rgba(87,80,63,.3); padding-top: 14px; }
+    .spec b { color: var(--paper-ink); font-weight: 700; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .deck, .wire, .scan, .cue, .feed, .mini-deck { animation: none !important; opacity: 1 !important; transform: none !important; }
+      .wire { transform: scaleX(1) !important; } .feed { clip-path: inset(0 0 0 0) !important; }
+    }
+  </style>
+</helmet>
+
+<div class="board">
+  <p class="eyebrow">Record crate &middot; Direction B</p>
+  <h1 class="title">The Deck Feed</h1>
+  <p class="concept">The crate stops being a dropdown and becomes the turntable&rsquo;s own screen &mdash; a lit console that populates like a readout, in the monospace-and-cue language the deck and walkman LCD already speak. You&rsquo;re not picking a search result, you&rsquo;re queuing the deck.</p>
+
+  <div class="zones">
+    <div>
+      <p class="zone-label">Collapsed &rarr; Expanded (dark)</p>
+      <div class="collapsed">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/></svg>
+        <span>tame impala</span><span class="caret"></span>
+      </div>
+      <div class="deck">
+        <span class="wire"></span><span class="scan"></span>
+        <div class="deck-head"><span>Crate &middot; Cue</span><span>5 results</span></div>
+        <ul class="cues">
+          <li class="cue"><span class="cue-no">01</span><span class="cue-meta"><span class="cue-title">The Less I Know the Better</span><span class="cue-artist">Tame Impala</span></span><span class="cue-len">3:36</span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+          <li class="cue is-active"><span class="cue-no">02</span><span class="cue-meta"><span class="cue-title">Let It Happen</span><span class="cue-artist">Tame Impala</span></span><span class="cue-len">7:47</span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+          <li class="cue"><span class="cue-no">03</span><span class="cue-meta"><span class="cue-title">Borderline</span><span class="cue-artist">Tame Impala</span></span><span class="cue-len">3:58</span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+          <li class="cue"><span class="cue-no">04</span><span class="cue-meta"><span class="cue-title">Elephant</span><span class="cue-artist">Tame Impala</span></span><span class="cue-len">3:31</span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+          <li class="cue"><span class="cue-no">05</span><span class="cue-meta"><span class="cue-title">Feels Like We Only Go Backwards</span><span class="cue-artist">Tame Impala</span></span><span class="cue-len">3:13</span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div>
+      <p class="zone-label">On mobile &middot; grows toward the deck</p>
+      <div class="phone">
+        <div class="screen">
+          <div class="mini-deck"></div><div class="mini-dot"></div>
+          <div class="feed">
+            <div class="feed-handle"><span></span></div>
+            <ul class="cues">
+              <li class="cue"><span class="cue-no">01</span><span class="cue-meta"><span class="cue-title">The Less I Know&hellip;</span><span class="cue-artist">Tame Impala</span></span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+              <li class="cue is-active"><span class="cue-no">02</span><span class="cue-meta"><span class="cue-title">Let It Happen</span><span class="cue-artist">Tame Impala</span></span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+              <li class="cue"><span class="cue-no">03</span><span class="cue-meta"><span class="cue-title">Borderline</span><span class="cue-artist">Tame Impala</span></span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+              <li class="cue"><span class="cue-no">04</span><span class="cue-meta"><span class="cue-title">Elephant</span><span class="cue-artist">Tame Impala</span></span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+            </ul>
+          </div>
+          <div class="mini-input"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/></svg><span>tame impala</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="paper-wrap">
+      <p class="zone-label">Studio Paper (light)</p>
+      <div class="deck paper">
+        <span class="wire"></span>
+        <div class="deck-head"><span>Crate &middot; Cue</span><span>5 results</span></div>
+        <ul class="cues">
+          <li class="cue"><span class="cue-no">01</span><span class="cue-meta"><span class="cue-title">The Less I Know the Better</span><span class="cue-artist">Tame Impala</span></span><span class="cue-len">3:36</span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+          <li class="cue is-active"><span class="cue-no">02</span><span class="cue-meta"><span class="cue-title">Let It Happen</span><span class="cue-artist">Tame Impala</span></span><span class="cue-len">7:47</span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+          <li class="cue"><span class="cue-no">03</span><span class="cue-meta"><span class="cue-title">Borderline</span><span class="cue-artist">Tame Impala</span></span><span class="cue-len">3:58</span><span class="cue-play"><svg viewBox="0 0 10 10" fill="currentColor"><path d="M2 1l6 4-6 4z"/></svg></span></li>
+        </ul>
+      </div>
+      <div class="spec">
+        <b>OPEN</b> 560ms &middot; power-on: wire draws L&rarr;R,<br>
+        scanline sweep, rows slide in +50ms stagger<br>
+        <b>CLOSE</b> 200ms &middot; rows blink, wire retracts<br>
+        <b>MOBILE</b> reveals upward from input toward deck;<br>
+        deck pulses. dismiss: swipe down / tap deck (fixes D32)
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1600,"height":1100}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

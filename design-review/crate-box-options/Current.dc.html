@@ -1,0 +1,193 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    :root {
+      --navy: #0a0e1a; --ink: #eef1f8; --dim: #9aa3bd; --accent: #6f9bff;
+      --paper: #f3f0ea; --paper-ink: #191510; --paper-dim: #57503f;
+      --maple-1: #c08c4e; --maple-2: #ab7940; --maple-3: #b8834a;
+      --crate-ink: #20150a; --crate-dim: rgba(45,30,14,.62);
+      --fret-light: #f2efe8; --fret-dark: #a49d90; --inlay: rgba(40,26,12,.42);
+      --row-hover: rgba(255,248,232,.32);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: var(--accent); } a:hover { color: #8fb2ff; }
+
+    .board {
+      position: relative; width: 1600px; height: 1100px; overflow: hidden;
+      background: radial-gradient(1200px 700px at 30% -10%, #121a33, var(--navy) 60%);
+      color: var(--ink); font-family: "Urbanist", system-ui, sans-serif; padding: 60px 64px;
+    }
+    .eyebrow { font-family: "Space Mono","Courier New",monospace; font-size: 13px;
+      letter-spacing: .22em; text-transform: uppercase; color: #7f8aa6; margin: 0 0 12px; }
+    .title { font-size: 44px; font-weight: 600; letter-spacing: -.015em; margin: 0; }
+    .badge { display: inline-block; margin-left: 14px; vertical-align: middle;
+      font-family: "Space Mono","Courier New",monospace; font-size: 11px; letter-spacing: .14em;
+      color: #cdd3e2; border: 1px solid rgba(205,211,226,.35); border-radius: 4px; padding: 3px 8px; text-transform: uppercase; }
+    .concept { font-size: 19px; color: var(--dim); margin: 10px 0 0; max-width: 880px; line-height: 1.5; }
+    .zones { display: flex; gap: 56px; margin-top: 44px; align-items: flex-start; }
+    .zone-label { font-family: "Space Mono","Courier New",monospace; font-size: 12px;
+      letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin: 0 0 16px; }
+
+    .collapsed { display: flex; align-items: center; gap: 10px; width: 380px;
+      border-bottom: 1px solid rgba(238,241,248,.25); padding-bottom: 9px; margin-bottom: 34px; }
+    .collapsed svg { width: 15px; height: 15px; color: var(--dim); flex: none; opacity: .5; }
+    .collapsed span { font-size: 16px; color: var(--dim); }
+
+    .maple {
+      position: relative; width: 420px; border-radius: 10px; overflow: hidden;
+      background: linear-gradient(165deg, var(--maple-1), var(--maple-2), var(--maple-3));
+      box-shadow: inset 0 1px 0 rgba(255,240,214,.3),
+        0 24px 48px -16px rgba(20,10,0,.4), 0 8px 20px -8px rgba(20,10,0,.3);
+      animation: maple-cycle 7s cubic-bezier(.33,0,.2,1) infinite;
+    }
+    @keyframes maple-cycle {
+      0%,4% { opacity: 0; transform: translateY(8px); }
+      9% { opacity: 1; transform: translateY(0); }
+      74% { opacity: 1; transform: translateY(0); }
+      80%,100% { opacity: 0; transform: translateY(8px); }
+    }
+    .maple::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(91deg,
+        transparent 0 5px, rgba(58,32,10,.09) 5px 6px, transparent 6px 24px,
+        rgba(58,32,10,.09) 24px 25.5px, transparent 25.5px 45px,
+        rgba(58,32,10,.09) 45px 46px, transparent 46px 75px,
+        rgba(58,32,10,.09) 75px 76.5px);
+    }
+    .rows { position: relative; z-index: 1; list-style: none; margin: 0; padding: 0; }
+    .row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 14px; position: relative; }
+    .row + .row { border-top: 1.5px solid; border-image: linear-gradient(180deg, var(--fret-light), var(--fret-dark)) 1; }
+    .row.is-active { background: var(--row-hover); }
+    .row.has-inlay::before { content: ""; position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+      width: 4px; height: 4px; border-radius: 50%; background: var(--inlay); }
+    .sleeve27 { flex: none; width: 27px; height: 27px; border-radius: 2px;
+      background: linear-gradient(135deg, #3a2b1a, #6b533a); box-shadow: 1px 1px 0 rgba(60,35,10,.45); }
+    .rmeta { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+    .rtitle { font-size: 13.6px; font-weight: 600; color: var(--crate-ink);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rartist { font-size: 12px; color: var(--crate-dim);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .phone { position: relative; width: 300px; height: 620px; border-radius: 40px;
+      background: #05070d; padding: 12px; box-shadow: 0 0 0 2px #2a3040, 0 40px 70px -30px rgba(0,0,0,.7); overflow: hidden; }
+    .screen { position: absolute; inset: 12px; border-radius: 30px; overflow: hidden;
+      background: radial-gradient(420px 300px at 50% 0%, #16203c, var(--navy) 62%); }
+    .mini-deck { position: absolute; top: 26px; left: 50%; transform: translateX(-50%);
+      width: 130px; height: 130px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 42%, #1b2233 0 24%, #0c1017 25% 70%, #0a0e18 71%);
+      box-shadow: 0 12px 30px -12px rgba(0,0,0,.6), inset 0 0 0 1px #1f2740; }
+    .mini-name { position: absolute; top: 174px; left: 22px; font-size: 20px; font-weight: 600; }
+    .mini-input { position: absolute; top: 212px; left: 22px; right: 22px;
+      display: flex; align-items: center; gap: 8px; padding-bottom: 7px;
+      border-bottom: 1px solid var(--accent); font-size: 13px; color: var(--dim); }
+    .mini-input svg { width: 13px; height: 13px; }
+    .mdrop {
+      position: absolute; top: 244px; left: 22px; right: 22px; z-index: 2; border-radius: 10px; overflow: hidden;
+      background: linear-gradient(165deg, var(--maple-1), var(--maple-2), var(--maple-3));
+      box-shadow: 0 16px 30px -14px rgba(0,0,0,.5);
+      animation: mdrop-cycle 7s cubic-bezier(.33,0,.2,1) infinite;
+    }
+    @keyframes mdrop-cycle {
+      0%,4% { opacity: 0; transform: translateY(-8px); }
+      9% { opacity: 1; transform: translateY(0); }
+      74% { opacity: 1; transform: translateY(0); }
+      80%,100% { opacity: 0; transform: translateY(-8px); }
+    }
+    .mdrop .row { min-height: 40px; }
+    .mdrop .rtitle { font-size: 12.5px; }
+    .m-warn { position: absolute; left: 22px; bottom: 22px; right: 22px;
+      font-family: "Space Mono","Courier New",monospace; font-size: 9px; letter-spacing: .1em;
+      color: #c9846f; text-transform: uppercase; line-height: 1.5; }
+
+    .paper-wrap { background: var(--paper); border-radius: 12px; padding: 26px 24px 24px; width: 340px;
+      color: var(--paper-ink); box-shadow: 0 20px 44px -20px rgba(0,0,0,.5); }
+    .paper-wrap .zone-label { color: var(--paper-dim); }
+    .maple.paper { animation: none; opacity: 1; transform: none; width: 292px;
+      box-shadow: inset 0 1px 0 rgba(255,240,214,.4), 0 18px 38px -16px rgba(20,10,0,.55), 0 0 0 1px rgba(25,21,16,.14); }
+    .spec { margin-top: 22px; font-family: "Space Mono","Courier New",monospace; font-size: 11px;
+      line-height: 1.9; color: var(--paper-dim); border-top: 1px solid rgba(87,80,63,.3); padding-top: 14px; }
+    .spec b { color: var(--paper-ink); font-weight: 700; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .maple, .mdrop { animation: none !important; opacity: 1 !important; transform: none !important; }
+    }
+  </style>
+</helmet>
+
+<div class="board">
+  <p class="eyebrow">Record crate &middot; Shipping today</p>
+  <h1 class="title">Roasted Maple Fretboard<span class="badge">Reference only</span></h1>
+  <p class="concept">What&rsquo;s live now: a bare underline input that opens a warm maple board, portaled to <code>&lt;body&gt;</code> and positioned from the input&rsquo;s own rect. Row dividers are nickel &ldquo;frets&rdquo;; one row carries a fretboard inlay dot. Shown here for the departure the three proposals make from it.</p>
+
+  <div class="zones">
+    <div>
+      <p class="zone-label">Collapsed &rarr; Expanded (dark)</p>
+      <div class="collapsed">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1"><circle cx="8" cy="8" r="6.5"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/></svg>
+        <span>put a record on&hellip;</span>
+      </div>
+      <div class="maple">
+        <ul class="rows">
+          <li class="row is-active"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">The Less I Know the Better</span><span class="rartist">Tame Impala</span></span></li>
+          <li class="row"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Let It Happen</span><span class="rartist">Tame Impala</span></span></li>
+          <li class="row has-inlay"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Borderline</span><span class="rartist">Tame Impala</span></span></li>
+          <li class="row"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Elephant</span><span class="rartist">Tame Impala</span></span></li>
+          <li class="row"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Feels Like We Only Go Backwards</span><span class="rartist">Tame Impala</span></span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div>
+      <p class="zone-label">On mobile &middot; today</p>
+      <div class="phone">
+        <div class="screen">
+          <div class="mini-deck"></div>
+          <div class="mini-name">Diego Damian</div>
+          <div class="mini-input"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/></svg><span>tame impala</span></div>
+          <div class="mdrop">
+            <ul class="rows">
+              <li class="row is-active"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">The Less I Know&hellip;</span><span class="rartist">Tame Impala</span></span></li>
+              <li class="row"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Let It Happen</span><span class="rartist">Tame Impala</span></span></li>
+              <li class="row has-inlay"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Borderline</span><span class="rartist">Tame Impala</span></span></li>
+              <li class="row"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Elephant</span><span class="rartist">Tame Impala</span></span></li>
+            </ul>
+          </div>
+          <div class="m-warn">D32 &mdash; outside tap bound to mousedown, so touch never dismisses the panel. All 3 proposals add a scrim that fixes this.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="paper-wrap">
+      <p class="zone-label">Studio Paper (light)</p>
+      <div class="maple paper">
+        <ul class="rows">
+          <li class="row is-active"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">The Less I Know the Better</span><span class="rartist">Tame Impala</span></span></li>
+          <li class="row"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Let It Happen</span><span class="rartist">Tame Impala</span></span></li>
+          <li class="row has-inlay"><span class="sleeve27"></span><span class="rmeta"><span class="rtitle">Borderline</span><span class="rartist">Tame Impala</span></span></li>
+        </ul>
+      </div>
+      <div class="spec">
+        <b>OPEN</b> 250ms &middot; power2.out &middot; fade + 8px slide<br>
+        origin: from input rect (fixed portal)<br>
+        <b>CLOSE</b> 200ms &middot; same, reversed<br>
+        <b>MOBILE</b> opens downward; list scrolls internally<br>
+        <b>KNOWN</b> maple/paper contrast is low &mdash; shadow carries it
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1600,"height":1100}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

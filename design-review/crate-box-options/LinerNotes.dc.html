@@ -1,0 +1,234 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    :root {
+      --navy: #0a0e1a; --ink: #eef1f8; --dim: #9aa3bd; --accent: #6f9bff;
+      --paper: #f3f0ea; --paper-ink: #191510; --paper-dim: #57503f; --paper-accent: #b23a2b;
+      --card: #efe9db; --card-line: #cbc1a6; --card-ink: #2c2718; --card-dim: #7a7060;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: var(--accent); } a:hover { color: #8fb2ff; }
+
+    .board {
+      position: relative; width: 1600px; height: 1100px; overflow: hidden;
+      background: radial-gradient(1200px 700px at 30% -10%, #121a33, var(--navy) 60%);
+      color: var(--ink); font-family: "Urbanist", system-ui, sans-serif; padding: 60px 64px;
+    }
+    .eyebrow { font-family: "Space Mono","Courier New",monospace; font-size: 13px;
+      letter-spacing: .22em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+    .title { font-size: 44px; font-weight: 600; letter-spacing: -.015em; margin: 0; }
+    .concept { font-size: 19px; color: var(--dim); margin: 10px 0 0; max-width: 880px; line-height: 1.5; }
+    .zones { display: flex; gap: 56px; margin-top: 44px; align-items: flex-start; }
+    .zone-label { font-family: "Space Mono","Courier New",monospace; font-size: 12px;
+      letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin: 0 0 16px; }
+
+    .collapsed { display: flex; align-items: center; gap: 10px; width: 380px;
+      border-bottom: 1px solid rgba(238,241,248,.25); padding-bottom: 9px; margin-bottom: 34px; }
+    .collapsed svg { width: 15px; height: 15px; color: var(--dim); flex: none; }
+    .collapsed span { font-size: 16px; color: var(--dim); }
+    .caret { width: 1px; height: 16px; background: var(--accent); margin-left: -4px;
+      animation: blink 1.1s step-end infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ---- LINER NOTES card ---- */
+    .sleeve { width: 428px; overflow: hidden;
+      clip-path: inset(0 100% 0 0);
+      animation: sleeve-cycle 8s cubic-bezier(.16,.84,.44,1) infinite; }
+    @keyframes sleeve-cycle {
+      0%,4% { clip-path: inset(0 100% 0 0); }
+      10%,74% { clip-path: inset(0 0 0 0); }
+      80%,100% { clip-path: inset(0 100% 0 0); }
+    }
+    .liner {
+      position: relative; background: var(--card); color: var(--card-ink);
+      border: 1px solid var(--card-line); border-radius: 4px; padding: 22px 26px 20px;
+      box-shadow: inset 0 1px 0 #fff8ec, 0 20px 44px -18px rgba(20,12,4,.55);
+      transform: translateX(-16px);
+      animation: liner-cycle 8s cubic-bezier(.16,.84,.44,1) infinite;
+    }
+    @keyframes liner-cycle {
+      0%,4% { transform: translateX(-16px); }
+      10%,74% { transform: translateX(0); }
+      80%,100% { transform: translateX(-16px); }
+    }
+    .liner::before { /* paper fibre */
+      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .04; mix-blend-mode: multiply;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .liner-head { display: flex; align-items: baseline; justify-content: space-between;
+      font-family: "Space Mono","Courier New",monospace; font-size: 10px; letter-spacing: .2em;
+      text-transform: uppercase; color: #8a7d63; }
+    .liner-rule { height: 1px; background: var(--card-line); margin: 8px 0 4px; }
+    .liner-q { font-size: 22px; font-weight: 600; color: var(--card-ink); margin: 6px 0 12px; }
+
+    .tracks { list-style: none; margin: 0; padding: 0; }
+    .trk {
+      position: relative; display: grid; grid-template-columns: 30px 1fr auto;
+      align-items: baseline; gap: 12px; padding: 9px 0; min-height: 46px;
+      border-bottom: 1px solid rgba(139,125,99,.28);
+      animation: trk-cycle 8s cubic-bezier(.16,.84,.44,1) infinite;
+    }
+    .trk:last-child { border-bottom: none; }
+    .trk:nth-child(1){ animation-delay: .06s; } .trk:nth-child(2){ animation-delay: .11s; }
+    .trk:nth-child(3){ animation-delay: .16s; } .trk:nth-child(4){ animation-delay: .21s; }
+    .trk:nth-child(5){ animation-delay: .26s; }
+    @keyframes trk-cycle {
+      0%,8% { opacity: 0; } 14%,74% { opacity: 1; } 80%,100% { opacity: 0; }
+    }
+    .trk-no { font-family: "Space Mono","Courier New",monospace; font-size: 12px; color: #a08d6a; }
+    .trk-body { min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+    .trk-title { font-size: 15px; font-weight: 500; color: var(--card-ink); white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; }
+    .trk-dots { flex: 1; border-bottom: 1px dotted #b3a789; transform: translateY(-3px); min-width: 14px; }
+    .trk-right { font-family: "Space Mono","Courier New",monospace; font-size: 11px; color: var(--card-dim); white-space: nowrap; }
+    .trk.is-active .trk-no { color: var(--paper-accent); font-weight: 700; }
+    .trk.is-active .trk-title { box-shadow: inset 0 -1px 0 var(--paper-accent); }
+    .trk.is-active::before {
+      content: ""; position: absolute; left: -14px; top: 15px;
+      border: 4px solid transparent; border-left-color: var(--paper-accent); border-right-width: 0;
+    }
+
+    /* ---- phone: expands in place, nothing jumps ---- */
+    .phone { position: relative; width: 300px; height: 620px; border-radius: 40px;
+      background: #05070d; padding: 12px; box-shadow: 0 0 0 2px #2a3040, 0 40px 70px -30px rgba(0,0,0,.7); overflow: hidden; }
+    .screen { position: absolute; inset: 12px; border-radius: 30px; overflow: hidden;
+      background: radial-gradient(420px 300px at 50% 0%, #16203c, var(--navy) 62%); }
+    .mini-deck { position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
+      width: 138px; height: 138px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 42%, #1b2233 0 24%, #0c1017 25% 70%, #0a0e18 71%);
+      box-shadow: 0 12px 30px -12px rgba(0,0,0,.6), inset 0 0 0 1px #1f2740; }
+    .mini-name { position: absolute; top: 186px; left: 22px; font-size: 20px; font-weight: 600; color: var(--ink); }
+    .mini-input { position: absolute; top: 224px; left: 22px; right: 22px;
+      display: flex; align-items: center; gap: 8px; padding-bottom: 7px;
+      border-bottom: 1px solid var(--accent); font-size: 13px; color: var(--dim); }
+    .mini-input svg { width: 13px; height: 13px; }
+    .drop {
+      position: absolute; top: 256px; left: 22px; right: 22px; z-index: 2;
+      background: var(--card); border: 1px solid var(--card-line); border-radius: 4px;
+      padding: 12px 14px; color: var(--card-ink);
+      box-shadow: 0 16px 30px -14px rgba(0,0,0,.5);
+      transform-origin: top;
+      animation: drop-cycle 8s cubic-bezier(.16,.84,.44,1) infinite;
+    }
+    @keyframes drop-cycle {
+      0%,4% { opacity: 0; transform: translateY(8px); }
+      10%,74% { opacity: 1; transform: translateY(0); }
+      80%,100% { opacity: 0; transform: translateY(8px); }
+    }
+    .drop .liner-head { font-size: 8px; }
+    .drop .trk { padding: 7px 0; min-height: 40px; animation: none; opacity: 1; }
+    .drop .trk-title { font-size: 13px; }
+    .m-still { position: absolute; left: 22px; bottom: 24px; right: 22px;
+      font-family: "Space Mono","Courier New",monospace; font-size: 9px; letter-spacing: .12em;
+      color: #566; text-transform: uppercase; }
+
+    /* ---- studio paper ---- */
+    .paper-wrap { background: var(--paper); border-radius: 12px; padding: 26px 24px 24px; width: 340px;
+      color: var(--paper-ink); box-shadow: 0 20px 44px -20px rgba(0,0,0,.5); }
+    .paper-wrap .zone-label { color: var(--paper-dim); }
+    .paper-wrap .sleeve { animation: none; clip-path: none; width: 292px; }
+    .paper-wrap .liner { animation: none; transform: none;
+      box-shadow: inset 0 1px 0 #fff8ec, 0 14px 30px -16px rgba(20,12,4,.4); }
+    .paper-wrap .trk { animation: none; opacity: 1; }
+    .paper-note { margin-top: 12px; font-size: 12px; color: var(--paper-dim); line-height: 1.5; }
+
+    .spec { margin-top: 20px; font-family: "Space Mono","Courier New",monospace; font-size: 11px;
+      line-height: 1.9; color: var(--paper-dim); border-top: 1px solid rgba(87,80,63,.3); padding-top: 14px; }
+    .spec b { color: var(--paper-ink); font-weight: 700; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .sleeve, .liner, .trk, .drop { animation: none !important; opacity: 1 !important; transform: none !important; clip-path: none !important; }
+    }
+  </style>
+</helmet>
+
+<div class="board">
+  <p class="eyebrow">Record crate &middot; Direction C</p>
+  <h1 class="title">Liner Notes</h1>
+  <p class="concept">No wood, no screen &mdash; the results are a tracklist printed on the insert. A cream card, warm ink, catalogue numbers and leader dots in Space Mono, set the way a back cover sets a tracklisting. It slides out of the sleeve when you type. The one direction that needs zero rework between the two themes &mdash; paper is paper.</p>
+
+  <div class="zones">
+    <div>
+      <p class="zone-label">Collapsed &rarr; Expanded (dark)</p>
+      <div class="collapsed">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/></svg>
+        <span>tame impala</span><span class="caret"></span>
+      </div>
+      <div class="sleeve">
+        <div class="liner">
+          <div class="liner-head"><span>Side A &middot; Search</span><span>5 sides</span></div>
+          <div class="liner-rule"></div>
+          <div class="liner-q">Tame Impala</div>
+          <ul class="tracks">
+            <li class="trk"><span class="trk-no">A1</span><span class="trk-body"><span class="trk-title">The Less I Know the Better</span><span class="trk-dots"></span></span><span class="trk-right">Tame Impala &nbsp; 3:36</span></li>
+            <li class="trk is-active"><span class="trk-no">A2</span><span class="trk-body"><span class="trk-title">Let It Happen</span><span class="trk-dots"></span></span><span class="trk-right">Tame Impala &nbsp; 7:47</span></li>
+            <li class="trk"><span class="trk-no">A3</span><span class="trk-body"><span class="trk-title">Borderline</span><span class="trk-dots"></span></span><span class="trk-right">Tame Impala &nbsp; 3:58</span></li>
+            <li class="trk"><span class="trk-no">A4</span><span class="trk-body"><span class="trk-title">Elephant</span><span class="trk-dots"></span></span><span class="trk-right">Tame Impala &nbsp; 3:31</span></li>
+            <li class="trk"><span class="trk-no">A5</span><span class="trk-body"><span class="trk-title">Feels Like We Only Go Backwards</span><span class="trk-dots"></span></span><span class="trk-right">Tame Impala &nbsp; 3:13</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="zone-label">On mobile &middot; opens in place</p>
+      <div class="phone">
+        <div class="screen">
+          <div class="mini-deck"></div>
+          <div class="mini-name">Diego Damian</div>
+          <div class="mini-input"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/></svg><span>tame impala</span></div>
+          <div class="drop">
+            <div class="liner-head"><span>Side A &middot; Search</span><span>5</span></div>
+            <div class="liner-rule"></div>
+            <ul class="tracks">
+              <li class="trk"><span class="trk-no">A1</span><span class="trk-body"><span class="trk-title">The Less I Know&hellip;</span><span class="trk-dots"></span></span><span class="trk-right">3:36</span></li>
+              <li class="trk is-active"><span class="trk-no">A2</span><span class="trk-body"><span class="trk-title">Let It Happen</span><span class="trk-dots"></span></span><span class="trk-right">7:47</span></li>
+              <li class="trk"><span class="trk-no">A3</span><span class="trk-body"><span class="trk-title">Borderline</span><span class="trk-dots"></span></span><span class="trk-right">3:58</span></li>
+              <li class="trk"><span class="trk-no">A4</span><span class="trk-body"><span class="trk-title">Elephant</span><span class="trk-dots"></span></span><span class="trk-right">3:31</span></li>
+            </ul>
+          </div>
+          <div class="m-still">Deck + name stay put &middot; page never jumps</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="paper-wrap">
+      <p class="zone-label">Studio Paper (light)</p>
+      <div class="sleeve">
+        <div class="liner">
+          <div class="liner-head"><span>Side A &middot; Search</span><span>5 sides</span></div>
+          <div class="liner-rule"></div>
+          <div class="liner-q">Tame Impala</div>
+          <ul class="tracks">
+            <li class="trk"><span class="trk-no">A1</span><span class="trk-body"><span class="trk-title">The Less I Know the Better</span><span class="trk-dots"></span></span><span class="trk-right">3:36</span></li>
+            <li class="trk is-active"><span class="trk-no">A2</span><span class="trk-body"><span class="trk-title">Let It Happen</span><span class="trk-dots"></span></span><span class="trk-right">7:47</span></li>
+            <li class="trk"><span class="trk-no">A3</span><span class="trk-body"><span class="trk-title">Borderline</span><span class="trk-dots"></span></span><span class="trk-right">3:58</span></li>
+          </ul>
+        </div>
+      </div>
+      <p class="paper-note">Identical treatment &mdash; only the hero behind it changes from navy to paper.</p>
+      <div class="spec">
+        <b>OPEN</b> 380ms &middot; card slides out of sleeve L&rarr;R<br>
+        shadow blooms &middot; rows fade in +50ms stagger<br>
+        <b>CLOSE</b> 220ms &middot; slides back in<br>
+        <b>MOBILE</b> in-place under input, page never jumps<br>
+        dismiss: tap outside / swipe (scrim fixes D32)
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1600,"height":1100}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>
