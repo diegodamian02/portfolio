@@ -1,13 +1,16 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-06 (**Record crate — cool dark chipboard + smoother
-mobile open**: the dark chipboard is a cool blue-slate now (`--crate-chip-*`,
-was warm grey-brown) so the bin reads with the navy / blue-vinyl / dot-matrix
-vibe instead of against it; light keeps its warm particleboard. The mobile
-takeover was re-architected — `.record-crate` stays in the hero grid (only
-the input row pins; the panel portals to `<body>`), killing a measured
-first-open frame-drop from the grid reflowing when it went `position: fixed`.
-Full entry in §2.) Prior, same day (**Hero background — dot matrix + per-song
+**Updated:** 2026-09-06 (**Record crate — cool dark chipboard, smoother open,
+iPad fix**: the dark chipboard is a cool blue-slate now (was warm grey-brown)
+so the bin reads with the navy / blue-vinyl / dot-matrix vibe; light keeps
+warm particleboard. The mobile takeover was re-architected — `.record-crate`
+stays in the hero grid (only the input row pins; the panel portals to
+`<body>`), killing a measured first-open frame-drop. **And the crate now
+works on iPad** — the touch/dropdown decision is `matchMedia("(pointer:
+coarse), (max-width: 768px)")`, so every tablet gets the takeover (an
+`innerWidth < 768` check had failed at exactly 768px — iPad Mini portrait —
+and opened the dropdown off the top of the screen). Full entry in §2.) Prior,
+same day (**Hero background — dot matrix + per-song
 colour schemes**: the neon skyline bars are replaced by a colour DOT MATRIX
 rising
 from the horizon. Same presence model (blank until a track plays, an eased
@@ -173,10 +176,11 @@ working hero is design information the sections beneath it need.
 
 ## 2. What changed recently
 
-### Record crate — cool dark chipboard, smoother mobile open *(2026-09-06)*
+### Record crate — cool dark chipboard, smoother open, works on iPad *(2026-09-06)*
 
 Owner feedback on the "dig" takeover: liked it, but the mobile open "looks
-kinda laggy," and the dark chipboard "isn't the most suitable" for the vibe.
+kinda laggy," the dark chipboard "isn't the most suitable" for the vibe, and
+**a friend's iPad couldn't open the crate at all** when she typed a song.
 
 **The dark chipboard is a cool blue-slate now** — `--crate-chip-1 #2b333f`,
 `-2 #20262f`, `-band #171b22` (was a warm grey-brown `#423d36`). A warm
@@ -207,12 +211,28 @@ right as the takeover mounts). Now:
   written straight to the panel node, rAF-throttled — no `setState`, so the
   keyboard-slide event burst can't re-render mid-animation.
 
-**Verified** (Playwright, 5173, CPU 6×): every mobile open — first included —
-is a steady 60fps, zero dropped frames (was 83ms + 33ms on open #1). Desktop
-+ mobile × dark + light: 5 cards, shelf at the navbar line, panel portaled &
-covering, clears navbar+shelf, `role="dialog"`, select / Escape / chevron all
-dismiss, resting DOM clean after close (no leftover inline styles, deck
-doesn't jump), 0 crate console errors. `lint` unchanged (7/2). `build` clean.
+**iPad (and every touch device) now gets the takeover.** The old check was
+`window.innerWidth < 768` — false at *exactly* 768px (iPad Mini / older iPad
+portrait), so those fell to the desktop dropdown while the CSS
+(`@media (max-width: 768px)`, inclusive) had already switched to the mobile
+hero layout. The dropdown then opened *upward from an input near the top of
+the screen* — off the top of the viewport, first result unclickable
+("couldn't open anything"). And every larger iPad got the cramped dropdown
+regardless. Now the path is chosen by `matchMedia("(pointer: coarse),
+(max-width: 768px)")` — any tablet/phone in any orientation gets the
+takeover, mouse-driven desktops keep the dropdown, and the JS/CSS breakpoints
+agree at 768px. A `--crate-dig-gutter` (`max(16px, (100vw − 680px) / 2)`)
+centres the shelf + cards in a ~680px column so nothing stretches across a
+landscape tablet.
+
+**Verified** (Playwright, 5173): an 11-viewport matrix — phone, iPad Mini
+768 portrait, iPad Air/Pro portrait, iPad landscape, iPad Pro 12.9, Android
+tablet, desktop 1280/1440/1920, touch-laptop 1024 — all render 5 cards, all
+on-screen and clickable, correct path each. CPU-throttled: every mobile open
+(first included) is a steady 60fps, zero dropped frames (was 83 + 33 ms on
+open #1). Both themes; select / Escape / chevron dismiss; resting DOM clean
+after close (deck doesn't jump); 0 crate console errors. `lint` unchanged
+(7/2). `build` clean.
 
 ### Hero background — dot matrix + one colour scheme per song *(2026-09-06)*
 

@@ -9,7 +9,12 @@ import useReducedMotion from "../hooks/use-reduced-motion.js";
 const RESULT_LIMIT = 5;
 const FETCH_LIMIT = 15;
 const DEBOUNCE_MS = 400;
-const MOBILE_BREAKPOINT = 768;
+// The takeover, not the rect-anchored dropdown, is used for every touch device
+// (any iPad, Android tablet, phone) and for narrow windows. `max-width: 768px`
+// mirrors the site's mobile CSS breakpoint EXACTLY (an `innerWidth < 768` JS
+// check disagreed with the inclusive CSS `max-width` at 768px itself — an
+// iPad Mini in portrait — and the dropdown opened off the top of the screen).
+const TOUCH_UI_QUERY = "(pointer: coarse), (max-width: 768px)";
 const PANEL_GAP = 10;
 
 // Search goes through our own backend rather than calling Apple directly.
@@ -41,12 +46,12 @@ export default function RecordCrate({ onSelect }) {
     const [results, setResults] = useState([]);
     const [activeIndex, setActiveIndex] = useState(-1);
     const [panelStyle, setPanelStyle] = useState(null);
-    // Below MOBILE_BREAKPOINT the expanded bin is a full-screen "dig" takeover;
-    // above it, a rect-anchored `fixed` dropdown. Either way the panel is
-    // portaled to <body> (never a descendant of .record-crate) so animating it
-    // can't reflow the hero grid.
+    // On touch / narrow (TOUCH_UI_QUERY) the expanded bin is a full-screen
+    // "dig" takeover; otherwise a rect-anchored `fixed` dropdown. Either way
+    // the panel is portaled to <body> (never a descendant of .record-crate) so
+    // animating it can't reflow the hero grid.
     const [isMobile, setIsMobile] = useState(
-        () => typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT
+        () => typeof window !== "undefined" && window.matchMedia(TOUCH_UI_QUERY).matches
     );
     // Kept mounted through the close animation, then unmounted by its onComplete —
     // a full-screen takeover must slide away, not just vanish.
@@ -105,9 +110,12 @@ export default function RecordCrate({ onSelect }) {
     useEffect(() => () => clearTimeout(debounceRef.current), []);
 
     useEffect(() => {
-        const onResize = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-        window.addEventListener("resize", onResize);
-        return () => window.removeEventListener("resize", onResize);
+        // One media query covers both axes — width crossing 768px and a
+        // pointer changing (an iPad gaining/losing a trackpad) both flip it.
+        const mq = window.matchMedia(TOUCH_UI_QUERY);
+        const update = () => setIsMobile(mq.matches);
+        mq.addEventListener("change", update);
+        return () => mq.removeEventListener("change", update);
     }, []);
 
     const showPanel = open && query.trim().length > 0;

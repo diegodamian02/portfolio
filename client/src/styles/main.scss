@@ -110,6 +110,9 @@
   // border-box + 2×16px row padding). One measured constant, like
   // --navbar-height — the panel below reserves navbar + this.
   --crate-shelf-h: 82px;
+  // Takeover side gutter — 16px on a phone, then it grows to centre a ~680px
+  // column so the shelf and cards don't stretch across a landscape tablet.
+  --crate-dig-gutter: max(16px, calc((100vw - 680px) / 2));
 
   // Vinyl colourways — the "special pressing" feel of a record store. Chosen
   // per track by a hash of its id (see vinyl-record.jsx), never at random, so a
@@ -1943,7 +1946,7 @@ html {
   box-sizing: border-box;
   min-height: var(--crate-shelf-h);
   gap: 12px;
-  padding: 16px;
+  padding: 16px var(--crate-dig-gutter);
   opacity: 0;
   // Flat --crate-chip-1 so it meets the panel's chipboard (which is near
   // chip-1 at its top) with no visible step; the soft shadow reads it as a
@@ -1993,8 +1996,9 @@ html {
   z-index: 60; // over the hero, under the navbar (1000) — nav stays usable
   display: flex;
   flex-direction: column;
-  // Clear the fixed navbar AND the fixed input-row shelf sitting on top of it.
-  padding: calc(var(--navbar-height) + var(--crate-shelf-h)) 12px 0;
+  // Clear the fixed navbar AND the fixed input-row shelf sitting on top of it;
+  // the side gutter centres the list column on wide (landscape-tablet) screens.
+  padding: calc(var(--navbar-height) + var(--crate-shelf-h)) var(--crate-dig-gutter) 0;
   border-radius: 0;
   overflow: hidden;
   opacity: 0;

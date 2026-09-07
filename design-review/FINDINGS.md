@@ -895,6 +895,22 @@ rows onto tablets, where there is enough width to show the cards as a grid
 instead — so the two options are not symmetric, and the breakpoint-raise is the
 weaker one for that section.
 
+> **Update, 2026-09-06 — the record crate joins the "tablets get the
+> phone treatment" list.** A friend's iPad couldn't open the crate at all:
+> the JS chose the dropdown-vs-takeover path on `window.innerWidth < 768`,
+> which is *false at exactly 768px* (iPad Mini / older iPad portrait) while
+> the CSS mobile block (`max-width: 768px`, inclusive) had already switched
+> the hero to its single-column layout — so the dropdown opened upward from
+> an input now near the top of the screen and landed off the top of the
+> viewport. Fixed by choosing the path on `matchMedia("(pointer: coarse),
+> (max-width: 768px)")`: every touch device gets the full-screen takeover,
+> and the JS/CSS 768px boundary now agrees. A `--crate-dig-gutter` centres
+> the takeover's shelf + cards in a ~680px column so nothing stretches on a
+> landscape tablet. This is the crate's own version of the `#my-taste`
+> breakpoint-raise — the takeover is a fine tablet idiom (it's a modal, not
+> a scaled-down desktop), so unlike `#my-taste`'s swipe rows there's no
+> identity cost. STATUS §2 (2026-09-06) has the full note.
+
 ---
 
 ### D33 — "Avenir Next" was never actually self-hosted — sitewide, it was one missing @font-face away from a generic system sans — **FOUND AND FIXED, Stage 10 (2026-09-01)**
