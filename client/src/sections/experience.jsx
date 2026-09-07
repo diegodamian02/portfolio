@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import "../styles/main.scss";
-import costaVerde from "../assets/about/costa-verde.jpg";
+import colegio from "../assets/colegio.jpg";
 import graduation from "../assets/graduation.jpg";
 import globalLogic from "../assets/global-logic.jpg";
 import codewiz from "../assets/codewiz.jpeg";
@@ -41,8 +41,8 @@ const EXPERIENCE_ENTRIES = [
         year: "2019",
         role: "Colegio Peruano Británico",
         caption: null,
-        image: costaVerde,
-        imageAlt: "Costa Verde, the cliffside coastline of Miraflores, Lima",
+        image: colegio,
+        imageAlt: "Diego's graduating class on the school sports field in Lima",
     },
     {
         id: "rutgers",
