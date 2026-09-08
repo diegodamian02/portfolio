@@ -2586,6 +2586,28 @@ job-search site; a public view would read from `plays` alone.
 
 ---
 
+### Stage 9.1 — owner analytics dashboard *(2026-09-07)*
+
+The "no UI, read it in the query console" plan didn't survive contact with a
+real recruiter note. Built an **owner-only** server-rendered page at
+`GET /admin?key=…` on the API: guestbook notes with relative + absolute
+timestamps, a plays-over-time chart, top tracks, one row per listener with the
+ordered list of what they played, top searches, device/country splits.
+`?days=7|30|90|all`, `?tz=` override. Hand-rolled CSS-bar charts, no library, no
+client rebuild. `+ /admin/data.json` for raw export. Gated by a new `ADMIN_KEY`
+(timing-safe `?key=`, 404 on a miss like `/login` — but **fails closed** when
+unset, unlike `/login`, since it exposes visitor data). `db.js` gained a
+`safeRead` mirror + eight aggregation queries behind `getDashboard()`. The
+guestbook **notification email** also gained a `— Sent <time> <tz> · <country>
+· <device> · <browser>` line.
+
+This is the owner panel, **not** the public "what's been played" panel above —
+that one is still unbuilt and still constrained (no raw search terms to
+visitors). Full writeup: `STATUS.md`'s own dated entry. **Standing task: set
+`ADMIN_KEY` on Railway** (§4) — the route 404s in production until then.
+
+---
+
 ### Stage 3 Task 9 follow-up — horizontal scroll/swipe on Experience *(2026-08-26)*
 
 Live feedback: the pinned filmstrip only responded to vertical scroll, so a
@@ -2772,6 +2794,9 @@ correcting `CLAUDE.md`'s stale "16 errors" claim).
 Not code. See `STATUS.md` §4 for the full list. Highest priority:
 
 - **Set `RESEND_API_KEY`** on the Railway server service — contact form returns 503 until then.
+- **Set `ADMIN_KEY`** on the Railway server service (long random string) — `/admin`
+  and `/admin/data.json` 404 until then. Optionally `ADMIN_TZ` (default `America/Chicago`).
+  Then the dashboard is at `https://<api host>/admin?key=<value>`.
 - **Revoke the Gmail app password** and delete `SMTP_USER`/`SMTP_PASS` from
   `server/.env` and Railway.
 

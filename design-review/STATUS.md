@@ -1,6 +1,25 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-07 (**Stage 5 (mobile) — one screen per section**: owner
+**Updated:** 2026-09-07 (**Stage 9.1 — owner analytics dashboard**: Stage 9's
+three Postgres tables (`plays` / `search_clicks` / `messages`) had no UI —
+readable only via `railway connect Postgres`. A recruiter left a guestbook note
+and the owner wanted legible timestamps, a cleaner "what did which visitor play"
+view, and charts. Built `GET /admin?key=…` on the API — a server-rendered page
+(`server/admin-page.js`, hand-rolled CSS-bar charts, no client rebuild, no
+CORS): guestbook notes with relative + absolute timestamps, plays-over-time, top
+tracks, one row per listener with their ordered track list, top searches,
+device/country splits. `?days=7|30|90|all`, `?tz=` override (default
+`America/Chicago`). Auth mirrors `/login`'s timing-safe `?key=` + 404-on-miss
+but **fails closed** when `ADMIN_KEY` is unset (it exposes visitor data;
+`/login` only fronts an OAuth flow). `db.js` gained a `safeRead` mirror of
+`safeWrite` + eight aggregation queries behind one `getDashboard()`, plus
+`/admin/data.json` for raw export. The guestbook **notification email** now
+carries a `— Sent <time> <tz> · <country> · <device> · <browser>` line (plain
+text, shared `formatStamp()`). SQL validated against real Postgres (PGlite wire
+server); HTML-escaping of visitor-authored note / term / title text verified. No
+client changes; lint 7/2 unchanged. **Needs `ADMIN_KEY` set on the Railway
+server service to go live.** Branch `stage9-owner-dashboard`. Full entry in §2.)
+Prior, same day (**Stage 5 (mobile) — one screen per section**: owner
 wants every mobile section to fill exactly one phone screen and not bleed into
 the next, worked out through a fresh `/design` canvas
 (`design-review/mobile-redesign-2/`). Shipped section by section to `main` off
@@ -219,6 +238,85 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 9.1 — owner analytics dashboard *(2026-09-07)*
+
+**Why.** Stage 9 (2026-08-25) added three owner-only Postgres tables written
+fire-and-forget from `server.js` — `plays`, `search_clicks`, `messages` — and
+deliberately no UI: the plan was to read them with `railway connect Postgres`.
+That stopped being enough. A recruiter left a guestbook note and the owner asked
+for (1) legible timestamps on notes — "when did they send it", (2) a readable
+"what song was played by what user" view, (3) "clean up the data and show me a
+better formatted chart… useful in the long run." The schema was already clean
+(timestamps present, no raw IP — `server/visitor.js`); this is a presentation
+task, not a migration. Nothing on the write path changed.
+
+**Distinct from the unbuilt public panel.** Stage 9 flagged a *public*
+"what's been played" panel as deliberately not built — its constraint (raw
+search terms must never render to visitors of a job-search site) does not apply
+here: `/admin` is owner-only behind a secret and shows everything raw by design.
+
+**What shipped.**
+
+- **`GET /admin?key=SECRET`** on the API — a self-contained server-rendered HTML
+  page. Chosen over a route in the React SPA: no client rebuild, no CORS, no key
+  in the public bundle, always live against Postgres. Refresh re-queries.
+  `?days=7|30|90|all` sets the window (default 30); `?tz=` localises every
+  timestamp (default `ADMIN_TZ`, `America/Chicago` — owner is US Central).
+- **`GET /admin/data.json`** — same auth, the raw aggregated object, for
+  export / backup / feeding something later.
+- **Sections:** at-a-glance tiles (plays / listeners / notes / searches);
+  **guestbook notes** newest-first with relative ("3 hours ago") + absolute
+  ("Sep 7, 2026, 5:42 PM") timestamps, name, email (`mailto:`), body,
+  delivered flag, country · device · browser; **plays over time** (one CSS bar
+  per day, bucketed in the display tz); **top tracks** (plays + distinct
+  listeners); **listeners** — one row per daily-rotating visitor hash with
+  country/device/browser, first→last seen, play count, and the first 15 tracks
+  they played *in order* (+N more); **top searches** → what got picked;
+  **device / country** splits. Charts are hand-rolled CSS bars — no chart
+  library, matching the repo's "hand-rolled, no library" ethos.
+- **Auth** (`server.js` `isAuthorizedAdminRequest`): same shape as
+  `isAuthorizedLoginRequest` — `crypto.timingSafeEqual` on `?key=`, `404` on a
+  miss so the route isn't discoverable — with one deliberate divergence: when
+  `ADMIN_KEY` is **unset** this route is **disabled** (404), where `/login`
+  stays open. `/login` only fronts an OAuth flow that itself needs Spotify
+  creds; `/admin` exposes visitor data, so it fails closed. Documented in
+  `server/.env.example`.
+- **`db.js` read side:** a `safeRead(label, fn, fallback)` mirror of
+  `safeWrite` (returns the fallback when `DATABASE_URL` is unset or a query
+  throws — the dashboard renders a blank state, never a 500), eight aggregation
+  queries, and one `getDashboard({ sinceDays, tz })` that runs them with
+  `Promise.all`. `sinceDays: null` = all time. Day bucketing is
+  `date_trunc('day', at AT TIME ZONE $tz)`; the JS side densifies gaps to 0.
+  The notes count and the notes list are both **un-windowed** — a recruiter
+  note outside the chart window should never be invisible.
+- **Guestbook notification email** (`POST /api/contact`): the plain-text body
+  gained a final line — `— Sent Sep 7, 2026, 8:42 PM CDT · US · desktop ·
+  Chrome` — via a shared `formatStamp()` in `admin-page.js` so the inbox and
+  the dashboard word it identically. `visitorContext(req)` is now computed once
+  and reused for both the email and the db row. Still plain text only.
+
+**New env:** `ADMIN_KEY` (required for the route to exist), `ADMIN_TZ`
+(optional, default `America/Chicago`). **`ADMIN_KEY` must be set on the Railway
+server service** — until then `/admin` 404s in production. Added to §4 standing
+tasks and `ROADMAP.md`.
+
+**Verification.** No Docker / local Postgres in the build env, so: (1) the eight
+queries were run against a real Postgres via a PGlite wire-protocol server with
+`server/db.js` unmodified — `make_interval`, `AT TIME ZONE`, the `array_agg(…
+ORDER BY …)[1:25]` slices, the reused-`$1` subquery summary all execute and
+return correct shapes across all four windows; (2) auth gate confirmed by curl
+(404 / 404 / 200 for no-key / wrong-key / right-key; `data.json` same); (3)
+empty state (no `DATABASE_URL`) renders zeroes, no crash; (4) HTML-escaping
+checked with `<script>` / `<img onerror>` payloads in note text, names, search
+terms and track titles — all render inert; (5) `formatStamp` output eyeballed
+for the has-country and no-country cases; (6) page screenshotted at 1100px and
+390px. Client lint unchanged at 7 errors / 2 warnings (server isn't linted; no
+client files touched).
+
+**Files:** `server/db.js` (+read side), `server/admin-page.js` (new),
+`server/server.js` (routes + email line), `server/.env.example`. Branch
+`stage9-owner-dashboard`.
 
 ### Stage 5 (mobile) — one screen per section *(2026-09-07)*
 
@@ -9256,6 +9354,7 @@ Not code — these need a human with dashboard access.
 | | Task | Why it matters |
 |---|---|---|
 | ✅ | ~~Set `RESEND_API_KEY` on the Railway *server* service~~ | **Stale as of 2026-08-19 — the key is live.** Confirmed by probing `https://api.diegodamian.com/api/contact` directly (an empty payload returns `400` from validation, not `503` from the missing-key check, which runs first) and by a real successful test send through the same code path. This line sat unchecked for at least one full task cycle after someone had already set the key, with nothing else in this file catching the mismatch — see Stage 3 Task 11's own dated entry above for the full writeup |
+| ⬜ | **Set `ADMIN_KEY` on the Railway *server* service** (long random string). Optionally `ADMIN_TZ` (default `America/Chicago`) | Stage 9.1: `/admin` and `/admin/data.json` return `404` until it's set — the analytics dashboard is unreachable in production without it. Dashboard URL is then `https://api.diegodamian.com/admin?key=<value>` |
 | ⬜ | **Revoke the Gmail app password**, delete `SMTP_USER`/`SMTP_PASS` from `server/.env` and Railway | Unused credential granting send-as access to a personal Gmail |
 | ⬜ | Add `send.diegodamian.com` DNS records in Cloudflare (grey cloud) | Optional. Lifts the sandbox restriction so mail can be sent to any address and from `contact@send.diegodamian.com` |
 | ⬜ | Delete the Resend "Confirm email change" mail | Clicking it would move the account off `diegodamiango02@gmail.com` and **break delivery** |
