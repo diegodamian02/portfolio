@@ -5,7 +5,8 @@ import dotenv from 'dotenv';
 import querystring from 'querystring';
 import crypto from 'crypto';
 import { Resend } from 'resend';
-import { recordPlay, recordSearchClick, recordMessage } from './db.js';
+import { recordPlay, recordSearchClick, recordMessage, getDashboard } from './db.js';
+import { renderDashboard, formatStamp } from './admin-page.js';
 import { visitorContext } from './visitor.js';
 
 // Initialize express app
@@ -49,6 +50,39 @@ function isAuthorizedLoginRequest(req) {
     const expected = Buffer.from(LOGIN_SECRET);
     return given.length === expected.length && crypto.timingSafeEqual(given, expected);
 }
+
+// === Owner analytics dashboard (renderer in admin-page.js, queries in db.js) ===
+// Gates GET /admin and /admin/data.json. UNLIKE isAuthorizedLoginRequest above,
+// an unset ADMIN_KEY DISABLES the route rather than leaving it open: /login only
+// fronts an OAuth flow that itself needs Spotify creds, but /admin exposes
+// visitor data (notes, listener history), so it fails closed.
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
+// IANA timezone for every timestamp the owner sees — the dashboard and the
+// guestbook notification email. Owner is US Central; overridable per dashboard
+// view with ?tz=. Postgres stores everything as UTC (TIMESTAMPTZ) regardless.
+const ADMIN_TZ = process.env.ADMIN_TZ || 'America/Chicago';
+
+function isAuthorizedAdminRequest(req) {
+    if (!ADMIN_KEY) return false; // fail closed — see note above
+    const given = Buffer.from(String(req.query.key || ''));
+    const expected = Buffer.from(ADMIN_KEY);
+    return given.length === expected.length && crypto.timingSafeEqual(given, expected);
+}
+
+// ?tz= is reflected into the page and used for date math — only accept a real
+// IANA zone, otherwise fall back to the configured default.
+function resolveTz(value) {
+    if (typeof value !== 'string' || !value) return ADMIN_TZ;
+    try {
+        new Intl.DateTimeFormat('en-US', { timeZone: value });
+        return value;
+    } catch {
+        return ADMIN_TZ;
+    }
+}
+
+// days query param -> window in days (null = all time)
+const ADMIN_WINDOWS = { 7: 7, 30: 30, 90: 90, all: null };
 
 // Top-tracks/top-artists change slowly — cache responses so a burst of
 // visitors doesn't spend the shared rate-limit bucket on identical data.
@@ -477,6 +511,14 @@ app.post('/api/contact', async (req, res) => {
 
     recordContactAttempt(ip);
 
+    // Computed once — the email footer and the db row both want it.
+    const vc = visitorContext(req);
+    // "— Sent Sep 7, 2026, 3:42 PM CDT · US · desktop · Chrome". Plain text,
+    // same wording the /admin dashboard shows, so a note read in either place
+    // reads the same. Postgres already timestamps the row; this is the copy
+    // that lands in the inbox.
+    const stamp = formatStamp({ at: new Date(), tz: ADMIN_TZ, ...vc });
+
     try {
         const { data, error: sendError } = await getResend().emails.send({
             from: `Portfolio guestbook <${CONTACT_FROM_EMAIL}>`,
@@ -490,9 +532,9 @@ app.post('/api/contact', async (req, res) => {
             subject: `Portfolio guestbook note from ${value.name}`,
             // Plain text only, deliberately: visitor input never gets
             // interpolated into HTML, so there's no escaping to get wrong.
-            text: value.email
+            text: (value.email
                 ? `${value.name} <${value.email}> wrote:\n\n${value.message}\n`
-                : `${value.name} wrote:\n\n${value.message}\n`,
+                : `${value.name} wrote:\n\n${value.message}\n`) + `\n${stamp}\n`,
         });
 
         // The SDK resolves with { data, error } instead of throwing, so an
@@ -506,7 +548,7 @@ app.post('/api/contact', async (req, res) => {
             // email: value.email || null — '' (the validated-but-absent
             // case) normalised to null; `pg` rejects a bare `undefined` or
             // empty-string-is-fine-but-let's-be-explicit param either way.
-            recordMessage({ ...value, email: value.email || null, resendId: null, delivered: false, ...visitorContext(req) });
+            recordMessage({ ...value, email: value.email || null, resendId: null, delivered: false, ...vc });
             return res.status(502).json({ error: "That didn't go through — please try again, or email me directly." });
         }
 
@@ -515,7 +557,7 @@ app.post('/api/contact', async (req, res) => {
         console.log(`✉️  [contact] message relayed from ${value.name}${value.email ? ` <${value.email}>` : ''} (resend id ${data?.id})`);
         // Fire-and-forget, same as every other db.js call — a slow or failing
         // insert must never delay or fail the response the visitor is waiting on.
-        recordMessage({ ...value, email: value.email || null, resendId: data?.id ?? null, delivered: true, ...visitorContext(req) });
+        recordMessage({ ...value, email: value.email || null, resendId: data?.id ?? null, delivered: true, ...vc });
         res.json({ ok: true });
     } catch (err) {
         // Network-level failure reaching Resend at all.
@@ -702,6 +744,37 @@ app.post('/api/events/search-click', (req, res) => {
     const artist = readEventField(req.body, 'artist', EVENT_MAX.artist);
     res.status(204).end();
     if (term) recordSearchClick({ term, trackId, title, artist, ...visitorContext(req) });
+});
+
+// === Owner analytics dashboard ===
+// The only reader of the three db.js tables. Server-rendered, owner-only,
+// gated by ADMIN_KEY. Returns 404 (not 401/403) on a missing/wrong key so the
+// route isn't discoverable — same posture as /login. Refresh re-runs the
+// queries; ?days=7|30|90|all sets the window, ?tz= localises timestamps.
+function adminQuery(req) {
+    const daysKey = Object.prototype.hasOwnProperty.call(ADMIN_WINDOWS, req.query.days)
+        ? String(req.query.days) : '30';
+    return {
+        days: daysKey,
+        sinceDays: ADMIN_WINDOWS[daysKey],
+        tz: resolveTz(req.query.tz),
+    };
+}
+
+app.get('/admin', async (req, res) => {
+    if (!isAuthorizedAdminRequest(req)) return res.status(404).end();
+    const { days, sinceDays, tz } = adminQuery(req);
+    const data = await getDashboard({ sinceDays, tz });
+    res.type('html').send(renderDashboard(data, {
+        days, tz, keyRaw: String(req.query.key || ''), generatedAt: new Date(),
+    }));
+});
+
+// Same data, unformatted — for export / backup / feeding something else later.
+app.get('/admin/data.json', async (req, res) => {
+    if (!isAuthorizedAdminRequest(req)) return res.status(404).end();
+    const { sinceDays, tz } = adminQuery(req);
+    res.json(await getDashboard({ sinceDays, tz }));
 });
 
 // Start the server
