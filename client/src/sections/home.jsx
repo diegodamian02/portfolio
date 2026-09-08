@@ -43,7 +43,7 @@ export default function Home() {
             <SkylineBackground />
             <div className="hero-content">
                 <h1 className="hero-name">Diego Damian</h1>
-                <p className="hero-tagline">welcome to my playground</p>
+                <p className="hero-tagline">play your favorite tune!</p>
             </div>
             <RecordCrate onSelect={setNowPlaying} />
             <div className="hero-deck-stage">

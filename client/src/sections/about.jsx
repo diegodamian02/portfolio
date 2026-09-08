@@ -320,10 +320,9 @@ export default function About() {
                     <div className="about-me-portrait-mask" ref={maskRef} aria-hidden="true" />
                 </div>
                 <div className="about-me-text">
-                    <h2 className="about-me-name" ref={nameRef}>Diego Damian</h2>
-                    {/* Placeholder — Diego is writing the real copy separately. */}
+                    <h2 className="about-me-name" ref={nameRef}>About Me</h2>
                     <p className="about-me-bio" ref={bioRef}>
-                        Hola! This is Diego. I am a Software Engineer, with a passion for coding, developing & music. Play your favorite tune & enjoy the ride!
+                        Hola! I&rsquo;m Diego, a software engineer who builds whatever idea won&rsquo;t leave me alone. Right now that&rsquo;s as a Test Engineer. Outside of work, I&rsquo;m usually chasing down new music, go ahead, the aux is yours.
                     </p>
                     <ul className="about-me-chips" ref={chipsRef}>
                         {CHIPS.map(({ icon: Icon, label }) => (
