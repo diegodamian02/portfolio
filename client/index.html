@@ -35,6 +35,14 @@
        navbar.jsx reads the same localStorage value and its themeApplied ref
        stops this first application from crossfading. */
     (function () {
+      /* Land at the top on every load. Without this the browser restores the
+         previous scroll position on a reload/back-forward, dropping the visitor
+         mid-hero (or lower) before Lenis initialises — reported as "the page
+         starts in the wrong place." Deep links still work: useHashScroll
+         (hooks/use-hash-scroll.js) scrolls to /#section after mount. */
+      try {
+        if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+      } catch (e) { /* no-op */ }
       try {
         if (localStorage.getItem("theme") === "light") {
           document.documentElement.setAttribute("data-theme", "light");

@@ -67,36 +67,24 @@ const MusicIcon = () => (
     </svg>
 );
 
-const GuitarIcon = () => (
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12.2 2.2 15.8 5.8" />
-        <path d="M11 3.4 9.3 5.1a1.4 1.4 0 0 0 0 2l.2.2a1.4 1.4 0 0 0 2 0l1.7-1.7" />
-        <path d="m9.6 8.4-2.3 2.3" />
-        <path d="M9.9 9.6c1.8 1.8 2 4.6.5 6.1a4 4 0 0 1-5.7-5.7c1.5-1.5 4.3-1.3 6.1.5Z" />
-        <path d="M4.5 15.5 3 17" />
-    </svg>
-);
-
-// Order: origin, current city, education, current focus, loves music, plays
-// guitar. Task 5 split the one "Lima → Chicago" chip into two independent,
-// accurate facts in the same two slots, rather than one journey line that
-// implied a direct move and left out the Rutgers/New Jersey years between.
+// Order: origin, current city, education, current focus, loves music. Task 5
+// split the one "Lima → Chicago" chip into two independent, accurate facts in
+// the same two slots, rather than one journey line that implied a direct move
+// and left out the Rutgers/New Jersey years between. ("Plays Guitar" + its
+// GuitarIcon were dropped 2026-09-07 on owner request — down to five facts.)
 //
-// Stage 5 (continued) — all six show on mobile again. Three were CSS-hidden
-// there (the `desktopOnly` flag, FINDINGS.md B16) because six full-width
-// pills stacked into enough rows to push the card too tall to fit the
-// scroll-hold's viewport-fit check. That check is gone — about.jsx's
-// onEnter no longer gates on height ("Nothing to gate on any more") — and
-// the mobile chips are a compact wrapped tag cluster now (main.scss), not a
-// stack of full-width pills, so all six fit in roughly the space three
-// used to take.
+// Stage 5 (continued) — every fact shows on mobile. Three were once CSS-hidden
+// there (the `desktopOnly` flag, FINDINGS.md B16) because full-width pills
+// stacked into enough rows to push the card too tall to fit the scroll-hold's
+// viewport-fit check. That check is gone — about.jsx's onEnter no longer gates
+// on height ("Nothing to gate on any more") — and the mobile chips are a
+// compact wrapped tag cluster now (main.scss), not a stack of full-width pills.
 const CHIPS = [
     { icon: FlagIcon, label: "From Lima, Peru" },
     { icon: SkylineIcon, label: "Based in Chicago" },
     { icon: EducationIcon, label: "Rutgers: Computer Science" },
     { icon: FocusIcon, label: "Test Automation" },
     { icon: MusicIcon, label: "Loves Music" },
-    { icon: GuitarIcon, label: "Plays Guitar" },
 ];
 
 export default function About() {
