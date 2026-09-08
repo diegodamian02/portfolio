@@ -3467,31 +3467,23 @@ $taste-swipe-max: 1024px;
   text-align: center;
 
   @media (max-width: $taste-swipe-max) {
-    // Stage 5 (continued) — the mobile declutter pass. This block used to
-    // force `min-height: calc(100svh - scroll-offset)` + `display: flex` +
-    // `justify-content: space-between` so a fixed-top kicker plus the two
-    // zones (artists, tracks) got distributed across one screen. With only
-    // half a screen of real content that `space-between` manufactured two
-    // large voids — one under the kicker, one between the zones — which is
-    // most of what read as "cluttered / floating." Now: natural content
-    // height, normal flow, one comfortable pad at the bottom. The section
-    // is shorter than a screen on most phones; the site's scroll-snap still
-    // has a valid stop at its top (nothing here reads the section's raw
-    // height — verified), and the two zones sit back to back the way the
-    // `my-taste-system` mockup shows.
-    //
-    // The old dvh->svh note (2026-09-02, B74) is moot here now that there's
-    // no viewport-unit min-height on this block at all — kept out rather
-    // than kept as a comment describing a rule that no longer exists.
+    // Stage 5 (continued) — the mobile declutter pass dropped the old
+    // `space-between` distribution that manufactured two voids (under the
+    // kicker, between the zones). 2026-09-07 ("one screen per section"): the
+    // content is trimmed to fit one navbar-cleared screen (all five tracks
+    // above the fold — the setlist rows and section pad below), and the
+    // section claims that screen as a floor so a taller phone doesn't leave
+    // it two-thirds full. Content stays top-aligned in normal flow — no
+    // `space-between`, no flex distribution — so the min-height only ever
+    // adds quiet trailing space before #projects, never a mid-section gap.
+    // svh not dvh (B74): a dvh floor re-heights while the URL bar moves.
+    min-height: calc(100vh - var(--scroll-offset));
+    min-height: calc(100svh - var(--scroll-offset));
     padding-top: var(--space-3);
-    // space-7 (48px) -> space-6 (32px), direct feedback that the page-wide
-    // mobile rhythm felt uneven — this was the single largest bottom pad on
-    // the page, well past what About/Experience/Projects settle on (32px)
-    // once this section's own top (space-3, deliberately softer — see the
-    // comment above) is left alone. Brings the My Taste -> Projects gap back
-    // in line with every other section boundary instead of shrinking it to
-    // match the tightest one.
-    padding-bottom: var(--space-6);
+    // space-6 -> space-4: reclaimed for the setlist so all five tracks clear
+    // the fold on a 390x844 phone. The My Taste -> Projects boundary matches
+    // every other section's 32px now that #projects carries its own top pad.
+    padding-bottom: var(--space-4);
   }
 
   // Grain (Task 3) removed here: a feTurbulence noise overlay across the
@@ -4456,13 +4448,16 @@ $taste-swipe-max: 1024px;
   // area is simply unused.
   @media (max-width: $taste-swipe-max) {
     display: grid;
-    grid-template-columns: 44px 1fr;
+    grid-template-columns: 40px 1fr;
     grid-template-areas:
       "thumb main"
       "thumb artist";
     align-items: center;
     column-gap: var(--space-3);
     row-gap: 2px;
+    // space-2 -> space-1: five rows at 8px/side each cost 80px; 4px/side keeps
+    // them tappable (thumb + text is still ~48px tall) and clears the fold.
+    padding: var(--space-1) 0;
   }
 }
 
@@ -4527,7 +4522,7 @@ $taste-swipe-max: 1024px;
     display: block;
     grid-area: thumb;
     align-self: center;
-    width: 44px;
+    width: 40px;
     aspect-ratio: 1 / 1;
   }
 }
