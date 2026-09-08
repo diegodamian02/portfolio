@@ -49,3 +49,14 @@ role/caption in a static readout below · hero leads with the crate. About kept
 its shipped design (only the "Plays Guitar" chip removed). Projects needed no
 change — its base rule already carries a one-screen `min-height`. Full writeup:
 `../STATUS.md` §2 ("Stage 5 (mobile) — one screen per section").
+
+**Follow-up 2026-09-08** on branch `mobile-hero-mix-experience-fit`: owner
+reviewed on an iPhone 17 Pro. The "lead with the crate" hero was reverted to the
+previous design (big name, small tagline, 4/3 deck) keeping only the search
+field's accent-pill highlight. Experience's card is height-aware now (fills the
+room left after the title/readout/dots rather than a fixed 82vw), aspect
+0.84 -> 0.75, group centred, and its swipe breakpoint went 768 -> 1024px so
+tablet portrait gets the portrait-card treatment instead of a landscape card in
+a void. Every phone 360-440 wide and tablet portrait 768-1024 now fits one
+navbar-cleared screen. See `../STATUS.md` §2 ("Mobile hero + Experience
+follow-up") and FINDINGS D34 / D35.
