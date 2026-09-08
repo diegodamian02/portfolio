@@ -11,7 +11,28 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-07, **Hero full-bleed +
+## 0. Current state — quick summary *(updated 2026-09-07, **Stage 5 (mobile) —
+one screen per section**: owner wants every mobile section to fill exactly one
+phone screen with a clean bottom edge, no bleed into the next. Worked out
+through a fresh `/design` canvas — `design-review/mobile-redesign-2/`, published
+Artifact — then built section by section off `stage5-mobile-onescreen`, each
+verified and merged straight to `main`. Measured section-fill (÷ the
+navbar-cleared screen it lands on), before → after: `#experience` **0.51 → 1.0**
+(rebuilt as a full-bleed swipe photo card that owns the screen, big year on the
+photo, role + caption in a static readout below — the filmstrip and its ~230px
+void are gone on phones; desktop filmstrip untouched); `#connect` **1.13 → 1.0**
+(chrome trimmed, footer back to a compact row at the foot — the short-window
+trims were height-gated at 833px and never fired on a modern phone, FINDINGS
+B76); `#my-taste` **1.08 → 1.0** (setlist + padding trimmed so all five tracks
+clear the fold; torn-poster cards / tape / Anton / wax hues byte-unchanged);
+`#about` **+24px bleed → 1.0** (mobile `min-height` switched to `- scroll-offset`;
+also lost the "Plays Guitar" fact chip); `#home` leads with the crate now (search
+field → accent pill, name → a letterhead line, "welcome to my playground" the
+display line). Non-design fix in the same pass: `history.scrollRestoration =
+"manual"` in `index.html` so a reload no longer restores a stale scroll position
+and drops the visitor mid-hero. Desktop (≥769px) byte-unchanged per section;
+lint held at 7 errors / 2 warnings; build clean. Full entry: STATUS.md §2. Prior,
+same day, **Hero full-bleed +
 section spacing pass**: owner review of the dot-matrix hero and the sections
 under it. `.hero-skyline-canvas` goes full-bleed (was inset 24px from the
 bottom) — the animated-matrix peek in the navbar band above `#about` is

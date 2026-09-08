@@ -37,3 +37,15 @@ Dark theme shown; light "Studio Paper" inherits every layout change.
 On load the page can restore a stale scroll position and land mid-hero. Fix is
 code: `history.scrollRestoration = "manual"` + pin to top (or to the hash) before
 Lenis starts. Tracked here, not done.
+
+## Status
+
+**Implemented 2026-09-07** on branch `stage5-mobile-onescreen`, merged to `main`
+section by section (`5505f8a` scroll fix + About chip · `13faa47` Home ·
+`7095177` My Taste · `8e1eda2` Experience · `13196c9` Connect · sweep commit for
+About's `min-height`). Direction picks that landed: static mockups · Experience =
+full-bleed swipe photo cards (kept big to fill the section, per owner) with the
+role/caption in a static readout below · hero leads with the crate. About kept
+its shipped design (only the "Plays Guitar" chip removed). Projects needed no
+change — its base rule already carries a one-screen `min-height`. Full writeup:
+`../STATUS.md` §2 ("Stage 5 (mobile) — one screen per section").

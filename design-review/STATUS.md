@@ -1,6 +1,19 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-07 (**Theme-toggle smoothing**: closing the surfaces the D8
+**Updated:** 2026-09-07 (**Stage 5 (mobile) — one screen per section**: owner
+wants every mobile section to fill exactly one phone screen and not bleed into
+the next, worked out through a fresh `/design` canvas
+(`design-review/mobile-redesign-2/`). Shipped section by section to `main` off
+`stage5-mobile-onescreen`. `#experience` went from filling 51% of its screen (a
+big void) to a full-bleed swipe photo card that owns the screen, year on the
+photo, description below; `#connect` trimmed from +110px past the fold to a clean
+fit with the footer at its foot; `#my-taste` trimmed so all five tracks clear
+the fold, poster look byte-unchanged; hero leads with the crate (search field
+→ accent pill, name → letterhead line); `#about` just loses the "Plays Guitar"
+chip and gains a mobile `min-height` that closes its 24px bleed. Plus a
+non-design fix: `history.scrollRestoration = "manual"` so a reload no longer
+lands mid-hero. Desktop byte-unchanged. Lint 7/2, build clean. Full entry in §2.)
+Prior, same day (**Theme-toggle smoothing**: closing the surfaces the D8
 crossfade structurally can't reach. `<meta name="theme-color">` was OS-keyed —
 now one tag `navbar.jsx` rewrites to the resolved `--bg-color` on every flip, so
 the mobile status/address bar follows the in-page toggle (and its stale light
@@ -206,6 +219,87 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 5 (mobile) — one screen per section *(2026-09-07)*
+
+Owner brief (via a fresh `/design` mockup canvas, `design-review/mobile-redesign-2/`):
+*"each section should be an entire screen of the phone — I don't like to see them
+overlap."* Plus per-section notes: hero good-not-great, My Taste keep the look /
+fit one page, Experience needs the most work, Projects good, Connect a bit big.
+Direction picks: static mockups · Experience = full-bleed swipe photo cards with
+the description below · hero = lead with the crate. Branch
+`stage5-mobile-onescreen`, merged to `main` one section per commit.
+
+Scope is **mobile only** (`@media max-width: 768px` / the `pointer: coarse` and
+`$taste-swipe-max` queries). Desktop (≥769px) verified byte-unchanged per
+section. Section snapping is wheel-only and never runs on touch
+(`lib/section-snap.js`), so "one screen per section" on mobile is purely a CSS
+`min-height` + content-fit problem — no snap changes.
+
+**Measured after (390×844 and 430×932, both themes, section height ÷ the
+navbar-cleared screen it lands on):**
+
+| Section | before | after |
+|---|---|---|
+| `#home` | 1.0 (fills) | 1.0 — crate-forward |
+| `#about` | 0.87, +24px bleed | **1.0**, 0px bleed |
+| `#experience` | **0.51** (the void) | **1.0** |
+| `#my-taste` | 1.08 (+44px, 5th track cut) | **1.0** |
+| `#projects` | 0.84 | **1.0** (already had the min-height) |
+| `#connect` | **1.13** (+110px, footer past fold) | **1.0** |
+
+Horizontal overflow 0px everywhere; no page errors; reduced-motion `#experience`
+(`ExperienceStatic`) untouched; `#connect` send-success walkman takeover still
+plays.
+
+- **Scroll-restoration fix + About chip** (`5505f8a`). `index.html`:
+  `history.scrollRestoration = "manual"` in the pre-paint IIFE — a reload / back-
+  forward no longer restores a stale position and drops the visitor mid-hero
+  before Lenis inits (owner-reported; verified scrolled to y=3683 → reload lands
+  y=0; `useHashScroll` still handles `/#section`). `about.jsx`: drop the
+  `GuitarIcon` + "Plays Guitar" CHIPS entry (owner request) — five facts now,
+  every breakpoint.
+- **Home — leads with the crate** (`13faa47`). The search field is the hero's
+  primary CTA on mobile: `.hero-name` → a letterhead line over the nav,
+  `.hero-tagline` "welcome to my playground" → the display line above the field,
+  `.record-crate-input-row` → a filled accent-outlined pill with a soft glow
+  (the `.is-digging` shelf re-flattens it; its min-height 59→67 matches the new
+  pill). `.home` mobile grid: `minmax(0,1fr)` column (a bare `1fr` blew the track
+  out to 100vw and clipped every row), name+tagline+field packed under the nav,
+  deck centres in the `1fr` row below.
+- **My Taste — one screen, poster unchanged** (`7095177`). The
+  `≤ $taste-swipe-max` layout overshot the fold by ~44px (5th track below it):
+  setlist rows `padding` space-2→space-1, thumb 44→40, section `padding-bottom`
+  space-6→space-4, and a `min-height: calc(100svh - scroll-offset)` floor so a
+  taller phone / tablet isn't two-thirds full. Content stays top-aligned in
+  normal flow — no `space-between`, no manufactured gaps. Torn cards, tape, tilt,
+  Anton type, per-card wax hues all untouched.
+- **Experience — one big swipe photo card per screen** (`8e1eda2`). The mobile
+  filmstrip filled ~50% of the section. Reworked (phones only): card ~82vw,
+  portrait-ish (`--experience-media-aspect: 0.84`) so it fills one screen next to
+  the title + readout + dots, next card peeks ~30px; the year is a large Space
+  Mono label bottom-left over a new mobile scrim on `.experience-media`; role +
+  caption move OFF the photo into `.experience-readout`, a static block below the
+  filmstrip populated by `setActive()` (aria-hidden — each card's `aria-label`
+  carries the text). `.experience-info` hidden ≤768px; section `min-height` 0 →
+  `calc(100svh - scroll-offset)`. `experience.jsx`: active-card scale pinned to
+  1.0 at ≤768px (a 1.08 grow overflowed the near-full-width card; a 0.8 neighbour
+  shrink ate the peek) — opacity falloff + the dot row carry focus. Accepted
+  trade: a group photo crops tighter (owner: "will fix it later").
+- **Connect — trim the chrome** (`13196c9`). The `#connect @media
+  (max-height: 833px)` trims never fired on a modern phone (all taller than 833
+  — see FINDINGS B76) → added a `@media (max-width: 768px)` twin: section padding
+  → space-3, footer back to a compact row (name left, socials right) instead of
+  the ~121px column stack. `.contact-title` 2.5rem→1.75rem, `.contact-description`
+  0.9rem + margin-bottom space-7→space-3 + copy shortened to two lines,
+  `.contact-container` gap space-5→space-3, `.jcard` gap/padding trimmed a step,
+  textarea `rows` 6→4 (desktop min-height 140 still wins there).
+- **About — true one screen** (`<sweep commit>`). `#about` mobile `min-height`
+  `- navbar-height` → `- scroll-offset`: desktop keeps `- navbar-height` for the
+  entrance hold's TOP_BIAS math (about.jsx), but mobile has no hold and was
+  landing 24px past the fold.
+
+Lint held at 7 errors / 2 warnings throughout; build clean at every step.
 
 ### Theme-toggle smoothing — mobile chrome, `color-scheme`, atmosphere crossfade, load flash *(2026-09-07)*
 

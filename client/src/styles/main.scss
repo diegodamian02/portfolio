@@ -2425,6 +2425,17 @@ html {
   // as the fallback, same dual-declaration order as before.
   min-height: calc(100vh - var(--navbar-height));
   min-height: calc(100svh - var(--navbar-height));
+
+  // Desktop keeps `- navbar-height` (above): the entrance hold's TOP_BIAS
+  // centering math (about.jsx) is proven against that value. Mobile has no
+  // hold — the section just lands at scroll-margin-top (= --scroll-offset,
+  // navbar + 24) — so `- navbar-height` left its bottom edge 24px past the
+  // fold. `- scroll-offset` makes it exactly one screen, no bleed into
+  // #experience (2026-09-07, "one screen per section").
+  @media (max-width: 768px) {
+    min-height: calc(100vh - var(--scroll-offset));
+    min-height: calc(100svh - var(--scroll-offset));
+  }
 }
 
 .about-me-section {

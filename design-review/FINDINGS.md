@@ -856,6 +856,35 @@ neighbour's gap, and that clearance was never re-measured for it.
 
 ---
 
+### B76 — `#connect`'s short-window trims were height-gated at `833px`, so no modern phone ever got them — **FOUND AND FIXED (2026-09-07, Stage 5 mobile)**
+
+`#connect` reserves one navbar-cleared screen and fits the J-card **plus** the
+footer (rendered inside the section) into it. When the content doesn't fit, a
+`@media (max-height: 833px)` block trims the section padding and the footer
+height. 833px was chosen against short **desktop** windows (a 1366×768 laptop).
+
+Every phone in current use is taller than that after the browser chrome:
+iPhone SE is 667 but 12/13/14/15 are **844**, 14/15 Plus **926/932**, Pro Max
+**932**. So on the exact devices this section's one-screen goal matters most,
+the trims never fired — the J-card + a column-stacked footer (`flex-direction:
+column` from the site-wide mobile footer rule, ~121px) rendered the section
+**952px tall on an 844px screen**, pushing the footer ~110px past the fold.
+
+**Fix:** a `@media (max-width: 768px)` twin of the same block —
+`> .contact-section` vertical padding → `--space-3`, and the footer forced back
+to a compact row (`flex-direction: row`, name left / socials right, ~52px)
+instead of the stack. Paired with the tighter title / description / card padding
+in the same Stage 5 pass, `#connect` now measures exactly `100svh -
+--scroll-offset` on a phone with the footer resting at its foot. The height-gated
+block stays for the desktop case it was written for.
+
+**Related, not a bug:** the reload-lands-mid-hero issue the owner reported was a
+missing `history.scrollRestoration = "manual"` — the browser restoring the prior
+scroll position before Lenis initialises. Fixed in `index.html`'s pre-paint IIFE
+(same pass). `useHashScroll` still drives `/#section` deep links.
+
+---
+
 ### D34 — There is no tablet tier: the mobile layout stops at 600px and iPads get a squeezed desktop — **PARTLY RESOLVED 2026-09-02 (`#my-taste` only)**
 
 Every mobile override in `main.scss` is gated at `max-width: 600px` (or 480px).
