@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    a{color:#6f9bff;text-decoration:none}
+    a:hover{color:#9db8ff}
+    .sheet{width:1200px;min-height:1520px;background:#0a0e1a;padding:56px 60px 64px}
+
+    .ey{font-family:"Space Mono",monospace;font-size:13px;font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:#6f9bff;margin:0}
+    .h1{font-family:"Poppins";font-weight:600;font-size:44px;letter-spacing:-.02em;margin:12px 0 0}
+    .lede{color:#9aa3bd;font-size:17px;margin:14px 0 0;max-width:720px}
+
+    .rules{display:flex;flex-wrap:wrap;gap:10px;margin:28px 0 0}
+    .rules span{font-family:"Space Mono",monospace;font-size:11.5px;letter-spacing:.06em;color:#c3cbe0;background:rgba(238,241,248,.05);border:1px solid rgba(238,241,248,.13);border-radius:999px;padding:8px 14px}
+
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:40px}
+    .card{background:#111624;border:1px solid rgba(154,163,189,.14);border-radius:16px;padding:22px}
+    .card .num{font-family:"Space Mono",monospace;font-weight:700;font-size:13px;color:#6f9bff;letter-spacing:.1em}
+    .card h3{font-family:"Poppins";font-weight:600;font-size:20px;margin:6px 0 0}
+    .card p{color:#9aa3bd;font-size:13.5px;line-height:1.55;margin:10px 0 0}
+    .card .keep{color:#6fbf9c}
+    .card .change{color:#e8b06f}
+
+    .sketch{height:150px;border-radius:10px;background:#0c101a;border:1px solid rgba(154,163,189,.12);margin-top:16px;position:relative;overflow:hidden}
+    .sk-bar{position:absolute;background:rgba(154,163,189,.28);border-radius:3px}
+    .sk-acc{background:rgba(111,155,255,.55)}
+    .sk-fill{background:rgba(154,163,189,.16)}
+
+    .foot{margin-top:44px;color:#7f8ba6;font-family:"Space Mono",monospace;font-size:12px;line-height:1.7}
+    .foot b{color:#e8b06f;font-weight:400}
+  </style>
+</helmet>
+<div class="sheet">
+  <p class="ey">diegodamian.com</p>
+  <h1 class="h1">Mobile redesign &mdash; one screen per section</h1>
+  <p class="lede">Six sections, each sized to a single phone screen with a clean bottom edge &mdash; no section bleeds into the next. Shared header system, one 20px edge rhythm, one horizontal swipe idiom used the same way everywhere.</p>
+
+  <div class="rules">
+    <span>One full screen per section</span>
+    <span>Space&nbsp;Mono kicker + Poppins title</span>
+    <span>20px edge rhythm</span>
+    <span>Peek-carousel = the one swipe idiom</span>
+    <span>Dot-matrix lives behind the hero only</span>
+    <span>44px+ touch targets</span>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <span class="num">01 &middot; HOME</span>
+      <h3>Lead with the crate</h3>
+      <p><span class="change">Change:</span> name drops to a letterhead line; &ldquo;Put a record on.&rdquo; + a loud search field are the first thing you see. The deck sits ready but quiet below until you drop a track on it.</p>
+      <div class="sketch">
+        <div class="sk-bar" style="left:16px;top:14px;width:80px;height:6px"></div>
+        <div class="sk-bar" style="left:16px;top:30px;width:150px;height:12px"></div>
+        <div class="sk-bar sk-acc" style="left:16px;top:52px;right:16px;height:22px"></div>
+        <div class="sk-bar sk-fill" style="left:24px;top:88px;right:24px;bottom:12px;border-radius:8px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="num">02 &middot; ABOUT</span>
+      <h3>Fills its own screen</h3>
+      <p><span class="change">Change:</span> full-width portrait, left-aligned bio, all six fact chips in one tidy wrapped row. Sized to the screen instead of floating in a half-empty void.</p>
+      <div class="sketch">
+        <div class="sk-bar" style="left:16px;top:14px;width:60px;height:6px"></div>
+        <div class="sk-bar" style="left:16px;top:26px;width:120px;height:12px"></div>
+        <div class="sk-bar sk-fill" style="left:16px;top:46px;right:16px;height:60px;border-radius:8px"></div>
+        <div class="sk-bar" style="left:16px;top:114px;right:16px;height:6px"></div>
+        <div class="sk-bar" style="left:16px;top:126px;right:40px;height:6px"></div>
+        <div class="sk-bar" style="left:16px;top:140px;width:70px;height:12px;border-radius:6px"></div>
+        <div class="sk-bar" style="left:92px;top:140px;width:60px;height:12px;border-radius:6px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="num">03 &middot; EXPERIENCE</span>
+      <h3>Swipe photo cards</h3>
+      <p><span class="change">Reworked:</span> a photo card at a natural landscape crop (no stretch), year on the scrim, then role + description anchored at the bottom of the screen. Swipe with hard snap; next card peeks. Drops the thin filmstrip and the centre-focus scale.</p>
+      <div class="sketch">
+        <div class="sk-bar" style="left:16px;top:12px;width:90px;height:6px"></div>
+        <div class="sk-bar sk-fill" style="left:12px;top:24px;width:250px;height:70px;border-radius:8px"></div>
+        <div class="sk-bar sk-fill" style="left:270px;top:24px;right:0;height:70px;border-radius:8px;opacity:.4"></div>
+        <div class="sk-bar sk-acc" style="left:16px;top:74px;width:30px;height:12px"></div>
+        <div class="sk-bar" style="left:16px;top:112px;width:130px;height:8px"></div>
+        <div class="sk-bar" style="left:16px;top:126px;right:40px;height:6px"></div>
+        <div class="sk-bar sk-acc" style="left:16px;top:140px;width:20px;height:4px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="num">04 &middot; MY TASTE</span>
+      <h3>Same poster, one screen</h3>
+      <p><span class="keep">Keeps:</span> torn cards, tape, tilt, Anton type. <span class="change">Change:</span> voids between zones close up, one artist swipe row, the top 5 becomes a numbered list in the crate card. All fits one screen.</p>
+      <div class="sketch">
+        <div class="sk-bar" style="left:16px;top:12px;width:70px;height:6px"></div>
+        <div class="sk-bar sk-fill" style="left:16px;top:26px;width:90px;height:70px;border-radius:2px;transform:rotate(-3deg)"></div>
+        <div class="sk-bar sk-fill" style="left:118px;top:26px;width:90px;height:70px;border-radius:2px;transform:rotate(2deg)"></div>
+        <div class="sk-bar sk-fill" style="left:16px;top:104px;right:16px;bottom:10px;border-radius:4px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="num">05 &middot; PROJECTS</span>
+      <h3>Kept &mdash; just fitted</h3>
+      <p><span class="keep">Keeps:</span> liner-note tracklist, mono index numeral in its pressing hue, role kicker, 2-line preview. <span class="change">Change:</span> rows breathe to fill exactly one screen.</p>
+      <div class="sketch">
+        <div class="sk-bar" style="left:16px;top:12px;width:110px;height:12px"></div>
+        <div class="sk-bar sk-acc" style="left:16px;top:36px;width:20px;height:14px"></div>
+        <div class="sk-bar" style="left:46px;top:38px;right:30px;height:8px"></div>
+        <div class="sk-bar" style="left:46px;top:52px;right:60px;height:6px"></div>
+        <div class="sk-bar sk-acc" style="left:16px;top:78px;width:20px;height:14px"></div>
+        <div class="sk-bar" style="left:46px;top:80px;right:30px;height:8px"></div>
+        <div class="sk-bar sk-acc" style="left:16px;top:118px;width:20px;height:14px"></div>
+        <div class="sk-bar" style="left:46px;top:120px;right:30px;height:8px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="num">06 &middot; CONNECT</span>
+      <h3>Trimmed down</h3>
+      <p><span class="change">Change:</span> cassette chrome dropped to a single spine stripe + two reel dots, 44px inputs, full-width send. Footer socials grow; the footer sits at the bottom of the screen where it belongs.</p>
+      <div class="sketch">
+        <div class="sk-bar" style="left:16px;top:12px;width:120px;height:12px"></div>
+        <div class="sk-bar sk-fill" style="left:16px;top:34px;right:16px;height:80px;border-radius:8px"></div>
+        <div class="sk-bar sk-acc" style="left:16px;top:120px;right:16px;height:16px;border-radius:6px"></div>
+        <div class="sk-bar" style="left:16px;top:150px;width:60px;height:6px"></div>
+        <div class="sk-bar" style="right:16px;top:148px;width:56px;height:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    Dark theme shown &mdash; the light &ldquo;Studio Paper&rdquo; theme inherits every layout change.<br>
+    Separate from the mockups: <b>on load the page can restore an old scroll position and land mid-hero</b> &mdash; a small code fix (disable scroll restoration, pin to top), not a design change.
+  </p>
+</div>
+</x-dc>
+</body>
+</html>

@@ -18,3 +18,6 @@ node_modules
 
 # Claude Design canvas — seeded payload is a large regenerable artifact (seed-canvas.mjs)
 design-review/mobile-redesign/mobile-redesign.html
+
+# Claude Design canvas v2 — seeded payload (regenerable via seed-canvas.mjs)
+design-review/mobile-redesign-2/mobile-redesign-2.html

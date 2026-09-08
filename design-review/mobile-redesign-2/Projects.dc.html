@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    a{color:#6f9bff;text-decoration:none}
+    a:hover{color:#9db8ff}
+    .phone{width:390px;min-height:844px;background:#0a0e1a;position:relative;overflow:hidden;padding:0 20px 28px}
+
+    .nav{height:56px;display:flex;align-items:center;justify-content:space-between;margin:0 -20px}
+    .mark{width:26px;height:26px;border-radius:50%;border:2px solid #eef1f8;position:relative}
+    .mark::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#eef1f8;transform:translate(-50%,-50%)}
+    .burger{width:26px;height:12px;display:flex;flex-direction:column;justify-content:space-between}
+    .burger i{height:2px;background:#eef1f8;border-radius:2px}
+
+    .kicker{font-family:"Space Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#9aa3bd;margin:14px 0 0}
+    .title{font-family:"Poppins";font-weight:600;font-size:30px;letter-spacing:-.02em;margin:8px 0 0}
+    .subtitle{color:#9aa3bd;font-size:13.5px;margin:8px 0 0}
+
+    .list{margin-top:20px}
+    .item{padding:30px 0 28px;border-top:1px solid rgba(154,163,189,.16)}
+    .item:first-child{border-top:0}
+    .row{display:grid;grid-template-columns:auto 1fr auto;column-gap:14px;align-items:start}
+    .idx{font-family:"Space Mono",monospace;font-weight:700;font-size:22px;line-height:1.1}
+    .role{font-family:"Space Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#9aa3bd;margin:0}
+    .pt{font-family:"Poppins";font-weight:600;font-size:16.5px;line-height:1.25;margin:5px 0 0}
+    .chev{width:20px;height:20px;color:#9aa3bd;margin-top:2px}
+    .sum{color:#9aa3bd;font-size:13px;line-height:1.5;margin:9px 0 0;padding-left:36px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .w1{color:#e08aa0}.w2{color:#7fa0e6}.w3{color:#6fbf9c}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="nav">
+    <div class="mark"></div>
+    <div class="burger"><i></i><i></i><i></i></div>
+  </div>
+
+  <p class="kicker">Projects</p>
+  <h1 class="title">Projects</h1>
+  <p class="subtitle">Here are some of my selected projects worth sharing.</p>
+
+  <div class="list">
+    <div class="item">
+      <div class="row">
+        <span class="idx w1">01</span>
+        <span>
+          <p class="role">Website Developer</p>
+          <p class="pt">Engage in Democracy &mdash; Rutgers Website</p>
+        </span>
+        <svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5.5 8 4.5 4.5L14.5 8"></path></svg>
+      </div>
+      <p class="sum">A Drupal build with tabbed-grid functionality in JavaScript, made to help students explore ideas and share political opinions.</p>
+    </div>
+
+    <div class="item">
+      <div class="row">
+        <span class="idx w2">02</span>
+        <span>
+          <p class="role">Frontend Developer</p>
+          <p class="pt">Harmoni &mdash; Music Dating App</p>
+        </span>
+        <svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5.5 8 4.5 4.5L14.5 8"></path></svg>
+      </div>
+      <p class="sum">HackRU 2025 &mdash; React front end, Node + MongoDB back end, matching people by their musical taste. Led the front end and API integration.</p>
+    </div>
+
+    <div class="item">
+      <div class="row">
+        <span class="idx w3">03</span>
+        <span>
+          <p class="role">Fullstack Developer</p>
+          <p class="pt">Diego&rsquo;s Pomodoro</p>
+        </span>
+        <svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m5.5 8 4.5 4.5L14.5 8"></path></svg>
+      </div>
+      <p class="sum">A focus timer built in React + SCSS, shipped during Fall 2024 finals for students and anyone budgeting their time.</p>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

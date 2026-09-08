@@ -1,0 +1,21 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1200, "h": 1520, "title": "Overview" },
+
+    { "file": "Home.dc.html", "x": 0, "y": 1700, "w": 390, "h": 844, "title": "Home" },
+    { "file": "About.dc.html", "x": 490, "y": 1700, "w": 390, "h": 844, "title": "About" },
+    { "file": "Experience.dc.html", "x": 980, "y": 1700, "w": 390, "h": 844, "title": "Experience" },
+    { "file": "MyTaste.dc.html", "x": 1470, "y": 1700, "w": 390, "h": 844, "title": "My Taste" },
+    { "file": "Projects.dc.html", "x": 1960, "y": 1700, "w": 390, "h": 844, "title": "Projects" },
+    { "file": "Connect.dc.html", "x": 2450, "y": 1700, "w": 390, "h": 844, "title": "Connect" }
+  ],
+  "annotations": [
+    { "id": "n-home", "x": 0, "y": 1560, "w": 390, "text": "HOME — the interaction leads, not the object. Letterhead name line, \"Put a record on.\" headline, a loud accent search field. Deck sits quiet (dimmed, arm parked) until a record lands on it. Dot-matrix stays behind the hero." },
+    { "id": "n-about", "x": 490, "y": 1560, "w": 390, "text": "ABOUT — full-width portrait, left-aligned bio, all six fact chips in one wrapped row. Sized to fill the screen instead of a centred card floating in a void." },
+    { "id": "n-exp", "x": 980, "y": 1560, "w": 390, "text": "EXPERIENCE (reworked) — a photo card at a natural landscape crop (not blown up, no stretch), year + \"Now\" tag on a bottom scrim. Role + description sit low on the screen, just above a dot row + swipe hint. Hard snap, next card peeks. No filmstrip, no centre-focus scale, no void." },
+    { "id": "n-taste", "x": 1470, "y": 1560, "w": 390, "text": "MY TASTE — the poster look is kept: torn cards, tape, tilt, Anton names, per-card pressing hues. One artist swipe row (was two rows + two dot sets), the top 5 is a numbered list inside the crate card. Fits one screen." },
+    { "id": "n-proj", "x": 1960, "y": 1560, "w": 390, "text": "PROJECTS — kept as-is in spirit: liner-note tracklist, mono index numeral in its pressing hue, role kicker above title, 2-line collapsed preview, chevron. Rows just breathe out to fill exactly one screen." },
+    { "id": "n-conn", "x": 2450, "y": 1560, "w": 390, "text": "CONNECT — trimmed. Cassette chrome down to a spine stripe + two reel dots. 44px name / optional-email fields, ~92px message, full-width Send. Footer (name + larger socials) sits at the bottom of the screen. Walkman send-reveal is untouched." }
+  ],
+  "launch": { "view": "canvas" }
+}

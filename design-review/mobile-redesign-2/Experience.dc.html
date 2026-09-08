@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0}
+    body{background:#0a0e1a;color:#eef1f8;font-family:"Poppins",system-ui,-apple-system,sans-serif;font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased}
+    a{color:#6f9bff;text-decoration:none}
+    a:hover{color:#9db8ff}
+    .phone{width:390px;min-height:844px;background:#0a0e1a;position:relative;overflow:hidden;padding:0 0 26px;display:flex;flex-direction:column}
+
+    .nav{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px}
+    .mark{width:26px;height:26px;border-radius:50%;border:2px solid #eef1f8;position:relative}
+    .mark::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:#eef1f8;transform:translate(-50%,-50%)}
+    .burger{width:26px;height:12px;display:flex;flex-direction:column;justify-content:space-between}
+    .burger i{height:2px;background:#eef1f8;border-radius:2px}
+
+    .head{display:flex;align-items:baseline;justify-content:space-between;padding:14px 20px 0}
+    .kicker{font-family:"Space Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#9aa3bd;margin:0}
+    .count{font-family:"Space Mono",monospace;font-size:11px;font-weight:700;letter-spacing:.1em;color:#6f9bff}
+    .title{font-family:"Poppins";font-weight:600;font-size:30px;letter-spacing:-.02em;margin:6px 20px 0}
+
+    .stage{margin-top:18px;padding-left:12px;display:flex;gap:12px;overflow:hidden}
+    .card{flex:0 0 344px;border-radius:16px;overflow:hidden;position:relative;height:286px;background:linear-gradient(155deg,#3a4258,#191d28)}
+    .card.next{opacity:.32}
+    .card .ph{position:absolute;left:14px;top:14px;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(238,241,248,.5)}
+    .scrim{position:absolute;left:0;right:0;bottom:0;height:62%;background:linear-gradient(to top,rgba(6,9,16,.9),rgba(6,9,16,.1) 70%,transparent)}
+    .nowtag{position:absolute;left:18px;bottom:52px;font-family:"Space Mono",monospace;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#6f9bff}
+    .year{position:absolute;left:17px;bottom:14px;font-family:"Space Mono",monospace;font-weight:700;font-size:34px;letter-spacing:-.02em;line-height:1;color:#eef1f8}
+
+    .grow{flex:1;min-height:22px}
+
+    .info{padding:0 20px}
+    .eyebrow{font-family:"Space Mono",monospace;font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#9aa3bd;margin:0}
+    .role{font-family:"Poppins";font-weight:600;font-size:20px;line-height:1.2;margin:8px 0 0}
+    .cap{color:#9aa3bd;font-size:15px;line-height:1.62;margin:12px 0 0;max-width:320px}
+
+    .dots{display:flex;align-items:center;gap:8px;padding:24px 20px 0}
+    .dots i{width:7px;height:7px;border-radius:999px;background:rgba(154,163,189,.32)}
+    .dots i.on{background:#6f9bff;width:22px;border-radius:4px}
+    .dots span{margin-left:auto;font-family:"Space Mono",monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:#5f6b86;display:inline-flex;align-items:center;gap:6px}
+    .dots span svg{width:14px;height:14px}
+  </style>
+</helmet>
+<div class="phone">
+  <div class="nav">
+    <div class="mark"></div>
+    <div class="burger"><i></i><i></i><i></i></div>
+  </div>
+
+  <div class="head">
+    <p class="kicker">Experience</p>
+    <span class="count">01 / 05</span>
+  </div>
+  <h1 class="title">Experience</h1>
+
+  <div class="stage">
+    <div class="card">
+      <span class="ph">[ photo &mdash; Capgemini ]</span>
+      <div class="scrim"></div>
+      <span class="nowtag">Now</span>
+      <span class="year">2026</span>
+    </div>
+    <div class="card next">
+      <span class="ph">[ photo ]</span>
+      <div class="scrim"></div>
+      <span class="year">2025</span>
+    </div>
+  </div>
+
+  <div class="grow"></div>
+
+  <div class="info">
+    <p class="eyebrow">2026 &middot; Now</p>
+    <p class="role">Capgemini &mdash; Test Engineer</p>
+    <p class="cap">Weekly regression testing on Archy, McDonald&rsquo;s AI drive-thru system.</p>
+  </div>
+
+  <div class="dots">
+    <i class="on"></i><i></i><i></i><i></i><i></i>
+    <span>
+      swipe
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h12"></path><path d="m11 5 5 5-5 5"></path></svg>
+    </span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
