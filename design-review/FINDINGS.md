@@ -885,7 +885,7 @@ scroll position before Lenis initialises. Fixed in `index.html`'s pre-paint IIFE
 
 ---
 
-### D34 — There is no tablet tier: the mobile layout stops at 600px and iPads get a squeezed desktop — **PARTLY RESOLVED 2026-09-02 (`#my-taste` only)**
+### D34 — There is no tablet tier: the mobile layout stops at 600px and iPads get a squeezed desktop — **PARTLY RESOLVED (`#my-taste` 2026-09-02, `#experience` 2026-09-08)**
 
 Every mobile override in `main.scss` is gated at `max-width: 600px` (or 480px).
 Above that, the **desktop** layout applies unchanged. The practical result is
@@ -943,8 +943,35 @@ while ALSO running the wide layout's pinned entrance cascade — the exact pairi
 that cascade's own comment rules out. Caught by testing the boundary rather than
 the middle.
 
+**RESOLVED for `#experience`, 2026-09-08.** The `768px` swipe breakpoint (added
+in the Stage 5 mobile pass) was raised to `1024px` under a new
+`$experience-swipe-max` (mirrors `$taste-swipe-max`), so iPad portrait now gets
+the single-big-portrait-card swipe treatment — on-photo year, role + caption
+readout, dot row — instead of a ~340px landscape card marooned in a
+navbar-cleared screen with no readout (measured ~0.31–0.35× before). The mobile
+card is height-aware now (`--experience-card-w` = the smaller of a width budget
+and the width that exactly fills the room left after the title/readout/dots
+stack, `--experience-chrome`), so the section reads ~1.0× at every phone
+360–440px wide **and** every tablet portrait 768–1024px, no h-overflow, `dark ==
+light`. `experience.jsx`'s scale-emphasis gate (`viewportEl.clientWidth <= …`)
+moved `768 → 1024` with the CSS — keep the two equal, same discipline
+`$taste-swipe-max` / `SWIPE_MAX_PX` need.
+
 **Still open for `#projects`**, which measured 0.62x/0.53x/0.46x and was not part
-of this change.
+of either change.
+
+### D35 — a section that centres a heading group in a one-screen box must zero the UA `<h2>` margin-top — **NOTED 2026-09-08**
+
+`#experience`'s mobile layout centres `[title + card + readout + dots]` in a
+`min-height: 100svh - scroll-offset` box and derives the card size by
+subtracting a measured chrome constant (`--experience-chrome`) from that height.
+The first cut over-flowed a tablet by ~25px. Cause: `.experience-title` is an
+`<h2>` and `@include section-title` only sets `margin-bottom` — the UA
+`margin-block-start: 0.83em` (≈ 27px on a phone, ≈ 33px on a tablet, since it
+scales with the clamped font-size) was live and unbudgeted. Fix was one line
+(`margin-top: 0` inside the swipe media query; desktop keeps it — it top-aligns
+and has the room). The general point: any height-budgeted section needs every
+contributor in the budget, and a bare heading silently brings ~0.8em of its own.
 
 > **Update, 2026-09-03 (Stage 5 continued — mobile declutter pass).**
 > `#projects`' mobile/tablet layout was rebuilt: `.portfolio-item` is a

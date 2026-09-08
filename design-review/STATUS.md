@@ -1,6 +1,20 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-07 (**Stage 9.1 — owner analytics dashboard**: Stage 9's
+**Updated:** 2026-09-08 (**Mobile hero + Experience follow-up**: owner reviewed
+the Stage 5 mobile pass on-device. Hero — "I like the crate-box highlight but I
+prefer my previous design": the "lead with the crate" restack is reverted (big
+display name + small tagline again, `align-content: start`, deck back to 4/3);
+only the search field's accent-pill treatment is kept. Experience — "make it fit
+an iPhone 17 Pro screen, adjust it to tablets, other phones, Android": the mobile
+card is height-aware now (fills the room left after title/readout/dots rather
+than a fixed 82vw), aspect 0.84 → 0.75, group centred; the `768px` swipe
+breakpoint → `1024px` (`$experience-swipe-max`) so tablet portrait gets the
+portrait-card treatment + readout instead of a landscape card in a void. Result:
+every phone 360–440 wide and tablet portrait 768–1024 fits its section in one
+navbar-cleared screen (iPhone 17 Pro: 125px void → fills). Desktop ≥1025 and
+reduced-motion untouched. Lint 7/2, build clean. FINDINGS D34 (`#experience`
+resolved) + D35 (UA `<h2>` margin gotcha). Full entry in §2.) Prior, 2026-09-07
+(**Stage 9.1 — owner analytics dashboard**: Stage 9's
 three Postgres tables (`plays` / `search_clicks` / `messages`) had no UI —
 readable only via `railway connect Postgres`. A recruiter left a guestbook note
 and the owner wanted legible timestamps, a cleaner "what did which visitor play"
@@ -19,7 +33,7 @@ text, shared `formatStamp()`). SQL validated against real Postgres (PGlite wire
 server); HTML-escaping of visitor-authored note / term / title text verified. No
 client changes; lint 7/2 unchanged. **Needs `ADMIN_KEY` set on the Railway
 server service to go live.** Branch `stage9-owner-dashboard`. Full entry in §2.)
-Prior, same day (**Stage 5 (mobile) — one screen per section**: owner
+Prior (**Stage 5 (mobile) — one screen per section**, 2026-09-07): owner
 wants every mobile section to fill exactly one phone screen and not bleed into
 the next, worked out through a fresh `/design` canvas
 (`design-review/mobile-redesign-2/`). Shipped section by section to `main` off
@@ -239,6 +253,73 @@ working hero is design information the sections beneath it need.
 
 ## 2. What changed recently
 
+### Mobile hero + Experience follow-up *(2026-09-08)*
+
+Owner reviewed the Stage 5 mobile pass on an iPhone 17 Pro. Two asks, one commit
+(`client/src/styles/main.scss` + `client/src/sections/experience.jsx`), branch
+`mobile-hero-mix-experience-fit`.
+
+**Hero — "I like the highlight of the crate box but I definitely like my previous
+design, so let's mix those."** The Stage 5 "lead with the crate" restack is
+reverted:
+
+- `.hero-name` / `.hero-tagline` mobile overrides deleted — the big display name
+  (`clamp(2.5rem, 6vw, 4.5rem)`, ~40px on a phone) and the small secondary
+  tagline are back, not a tracked letterhead line over a promoted tagline.
+- `.home` mobile: `align-content: start` / `row-gap: 28px` / `32px` bottom pad
+  again (was `stretch` + `grid-template-rows: auto auto 1fr`); `.turntable`
+  aspect `7/6 → 4/3`; `.hero-content` gap override removed.
+- **Kept** from the brief pass: `.record-crate-input-row`'s accent-outlined pill
+  + soft glow, the scaled glyph/placeholder, the `.is-digging` re-flatten,
+  `min-height: 67`. Also kept the grid-blowout guards (`minmax(0, 1fr)`,
+  `min-width: 0`) — invisible with the reverted layout, load-bearing without.
+
+Desktop hero byte-unchanged. The phone hero keeps ~260px of clean space below
+the deck (`align-content: start`) — that is the previous design; `space-between`
+/ centring were both rejected earlier as a manufactured gap.
+
+**Experience — "make it fit an iPhone 17 Pro screen, adjust it to tablets,
+different phone sizes, Android."** It was sized on width alone (`min(82vw,
+360px)` at a fixed `0.84` aspect), which:
+
+- left **100–170px of dead space** under the dots on a tall phone (the section
+  reserves a whole navbar-cleared screen; the card filled part of it), and
+- **overflowed the fold by ~80px** on a short one (iPhone SE 375×667), and
+- above `768px` handed tablets a ~340px landscape card in a ~600px void with
+  **no readout** (the `≤768` swipe rules didn't reach them).
+
+Changes:
+
+- `$experience-swipe-max: 1024px` (new, mirrors `$taste-swipe-max`) — the swipe
+  treatment (portrait card, on-photo year, readout + dots) now covers tablet
+  portrait. `experience.jsx`'s scale-emphasis gate moved `768 → 1024` with it;
+  the two must stay equal.
+- `--experience-card-w` is **height-aware**: `clamp(228px, min(94vw, «width that
+  makes the card exactly fill the room left after the title/readout/dots stack =
+  --experience-chrome»), 680px)`. Aspect `0.84 → 0.75` (3:4) so a tall screen
+  fills without the card going ultra-narrow.
+- `.experience-section` mobile: `justify-content: center` — residual slack (a
+  tall/narrow phone or very tall tablet can't fill on width) splits evenly
+  instead of pooling as a bottom void.
+- `.experience-title` UA `<h2>` `margin-top` (`0.83em` ≈ 27–33px) zeroed at the
+  swipe breakpoint — it was unbudgeted and pushed tablets ~25px past the fold
+  (FINDINGS D35). `.experience-readout-caption` clamped to 2 lines + `max-width`.
+
+Measured (Playwright, computed DOM, `dark == light`): every phone 360–440 wide
+and every tablet portrait 768–1024 now fits its section in exactly one
+navbar-cleared screen, `scrollWidth == innerWidth`, swipe advances card / dot /
+readout / year in sync, no page errors. iPhone 17 Pro: 125px void → fills, ~32px
+below the dots. Reload still lands at `y=0`. Desktop ≥1025 (filmstrip, landscape
+card, `.experience-info` overlay) and reduced-motion (`ExperienceStatic`)
+untouched. Lint 7/2, build clean.
+
+**Still open:** `#about` bleeds ~24px past the fold at iPad-portrait widths
+(820/834) — its Stage 5 `min-height` override is `≤768`-scoped, so `769–1024`
+falls back to the desktop `- navbar-height`. Not touched here (out of the hero /
+experience brief; fixing it interacts with about.jsx's `TOP_BIAS` math). `#my-
+taste` / `#projects` / `#connect` still overflow on the sub-390px SE/small-
+Android tier, unchanged from Stage 5 (that pass targeted 390+).
+
 ### Stage 9.1 — owner analytics dashboard *(2026-09-07)*
 
 **Why.** Stage 9 (2026-08-25) added three owner-only Postgres tables written
@@ -304,7 +385,84 @@ tasks and `ROADMAP.md`.
 **Verification.** No Docker / local Postgres in the build env, so: (1) the eight
 queries were run against a real Postgres via a PGlite wire-protocol server with
 `server/db.js` unmodified — `make_interval`, `AT TIME ZONE`, the `array_agg(…
+ORDER BY …)[1:25]` slices, the reused-`### Stage 9.1 — owner analytics dashboard *(2026-09-07)*
+
+**Why.** Stage 9 (2026-08-25) added three owner-only Postgres tables written
+fire-and-forget from `server.js` — `plays`, `search_clicks`, `messages` — and
+deliberately no UI: the plan was to read them with `railway connect Postgres`.
+That stopped being enough. A recruiter left a guestbook note and the owner asked
+for (1) legible timestamps on notes — "when did they send it", (2) a readable
+"what song was played by what user" view, (3) "clean up the data and show me a
+better formatted chart… useful in the long run." The schema was already clean
+(timestamps present, no raw IP — `server/visitor.js`); this is a presentation
+task, not a migration. Nothing on the write path changed.
+
+**Distinct from the unbuilt public panel.** Stage 9 flagged a *public*
+"what's been played" panel as deliberately not built — its constraint (raw
+search terms must never render to visitors of a job-search site) does not apply
+here: `/admin` is owner-only behind a secret and shows everything raw by design.
+
+**What shipped.**
+
+- **`GET /admin?key=SECRET`** on the API — a self-contained server-rendered HTML
+  page. Chosen over a route in the React SPA: no client rebuild, no CORS, no key
+  in the public bundle, always live against Postgres. Refresh re-queries.
+  `?days=7|30|90|all` sets the window (default 30); `?tz=` localises every
+  timestamp (default `ADMIN_TZ`, `America/Chicago` — owner is US Central).
+- **`GET /admin/data.json`** — same auth, the raw aggregated object, for
+  export / backup / feeding something later.
+- **Sections:** at-a-glance tiles (plays / listeners / notes / searches);
+  **guestbook notes** newest-first with relative ("3 hours ago") + absolute
+  ("Sep 7, 2026, 5:42 PM") timestamps, name, email (`mailto:`), body,
+  delivered flag, country · device · browser; **plays over time** (one CSS bar
+  per day, bucketed in the display tz); **top tracks** (plays + distinct
+  listeners); **listeners** — one row per daily-rotating visitor hash with
+  country/device/browser, first→last seen, play count, and the first 15 tracks
+  they played *in order* (+N more); **top searches** → what got picked;
+  **device / country** splits. Charts are hand-rolled CSS bars — no chart
+  library, matching the repo's "hand-rolled, no library" ethos.
+- **Auth** (`server.js` `isAuthorizedAdminRequest`): same shape as
+  `isAuthorizedLoginRequest` — `crypto.timingSafeEqual` on `?key=`, `404` on a
+  miss so the route isn't discoverable — with one deliberate divergence: when
+  `ADMIN_KEY` is **unset** this route is **disabled** (404), where `/login`
+  stays open. `/login` only fronts an OAuth flow that itself needs Spotify
+  creds; `/admin` exposes visitor data, so it fails closed. Documented in
+  `server/.env.example`.
+- **`db.js` read side:** a `safeRead(label, fn, fallback)` mirror of
+  `safeWrite` (returns the fallback when `DATABASE_URL` is unset or a query
+  throws — the dashboard renders a blank state, never a 500), eight aggregation
+  queries, and one `getDashboard({ sinceDays, tz })` that runs them with
+  `Promise.all`. `sinceDays: null` = all time. Day bucketing is
+  `date_trunc('day', at AT TIME ZONE $tz)`; the JS side densifies gaps to 0.
+  The notes count and the notes list are both **un-windowed** — a recruiter
+  note outside the chart window should never be invisible.
+- **Guestbook notification email** (`POST /api/contact`): the plain-text body
+  gained a final line — `— Sent Sep 7, 2026, 8:42 PM CDT · US · desktop ·
+  Chrome` — via a shared `formatStamp()` in `admin-page.js` so the inbox and
+  the dashboard word it identically. `visitorContext(req)` is now computed once
+  and reused for both the email and the db row. Still plain text only.
+
+**New env:** `ADMIN_KEY` (required for the route to exist), `ADMIN_TZ`
+(optional, default `America/Chicago`). **`ADMIN_KEY` must be set on the Railway
+server service** — until then `/admin` 404s in production. Added to §4 standing
+tasks and `ROADMAP.md`.
+
+**Verification.** No Docker / local Postgres in the build env, so: (1) the eight
+queries were run against a real Postgres via a PGlite wire-protocol server with
+`server/db.js` unmodified — `make_interval`, `AT TIME ZONE`, the `array_agg(…
 ORDER BY …)[1:25]` slices, the reused-`$1` subquery summary all execute and
+return correct shapes across all four windows; (2) auth gate confirmed by curl
+(404 / 404 / 200 for no-key / wrong-key / right-key; `data.json` same); (3)
+empty state (no `DATABASE_URL`) renders zeroes, no crash; (4) HTML-escaping
+checked with `<script>` / `<img onerror>` payloads in note text, names, search
+terms and track titles — all render inert; (5) `formatStamp` output eyeballed
+for the has-country and no-country cases; (6) page screenshotted at 1100px and
+390px. Client lint unchanged at 7 errors / 2 warnings (server isn't linted; no
+client files touched).
+
+**Files:** `server/db.js` (+read side), `server/admin-page.js` (new),
+`server/server.js` (routes + email line), `server/.env.example`. Branch
+`stage9-owner-dashboard`.` subquery summary all execute and
 return correct shapes across all four windows; (2) auth gate confirmed by curl
 (404 / 404 / 200 for no-key / wrong-key / right-key; `data.json` same); (3)
 empty state (no `DATABASE_URL`) renders zeroes, no crash; (4) HTML-escaping

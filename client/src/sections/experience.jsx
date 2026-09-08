@@ -276,14 +276,15 @@ function ExperienceFilmstrip({ entries }) {
             const scrollLeft = viewportEl.scrollLeft;
             const viewportCenter = viewportEl.clientWidth / 2;
             const maxDist = viewportEl.clientWidth * FALLOFF_RANGE;
-            // Mobile (2026-09-07): the card is ~82vw and the next one peeks
-            // ~30px past the edge. A 1.08x grow on the active card would push
-            // its sides past the overflow-x edge and press its top/bottom
-            // against overflow-y: hidden; a 0.8 shrink on the neighbour pulls
-            // it in toward its own centre and eats that peek. So no scale
-            // emphasis at this width — the opacity falloff and the dot row
-            // carry "this card is the focus."
-            const mobile = viewportEl.clientWidth <= 768;
+            // Swipe treatment (phones + tablet portrait, ≤ $experience-swipe-max
+            // in main.scss): the card is near-full-width and the next one peeks
+            // just past the edge. A 1.08x grow on the active card would push its
+            // sides past the overflow-x edge and press its top/bottom against
+            // overflow-y: hidden; a 0.8 shrink on the neighbour pulls it in
+            // toward its own centre and eats that peek. So no scale emphasis at
+            // this width — the opacity falloff and the dot row carry "this card
+            // is the focus." Keep this threshold equal to $experience-swipe-max.
+            const mobile = viewportEl.clientWidth <= 1024;
             const maxScale = mobile ? 1 : MAX_SCALE;
             const minScale = mobile ? 1 : MIN_SCALE;
             let nearestIndex = 0;
