@@ -733,6 +733,17 @@ html {
   color: var(--text-color);
   margin: 0;
   line-height: 1.05;
+
+  // Mobile "leads with the crate": the name steps back to a letterhead line
+  // over the nav so the tagline + the search field are what the eye lands on.
+  // Desktop is untouched.
+  @media (max-width: 768px) {
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--secondary-text);
+  }
 }
 
 .hero-tagline {
@@ -745,6 +756,18 @@ html {
   font-weight: 400;
   color: var(--secondary-text);
   margin: 0;
+
+  // Mobile: "welcome to my playground" becomes the hero line, sitting right
+  // above the search field — the crate is the invitation, so the tagline
+  // introduces it rather than trailing a big name.
+  @media (max-width: 768px) {
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 5.6vw, 1.7rem);
+    font-weight: 600;
+    line-height: 1.14;
+    color: var(--text-color);
+    margin-top: var(--space-2);
+  }
 }
 
 // Stage 7 — the skyline spectrum background (skyline-background.jsx),
@@ -1639,6 +1662,26 @@ html {
   &:focus-within {
     border-bottom-color: var(--accent);
   }
+
+  // Mobile: the field is the hero's primary call to action ("lead with the
+  // crate"), so it reads as a filled, accent-outlined pill rather than a
+  // hairline underline. The .is-digging shelf rule below fully re-flattens it
+  // (flat chipboard bg, no border/radius) when the takeover opens.
+  @media (max-width: 768px) {
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: none;
+    border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--text-color) 5%, var(--bg-color));
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--accent) 9%, transparent),
+      0 16px 34px -14px color-mix(in srgb, var(--accent) 32%, transparent);
+
+    &:focus-within {
+      border-color: var(--accent);
+    }
+  }
 }
 
 .record-crate-glyph {
@@ -1647,6 +1690,13 @@ html {
   height: 15px;
   display: flex;
   color: var(--secondary-text);
+
+  // Mobile: scaled up with the pill field it sits in.
+  @media (max-width: 768px) {
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
+  }
 
   svg {
     width: 100%;
@@ -1690,6 +1740,11 @@ html {
   @media (pointer: coarse) {
     font-size: 1rem;
     min-height: 44px;
+  }
+
+  // Mobile: a touch larger than the 1rem iOS-zoom floor, to carry the pill.
+  @media (max-width: 768px) {
+    font-size: 1.05rem;
   }
 
   &::placeholder {
@@ -1974,7 +2029,7 @@ html {
 // paints above the portaled panel.
 .record-crate.is-digging {
   z-index: 61; // shelf (inside) must clear the portaled panel (z 60)
-  min-height: 59px; // == the resting input-row height, so the deck can't jump
+  min-height: 67px; // == the resting input-row (pill) height, so the deck can't jump
   text-align: left; // .home centres text on mobile; the crate reads left here
   // The container still occupies its (transparent) 59px grid box while digging;
   // without this it would sit over the portaled panel (z 61 > 60) and eat taps
@@ -2004,7 +2059,10 @@ html {
   // chip-1 at its top) with no visible step; the soft shadow reads it as a
   // shelf the list scrolls under.
   background: var(--crate-chip-1);
-  border-bottom: none; // also kills the base row's :focus-within accent line
+  // Re-flatten the resting mobile pill: no rounded accent border, no glow —
+  // the shelf is a flat chipboard ledge that meets the panel below it.
+  border: none;
+  border-radius: 0;
   box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.5);
 
   .record-crate-glyph {
@@ -6319,7 +6377,11 @@ $taste-swipe-max: 1024px;
   // touching DOM order, so tab order stays content -> crate input -> deck
   // either way.
   .home {
-    grid-template-columns: 1fr;
+    // minmax(0, 1fr), not a bare 1fr: the deck below asks for min(500px, 100vw)
+    // and a plain `1fr` track takes its content's min-content as the floor, so
+    // the column blew out to the full 100vw and every row (name, pill, deck)
+    // overhung the 12px gutter and got clipped by `overflow: hidden`.
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       "content"
       "crate"
@@ -6330,16 +6392,24 @@ $taste-swipe-max: 1024px;
     // phone. Top-aligned, the name sits just under the navbar and the deck —
     // the actual thing to interact with — gets the rest of the screen. Top
     // padding is navbar-aware so the name can't land under the fixed bar.
-    align-content: start;
-    row-gap: 28px;
+    //
+    // 2026-09-07 ("lead with the crate"): name + tagline + field packed under
+    // the nav; the deck takes the `1fr` row below and centres in it. The
+    // field is what the eye lands on; the deck's leftover height sits split
+    // above/below it as even breathing room, not one manufactured gap
+    // (`space-between` — the Stage 5 regression this section already fought).
+    align-content: stretch;
+    grid-template-rows: auto auto 1fr;
+    row-gap: 16px;
     text-align: center;
-    padding: calc(var(--navbar-height) + var(--space-4)) 12px 32px;
+    padding: calc(var(--navbar-height) + var(--space-3)) 12px var(--space-4);
   }
 
   .hero-content {
     padding-left: 0;
     align-items: center;
     text-align: center;
+    gap: var(--space-2);
   }
 
   // .hero-vu-slot's `display: none` lived here — the element is gone
@@ -6349,21 +6419,27 @@ $taste-swipe-max: 1024px;
 
   .hero-deck-stage {
     justify-content: center;
+    align-items: center;
+    min-width: 0;
   }
 
   .record-crate {
     padding-left: 0;
     padding-right: 0;
     max-width: none;
+    min-width: 0;
   }
 
   .turntable {
     // Stage 5 (continued) — bled closer to the gutter (.home's mobile
     // horizontal padding dropped 20px -> 12px) and grown, so the platter
     // reads as the centrepiece it is rather than a small graphic under the
-    // text.
-    width: min(480px, 95vw);
-    aspect-ratio: 4 / 3;
+    // text. 2026-09-07: grown to fill width + a slightly taller ratio so it
+    // fills the `1fr` deck row of the crate-forward layout above. `100%` (of
+    // the minmax(0,1fr) column), capped — a vw value re-blows the grid track.
+    width: 100%;
+    max-width: 460px;
+    aspect-ratio: 7 / 6;
   }
 
   // The deck is roughly 40% narrower here, so a 44px dial that reads as a
