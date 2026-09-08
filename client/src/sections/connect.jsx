@@ -145,7 +145,7 @@ const HEADLINE_SENT = 'Thank you for reaching out!';
 // instant `status === 'sent'`, same as the form itself, so Task 12.3's own
 // requirement still holds: exactly one message on screen after a send.
 const CONTACT_DESCRIPTION =
-    "Thank you for taking the time to view my portfolio, I hope you had fun playing your favorite tunes! Feel free to leave a message.";
+    "Thanks for stopping by and playing a few tunes — I hope you had fun. Leave a note if you'd like.";
 
 // EQ bars + cord — a small, self-contained looping timeline, started once
 // Phase 1 begins and left running through settle into indefinite idle
@@ -1298,7 +1298,14 @@ export default function Connect() {
                                     id="message"
                                     ref={messageRef}
                                     className="jcard-textarea"
-                                    rows="6"
+                                    // 4, not 6 — 6 rows renders ~178px, which
+                                    // overshot the fold on a phone ("connect is
+                                    // a bit big"). Desktop is unaffected: its
+                                    // .jcard-textarea min-height (140px) already
+                                    // exceeds 4 rows, so it still rests there.
+                                    // Auto-grows on input either way (connect.jsx
+                                    // handleMessageChange).
+                                    rows="4"
                                     maxLength={5000}
                                     placeholder="Write something…"
                                     value={formData.message}

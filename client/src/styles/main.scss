@@ -4712,6 +4712,29 @@ $taste-swipe-max: 1024px;
       padding-bottom: 12px;
     }
   }
+
+  // Every modern phone is taller than the 833px above, so that block never
+  // fired on mobile — the J-card + a full-height footer overshot the fold
+  // (measured h 952 of an 844 screen). 2026-09-07 ("connect is a bit big"):
+  // the same trims, width-gated so they always apply on a phone. Paired with
+  // the tighter title / description / card padding below, the whole section
+  // fits one navbar-cleared screen with the footer resting at its foot.
+  @media (max-width: 768px) {
+    > .contact-section { padding-top: var(--space-3); padding-bottom: var(--space-3); }
+
+    // The site-wide mobile footer stacks (flex-direction: column, ~121px) —
+    // fine mid-page, too tall pinned inside this one-screen section. Back to
+    // a compact row here: name left, socials right.
+    .footer {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-4);
+      height: auto;
+      min-height: 52px;
+      padding: 12px var(--space-5);
+    }
+  }
 }
 
 .contact-section {
@@ -4835,10 +4858,10 @@ $taste-swipe-max: 1024px;
   @media (max-width: 768px) {
     flex-direction: column;
     text-align: center;
-    // Stage 5 (continued) — space-6 -> space-5. Stacked, the heading, the
-    // intro line and the J-card only need one comfortable gap between them,
-    // not the generous side-by-side column gutter.
-    gap: var(--space-5);
+    // Stage 5 -> 2026-09-07: space-6 -> space-5 -> space-3. The description's
+    // own margin-bottom already separates it from the card; a big container
+    // gap on top of that just stacked more air ("a bit big").
+    gap: var(--space-3);
   }
 }
 
@@ -4907,6 +4930,13 @@ $taste-swipe-max: 1024px;
 .contact-title {
   font-family: var(--font-display);
   font-size: 2.5rem;
+
+  // Mobile ("a bit big"): a calmer heading — 40px reads as shouting on a
+  // phone and cost the section ~20px of height it needed for the card.
+  @media (max-width: 768px) {
+    font-size: 1.75rem;
+    margin-bottom: var(--space-2);
+  }
   // The heading IS the confirmation message after a successful send
   // (connect.jsx scrambles this same element to "Thank you for reaching
   // out!"). It has to stay above .cassette-flight (z-index 7) during the
@@ -4953,6 +4983,13 @@ $taste-swipe-max: 1024px;
   // the introduction, not crowded against it.
   margin-bottom: var(--space-7);
   color: var(--secondary-text);
+
+  // Mobile ("a bit big"): 48px of air between one sentence and the card is
+  // most of what read as oversized; a phone doesn't need it. Smaller type too.
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+    margin-bottom: var(--space-3);
+  }
 }
 
 .contact-form {
@@ -5141,6 +5178,10 @@ $taste-swipe-max: 1024px;
   // reel-window decoration doesn't splay to the extreme corners.
   @media (max-width: 768px) {
     max-width: min(400px, 92%);
+    // Tighter still on a phone ("a bit big"). Top padding stays space-5 —
+    // .jcard-spine's negative margin is pinned to it.
+    gap: var(--space-2);
+    padding: var(--space-5) var(--space-4) var(--space-3);
   }
   // gap/top-padding each trimmed one step (space-4 -> space-3, space-6 ->
   // space-5) in the desktop one-screen-fit pass — the card's three sections
@@ -5423,6 +5464,13 @@ $taste-swipe-max: 1024px;
   min-height: 140px;
   max-height: 420px;
   overflow-y: auto;
+
+  // Mobile ("a bit big"): ~3 lines at rest instead of 4 — it still auto-grows
+  // the instant anyone types (connect.jsx). MESSAGE_MAX_HEIGHT (the 420 cap)
+  // is unchanged.
+  @media (max-width: 768px) {
+    min-height: 104px;
+  }
   // resize: none — was `resize: vertical` (Task 12's version, a manual drag
   // handle). Dropped now that connect.jsx auto-grows this field with
   // content: a manual drag would just get fought the next keystroke, the
