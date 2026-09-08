@@ -171,6 +171,13 @@ function ExperienceFilmstrip({ entries }) {
     // ref; the effect reads its children and toggles .is-active from the
     // same setActive() the emphasis calc already runs through.
     const dotsRef = useRef(null);
+    // 2026-09-07 — mobile only: the role + caption for the active card as a
+    // static block BELOW the filmstrip, replacing the on-photo `.experience-info`
+    // overlay (CSS-hidden at that breakpoint). setActive() writes into these;
+    // aria-hidden on the block itself since each card already carries the full
+    // text in its own aria-label.
+    const readoutRoleRef = useRef(null);
+    const readoutCaptionRef = useRef(null);
     cardRefs.current = [];
     dateRefs.current = [];
 
@@ -248,6 +255,10 @@ function ExperienceFilmstrip({ entries }) {
             // off the same "nearest card to centre" pick as everything else,
             // so they can never disagree with the emphasis or the rail dot.
             dots.forEach((dot, di) => dot.classList.toggle("is-active", di === i));
+            // Mobile readout (also CSS-hidden above 768px) — the active card's
+            // role + caption as a static block under the filmstrip.
+            if (readoutRoleRef.current) readoutRoleRef.current.textContent = entries[i].role;
+            if (readoutCaptionRef.current) readoutCaptionRef.current.textContent = entries[i].caption || "";
             activeIndex = i;
             if (!scrambled[i]) {
                 scrambled[i] = true;
@@ -265,6 +276,16 @@ function ExperienceFilmstrip({ entries }) {
             const scrollLeft = viewportEl.scrollLeft;
             const viewportCenter = viewportEl.clientWidth / 2;
             const maxDist = viewportEl.clientWidth * FALLOFF_RANGE;
+            // Mobile (2026-09-07): the card is ~82vw and the next one peeks
+            // ~30px past the edge. A 1.08x grow on the active card would push
+            // its sides past the overflow-x edge and press its top/bottom
+            // against overflow-y: hidden; a 0.8 shrink on the neighbour pulls
+            // it in toward its own centre and eats that peek. So no scale
+            // emphasis at this width — the opacity falloff and the dot row
+            // carry "this card is the focus."
+            const mobile = viewportEl.clientWidth <= 768;
+            const maxScale = mobile ? 1 : MAX_SCALE;
+            const minScale = mobile ? 1 : MIN_SCALE;
             let nearestIndex = 0;
             let nearestDist = Infinity;
 
@@ -276,7 +297,7 @@ function ExperienceFilmstrip({ entries }) {
                 }
                 const falloff = gsap.utils.clamp(0, 1, 1 - dist / maxDist);
                 gsap.set(cards[i], {
-                    scale: MIN_SCALE + (MAX_SCALE - MIN_SCALE) * falloff,
+                    scale: minScale + (maxScale - minScale) * falloff,
                     opacity: MIN_OPACITY + (1 - MIN_OPACITY) * falloff,
                 });
             });
@@ -385,6 +406,15 @@ function ExperienceFilmstrip({ entries }) {
                         ))}
                     </div>
                 </div>
+            </div>
+            {/* 2026-09-07 — mobile only (CSS-hidden above 768px): the active
+                card's role + caption as a static block under the filmstrip,
+                so the description isn't an on-photo overlay a phone visitor
+                has to squint at. aria-hidden — each card's own aria-label
+                already carries year + role + caption for assistive tech. */}
+            <div className="experience-readout" aria-hidden="true">
+                <h3 className="experience-readout-role" ref={readoutRoleRef} />
+                <p className="experience-readout-caption" ref={readoutCaptionRef} />
             </div>
             {/* Stage 5 (continued) — mobile swipe affordance: one dot per
                 card, active dot tracks whichever card is nearest centre

@@ -2748,18 +2748,18 @@ html {
   margin-top: 10rem;
 
   @media (max-width: 768px) {
-    // Stage 5 (continued) — content height, not one forced screen. The
-    // filmstrip + title + dots come to ~440px on a phone; the old
-    // `min-height: 100svh - offset` left ~230px of dead band under the dots.
-    // Scroll-snap still has a valid stop at the section's top; a short
-    // section just means #my-taste's kicker peeks below, which reads as
-    // "keep going" rather than a void.
-    min-height: 0;
-    padding: 0 0 var(--space-6);
-    // Smaller breather on a phone — the section is content-height here, so the
-    // gap above it is the whole separation from #about. --space-9 (96px) is the
-    // top of the scale; desktop goes past it with a raw 10rem.
-    margin-top: var(--space-9);
+    // 2026-09-07 ("one screen per section"): the big photo card + its readout
+    // + dots are sized to fill one navbar-cleared screen, so the section
+    // claims it (was `min-height: 0` — a ~230px void under the dots, the
+    // biggest offender in the mobile "half-empty section" set). Content stays
+    // top-aligned (justify-content: flex-start above); any residual slack
+    // pools below the dots before #my-taste. svh not dvh (B74).
+    min-height: calc(100vh - var(--scroll-offset));
+    min-height: calc(100svh - var(--scroll-offset));
+    padding: 0 0 var(--space-5);
+    // Smaller breather on a phone. --space-9 (96px) is the top of the scale;
+    // desktop goes past it with a raw 10rem.
+    margin-top: var(--space-8);
   }
 }
 
@@ -2924,22 +2924,20 @@ html {
               // state to protect here.
 
   @media (max-width: 768px) {
-    // Stage 5 (continued) — a smaller card (74vw, was 78vw) so the NEXT
-    // card peeks clearly on the right instead of a thin sliver on both
-    // edges; .experience-track below aligns the current card to the left
-    // gutter rather than centring it, which is what makes that peek
-    // one-sided and gives the first card a clean left edge. Rail strip
-    // trimmed 44 -> 22px: the year badge moved off it onto the card media
-    // (below), so all it now reserves is room for the thin draw-in line and
-    // its progress dot — the 44px was mostly empty space between the title
-    // and the first photo.
-    --experience-card-w: clamp(230px, 74vw, 320px);
-    --experience-rail-h: 22px;
-    --experience-media-aspect: 1.2;
-    // Headroom 2×space-5 -> 2×space-4: still clears the active card's 1.08x
-    // scale-up (~12px/side on a ~290px card), and trims the empty band at
-    // the top of the strip that the shrunk rail already started on.
-    --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + 2 * var(--space-4));
+    // 2026-09-07 — a big, near-full-width photo card that owns the screen
+    // (owner: "keep the cards big so it fits the section"). The next card
+    // peeks a sliver on the right (.experience-track aligns to the left
+    // gutter). Portrait-ish aspect so the card is tall enough to fill the
+    // section alongside the title, the readout and the dots — the crop that
+    // costs is a known, accepted trade ("will fix it later"). Rail strip
+    // 16px: on mobile the year is a large label on the photo, so the rail is
+    // just the thin draw-in line + its dot. Headroom drops to 1×space-4
+    // total — experience.jsx pins the active-card scale to 1.0 at this width
+    // (no 1.08 grow to clear), so the old 2×space-4 buffer is unneeded.
+    --experience-card-w: min(82vw, 360px);
+    --experience-rail-h: 16px;
+    --experience-media-aspect: 0.84;
+    --experience-vp-height: calc(var(--experience-card-w) / var(--experience-media-aspect) + var(--experience-rail-h) + var(--space-4));
     max-width: 100vw;
     border-radius: 0;
   }
@@ -3073,6 +3071,20 @@ html {
   border-radius: 14px;
   overflow: hidden;
   background: var(--deck-ground); // visible briefly while a photo decodes
+
+  // Mobile: a bottom scrim so the big on-photo year (.experience-date, above)
+  // stays legible over any photo. Desktop keeps its own scrim inside
+  // .experience-info instead (revealed only on the active card).
+  @media (max-width: 768px) {
+    &::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 42%;
+      background: linear-gradient(to top, rgba(6, 9, 16, 0.82), rgba(6, 9, 16, 0.1) 70%, transparent);
+      pointer-events: none;
+    }
+  }
 }
 
 .experience-image {
@@ -3175,23 +3187,29 @@ html {
   transition: background-color var(--theme-transition), color var(--theme-transition), border-color var(--theme-transition);
 
   @media (max-width: 768px) {
-    // Stage 5 (continued) — off the rail strip, onto the card. The
-    // centred pill floating in the empty band between the title and the
-    // card read as unmoored on a phone; a corner tag on the media reads
-    // as "this photo is from 2019". Sits just inside the media's
-    // top-left: `top` is measured from the card's padding edge, and the
-    // media starts one --experience-rail-h down (the card's padding-top),
-    // so clear that plus a small inset.
-    top: calc(var(--experience-rail-h) + var(--space-2));
-    left: var(--space-2);
+    // 2026-09-07 — the year is the big label on the photo now: bottom-left,
+    // over the media scrim (.experience-media::after below), no chip. It
+    // reads as the anchor of the card the way the mockup shows, and the
+    // scramble on first-activation (experience.jsx) still lands on it.
+    top: auto;
+    bottom: var(--space-3);
+    left: var(--space-4);
     transform: none;
     min-width: 0;
-    padding: 3px 8px;
+    padding: 0;
     border-width: 0;
-    background: color-mix(in srgb, var(--bg-color) 62%, transparent);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    letter-spacing: 0.06em;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: #f4f6fb; // on the dark scrim, both themes
+    // Space Mono (already bundled via @fontsource for #my-taste / #projects,
+    // global once either mounts); monospace fallback is fine for digits.
+    font-family: "Space Mono", "Courier New", monospace;
+    font-weight: 700;
+    font-size: clamp(1.9rem, 9vw, 2.6rem);
+    line-height: 1;
+    letter-spacing: -0.01em;
+    z-index: 3;
   }
 }
 
@@ -3216,6 +3234,47 @@ html {
   transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1;
   pointer-events: none;
+
+  // Mobile: the role + caption live in .experience-readout below the
+  // filmstrip instead of as an on-photo overlay (2026-09-07). The photo just
+  // carries the big year.
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+// Mobile only — the active card's role + caption as a static block under the
+// filmstrip (populated by experience.jsx's setActive). Reserves height for
+// the tallest entry (2-line caption) so the card above it never shifts as
+// you swipe between entries with different caption lengths.
+.experience-readout {
+  display: none;
+
+  @media (max-width: 768px) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-height: 4.5rem;
+    padding: var(--space-4) var(--space-5) 0;
+    text-align: center;
+    flex-shrink: 0;
+  }
+}
+
+.experience-readout-role {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-md);
+  line-height: 1.25;
+  color: var(--text-color);
+}
+
+.experience-readout-caption {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--secondary-text);
 }
 
 .experience-card.is-active .experience-info,
