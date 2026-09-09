@@ -5,9 +5,12 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'playwright-report', 'test-results'] },
   {
     files: ['**/*.{js,jsx}'],
+    // Playwright specs run under Node with their own globals and no React —
+    // linted by the dedicated block below, not the app rules here.
+    ignores: ['tests/**', 'playwright.config.js'],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -33,6 +36,21 @@ export default [
         'warn',
         { allowConstantExport: true },
       ],
+    },
+  },
+  {
+    files: ['tests/**/*.js', 'playwright.config.js'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.node, ...globals.browser },
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-empty': ['error', { allowEmptyCatch: true }],
+      // `async ({}, use) => …` is the Playwright fixture idiom for "no
+      // dependency fixtures" — not an accidental empty pattern.
+      'no-empty-pattern': 'off',
     },
   },
 ]

@@ -16,6 +16,14 @@ node_modules
 # macOS
 .DS_Store
 
+# Playwright (client/ e2e suite) — reports, traces, per-run artifacts, and the
+# downloaded browser binaries. The tests themselves (client/tests/) are tracked.
+playwright-report/
+blob-report/
+test-results/
+.last-run.json
+/client/playwright/.cache/
+
 # Claude Design canvas — seeded payload is a large regenerable artifact (seed-canvas.mjs)
 design-review/mobile-redesign/mobile-redesign.html
 

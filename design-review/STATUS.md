@@ -1,6 +1,27 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-08 (**Mobile hero + Experience follow-up**: owner reviewed
+**Updated:** 2026-09-09 (**Automated e2e / device-matrix test suite**: first
+real test coverage in the repo — Playwright under `client/tests/`, 15
+browser/device projects (desktop Chrome/Firefox/Safari at 1440/1366/1920; iPad
+gen7 portrait+landscape, iPad Pro 11, Galaxy Tab; iPhone SE/14/15 Pro Max on
+WebKit, iPhone-shaped Chromium, Pixel 7, Galaxy S24). Drives the real app;
+**every `/api/*` call is mocked** (no Spotify/iTunes/Resend/Railway). Covers:
+page loads with no `pageerror` (B56 guard) or h-overflow on every device;
+navbar / hamburger / theme-toggle+persistence / hash-on-nav (B3c); the
+**one-screen-per-section fit ratios** the ROADMAP tracks, asserted per device
+class with generous bounds (`#projects` on iPad marked expected-fail per D34;
+`#experience` checked with motion on since its reduced-motion layout is a
+deliberately tall static doc); and mocked interaction flows for the record
+crate (incl. the mobile "dig" takeover + D32 dismiss), `#my-taste` (B56 theme
+toggle, nap/empty states) and `#connect` (optimistic send, validation, error
+toast). CI: `.github/workflows/e2e.yml` on push to `main` + PRs. Known limits,
+all documented: no audio in headless (turntable audio stays in
+`scratch-tests/`), no browser chrome so B74 can't reproduce, WebKit frozen on
+macOS 13/14 (local `npm run test:chromium`; CI covers it). `reducedMotion` is
+forced via a `window.matchMedia` stub — Playwright's own emulation doesn't
+stick in headless Chromium here. Lint 7/2 (tests have their own clean lint
+block), build clean. Full entry in §2.) Prior (2026-09-08, **Mobile hero +
+Experience follow-up**: owner reviewed
 the Stage 5 mobile pass on-device. Hero — "I like the crate-box highlight but I
 prefer my previous design": the "lead with the crate" restack is reverted (big
 display name + small tagline again, `align-content: start`, deck back to 4/3);
@@ -252,6 +273,82 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Automated e2e / device-matrix test suite *(2026-09-09)*
+
+First real automated test coverage in the repo. **Playwright** under
+`client/tests/`, run via `npm test` (from `client/`); full write-up in
+`client/tests/README.md`. Not deployed — Railway builds only `client/` (the app)
+and `server/`.
+
+**The matrix — 15 browser/device projects** (`playwright.config.js`):
+
+| Class | Projects |
+|---|---|
+| Desktop / web | Chrome, Firefox, Safari at 1440; Chrome at 1366 and 1920 |
+| iPad / tablet | iPad gen 7 portrait + landscape, iPad Pro 11, Galaxy Tab S4 |
+| Phone | iPhone SE (320), iPhone 14 (390), iPhone 15 Pro Max (430), an iPhone-shaped Chromium, Pixel 7, Galaxy S24 |
+
+WebKit ≈ Safari/iOS, Chromium ≈ Chrome/Android. Phone/tablet projects run at the
+device's **full screen height** (chrome hidden) — the rectangle the Stage 5
+one-screen work targets and what `svh` sizing assumes (B74).
+
+**What's covered** (6 spec files):
+
+- **smoke** (all 15) — page loads, all six sections present, `<title>`, **no
+  `pageerror`** (B56's "whole page goes blank" surfaces here), no console
+  errors, no horizontal overflow, `/#projects` deep link lands.
+- **navigation** (all 15) — hash updates + section lands near the offset (B3c);
+  inline links vs hamburger for the viewport; hamburger open / navigate / close;
+  Escape closes; theme toggle flips `data-theme` + persists across reload.
+- **responsive** (all 15) — **no horizontal overflow** at every width
+  (B33/B34/B42/B69/B70/B48 class); the **one-screen-per-section fit ratios** the
+  ROADMAP tracks, per device class with generous bounds. `#projects` on an iPad
+  is marked `test.fail` (D34's unresolved half — the suite alerts if it's ever
+  fixed). `#experience` is checked with **motion on** in its own block, since its
+  reduced-motion layout is a deliberately tall always-visible static document.
+- **record-crate** / **my-taste** / **connect** (representative device subset) —
+  the mocked interaction flows: search → pick → deck reacts; the mobile "dig"
+  takeover + its chevron/Escape dismiss (D32); `#my-taste` wall/setlist render,
+  the **B56 theme-toggle-in-section** guard, nap/empty states; `#connect`
+  optimistic send → confirmation → "send another", validation, the error toast.
+
+**The backend is fully mocked** in `tests/fixtures.js` — no Spotify, iTunes,
+Resend or Railway is ever contacted; runs are deterministic. Off-origin
+resources (art, preview audio) are fulfilled with CORS headers. The intro is
+pre-dismissed via `sessionStorage`.
+
+**CI** — `.github/workflows/e2e.yml`, on push to `main` + every PR +
+`workflow_dispatch`. Browsers cached; HTML report always uploaded, failure
+traces on failure. In CI the webServer is a production build served by `vite
+preview` (lighter main thread than dev, closer to prod); locally it's `npm run
+dev` with `reuseExistingServer`.
+
+**Three things that bit, now handled and documented:**
+
+1. **`reducedMotion` emulation doesn't stick in headless Chromium here** — the
+   page kept reporting `no-preference`, so GSAP entrances and the connect
+   scramble ran and made positions/timing nondeterministic. Fixed with a
+   `window.matchMedia` stub in an init script (both `useReducedMotion()` and
+   `gsap.matchMedia()` read the media query directly). A `forceReducedMotion`
+   fixture option lets `#experience` opt back into real motion.
+2. **Route registration order** — Playwright matches most-recently-registered
+   first, so the broad `**/api/**` backstop has to be registered *before* the
+   specific routes or it wins and hands `#my-taste` `{}` where an array is
+   expected → `artists.data.slice is not a function` → blank page.
+3. **WebKit is frozen on macOS 13/14** — `browserContext.newPage` throws
+   `Page.overrideSetting: PushAPIEnabled`. Local WebKit runs are dead on those
+   machines; `npm run test:chromium` skips them and CI (Ubuntu, current WebKit)
+   covers Safari/iOS.
+
+**Known limits, stated in the README:** no audio in headless (turntable *audio*
+stays in `design-review/scratch-tests/`), no browser chrome so the `svh`/`dvh`
+URL-bar jump (B74) can't reproduce, and emulation ≠ a real device (the
+iPhone-UA iTunes redirect B9 among the things it can't catch). Real-device /
+BrowserStack coverage is a possible follow-up.
+
+Baselines held: lint 7 errors / 2 warnings (`client/tests/` has its own lint
+config block, kept clean), `vite build` passes. No app code changed.
 
 ### Mobile hero + Experience follow-up *(2026-09-08)*
 

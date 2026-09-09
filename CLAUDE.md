@@ -27,9 +27,32 @@ the record crate fail with their generic error states — which reads exactly li
 a real bug and isn't one. If you need the production build locally, either use
 5173 or set `ALLOWED_ORIGINS`.
 
-`npm run lint` currently reports **16 errors** (mostly `react/no-unescaped-entities`).
-That's the known baseline, tracked as Stage 8 — don't treat it as a regression, but
-don't add to it either.
+`npm run lint` reports **7 errors / 2 warnings** (all `react/prop-types` +
+`react-refresh`, in `src/`). Known baseline, tracked as Stage 8 — don't treat it
+as a regression, but don't add to it. (`client/tests/` has its own lint block;
+keep it clean.)
+
+## Tests
+
+```bash
+cd client
+npm run test:install   # once — downloads chromium / firefox / webkit
+npm test               # Playwright, 15 device/browser projects, headless
+npm run test:chromium  # skip WebKit (frozen on macOS 13/14 — see below)
+```
+
+Playwright e2e under `client/tests/` — full write-up in `client/tests/README.md`.
+Drives the real app; **every `/api/*` call is mocked** in `tests/fixtures.js`
+(no Spotify / iTunes / Resend / Railway). CI: `.github/workflows/e2e.yml` on
+push to `main` + PRs.
+
+- **`reducedMotion` emulation is stubbed via `window.matchMedia`**, not
+  Playwright's `use` option (which doesn't stick in headless Chromium here).
+- **No audio in headless** — turntable *audio* stays in `design-review/scratch-tests/`.
+- **WebKit is frozen on macOS 13/14** and fails at context creation locally; use
+  `npm run test:chromium` and let CI (Ubuntu) cover Safari/iOS.
+- Phone/tablet projects run at **full screen height** (chrome hidden) — the
+  rectangle the Stage 5 one-screen work targets (B74).
 
 ## Things that will mislead you
 

@@ -1184,6 +1184,21 @@ list). Full writeup: `STATUS.md`'s own dated entry.
 | **7 (e+)** | "WOW layer" remainder — `#my-taste` visualizer, `#projects` as a pinned record-crate scrub, a waveform transition line | Stage 1's `AnalyserNode` — done. **`meyda` is the flagged candidate if the visualizer wants real timbral features** (spectral flux/centroid/chroma); it was declined for the hero, where band splitting is fifteen lines |
 | **8** | Accessibility (theme-toggle label, single `h1`, skip-link), animated theme toggle, lint cleanup, `.git` history rewrite | Nothing — ready now, always deferred as "polish" |
 
+**Done off-roadmap, 2026-09-09 — automated e2e / device-matrix test suite.**
+First real test coverage in the repo: Playwright under `client/tests/`, 15
+browser/device projects (desktop Chrome/Firefox/Safari at three widths; iPad
+portrait+landscape, iPad Pro, Galaxy Tab; iPhone SE/14/15 Pro Max, a Chromium
+phone, Pixel 7, Galaxy S24). Backend fully mocked — no Spotify/iTunes/Resend/
+Railway. Covers load integrity (no `pageerror` — B56 guard — or h-overflow on
+every device), navbar/hamburger/theme-toggle, the ROADMAP's one-screen-per-
+section fit ratios (per device class; `#projects` on iPad marked expected-fail
+per D34), and mocked crate / `#my-taste` / `#connect` flows. CI:
+`.github/workflows/e2e.yml` on push to `main` + PRs. This is separate from —
+and does not close — Stage 8's "clear the lint errors" / accessibility items,
+though it gives that work a regression net. Turntable *audio* stays in
+`design-review/scratch-tests/` (headless has no audio device). Full writeup:
+`STATUS.md`'s dated entry; how-to and known limits in `client/tests/README.md`.
+
 **Done off-roadmap, 2026-09-03 — footer social-icon hover animation.** Direct
 owner request (match dalelarroder.com): the footer's LinkedIn/GitHub/Spotify
 icons now self-draw their strokes on hover/focus (GSAP `DrawSVGPlugin` — no new

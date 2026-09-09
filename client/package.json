@@ -10,7 +10,13 @@
     "dev:client": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report",
+    "test:chromium": "playwright test --project=desktop-chrome --project=desktop-small --project=desktop-wide --project=galaxy-tab --project=iphone-chromium --project=pixel-7 --project=galaxy-s24",
+    "test:install": "playwright install --with-deps chromium firefox webkit"
   },
   "dependencies": {
     "@fontsource/anton": "^5.3.0",
@@ -28,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
+    "@playwright/test": "1.62.1",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
