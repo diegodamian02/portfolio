@@ -9,9 +9,10 @@ WebKit, iPhone-shaped Chromium, Pixel 7, Galaxy S24). Drives the real app;
 page loads with no `pageerror` (B56 guard) or h-overflow on every device;
 navbar / hamburger / theme-toggle+persistence / hash-on-nav (B3c); the
 **one-screen-per-section fit ratios** the ROADMAP tracks, asserted per device
-class with generous bounds (`#projects` on iPad marked expected-fail per D34;
-`#experience` checked with motion on since its reduced-motion layout is a
-deliberately tall static doc); and mocked interaction flows for the record
+class with generous bounds (`#experience` checked with motion on since its
+reduced-motion layout is a deliberately tall static doc; `#projects` on iPad
+kept a lower floor per D34, but CI on real WebKit iPad measures it comfortably
+above — D34 as written may be stale); and mocked interaction flows for the record
 crate (incl. the mobile "dig" takeover + D32 dismiss), `#my-taste` (B56 theme
 toggle, nap/empty states) and `#connect` (optimistic send, validation, error
 toast). CI: `.github/workflows/e2e.yml` on push to `main` + PRs. Known limits,
@@ -304,9 +305,11 @@ one-screen work targets and what `svh` sizing assumes (B74).
 - **responsive** (all 15) — **no horizontal overflow** at every width
   (B33/B34/B42/B69/B70/B48 class); the **one-screen-per-section fit ratios** the
   ROADMAP tracks, per device class with generous bounds. `#projects` on an iPad
-  is marked `test.fail` (D34's unresolved half — the suite alerts if it's ever
-  fixed). `#experience` is checked with **motion on** in its own block, since its
-  reduced-motion layout is a deliberately tall always-visible static document.
+  keeps a lower floor (0.5 vs 0.6) per D34's "weakest tablet section" note — the
+  first CI run measured it comfortably above that on real WebKit iPad, so D34 as
+  written may be stale. `#experience` is checked with **motion on** in its own
+  block, since its reduced-motion layout is a deliberately tall always-visible
+  static document.
 - **record-crate** / **my-taste** / **connect** (representative device subset) —
   the mocked interaction flows: search → pick → deck reacts; the mobile "dig"
   takeover + its chevron/Escape dismiss (D32); `#my-taste` wall/setlist render,
@@ -323,6 +326,14 @@ pre-dismissed via `sessionStorage`.
 traces on failure. In CI the webServer is a production build served by `vite
 preview` (lighter main thread than dev, closer to prod); locally it's `npm run
 dev` with `reuseExistingServer`.
+
+**First CI run (2026-09-09, `bbf6428`): 289 passed, 2 "failed".** Both were
+`#projects fits its screen` on `ipad-portrait` / `ipad-pro-portrait` reporting
+*"expected to fail, but passed"* — i.e. `#projects` fits fine on real WebKit
+iPad, contradicting the `test.fail` marker I'd added from D34. Marker removed;
+tablet `#projects` now asserts a real (lower) floor. **Everything else — all 6
+WebKit projects included — passed on the first try.** (`node-version` bumped
+20 → 22 in the same fix; 20 is EOL.)
 
 **Three things that bit, now handled and documented:**
 

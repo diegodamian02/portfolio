@@ -1191,13 +1191,15 @@ portrait+landscape, iPad Pro, Galaxy Tab; iPhone SE/14/15 Pro Max, a Chromium
 phone, Pixel 7, Galaxy S24). Backend fully mocked — no Spotify/iTunes/Resend/
 Railway. Covers load integrity (no `pageerror` — B56 guard — or h-overflow on
 every device), navbar/hamburger/theme-toggle, the ROADMAP's one-screen-per-
-section fit ratios (per device class; `#projects` on iPad marked expected-fail
-per D34), and mocked crate / `#my-taste` / `#connect` flows. CI:
-`.github/workflows/e2e.yml` on push to `main` + PRs. This is separate from —
-and does not close — Stage 8's "clear the lint errors" / accessibility items,
-though it gives that work a regression net. Turntable *audio* stays in
-`design-review/scratch-tests/` (headless has no audio device). Full writeup:
-`STATUS.md`'s dated entry; how-to and known limits in `client/tests/README.md`.
+section fit ratios (per device class), and mocked crate / `#my-taste` /
+`#connect` flows. CI: `.github/workflows/e2e.yml` on push to `main` + PRs —
+first run green apart from a stale `test.fail` marker (D34 said `#projects`
+floats on tablet; real WebKit iPad fits it fine — **D34 may need re-checking**).
+This is separate from — and does not close — Stage 8's "clear the lint errors" /
+accessibility items, though it gives that work a regression net. Turntable
+*audio* stays in `design-review/scratch-tests/` (headless has no audio device).
+Full writeup: `STATUS.md`'s dated entry; how-to and known limits in
+`client/tests/README.md`.
 
 **Done off-roadmap, 2026-09-03 — footer social-icon hover animation.** Direct
 owner request (match dalelarroder.com): the footer's LinkedIn/GitHub/Spotify
