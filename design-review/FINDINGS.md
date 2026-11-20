@@ -973,6 +973,69 @@ scales with the clamped font-size) was live and unbudgeted. Fix was one line
 and has the room). The general point: any height-budgeted section needs every
 contributor in the budget, and a bare heading silently brings ~0.8em of its own.
 
+---
+
+### D36 — a white object on a near-white ground has no silhouette, and the inset rule that was carrying it disappears at a tilt — **FOUND AND FIXED, Stage 12.1 (2026-11-20)**
+
+The Snow White deck's body is literally `#FFFFFF → #F1EEE8`. Studio Paper's page
+is `#f3f0ea`. Measured from computed styles (`design-review/mobile-v3/contrast.mjs`),
+that is **1.14:1** — the deck and the page it sits on are, in luminance terms,
+the same surface.
+
+The first cut relied on a 1px inset rule plus the `--deck-sw-edge` thickness
+layer behind it to draw the outline. Flat-on that reads fine. At the drop's
+3/4 view (`rotateX(56deg) rotateZ(-24deg)`) most of the outline becomes a soft
+diagonal where a 1px hairline is sub-pixel for much of its length, and the
+edge layer is hidden behind the body on two of the four sides by construction.
+The object stopped having a boundary.
+
+Fix: the body casts a shadow (`0 18px 40px -16px`), tinted off
+`--deck-sw-edge` rather than a flat black alpha — so it stays warm on paper
+and goes near-black on graphite instead of greying the dark deck out. The same
+reasoning `--deck-well-shadow` already carries for the production deck: a
+fixed black alpha does less absolute work the darker the surface under it.
+
+**The general point, and why this is a D and not a one-line fix note:** a
+contrast audit that only checks *text* pairs will pass a design that has no
+readable object boundaries at all. The three non-text rows `contrast.mjs`
+reports (ribs against each other, body against page, edge against body) are
+1.62 / 1.14 / 1.21 in Graphite and 1.25 / 1.14 / 1.35 in Studio Paper. Two of
+those are correct — material gradations inside one object *should* be low —
+and one was a bug. Measuring them was what told them apart. Worth re-running
+whenever a new surface is added on either theme.
+
+---
+
+### D37 — a GSAP `.call()` callback cannot ask which direction the playhead crossed it, and `reversed()` is not that answer — **FOUND AND FIXED, Stage 12.1 (2026-11-20)**
+
+The Snow White drop timeline has one beat that is a callback rather than a
+tween: at 1450ms the platter spins up and two light rings burst. It has to be
+a callback, because neither the infinite spin tween nor a one-shot ring burst
+has a reversible progress-0 to return to, so neither can live inside a
+timeline that must reverse cleanly.
+
+The callback branched on `tl.reversed()`, which looks like the obvious way to
+make a beat symmetric. It is not. `reversed()` reports the timeline's reverse
+**flag**, set by `reverse()` — and a `seek()` never sets it. GSAP runs
+`.call()` callbacks whenever the playhead crosses them, in either direction,
+so seeking from 1.7s back to 0 crossed the beat with `reversed()` still
+`false`, took the forward branch, and started the platter and the rings while
+scrubbing *backwards*. Found on the first screenshot pass: the t=0 frame —
+the deck at rest, lid shut, no record — came out with two rings in it.
+
+Fix: every entry point states its own direction in a ref (`drop` → forward,
+`lift` → backward, `seek(s)` → forward iff `s >= SPIN_AT`), and the callback
+reads that instead of asking GSAP. The timeline's `onReverseComplete` stays as
+a second line of defence for the `reverse()` case.
+
+The same shape caught a second thing in the test harness. `reverse-test.mjs`
+originally cut the drop with `waitForTimeout(1300)`. The spec gives the first
+drop of a visit `timeScale(1)` and every later one `1.4`, so by the third
+iteration 1300ms of wall clock was 1820ms of timeline — past the end. The test
+was reporting a clean reverse from a point the playhead had already left. It
+waits on `progress() * duration()` now. **Any test that drives a timeline
+whose `timeScale` is not 1 must wait on the timeline, not the clock.**
+
 > **Update, 2026-09-03 (Stage 5 continued — mobile declutter pass).**
 > `#projects`' mobile/tablet layout was rebuilt: `.portfolio-item` is a
 > bordered card, the role/title two-column split (each column wrapping

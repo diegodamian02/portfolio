@@ -256,6 +256,47 @@
   // nothing about the mat changed. Tokenised so light theme can pay that back.
   --deck-well-shadow: rgba(0, 0, 0, 0.5);
 
+  // ---- Snow White — the Stage 12.1 deck spike -------------------------------
+  //
+  // A SECOND, independent deck palette, named after the Braun SK4 ("Snow
+  // White's coffin" — white body, clear acrylic lid). Deliberately NOT built
+  // out of the --deck-* tokens above: those mix every surface against
+  // --deck-ground so the production deck's whole hierarchy shifts as one unit,
+  // which is correct for a deck whose body IS the page's own material. Snow
+  // White's body is a specific white (light) and a specific graphite (dark) —
+  // literal values, per the design, because the point of the SK4 reference is
+  // that the body does not follow the page.
+  //
+  // Prefix is --deck-sw-* so a grep for --deck- still finds the whole deck
+  // surface area, while nothing here can collide with the five tokens above.
+  // Consumed only by .sw-* rules (snow-white-deck.jsx) — the production deck
+  // reads none of them, and this spike is reachable only from the DEV-gated
+  // /lab/deck page, so none of it renders on the live site.
+  --deck-sw-body-hi: #3a3d44;
+  --deck-sw-body-lo: #24262b;
+  --deck-sw-edge: #141518;
+  --deck-sw-rib-hi: #5a5e67;
+  --deck-sw-rib-lo: #3c3f46;
+  --deck-sw-lid: rgba(15, 17, 22, 0.45);
+  --deck-sw-lid-border: rgba(255, 255, 255, 0.16);
+  // Tonearm: silver on dark, with an ember headshell. Two values rather than
+  // "silver" as one flat fill — the arm is a tube, so it needs a lit side and
+  // a shaded one or it reads as a drawn line.
+  --deck-sw-arm: #9aa0ab;
+  --deck-sw-arm-shade: #6e747e;
+  --deck-sw-head: #ff8a5c;
+  // Measured against --deck-sw-body-lo: 6.52:1, and 8.29:1 against
+  // --bg-color — both clear of the 4.5 text floor, verified from computed
+  // styles in design-review/mobile-v3/contrast.mjs rather than from a
+  // screenshot (CLAUDE.md's standing rule for this project).
+  --deck-sw-accent: #ff8a5c;
+  // The record's vinyl. Not --vinyl-N: those five are a colourway lottery
+  // keyed off a track id (vinyl-record.jsx), and Snow White's disc carries
+  // the song's own colour on its LABEL instead, set per-track from JS as
+  // --sw-label. The wax itself is one constant black.
+  --deck-sw-wax: #15171c;
+  --deck-sw-groove: rgba(255, 255, 255, 0.055);
+
   // ==========================================================================
   // DESIGN SYSTEM — Stage 3 Task 1. Spec only: nothing below is wired into any
   // section yet (Task 2 does that, #about -> #projects -> #connect; #my-taste
@@ -526,6 +567,38 @@
   // Pays back the rim -> mat contrast lost to the darker ground — see the
   // token's declaration in :root. Warmed in step with --deck-shadow/-edge.
   --deck-well-shadow: rgba(28, 22, 14, 0.66);
+
+  // ---- Snow White, "Studio Paper" theme (Stage 12.1 spike) ------------------
+  //
+  // One geometry, two themes — every value here pairs with a :root
+  // declaration, nothing is added or dropped. This is the SK4 as actually
+  // manufactured: white body, grey platter ribs, and a lid that reads as
+  // clear acrylic over a pale deck rather than smoked glass over a dark one.
+  --deck-sw-body-hi: #ffffff;
+  --deck-sw-body-lo: #f1eee8;
+  --deck-sw-edge: #d4cec2;
+  --deck-sw-rib-hi: #d8d3c9;
+  --deck-sw-rib-lo: #c3bdb1;
+  // A cool blue cast at 20% rather than dark's 45%: acrylic over white shows
+  // its tint by SUBTRACTING, so the same alpha that reads as glass on
+  // graphite reads as a grey wash on paper.
+  --deck-sw-lid: rgba(170, 200, 225, 0.2);
+  --deck-sw-lid-border: rgba(80, 100, 130, 0.35);
+  // White arm, ink headshell — the inverse of dark's silver/ember.
+  --deck-sw-arm: #fdfcfa;
+  --deck-sw-arm-shade: #e3ded3;
+  --deck-sw-head: #1c2030;
+  // Measured: 4.76:1 on --bg-color (#f3f0ea), 5.41:1 on --deck-sw-body-hi,
+  // 4.67:1 on --deck-sw-body-lo — the lowest of the three is still clear of
+  // the 4.5 floor, which is why the body gradient's DARK stop is the one
+  // worth quoting. Verified from computed styles, not sampled from a
+  // screenshot (design-review/mobile-v3/contrast.mjs).
+  --deck-sw-accent: #b8441c;
+  // The wax stays black in both themes — a record is a record. Only the
+  // groove highlight flips, because a white sheen on black wax needs to be
+  // darker, not lighter, when the surround is paper.
+  --deck-sw-wax: #15171c;
+  --deck-sw-groove: rgba(255, 255, 255, 0.07);
 }
 // --navbar-height per breakpoint, kept beside the base token so all three
 // values are readable at once. These are now declarations, not observations:
@@ -6705,6 +6778,445 @@ $taste-swipe-max: 1024px;
   }
 }
 
+// ============================================================================
+// SNOW WHITE — the CSS 3D deck, Stage 12.1 spike (snow-white-deck.jsx)
+//
+// Reachable only from /lab/deck, which App.jsx gates on import.meta.env.DEV —
+// so none of the MARKUP below ships. These RULES do: main.scss is one file and
+// always built. Measured cost in design-review/mobile-v3/README.md.
+//
+// Ten transformed elements, seven of them animated — that is the whole 3D
+// stack. Everything else is a pseudo-element or a background layer, both of
+// which cost no compositor layer of their own:
+//
+//   .sw-stage                    perspective only, never transformed
+//     .sw-deck                   rotateX          [animated]
+//       .sw-deck-body            rotateZ          [animated]  + body gradient
+//         .sw-deck-edge          translateZ(-)                  thickness
+//         .sw-platter            translateZ                     ribs
+//           ::after              translateZ(+)                  the shine
+//           .sw-record           translateZ/Y     [animated]
+//             .sw-record-spin    rotate           [animated]  + wax, label
+//           .sw-ring x2          scale/opacity    [animated]
+//         .sw-arm                translateZ+rotate[animated]  + ::before/after
+//         .sw-lid                translateZ+rotateX [animated]
+//
+// SIZE: one px constant, --sw-w, and every part is a percentage of it. A
+// stylised deck needs stable proportions more than it needs fluid parts, and
+// the 3D constants that CANNOT be percentages (perspective, the record's
+// 260px fall, the lid's hinge height) only line up with the geometry if the
+// geometry itself is a known number of px. The stage shrinks --sw-w on narrow
+// phones instead of scaling a wrapper, which would have cost an 11th layer.
+.sw-stage {
+  --sw-w: min(300px, calc(100vw - 48px));
+  // 0.68, not the 11/15 (0.733) of the first pass: a platter big enough to
+  // read as a 12" disc left almost no deck around it at 0.733, and the arm's
+  // pivot ended up visually inside the record. Measured at 300px wide, this
+  // leaves a 15px rim of body above and below the platter.
+  --sw-h: calc(var(--sw-w) * 0.68);
+  position: relative;
+  width: var(--sw-w);
+  height: var(--sw-h);
+  // 900px against a 300px deck: enough convergence to read as a real object
+  // at a 56deg tilt without the near edge ballooning. Measured by eye across
+  // 600/900/1400 — at 600 the record's 260px fall arrives twice the size of
+  // the platter, at 1400 the tilt barely registers.
+  perspective: 900px;
+  perspective-origin: 50% 42%;
+  transform-style: preserve-3d;
+}
+
+.sw-deck,
+.sw-deck-body {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+// The body IS this element (no separate face layer) — it carries both the
+// rotateZ half of the 3/4 view and the white/graphite gradient, which saves a
+// layer without changing the stacking order the spec describes.
+//
+// 155deg, not 180: the SK4's body is a sheet-metal pan, and a lit top-left /
+// shaded bottom-right ramp is what makes a flat gradient read as one.
+.sw-deck-body {
+  border-radius: calc(var(--sw-w) * 0.035);
+  background: linear-gradient(155deg, var(--deck-sw-body-hi), var(--deck-sw-body-lo));
+  box-shadow:
+    0 1px 0 var(--deck-sw-body-hi) inset,
+    0 0 0 1px color-mix(in srgb, var(--deck-sw-edge) 45%, transparent) inset,
+    // A white deck on Studio Paper's warm near-white page measures 1.14:1
+    // (contrast.mjs) — the silhouette is carried entirely by the 1px inset
+    // rule and the edge layer behind it, which is not enough at a tilt where
+    // most of the outline is a soft diagonal. The cast shadow is what
+    // actually separates the object from the ground; it is tokenised off
+    // --deck-sw-edge so it stays warm on paper and goes near-black on
+    // graphite instead of greying the dark deck out.
+    0 18px 40px -16px color-mix(in srgb, var(--deck-sw-edge) 60%, transparent);
+}
+
+// The thickness. Pushed back in Z and inset a hair on every side, so the tilt
+// shows a band of edge colour under the body rather than a hard silhouette —
+// the cheapest honest substitute for four modelled side walls.
+.sw-deck-edge {
+  position: absolute;
+  inset: 1.5%;
+  border-radius: calc(var(--sw-w) * 0.03);
+  background: var(--deck-sw-edge);
+  transform: translateZ(-16px);
+}
+
+// Platter. Static: only .sw-record-spin inside it turns. Centre sits left of
+// the deck's own centre, with the tonearm's pivot in the right-hand corner —
+// the SK4's layout, and the production deck's (main.scss,
+// .turntable-platter-mount at 51% of plinth width).
+//
+// Ribs are a repeating-conic-gradient, not SVG. The production deck's strobe
+// ring needed real <circle> geometry because ring-thin conic WEDGES either
+// blur or vanish (see .turntable-strobe-svg); these are full-radius machining
+// ribs, which is exactly the shape a conic gradient draws well.
+.sw-platter {
+  position: absolute;
+  left: 42%;
+  top: 50%;
+  width: 58%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%) translateZ(3px);
+  transform-style: preserve-3d;
+  border-radius: 50%;
+  // Two layers, and the ORDER is the fix. A full-radius
+  // repeating-conic-gradient degenerates at its own centre — every wedge
+  // converges on one pixel — and the first pass rendered a moire starburst
+  // across the middle of the platter at rest, which is exactly when the
+  // record is still in the air and the whole disc is visible. Measured at
+  // 1.1deg (327 ribs on a 174px circle) it was unmissable; coarsening alone
+  // does not fix it, it only changes the pattern.
+  //
+  // So: ribs run the full radius underneath, and an opaque radial disc is
+  // painted OVER the inner 68% — leaving a machined annulus at the rim,
+  // which is where a real platter's turning marks are anyway. No mask-image,
+  // deliberately: `mask` is a grouping property, so it would force
+  // transform-style back to `flat` and collapse the record and both rings
+  // out of the 3D scene.
+  background:
+    radial-gradient(
+      circle,
+      var(--deck-sw-rib-hi) 0%,
+      var(--deck-sw-rib-lo) 66%,
+      transparent 68.5%
+    ),
+    repeating-conic-gradient(
+      from 0deg,
+      var(--deck-sw-rib-hi) 0deg 1.5deg,
+      var(--deck-sw-rib-lo) 1.5deg 3deg
+    );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--deck-sw-edge) 35%, transparent),
+    0 2px 6px color-mix(in srgb, var(--deck-sw-edge) 40%, transparent);
+
+  // THE SHINE. A separate conic-gradient layer at a HIGHER translateZ than
+  // the record, so it sits over the disc — and on the platter, which never
+  // rotates, so it stays put while the record turns under it. That is the
+  // whole point: a sheen that spins with the record reads as a painted mark
+  // on the vinyl instead of a reflection off it.
+  //
+  // A pseudo-element rather than an 11th real element. It has no transform of
+  // its own to animate — the deck's own tilt is what sweeps the highlight
+  // across it — so it costs nothing in the layer budget.
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -2%;
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translateZ(14px);
+    background: conic-gradient(
+      from 210deg,
+      transparent 0deg,
+      rgba(255, 255, 255, 0.22) 38deg,
+      rgba(255, 255, 255, 0.04) 74deg,
+      transparent 120deg,
+      transparent 250deg,
+      rgba(255, 255, 255, 0.1) 292deg,
+      transparent 330deg
+    );
+    mix-blend-mode: screen;
+  }
+}
+
+// Carries the fall (translateZ + the settle). Split from the rotation below
+// because one element cannot hold a 3D drop and a continuous spin without the
+// infinite spin tween overwriting the drop's matrix every frame.
+//
+// Inset INSIDE the platter rather than overhanging it. A real 12" disc does
+// sit flush to a 12" platter, and the first render drew it that way — at
+// which point the ribs were invisible at every tilt and the platter read as a
+// black circle. The rim of ribs is the only thing that says "machined metal",
+// so it gets 8% of the radius.
+.sw-record {
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+// The disc: wax, grooves, label, spindle hole — four background layers and
+// two pseudos on ONE element, so the whole record is a single rotating layer.
+// --sw-label is set inline from the labelColor prop (snow-white-deck.jsx).
+.sw-record-spin {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle,
+      transparent 0 2px,
+      var(--deck-sw-groove) 2px 3px
+    ),
+    radial-gradient(circle, color-mix(in srgb, white 10%, var(--deck-sw-wax)) 0%, var(--deck-sw-wax) 60%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  will-change: transform;
+
+  // Label — the song's own colour, the one per-track value on the deck.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 32%;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.3), transparent 58%),
+      var(--sw-label, var(--deck-sw-accent));
+  }
+
+  // Spindle hole. Drawn as a dark dot rather than a real hole: a transparent
+  // cut-out would show the platter ribs turning THROUGH the record at a
+  // tilt, which is correct physics and completely wrong visually at 7px.
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 5%;
+    height: 5%;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--deck-sw-edge);
+  }
+}
+
+// The two light rings. In the label colour, bursting outward at the spin
+// beat — the visual stand-in for "sound started", since the spike has none.
+// Hidden by default: GSAP sets opacity 0 on mount and owns it from there.
+.sw-ring {
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  border: 2px solid var(--sw-label, var(--deck-sw-accent));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--sw-label, var(--deck-sw-accent)) 55%, transparent);
+  transform: translateZ(8px) scale(0.52);
+  will-change: transform, opacity;
+}
+
+// Tonearm. transform-origin is the TOP CENTRE (the pivot), 0deg = straight
+// down, increasing rotation swings the stylus inward — the same convention as
+// the production deck's rotor, so the two files describe arm angles in the
+// same language even though this one's geometry is stylised rather than
+// solved (lib/tonearm-geometry.js is for the real rig and is not imported).
+.sw-arm {
+  position: absolute;
+  left: 88%;
+  top: 10%;
+  width: 2.4%;
+  height: 56%;
+  transform-origin: 50% 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--deck-sw-arm), var(--deck-sw-arm-shade));
+  // The arm is white-on-white in Studio Paper, where the gradient alone is
+  // not enough separation — measured 1.6:1 against --deck-sw-body-hi. A cast
+  // shadow is what actually lifts it off the plate, and it reads as the arm
+  // being ABOVE the deck, which it is (translateZ, set from JS).
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--deck-sw-edge) 55%, transparent);
+  will-change: transform;
+
+  // Bearing + counterweight, above the pivot.
+  &::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -26%;
+    width: 360%;
+    height: 26%;
+    border-radius: 999px;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, var(--deck-sw-arm), var(--deck-sw-arm-shade));
+  }
+}
+
+// The headshell, and a REAL element rather than .sw-arm::after.
+//
+// It is the stylus position, and the arm angles above were swept and measured
+// against the platter centre from the rendered DOM — a pseudo-element has no
+// getBoundingClientRect, so a pseudo cannot be measured and the angles would
+// have had to be eyeballed. Same reason the production deck gives its needle
+// its own ref (turntable.jsx, needleRef) instead of drawing it as a pseudo.
+//
+// No transform of its own and no animation, so it is NOT an eleventh
+// composited layer: it rides the arm's.
+.sw-arm-head {
+  position: absolute;
+  left: 50%;
+  bottom: -4%;
+  width: 440%;
+  height: 13%;
+  border-radius: 2px;
+  margin-left: -220%;
+  background: var(--deck-sw-head);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+// The clear lid, hinged on its own back edge (transform-origin 50% 0, set from
+// JS alongside the rotation so the two cannot drift).
+//
+// pointer-events: none is load-bearing, not hygiene: the lid covers the entire
+// deck whenever it is shut, so without this every tap on the record lands on
+// a sheet of acrylic.
+.sw-lid {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--sw-w) * 0.035);
+  pointer-events: none;
+  transform-origin: 50% 0%;
+  background:
+    linear-gradient(
+      118deg,
+      transparent 0%,
+      transparent 34%,
+      rgba(255, 255, 255, 0.14) 44%,
+      rgba(255, 255, 255, 0.04) 52%,
+      transparent 62%
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, white 14%, var(--deck-sw-lid)),
+      var(--deck-sw-lid)
+    );
+  border: 1px solid var(--deck-sw-lid-border);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 0 0 1px color-mix(in srgb, var(--deck-sw-lid-border) 40%, transparent);
+  will-change: transform;
+}
+
+// Reduced motion: the drop is a crossfade onto a deck that never tilts
+// (snow-white-deck.jsx branches on useReducedMotion), so the two layers that
+// exist only to be animated have nothing to do. will-change on an element
+// that will never change is a wasted compositor layer.
+@media (prefers-reduced-motion: reduce) {
+  .sw-ring { display: none; }
+  .sw-deck,
+  .sw-deck-body,
+  .sw-record,
+  .sw-record-spin,
+  .sw-arm,
+  .sw-lid { will-change: auto; }
+}
+
+// ---- /lab/deck — the DEV-only measurement page (lab/deck-lab.jsx) ----------
+//
+// Same caveat as above: the markup is gated out of the production bundle, the
+// rules are not. Kept deliberately plain — this page exists to be measured,
+// not designed, and anything elaborate here would show up in the frame times
+// it is meant to report.
+.deck-lab {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-4);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-body);
+  // No horizontal scroll at any phone width — asserted, not assumed, in
+  // design-review/mobile-v3/lab-shots.mjs.
+  overflow-x: hidden;
+}
+
+.deck-lab-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.deck-lab-button {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--text-color) 28%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-color);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.deck-lab-readout {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--secondary-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-lab-deck {
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+// The crate. Three sleeves standing in for the real record crate — they are
+// what carries the t=0 "sleeve lifts (scale 1.04)" beat, because that beat
+// belongs to the thing being TAPPED, not to the deck: in production the
+// sleeve is a crate card and the deck has no reference to it. GSAP owns the
+// scale, so there is no CSS transition on transform here.
+.deck-lab-crate {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.deck-lab-sleeve {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 68px;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: 8px;
+  background: var(--sleeve-color);
+  color: #0d1117;
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  will-change: transform;
+}
+
+.deck-lab-sleeve[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--text-color);
+}
 // D8 — the catch-all. Now the FALLBACK path only: navbar.jsx reaches for
 // document.startViewTransition() first (the ::view-transition rules below) and
 // only adds .is-theme-switching where that's unavailable (Firefox) or under

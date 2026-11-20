@@ -11,7 +11,27 @@ starts from zero.
 
 ---
 
-## 0. Current state — quick summary *(updated 2026-09-07, **Stage 5 (mobile) —
+## 0. Current state — quick summary *(updated 2026-11-20, **Stage 12.1 — Mobile
+v3 spec + Snow White deck spike**: the mobile direction is settled as "Pocket
+Player" — on phones the site becomes an app shell, with a floating glass
+mini-player dock at the foot of every section and a now-playing bottom sheet
+holding the turntable; the crate stays in the hero. The deck is "Snow White"
+after the Braun SK4, two themes on one geometry, built in **CSS 3D + GSAP
+only** with no new dependencies. 12.1 is an ISOLATED SPIKE on branch
+`mobile-v3-spike-deck`, **not merged**: a presentational
+`snow-white-deck.jsx` and a DEV-only `/lab/deck` page, wired to no audio, no
+deck state and no section. `turntable.jsx`, the hero and all of desktop are
+byte-unchanged. Measured: **402 frames over a 6.7s drop-plus-spin at a 4x CPU
+throttle on a Pixel 7 — a clean 60Hz, zero dropped frames** in both themes
+with and without the rings (still zero at 8x); `reverse()` from three mid-drop
+points returns all six animated layers to their exact initial matrices;
+accent contrast clears 4.5:1 for every text use in both themes (worst 4.67:1);
+the lab costs **0 bytes of JS** in the production build and +1,094 bytes
+gzipped of CSS. **Go for CSS 3D.** Spec and every number:
+`mobile-v3/README.md`. New findings: D36, D37. Stage numbering note: the brief
+called this "Stage 10", which was already used by the Poppins typography
+stage — see the Stage 12 entry in §3. Lint 7/2, build clean.) Prior,
+2026-09-07, **Stage 5 (mobile) —
 one screen per section**: owner wants every mobile section to fill exactly one
 phone screen with a clean bottom edge, no bleed into the next. Worked out
 through a fresh `/design` canvas — `design-review/mobile-redesign-2/`, published
@@ -2803,6 +2823,65 @@ walkman's `.walkman-screen-ghost`/`-lit` still reference `"DSEG7 Classic",
 "Space Mono", monospace` in source, unchanged. `npm run lint`: 7 errors / 2
 warnings, unchanged (the pre-existing baseline — see `STATUS.md`'s own note
 correcting `CLAUDE.md`'s stale "16 errors" claim).
+
+---
+
+### Stage 12 — Mobile v3: "Pocket Player" + the Snow White deck *(2026-11-20, in progress)*
+
+> **Numbering.** The task brief that commissioned this called it "Stage 10."
+> Stage 10 is already taken — the Poppins typography stage directly above —
+> and Stage 11 ("Studio Paper", three phases) is taken too. This is **Stage
+> 12**, sub-tasks **12.1 – 12.5** in the order the brief gave them. A later
+> brief saying "task 10.2" means **12.2**.
+
+Full spec, including the design table, the drop timeline and every
+measurement: **[`mobile-v3/README.md`](./mobile-v3/README.md)**. That file is
+written to be read by a chat with no repository access; this is the
+sequencing.
+
+**Decided, not open.** On phones the site becomes an app shell: a floating
+glass mini-player dock at the bottom of every section, tapping it opens a
+now-playing bottom sheet holding the turntable. The crate stays in the hero.
+The theme toggle stays. The deck is **"Snow White"** after the Braun SK4 —
+white body and clear lid in Studio Paper, graphite in dark, one geometry, two
+themes. **CSS 3D + GSAP only** (a `perspective` stage, `preserve-3d`, stacked
+layers); no three.js / R3F / Spline / Motion and **no new dependencies** —
+every plugin needed is already registered in `client/src/lib/gsap.js`.
+
+| | | target |
+|---|---|---|
+| **12.1** | spec + deck spike — **done 2026-11-20**, branch `mobile-v3-spike-deck`, not merged | Sun Nov 23 |
+| 12.2 | structure: player store, bottom sheet shell (Draggable + inertia, drag-to-dismiss only from scroll-top), dock (no animation) | Wed Nov 26 |
+| 12.3 | integration: the real turntable into the sheet, keeping the single-writer rules and the `playCached()` same-call-site audio rule; crate tap → drop → play | Sat Nov 29 |
+| 12.4 | polish: the drop timeline on the real deck, lid, theme swap via the existing `startViewTransition`, dock⇄sheet Flip, reduced motion | Tue Dec 2 |
+| 12.5 | device pass + ship | Wed Dec 3 |
+
+**12.1 shipped** an isolated spike, deliberately wired to nothing:
+`client/src/components/snow-white-deck.jsx` (presentational — no audio, no
+deck state, no crate) plus a DEV-only `/lab/deck` page. `turntable.jsx`, the
+audio code, the hero, every section and all of desktop are **byte-unchanged**.
+Verified against the built `dist`: the lab contributes **0 bytes of JS** (the
+gate is a ternary around a dynamic `import()`, which Rollup folds away), and
+**+1,094 bytes gzipped of CSS**, which does ship because `main.scss` is one
+always-built file. Measured at a 4x CPU throttle on a Pixel 7: **402 frames
+over a 6.7s drop-plus-spin window — a clean 60Hz, zero dropped frames**, in
+both themes, with and without the rings; still zero at 8x. `reverse()` from
+three mid-drop cut points returns all six animated layers to their **exact**
+initial transform matrices. Accent contrast clears 4.5:1 for every text use in
+both themes (worst case 4.67:1). Lint held at 7 errors / 2 warnings; build
+clean. **Go for CSS 3D.** Found and logged on the way: `FINDINGS.md` **D36**
+(a white deck has no silhouette on a near-white page — 1.14:1) and **D37** (a
+GSAP `.call()` callback cannot read the playhead's direction from
+`reversed()`).
+
+**One correction to carry into 12.3.** The brief names the single-writer rules
+as "`setSpin`, `muteGain`, `applyDeckState`". **`muteGain` does not exist**
+anywhere in the tree. The real writers are `setSpin` (the spin tween's
+`timeScale`) and `applyDeckState` (deck state + its synchronous
+`emitDeckState` publish), both in `turntable.jsx` — and the master gain, which
+is written by four separate functions in `turntable-audio.js` (`setVolume`,
+`followSpin`, `settleSpin`, `fadeOutAndStop`), not by one. A single-writer rule
+for gain would have to be **introduced** in 12.3, not preserved.
 
 ---
 

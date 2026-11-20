@@ -1,6 +1,27 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-09-09 (**Automated e2e / device-matrix test suite**: first
+**Updated:** 2026-11-20 (**Stage 12.1 — Mobile v3 spec + Snow White deck
+spike**: the mobile direction is settled as "Pocket Player" — on phones the
+site becomes an app shell, a floating glass mini-player dock at the foot of
+every section opening a now-playing bottom sheet that holds the turntable; the
+crate stays in the hero. The deck is "Snow White" after the Braun SK4, two
+themes on one geometry, **CSS 3D + GSAP only, no new dependencies**. 12.1 is
+an **isolated spike on branch `mobile-v3-spike-deck`, not merged**: a
+presentational `snow-white-deck.jsx` plus a DEV-only `/lab/deck`, wired to no
+audio, no deck state and no section — `turntable.jsx`, the hero and all of
+desktop byte-unchanged. Measured: **402 frames over a 6.7s drop-plus-spin at a
+4× CPU throttle on a Pixel 7 — a clean 60Hz, zero dropped frames** in both
+themes with and without the rings, still zero at 8×; `reverse()` from three
+mid-drop points returns 18/18 animated layers to their exact initial matrices;
+accent contrast clears 4.5:1 for every text use in both themes (worst 4.67:1);
+10 transformed elements, at the ~10 budget; the lab costs **0 bytes of JS** in
+the production build and +1,094 bytes gzipped of CSS. **Verdict: go for CSS
+3D**, with iOS/WebKit the one open risk — it cannot be measured on this Mac
+(WebKit frozen at rev 2251 vs the 2336 Playwright 1.62.1 wants; `launch()`
+succeeds and `newPage()` is what fails). Stage numbering: the brief called
+this "Stage 10", already used by the Poppins stage — it is Stage 12. New
+findings D36, D37. Lint 7/2, build clean. Full entry in §2; full spec in
+`mobile-v3/README.md`.) Prior (2026-09-09, **Automated e2e / device-matrix test suite**: first
 real test coverage in the repo — Playwright under `client/tests/`, 15
 browser/device projects (desktop Chrome/Firefox/Safari at 1440/1366/1920; iPad
 gen7 portrait+landscape, iPad Pro 11, Galaxy Tab; iPhone SE/14/15 Pro Max on
@@ -274,6 +295,145 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 12.1 — Mobile v3 spec + the Snow White deck spike *(2026-11-20)*
+
+**Not merged.** Branch `mobile-v3-spike-deck`, off `main`. This is a spike
+whose whole purpose is to be measured before anything is wired up.
+
+**Numbering:** the commissioning brief called this "Stage 10". Stage 10
+(Poppins typography, 2026-09-01) and Stage 11 ("Studio Paper", three phases)
+are both already used, so it is **Stage 12**, sub-tasks 12.1–12.5. A later
+brief saying "10.2" means 12.2. Full spec, written for the research chat that
+has no repo access: `design-review/mobile-v3/README.md`.
+
+**What the direction is.** On phones the site becomes an app shell: a floating
+glass mini-player dock at the foot of every section, tapping it opens a
+now-playing bottom sheet holding the turntable. The crate stays in the hero.
+The deck is **"Snow White"** after the Braun SK4 — white body + clear lid in
+Studio Paper, graphite in dark, one geometry and two themes, as
+`--deck-sw-*` tokens on `:root` / `[data-theme="light"]`. The prefix is
+`--deck-sw-` and not `--deck-` on purpose: the five existing `--deck-*` tokens
+mix every production-deck surface against `--deck-ground` so the hierarchy
+shifts with the page, which is right for a deck made of the page's material
+and wrong for an SK4, whose body is a specific white.
+
+**What shipped in 12.1.** `client/src/components/snow-white-deck.jsx`, a
+presentational component with **no audio, no deck-state wiring and no crate**,
+plus a DEV-only `/lab/deck` page (`client/src/lab/deck-lab.jsx`) and the
+`.sw-*` / `.deck-lab-*` rules in `main.scss`. `turntable.jsx`, the audio code,
+the hero, every section and all of desktop are **byte-unchanged** — the two
+decks do not import each other. **No new dependencies**: CSS 3D + GSAP, and
+every plugin needed (`CustomEase`, `CustomBounce`, `Draggable`,
+`InertiaPlugin`, `Flip`) was already registered in `lib/gsap.js`.
+
+**Frame times — Pixel 7, Chromium, 4× CPU throttle**, drop (1.7s) + 5s of
+spinning. The throttle is verified inside the run by timing a fixed
+arithmetic burn with and without it (115ms → 378ms, i.e. 3.28× for a requested
+4×; CDP throttling is approximate).
+
+| case | frames | avg | median | p95 | worst | >16.7ms | dropped (>33.3ms) |
+|---|---|---|---|---|---|---|---|
+| Graphite, rings on | 402 | 16.67 | 16.6 | 18.1 | 18.7 | 170 (42.3%) | **0** |
+| Graphite, rings off | 402 | 16.66 | 16.6 | 18.1 | 18.7 | 180 (44.8%) | **0** |
+| Studio Paper, rings on | 402 | 16.66 | 16.6 | 18.2 | 18.7 | 190 (47.3%) | **0** |
+| Studio Paper, rings off | 402 | 16.66 | 16.7 | 18.3 | 18.7 | 190 (47.3%) | **0** |
+
+~402 frames **is** a clean 60Hz over a 6.7s window; all four cases hit it, and
+the worst single frame anywhere is 18.7ms.
+
+**These are one run.** Across the runs taken for this entry the average never
+moved off 16.66–16.67ms and the frame count never moved off 401–402, but the
+worst single frame wandered between **17.7 and 18.7ms** and the >16.7 count
+between 40% and 54% — both of which are the same vsync-rounding noise, not a
+signal. **Dropped frames were zero in every run.** Quote the dropped column. **Read the ">16.7ms" column with
+care** — at a 60Hz mean of 16.67ms about half of all frames land a rounding
+error above 16.7 and get counted while nothing has been dropped. The honest
+number is the dropped column (a gap of two vsync intervals), which is **zero
+everywhere**. The script reports both, and the first run of it is what exposed
+the artefact. **The two rings cost nothing measurable** — 0.01ms of average
+frame time between on and off, which is noise. Re-run at **8× throttle**
+(measured 6.43×): still 402 frames, still zero dropped, worst still 17.7ms.
+
+**Other measurements.**
+
+| | result |
+|---|---|
+| `reverse()` from 400 / 900 / 1300ms | **18/18** animated layers return to their exact initial transform matrices |
+| accent contrast, text uses, both themes | **4.67:1 – 8.29:1** — every pair clears 4.5:1 |
+| horizontal overflow, 2 devices × 2 themes | **0px**, 0 `pageerror`, 0 console errors |
+| transformed elements in the deck subtree | **10** (7 animated) — at the brief's "~10 or fewer" budget |
+| production JS delta | **0 bytes**; no lazy chunk emitted, 0 occurrences of any lab identifier |
+| production CSS delta | 74,157 → 79,597 raw, **14,653 → 15,747 gzipped (+1,094)** |
+| `npm run lint` | **7 errors / 2 warnings** — unchanged baseline |
+| `npm run build` | clean |
+
+Spec frames (24: 2 devices × 2 themes × t = 0/300/700/1100/1500/3000ms) in
+`design-review/screenshots/mobile-v3/`, element-clipped. t=0–1500 are
+**timeline seeks**, so each frame is the one the spec describes rather than
+whatever wall clock plus screenshot latency produced; t=3000 is live, because
+the timeline ends at 1700ms.
+
+**Verdict: GO for CSS 3D.** Not close: the deck holds a clean 60Hz with zero
+dropped frames at 8× CPU throttle, the layer count is at budget rather than
+over it, the drop is cleanly reversible from any point, and the whole thing
+costs the production bundle 0 bytes of JS. The remaining risk is entirely
+**iOS/WebKit**, which is where CSS 3D engines actually diverge
+(`preserve-3d` flattening, conic-gradient rasterisation, how a nested 3D
+subtree is composited) — and which cannot be measured on this Mac (below).
+That is a real-device task for 12.5, not a reason to change approach.
+
+**Two findings, both logged.** `FINDINGS.md` **D36** — the white deck measures
+**1.14:1** against Studio Paper's near-white page, and the 1px inset rule that
+was carrying its outline goes sub-pixel across most of a 56° tilt; fixed with
+a cast shadow tinted off `--deck-sw-edge`. The general point is that a
+contrast audit checking only *text* pairs will pass a design with no readable
+object boundaries. **D37** — a GSAP `.call()` callback cannot learn which
+direction the playhead crossed it, and `tl.reversed()` is not that answer
+(it reports the reverse *flag*, which `seek()` never sets); seeking backwards
+through the spin beat fired its forward branch and put two light rings in the
+t=0 "deck at rest" screenshot.
+
+**Three things that will mislead whoever picks this up.**
+
+**`muteGain` does not exist.** The brief named the single-writer rules as
+"`setSpin`, `muteGain`, `applyDeckState`". There is no such identifier
+anywhere in `client/`, `server/` or `design-review/`. The real writers are
+`setSpin` (the spin tween's `timeScale`) and `applyDeckState` (deck state plus
+its synchronous `emitDeckState`), both in `turntable.jsx` — and the master
+gain, written by four separate functions in `turntable-audio.js`
+(`setVolume`, `followSpin`, `settleSpin`, `fadeOutAndStop`). A single-writer
+rule for gain would have to be **introduced** in 12.3, not preserved.
+
+**The measurement scripts are standalone, not `playwright.config.js`
+projects.** That config sets `reducedMotion: 'reduce'` globally for every
+project, deliberately. Running the drop under it measures the reduced-motion
+branch, which by design has no tilt, no fall, no rings and no spin. Same
+reason `scratch-tests/` is standalone.
+
+**WebKit could not run these, and the symptom is not the one you'd expect.**
+Already known at the headline level (the e2e entry below records "WebKit
+frozen on macOS 13/14"); the detail is that Playwright 1.62.1 wants WebKit
+revision **2336** while mac14-arm64 is pinned at **2251**, `npx playwright
+install webkit` prints *"You are using a frozen webkit browser which does not
+receive updates anymore on mac14-arm64"* and exits 0 having installed nothing,
+and — the part that wastes time — **`webkit.launch()` succeeds**. The failure
+lands at `newPage()`, as `Protocol error (Page.overrideSetting): Unknown
+setting: PushAPIEnabled`, or simply hangs; and `await browser.close()` on that
+browser hangs too, which makes a naive fallback look like a hang in the page
+under test. `lab-shots.mjs` now tries WebKit with a 30s cap, falls back to
+Chromium with the same device descriptor, and prints which engine produced
+each frame. **The iPhone frames in this entry are Chromium-rendered.**
+
+**Open for 12.5, needs a real phone:** iOS/WebKit rendering; sustained
+thermals (6.7s says nothing about three minutes of spinning on a warm phone);
+and 120Hz, since every number above is against a 60Hz budget while ProMotion
+asks for 8.3ms. To open the lab on a device:
+`cd client && npx vite --host`, then `http://<mac-lan-ip>:5173/lab/deck`
+(`ipconfig getifaddr en0`). The port must stay 5173 — `--host` doesn't change
+it, but if 5173 is taken Vite silently moves to 5174 and the CORS allowlist
+stops matching for every other page.
+
 
 ### Automated e2e / device-matrix test suite *(2026-09-09)*
 

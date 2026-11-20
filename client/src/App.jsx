@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import LoadingScreen from "./components/loading-screen.jsx";
 import Navbar from "./components/navbar.jsx";
@@ -18,7 +19,30 @@ function ScrollToHash() {
     return null;
 }
 
+// /lab/deck — the DEV-only Snow White deck lab (Stage 12.1 spike).
+//
+// A ternary on import.meta.env.DEV, not an `if` inside the component: Vite
+// substitutes the literal `false` in a production build, Rollup folds
+// `false ? import(...) : null` to `null`, and the dynamic import disappears
+// with it — so neither src/lab/ nor snow-white-deck.jsx is emitted at all.
+// A static import would have bundled both no matter how the render was gated.
+// Verified against the built dist rather than assumed; the check is written
+// down in design-review/mobile-v3/README.md.
+const DeckLab = import.meta.env.DEV
+    ? lazy(() => import("./lab/deck-lab.jsx"))
+    : null;
+
 export default function App() {
+    // Checked ahead of <Router> on purpose, so the lab gets a bare page: no
+    // LoadingScreen covering the first 900ms of every measurement, no Navbar
+    // taking 120px off a phone screen, and no Lenis owning the scroll. The lab
+    // is a measurement rig, not a route of the site — it has no navigation to
+    // participate in, and keeping it out of <Routes> leaves the real route
+    // table byte-identical.
+    if (DeckLab && window.location.pathname === "/lab/deck") {
+        return <Suspense fallback={null}><DeckLab /></Suspense>;
+    }
+
     return (
         <Router>
             <SmoothScroll>
