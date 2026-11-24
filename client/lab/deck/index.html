@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snow White deck — lab</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0a0e1a" />
+  <!--
+    /lab/deck/ — the Stage 12.1 measurement page. DEV ONLY, and dev-only BY
+    CONSTRUCTION rather than by a gate in the app: `vite build` only builds
+    the root index.html unless extra inputs are listed in
+    build.rollupOptions.input, and this file is deliberately not listed. It
+    is served by the dev server and never emitted into dist/.
+
+    That is a stronger guarantee than the DEV ternary this replaced, and it
+    is also the fix for the real problem. The first version lived inside
+    App.jsx behind `import.meta.env.DEV` and returned early from the
+    component — which gates RENDERING, not LOADING. By the time that early
+    return runs, every static import at the top of App.jsx has already been
+    evaluated: all six sections, turntable.jsx, the audio engine, the record
+    crate, the walkman, the skyline canvas, and every image asset in the
+    site. Measured on the dev server: 4,193 KB over 99 requests, including
+    graduation.jpg at 448 KB, for a page that draws one turntable. Invisible
+    on localhost (338ms to interactive) and unusable over Wi-Fi on a phone,
+    which is exactly what this lab exists to be opened on.
+
+    Its own entry point loads only what the deck needs.
+
+    Deliberately minimal next to the site's own index.html: no favicon, no
+    canonical, no Open Graph, no JSON-LD, no anti-FOUC script. Nothing here
+    is ever shared, crawled or deep-linked, and the theme is driven by the
+    page's own toggle rather than localStorage.
+  -->
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="./main.jsx"></script>
+</body>
+</html>

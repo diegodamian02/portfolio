@@ -41,8 +41,8 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 
-await page.goto(`${BASE}/lab/deck`, { waitUntil: 'load' });
-await page.waitForFunction(() => !!window.__deckLab, null, { timeout: 15_000 });
+await page.goto(`${BASE}/lab/deck/`, { waitUntil: 'load' });
+await page.waitForFunction(() => !!window.__deckLab, null, { timeout: 45_000 });
 await page.waitForTimeout(600);
 
 const read = () => page.evaluate(

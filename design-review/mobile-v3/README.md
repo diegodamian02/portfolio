@@ -3,6 +3,10 @@
 **Stage 12** of `../ROADMAP.md`. This file is the spec; `../STATUS.md` §2 carries
 the measurements from each sub-task as it lands.
 
+The lab page is **`/lab/deck/`** on the dev server (trailing slash; the
+slashless form redirects). It is a separate Vite entry and is never built —
+§5.
+
 > **Stage number, read this first.** The task brief that commissioned this work
 > called it "Stage 10." **Stage 10 is already taken** — `ROADMAP.md` §3 has
 > *"Stage 10 — sitewide typography: Poppins replaces the Avenir Next stack
@@ -214,26 +218,91 @@ sheet keeps the deck mounted.
 
 ## 5. What does and does not ship
 
-`/lab/deck` is gated on `import.meta.env.DEV` in `client/src/App.jsx`, as a
-**ternary around a dynamic `import()`**:
+The lab is **its own Vite entry**: `client/lab/deck/index.html` +
+`main.jsx` + `deck-lab.jsx`. `vite build` only builds the root `index.html`
+unless extra inputs are listed in `build.rollupOptions.input`, and this one is
+deliberately not listed — so it is dev-only **by construction**, and
+`client/src/App.jsx` is **byte-unchanged** by this stage.
+
+### The first version of this was wrong, and the way it was wrong is worth keeping
+
+It started as a DEV-gated route inside `App.jsx`:
 
 ```js
 const DeckLab = import.meta.env.DEV ? lazy(() => import("./lab/deck-lab.jsx")) : null;
+// ...then an early return from App() when location.pathname === "/lab/deck"
 ```
 
-Vite substitutes the literal `false` in a production build, Rollup folds
-`false ? import(...) : null` to `null`, and the dynamic import disappears with
-it. A static import would have bundled the lab *and* the deck component no
-matter how the render was gated.
+That is airtight for *shipping* — Vite substitutes `false`, Rollup folds the
+branch, and the measured JS delta was 0 bytes. It is useless for *loading*. An
+early return runs at render time, by which point every static `import` at the
+top of `App.jsx` has already been evaluated: all six sections,
+`turntable.jsx`, the audio engine, the record crate, the walkman, the skyline
+canvas — **and every image asset in the site**.
 
-Verified against the built `dist`, not assumed:
+Measured on the dev server, the two versions of the same page
+(`load-cost.mjs`):
+
+| | DEV gate inside `App.jsx` | own Vite entry | the whole site, for scale |
+|---|---|---|---|
+| `src/` modules | **49** | **4** | 47 |
+| requests | 99 | 36 | 124 |
+| transferred | *(not reliably measured — see below)* | 2,022 KB | 5,614 KB |
+| interactive, localhost | 338ms | 226ms | 309ms |
+
+**The module count is the number that matters, and it is the one that was
+measured correctly.** The old version loaded 49 of the site's 47 `src`
+modules — i.e. the entire application plus the lab itself — including
+`turntable.jsx`, `turntable-audio.js`, all six sections, the crate, the
+walkman, the skyline canvas, and the image assets `graduation.jpg`,
+`colegio.jpg`, `codewiz.jpeg` and `diego.jpg`, none of which the lab renders.
+The new entry loads **four**: `snow-white-deck.jsx`, `deck-lab.jsx`,
+`lib/gsap.js` and `main.scss`.
+
+> **The byte figures for the old version are withdrawn.** They were produced
+> by a probe that accumulated into a running total from inside an `async`
+> response handler and printed it before those `response.body()` promises had
+> resolved — undercounting by roughly 15×, on *both* sides of the comparison,
+> which is what made it look self-consistent. It reported 4,193 KB against
+> 133 KB. The true current figure is 2,022 KB, and the old version was never
+> measured accurately before it was deleted. The module and request counts
+> above are unaffected: those are synchronous counts of response URLs, with
+> no promise to lose. **FINDINGS D39.**
+
+Note what the corrected bytes actually say: on a dev server **~1.1 MB of the
+lab's 2 MB is Vite's unminified prebundled React and GSAP** (a single 910 KB
+chunk, plus `gsap_ScrollTrigger.js` at 104 KB — `lib/gsap.js` registers every
+plugin), and the site pays for the same chunks. So bytes are a poor
+discriminator here and the lab can never be a small *fraction* of the site on
+a dev server. `load-cost.mjs` therefore gates on the module count (ceiling 8)
+and keeps the byte ratio only as a loose backstop.
+
+On localhost the whole difference is 112ms, which is how the original version
+survived a full measurement pass — **every number in §6 is taken over
+loopback.** It surfaces the moment the lab is opened the way it is meant to
+be opened: a phone, over Wi-Fi, against an unbundled dev server. Reported
+from the device as "taking forever to load", and correctly so.
+
+**The general point:** gating a dev-only page on `import.meta.env.DEV` inside
+a component answers "does it ship?" and says nothing about "what does it
+cost to open?". For a page whose entire purpose is to be loaded on a slow
+device, the second question is the one that matters. A separate entry answers
+both.
+
+The URL keeps its trailing slash (`/lab/deck/`). A dev-only Vite middleware
+(`labTrailingSlash` in `vite.config.js`, `apply: 'serve'`) 301s the slashless
+form onto it — without that the SPA history fallback catches `/lab/deck`
+first and serves the **root** `index.html`, i.e. typing the URL on a phone
+silently loads the whole site. A silent wrong page is worse than a 404.
+
+### Verified against the built `dist`
 
 | | production build |
 |---|---|
-| JS chunks emitted | 1 (unchanged — no lazy chunk) |
-| occurrences of `deck-lab` / `__deckLab` / `snow-white` / `swDeckTilt` in JS | **0** |
-| occurrences of the string `lab/deck` in JS | **0** |
-| **JS delta** | **0 bytes** |
+| HTML files emitted | **1** (`dist/index.html`) — no `lab/deck/index.html` |
+| JS chunks emitted | 1 |
+| occurrences of `deck-lab` / `__deckLab` / `swDeckTilt` in `dist/` | **0** |
+| **JS delta** | **0 bytes** — the bundle hashes byte-identical to `main` |
 | CSS, raw | 74,157 → 79,597 (**+5,440**) |
 | CSS, gzipped | 14,653 → 15,747 (**+1,094**) |
 
@@ -244,10 +313,13 @@ price of the brief's "styles go in main.scss" instruction, and it is the right
 trade for a spike; if Stage 12 were ever abandoned, deleting the block is a
 single contiguous edit.
 
-The lab also sits **outside the site shell** — it is checked ahead of
-`<Router>`, so it gets no `LoadingScreen` covering the first 900ms of every
-measurement, no `Navbar` taking 120px off a phone screen, and no Lenis owning
-the scroll. The real route table is byte-identical.
+The lab also sits **outside the site shell** — no `LoadingScreen` covering the
+first 900ms of every measurement, no `Navbar` taking 120px off a phone screen,
+no Lenis owning the scroll. It does not mount `<React.StrictMode>` either:
+StrictMode double-invokes effects, which would build the deck's GSAP timeline
+twice and leave the first one's spin tween orphaned on the platter — a second
+writer on the rotation for the whole session, quietly corrupting every
+frame-time and reverse measurement taken off the page.
 
 ---
 
@@ -257,11 +329,27 @@ Scripts live beside this file. All of them need the dev server **on :5173**
 (`cd client && npm run dev` — see `CLAUDE.md`; 4173 is the wrong port).
 
 ```bash
-node design-review/mobile-v3/lab-shots.mjs     # spec frames + overflow/pageerror
-node design-review/mobile-v3/perf-trace.mjs    # frame times, 4x CPU throttle
-node design-review/mobile-v3/reverse-test.mjs  # reverse() exactness
+node design-review/mobile-v3/run-all.mjs       # all four, in order
+#   or individually:
 node design-review/mobile-v3/contrast.mjs      # accent ratios, both themes
+node design-review/mobile-v3/reverse-test.mjs  # reverse() exactness
+node design-review/mobile-v3/perf-trace.mjs    # frame times, 4x CPU throttle
+node design-review/mobile-v3/lab-shots.mjs     # spec frames + overflow/pageerror
+node design-review/mobile-v3/load-cost.mjs    # what the page costs to OPEN (not in run-all)
 ```
+
+**Run `run-all.mjs` rather than the suites by hand on a dev server that has
+just started**, including after any edit to `vite.config.js`, which restarts
+it. It fetches `/lab/deck/` twice before anything is measured. Vite transforms
+modules on first request and caches them; on a cold server that work lands
+inside whichever suite goes first, and it is not subtle — observed once as
+`reverse-test.mjs` timing out waiting for the probe and `perf-trace.mjs`
+reporting single **210–230ms** frames in three of four cases. Both came back
+clean the moment the page had been loaded once. `perf-trace.mjs` additionally
+throws away one unsampled drop per theme, for the same reason at a smaller
+scale: GSAP's first transform parse, the first promotion of the ten 3D layers
+and the first rasterisation of the platter's conic gradient all happen once
+and would otherwise be charged to whichever case ran first.
 
 They are **standalone scripts, not `client/playwright.config.js` projects**, on
 purpose: that config sets `reducedMotion: 'reduce'` globally for every project,
@@ -272,37 +360,47 @@ by design has no tilt, no fall, no rings and no spin. Same reason
 
 ### Frame times — Pixel 7, Chromium, 4× CPU throttle
 
-Drop (1.7s) + 5s of spinning. Throttle verified in-run by timing a fixed
-arithmetic burn with and without it (115ms → 378ms, i.e. 3.28× for a requested
-4×; CDP throttling is approximate).
+Drop (1.7s) + 5s of spinning, **three runs per case, all shown**. One run is
+not a measurement on a shared laptop. Throttle verified in-run by timing a
+fixed arithmetic burn with and without it (104ms → 392ms, i.e. 3.78× for a
+requested 4×; CDP throttling is approximate).
 
-| case | frames | avg | median | p95 | worst | >16.7ms | dropped (>33.3ms) |
-|---|---|---|---|---|---|---|---|
-| Graphite, rings on | 402 | 16.67 | 16.6 | 18.1 | 18.7 | 170 (42.3%) | **0** |
-| Graphite, rings off | 402 | 16.66 | 16.6 | 18.1 | 18.7 | 180 (44.8%) | **0** |
-| Studio Paper, rings on | 402 | 16.66 | 16.6 | 18.2 | 18.7 | 190 (47.3%) | **0** |
-| Studio Paper, rings off | 402 | 16.66 | 16.7 | 18.3 | 18.7 | 190 (47.3%) | **0** |
+| case | run | frames | avg | p95 | worst | dropped (>33.3ms) |
+|---|---|---|---|---|---|---|
+| Graphite, rings on | 1 / 2 / 3 | 402 / 400 / 402 | 16.67 / 16.70 / 16.67 | 18.2 / 18.4 / 18.3 | 18.6 / **34.3** / 18.6 | 0 / **1** / 0 |
+| Graphite, rings off | 1 / 2 / 3 | 402 / 401 / 402 | 16.66 / 16.67 / 16.67 | 18.3 / 18.0 / 18.1 | 18.7 / 18.7 / 18.6 | 0 / 0 / 0 |
+| Studio Paper, rings on | 1 / 2 / 3 | 402 / 401 / 399 | 16.67 / 16.66 / 16.79 | 18.1 / 18.1 / 18.4 | 18.8 / 18.7 / **50.0** | 0 / 0 / **1** |
+| Studio Paper, rings off | 1 / 2 / 3 | 402 / 402 / 402 | 16.67 / 16.67 / 16.66 | 18.1 / 18.2 / 17.9 | 18.6 / 18.7 / 18.7 | 0 / 0 / 0 |
 
-**~402 frames is exactly a clean 60Hz over a 6.7s window.** All four cases hit
-it. The worst single frame in this run is 18.7ms.
+**10 of 12 runs are a clean 60Hz with zero dropped frames** — ~402 frames over
+a 6.7s window is exactly the 60Hz ceiling, and the typical worst frame is
+18.6–18.8ms. Two runs dropped exactly one frame each (34.3ms and 50.0ms), in
+different cases on each repeat, at a host load average of **11.46**. A
+regression does not move between cases run-to-run; host contention does.
+**No frame exceeded 100ms in any of the twelve runs.**
 
-**These are one run.** Across the runs taken for this entry the average never
-moved off 16.66–16.67ms and the frame count never moved off 401–402, but the
-worst single frame wandered between **17.7 and 18.7ms** and the >16.7 count
-between 40% and 54% — both of which are the same vsync-rounding noise, not a
-signal. **Dropped frames were zero in every run.** Quote the dropped column.
+**The rings cost nothing measurable** — rings-on and rings-off are the same
+to two decimal places, and rings-*off* carried neither of the two dropped
+frames only by coincidence of which run the host stalled on. Re-run at **8×
+throttle**: still 402 frames, still zero dropped, worst still 17.7ms.
 
-**Read the ">16.7ms" column with care — it is close to meaningless here**, and
-the first run of this script is what proved it. At a 60Hz mean of 16.67ms,
-roughly half of all frames land a rounding error above 16.7 and get counted as
-"over budget" while nothing has been dropped. The honest number is the dropped
-column: a gap of two vsync intervals or more. It is **zero everywhere**. The
-script reports both.
+**Read the ">16.7ms" column with care** — the script reports it because the
+brief asks for it, and it is close to meaningless. At a 60Hz mean of 16.67ms
+roughly half of all frames land a rounding error above 16.7 while nothing has
+been dropped. The dropped column (a gap of two vsync intervals) is the honest
+one.
 
-**The rings cost nothing measurable.** Average frame time differs by 0.01ms
-between rings-on and rings-off, which is noise. Re-ran at **8× throttle**
-(measured 6.43×): still 402 frames, still zero dropped, worst frame still
-17.7ms. The deck is not close to its budget.
+> **These numbers replace an earlier set, and the reason matters.** The first
+> version of the rAF probe gated its loop on a single shared boolean, set
+> false at the end of a run and true at the start of the next — so the
+> previous run's loop found the flag true again on its next tick and
+> **resurrected itself**. Two loops then wrote into the same array, and the
+> zombie's first delta spanned the whole gap between runs. It produced 415
+> frames in a window where 60Hz allows 402 (physically impossible, and what
+> gave it away) and single "frames" of 210–317ms reported as dropped frames.
+> The probe now uses a generation id that only increases, and the script
+> fails loudly if any run reports more frames than 60Hz permits. **FINDINGS
+> D39.**
 
 ### reverse() exactness
 
@@ -358,7 +456,7 @@ Open the lab on a phone on the same Wi-Fi:
 
 ```bash
 cd client && npx vite --host
-# then, on the phone:  http://<your-mac-lan-ip>:5173/lab/deck
+# then, on the phone:  http://<your-mac-lan-ip>:5173/lab/deck/
 ```
 
 `npx vite --host` prints the LAN URL itself under **Network:**. To get the IP

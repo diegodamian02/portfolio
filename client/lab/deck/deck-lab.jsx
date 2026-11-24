@@ -1,25 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGSAP } from "@gsap/react";
-import { gsap } from "../lib/gsap.js";
-import SnowWhiteDeck from "../components/snow-white-deck.jsx";
+import { gsap } from "../../src/lib/gsap.js";
+import SnowWhiteDeck from "../../src/components/snow-white-deck.jsx";
 
 // ---------------------------------------------------------------------------
-// /lab/deck — the Stage 12.1 measurement page. DEV ONLY.
+// /lab/deck/ — the Stage 12.1 measurement page. DEV ONLY.
 //
-// Nothing imports this except App.jsx, and that import is a dynamic import()
-// behind `import.meta.env.DEV`, which Vite replaces with the literal `false`
-// in a production build — so Rollup folds the branch away and never emits the
-// chunk. Verified against the built dist, not assumed: see
-// design-review/mobile-v3/README.md ("What does and does not ship").
+// Reached through this directory's own index.html + main.jsx, NOT through the
+// app: `vite build` only builds the root index.html, so nothing under
+// client/lab/ is ever emitted into dist/. The gate is the build graph itself,
+// which is why App.jsx is byte-unchanged by this stage. See index.html here
+// for why the first version — a DEV ternary inside App.jsx — was the wrong
+// shape: it gated rendering, not loading, and dragged 4.2 MB of the site in
+// behind it.
 //
-// It lives in its own src/lab/ directory rather than src/components/ so the
-// gate is visible from the file tree: anything under lab/ is DEV-only by
-// construction, and a future import of it from a real section is a reviewable
-// mistake rather than an invisible one.
+// Nothing in src/ imports this file. The dependency runs the other way: this
+// page imports src/components/snow-white-deck.jsx, which is the one piece
+// here headed for production (Stage 12.3/12.4).
 //
 // Deliberately NOT inside the site shell — no Navbar, no LoadingScreen, no
 // SmoothScroll. Lenis would own the scroll position and the navbar would eat
-// 120px of a 852px phone screen, and both would land in the frame times this
+// 120px of an 852px phone screen, and both would land in the frame times this
 // page exists to report.
 // ---------------------------------------------------------------------------
 

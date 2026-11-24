@@ -21,8 +21,8 @@ const BASE = process.env.BASE || 'http://localhost:5173';
 
 const browser = await chromium.launch();
 const page = await (await browser.newContext({ viewport: { width: 393, height: 852 } })).newPage();
-await page.goto(`${BASE}/lab/deck`, { waitUntil: 'load' });
-await page.waitForFunction(() => !!window.__deckLab, null, { timeout: 15_000 });
+await page.goto(`${BASE}/lab/deck/`, { waitUntil: 'load' });
+await page.waitForFunction(() => !!window.__deckLab, null, { timeout: 45_000 });
 
 const out = {};
 for (const theme of ['dark', 'light']) {

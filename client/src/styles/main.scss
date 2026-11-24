@@ -270,8 +270,9 @@
   // Prefix is --deck-sw-* so a grep for --deck- still finds the whole deck
   // surface area, while nothing here can collide with the five tokens above.
   // Consumed only by .sw-* rules (snow-white-deck.jsx) — the production deck
-  // reads none of them, and this spike is reachable only from the DEV-gated
-  // /lab/deck page, so none of it renders on the live site.
+  // reads none of them, and the only page that mounts those rules is the
+  // dev-only /lab/deck/ (client/lab/deck/, its own Vite entry, never built),
+  // so none of this renders on the live site.
   --deck-sw-body-hi: #3a3d44;
   --deck-sw-body-lo: #24262b;
   --deck-sw-edge: #141518;
@@ -6781,9 +6782,11 @@ $taste-swipe-max: 1024px;
 // ============================================================================
 // SNOW WHITE — the CSS 3D deck, Stage 12.1 spike (snow-white-deck.jsx)
 //
-// Reachable only from /lab/deck, which App.jsx gates on import.meta.env.DEV —
-// so none of the MARKUP below ships. These RULES do: main.scss is one file and
-// always built. Measured cost in design-review/mobile-v3/README.md.
+// Reachable only from /lab/deck/ — client/lab/deck/index.html, its own Vite
+// entry, which `vite build` never emits because only the root index.html is
+// an input. So none of the MARKUP below ships. These RULES do: main.scss is
+// one file and always built, measured at +1,094 bytes gzipped. Full note in
+// design-review/mobile-v3/README.md §5.
 //
 // Ten transformed elements, seven of them animated — that is the whole 3D
 // stack. Everything else is a pseudo-element or a background layer, both of
@@ -7124,10 +7127,9 @@ $taste-swipe-max: 1024px;
   .sw-lid { will-change: auto; }
 }
 
-// ---- /lab/deck — the DEV-only measurement page (lab/deck-lab.jsx) ----------
+// ---- /lab/deck/ — the dev-only measurement page (client/lab/deck/) ---------
 //
-// Same caveat as above: the markup is gated out of the production bundle, the
-// rules are not. Kept deliberately plain — this page exists to be measured,
+// Same caveat as above: the markup is never built, the rules are. Kept deliberately plain — this page exists to be measured,
 // not designed, and anything elaborate here would show up in the frame times
 // it is meant to report.
 .deck-lab {

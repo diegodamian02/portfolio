@@ -7,9 +7,10 @@ every section opening a now-playing bottom sheet that holds the turntable; the
 crate stays in the hero. The deck is "Snow White" after the Braun SK4, two
 themes on one geometry, **CSS 3D + GSAP only, no new dependencies**. 12.1 is
 an **isolated spike on branch `mobile-v3-spike-deck`, not merged**: a
-presentational `snow-white-deck.jsx` plus a DEV-only `/lab/deck`, wired to no
-audio, no deck state and no section — `turntable.jsx`, the hero and all of
-desktop byte-unchanged. Measured: **402 frames over a 6.7s drop-plus-spin at a
+presentational `snow-white-deck.jsx` plus a dev-only `/lab/deck/` page built
+as its own Vite entry (never emitted into `dist/`), wired to no audio, no deck
+state and no section — `turntable.jsx`, the hero, all of desktop and `App.jsx`
+byte-unchanged. Measured: **402 frames over a 6.7s drop-plus-spin at a
 4× CPU throttle on a Pixel 7 — a clean 60Hz, zero dropped frames** in both
 themes with and without the rings, still zero at 8×; `reverse()` from three
 mid-drop points returns 18/18 animated layers to their exact initial matrices;
@@ -320,40 +321,49 @@ and wrong for an SK4, whose body is a specific white.
 
 **What shipped in 12.1.** `client/src/components/snow-white-deck.jsx`, a
 presentational component with **no audio, no deck-state wiring and no crate**,
-plus a DEV-only `/lab/deck` page (`client/src/lab/deck-lab.jsx`) and the
-`.sw-*` / `.deck-lab-*` rules in `main.scss`. `turntable.jsx`, the audio code,
-the hero, every section and all of desktop are **byte-unchanged** — the two
-decks do not import each other. **No new dependencies**: CSS 3D + GSAP, and
+plus a dev-only lab page at **`/lab/deck/`** (`client/lab/deck/`, its own Vite
+entry) and the `.sw-*` / `.deck-lab-*` rules in `main.scss`. `turntable.jsx`,
+the audio code, the hero, every section, all of desktop **and `App.jsx`
+itself** are **byte-unchanged** — the two decks do not import each other, and
+nothing in `src/` imports the lab. **No new dependencies**: CSS 3D + GSAP, and
 every plugin needed (`CustomEase`, `CustomBounce`, `Draggable`,
-`InertiaPlugin`, `Flip`) was already registered in `lib/gsap.js`.
+`InertiaPlugin`, `Flip`) was already registered in `lib/gsap.js`. The only
+change outside the new files is a dev-only middleware in `vite.config.js`
+(below).
 
 **Frame times — Pixel 7, Chromium, 4× CPU throttle**, drop (1.7s) + 5s of
-spinning. The throttle is verified inside the run by timing a fixed
-arithmetic burn with and without it (115ms → 378ms, i.e. 3.28× for a requested
-4×; CDP throttling is approximate).
+spinning, **three runs per case, all shown** (one run is not a measurement on
+a shared laptop). Throttle verified inside the run by timing a fixed
+arithmetic burn with and without it (104ms → 392ms, i.e. 3.78× for a
+requested 4×; CDP throttling is approximate).
 
-| case | frames | avg | median | p95 | worst | >16.7ms | dropped (>33.3ms) |
-|---|---|---|---|---|---|---|---|
-| Graphite, rings on | 402 | 16.67 | 16.6 | 18.1 | 18.7 | 170 (42.3%) | **0** |
-| Graphite, rings off | 402 | 16.66 | 16.6 | 18.1 | 18.7 | 180 (44.8%) | **0** |
-| Studio Paper, rings on | 402 | 16.66 | 16.6 | 18.2 | 18.7 | 190 (47.3%) | **0** |
-| Studio Paper, rings off | 402 | 16.66 | 16.7 | 18.3 | 18.7 | 190 (47.3%) | **0** |
+| case | run | frames | avg | p95 | worst | dropped (>33.3ms) |
+|---|---|---|---|---|---|---|
+| Graphite, rings on | 1 / 2 / 3 | 402 / 400 / 402 | 16.67 / 16.70 / 16.67 | 18.2 / 18.4 / 18.3 | 18.6 / **34.3** / 18.6 | 0 / **1** / 0 |
+| Graphite, rings off | 1 / 2 / 3 | 402 / 401 / 402 | 16.66 / 16.67 / 16.67 | 18.3 / 18.0 / 18.1 | 18.7 / 18.7 / 18.6 | 0 / 0 / 0 |
+| Studio Paper, rings on | 1 / 2 / 3 | 402 / 401 / 399 | 16.67 / 16.66 / 16.79 | 18.1 / 18.1 / 18.4 | 18.8 / 18.7 / **50.0** | 0 / 0 / **1** |
+| Studio Paper, rings off | 1 / 2 / 3 | 402 / 402 / 402 | 16.67 / 16.67 / 16.66 | 18.1 / 18.2 / 17.9 | 18.6 / 18.7 / 18.7 | 0 / 0 / 0 |
 
-~402 frames **is** a clean 60Hz over a 6.7s window; all four cases hit it, and
-the worst single frame anywhere is 18.7ms.
+**10 of 12 runs are a clean 60Hz with zero dropped frames** — ~402 frames over
+a 6.7s window is exactly the 60Hz ceiling, and the typical worst frame is
+18.6–18.8ms. Two runs dropped exactly one frame each (34.3ms and 50.0ms), in
+different cases on each repeat, at a host load average of **11.46**. A
+regression does not move between cases run to run; host contention does. **No
+frame exceeded 100ms in any of the twelve runs.** The rings cost nothing
+measurable — rings-on and rings-off agree to two decimal places. Re-run at
+**8× throttle**: still 402 frames, still zero dropped, worst still 17.7ms.
 
-**These are one run.** Across the runs taken for this entry the average never
-moved off 16.66–16.67ms and the frame count never moved off 401–402, but the
-worst single frame wandered between **17.7 and 18.7ms** and the >16.7 count
-between 40% and 54% — both of which are the same vsync-rounding noise, not a
-signal. **Dropped frames were zero in every run.** Quote the dropped column. **Read the ">16.7ms" column with
-care** — at a 60Hz mean of 16.67ms about half of all frames land a rounding
-error above 16.7 and get counted while nothing has been dropped. The honest
-number is the dropped column (a gap of two vsync intervals), which is **zero
-everywhere**. The script reports both, and the first run of it is what exposed
-the artefact. **The two rings cost nothing measurable** — 0.01ms of average
-frame time between on and off, which is noise. Re-run at **8× throttle**
-(measured 6.43×): still 402 frames, still zero dropped, worst still 17.7ms.
+**Read the ">16.7ms" column with care** (the script still reports it, because
+the brief asked for it): at a 60Hz mean of 16.67ms roughly half of all frames
+land a rounding error above 16.7 while nothing has been dropped. The dropped
+column is the honest one.
+
+> **These replace an earlier set of numbers.** The first rAF probe gated its
+> loop on one shared boolean and the previous run's loop resurrected itself,
+> double-counting and inventing 210–317ms "frames". It reported 415 frames in
+> a window where 60Hz allows 402 — physically impossible, and what gave it
+> away. Fixed with a monotonic generation id plus an explicit impossible-count
+> check. **FINDINGS D39.**
 
 **Other measurements.**
 
@@ -363,7 +373,8 @@ frame time between on and off, which is noise. Re-run at **8× throttle**
 | accent contrast, text uses, both themes | **4.67:1 – 8.29:1** — every pair clears 4.5:1 |
 | horizontal overflow, 2 devices × 2 themes | **0px**, 0 `pageerror`, 0 console errors |
 | transformed elements in the deck subtree | **10** (7 animated) — at the brief's "~10 or fewer" budget |
-| production JS delta | **0 bytes**; no lazy chunk emitted, 0 occurrences of any lab identifier |
+| production JS delta | **0 bytes** — bundle hashes byte-identical to `main`; `dist/` has one HTML file and 0 occurrences of any lab identifier |
+| dev-server cost of the lab page | **4 `src` modules / 36 requests / 2,022 KB** — was **49 modules / 99 requests** (see D38; the old page's bytes were never measured reliably, D39) |
 | production CSS delta | 74,157 → 79,597 raw, **14,653 → 15,747 gzipped (+1,094)** |
 | `npm run lint` | **7 errors / 2 warnings** — unchanged baseline |
 | `npm run build` | clean |
@@ -383,7 +394,7 @@ costs the production bundle 0 bytes of JS. The remaining risk is entirely
 subtree is composited) — and which cannot be measured on this Mac (below).
 That is a real-device task for 12.5, not a reason to change approach.
 
-**Two findings, both logged.** `FINDINGS.md` **D36** — the white deck measures
+**Four findings, all logged.** `FINDINGS.md` **D36** — the white deck measures
 **1.14:1** against Studio Paper's near-white page, and the 1px inset rule that
 was carrying its outline goes sub-pixel across most of a 56° tilt; fixed with
 a cast shadow tinted off `--deck-sw-edge`. The general point is that a
@@ -393,6 +404,42 @@ direction the playhead crossed it, and `tl.reversed()` is not that answer
 (it reports the reverse *flag*, which `seek()` never sets); seeking backwards
 through the spin beat fired its forward branch and put two light rings in the
 t=0 "deck at rest" screenshot.
+
+**D38 — and this one was reported from the device, after the entry below was
+first written.** The lab started as a DEV-gated route inside `App.jsx`
+(`import.meta.env.DEV ? lazy(...) : null`, plus an early return). That gate is
+airtight for *shipping* — 0 bytes of production JS, verified — and does
+nothing for *loading*: an early return runs at render time, by which point
+every static import at the top of `App.jsx` has been evaluated. The lab was
+pulling **49 of the site's 47 `src` modules across 99 requests** — the whole
+application plus itself: all six sections, the audio engine, the crate, the
+walkman, and the image assets `graduation.jpg`, `colegio.jpg`, `codewiz.jpeg`
+and `diego.jpg` — to draw one turntable. Invisible over loopback at 338ms,
+which is why a full measurement pass missed it; immediately obvious on a
+phone over Wi-Fi, which is the only device this lab exists for. Rebuilt as
+its own Vite entry (`client/lab/deck/index.html`): **4 `src` modules, 36
+requests, 226ms**, and dev-only *by construction* rather than by a runtime
+gate, since `vite build` only builds the root `index.html`. `App.jsx` went
+back to byte-unchanged. (Byte figures quoted for this comparison in an
+earlier draft — 4,193 KB against 133 KB — are withdrawn: D39.) One trap came with it and is also fixed: the SPA
+history fallback catches `/lab/deck` without a trailing slash and serves the
+**root** `index.html`, so typing the URL on a phone silently loads the whole
+site — a dev-only Vite middleware (`labTrailingSlash`, `apply: 'serve'`) 301s
+it. **Loopback is not a network, and a dev server is not a bundle.**
+
+**D39 — and this one invalidated numbers already written into this entry.**
+Two of the measurement probes built for this stage were wrong in the same
+way: the rAF frame probe resurrected its own previous loop (shared boolean
+instead of a generation id), double-counting frames and inventing 210–317ms
+stalls; and the load-cost probe summed `response.body()` sizes from inside an
+`async` handler and printed the total before those promises resolved,
+undercounting by ~15× on *both* sides of the A/B it existed to measure, which
+is exactly what made it look self-consistent. Neither was caught by reading
+the code. Both were caught by checking the output against a value known in
+advance — the 60Hz frame ceiling (402 frames per 6.7s; the probe reported
+415, which is impossible) and the site's own byte total measured a second
+way. **Before quoting a measurement, name a quantity in it whose correct
+value you already know, and check it.** Both scripts now carry that check.
 
 **Three things that will mislead whoever picks this up.**
 
@@ -429,7 +476,7 @@ each frame. **The iPhone frames in this entry are Chromium-rendered.**
 thermals (6.7s says nothing about three minutes of spinning on a warm phone);
 and 120Hz, since every number above is against a 60Hz budget while ProMotion
 asks for 8.3ms. To open the lab on a device:
-`cd client && npx vite --host`, then `http://<mac-lan-ip>:5173/lab/deck`
+`cd client && npx vite --host`, then `http://<mac-lan-ip>:5173/lab/deck/`
 (`ipconfig getifaddr en0`). The port must stay 5173 — `--host` doesn't change
 it, but if 5173 is taken Vite silently moves to 5174 and the CORS allowlist
 stops matching for every other page.

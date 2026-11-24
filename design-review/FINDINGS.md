@@ -1036,6 +1036,132 @@ was reporting a clean reverse from a point the playhead had already left. It
 waits on `progress() * duration()` now. **Any test that drives a timeline
 whose `timeScale` is not 1 must wait on the timeline, not the clock.**
 
+---
+
+### D38 — `import.meta.env.DEV` answers "does it ship", not "what does it cost to open" — a DEV-gated page still loads the whole app — **FOUND AND FIXED, Stage 12.1 (2026-11-20)**
+
+The deck lab was first built as a route inside `App.jsx`, gated the way this
+codebase gates everything else dev-only:
+
+```js
+const DeckLab = import.meta.env.DEV ? lazy(() => import("./lab/deck-lab.jsx")) : null;
+// ...then an early return from App() when location.pathname === "/lab/deck"
+```
+
+That gate is airtight for shipping, and was verified as such: Vite substitutes
+the literal `false`, Rollup folds the branch, and the measured production JS
+delta was **0 bytes**. It does nothing at all for loading. **An early return
+runs at render time**, and by then every static `import` at the top of
+`App.jsx` has already been evaluated — all six sections, `turntable.jsx`, the
+audio engine, the record crate, the walkman, the skyline canvas, and every
+image asset in the site.
+
+Measured on the dev server, the same page both ways:
+
+| | DEV gate in `App.jsx` | its own Vite entry |
+|---|---|---|
+| transferred | **4,193 KB** | **133 KB** |
+| requests | 99 | 36 |
+| `src/` modules | 49 | **4** |
+| interactive, localhost | 338ms | 209ms |
+
+The old version fetched `graduation.jpg` (448 KB), `colegio.jpg` (220 KB),
+`codewiz.jpeg` (181 KB) and `diego.jpg` (141 KB) in order to draw one
+turntable.
+
+**Why it survived a full measurement pass.** Every number in the Stage 12.1
+entry was taken over loopback, where 4.2 MB across 99 unbundled requests costs
+338ms and looks fine. It only shows up on the device the lab exists to be
+opened on — a phone, over Wi-Fi, against an unbundled dev server — which is
+where it was reported, as "taking forever to load". **Loopback is not a
+network, and a dev server is not a bundle.** Any page meant to be opened on a
+real device over LAN needs its cost measured in transferred bytes and request
+count, not just in time-to-interactive on the machine serving it.
+
+Fix: `client/lab/deck/index.html` as its own Vite entry. `vite build` only
+builds the root `index.html` unless extra inputs are listed in
+`build.rollupOptions.input`, so the lab is now dev-only **by construction**
+rather than by a runtime gate — a stronger guarantee than the one it
+replaced — and `App.jsx` went back to byte-unchanged.
+
+One trap came with it, also fixed: the SPA history fallback catches
+`/lab/deck` (no trailing slash) before the directory index and serves the
+**root** `index.html`, so typing the URL on a phone silently loads the entire
+site — the very thing being avoided, with no error to notice. A dev-only Vite
+middleware (`labTrailingSlash`, `apply: 'serve'`) 301s it. A silent wrong page
+is worse than a 404.
+
+---
+
+### D39 — two measurement probes were wrong in the same way: the number looked plausible, moved in the right direction, and was not real — **FOUND AND FIXED, Stage 12.1 (2026-11-21)**
+
+Both were written to verify the Snow White spike, both produced figures that
+were quoted in `STATUS.md` and `ROADMAP.md` before they were caught, and both
+failed for the same underlying reason: **the probe was not checked against a
+quantity whose correct value was known in advance.**
+
+**1. The rAF frame probe resurrected itself.** `perf-trace.mjs` installs a
+`requestAnimationFrame` loop before each measured drop and tears it down
+after. The first version gated the loop on one shared boolean:
+
+```js
+window.__raf = true;                                  // install
+const tick = (now) => { …; if (window.__raf) requestAnimationFrame(tick); };
+…
+window.__raf = false;                                 // teardown
+```
+
+A loop only re-reads that flag on its *next* tick. By then the following run
+had already set it back to `true`, so the previous run's loop resumed —
+two loops writing into one array, and the zombie's first delta spanning the
+entire gap between runs. Output: **415 frames in a 6.7s window**, where 60Hz
+allows 402, and single "frames" of 210–317ms counted as dropped frames.
+
+The impossible frame count is what exposed it, and only because the ceiling
+was known: 6700 / 16.67 = 402. Fixed with a generation id that only ever
+increases, so a stale loop can never be re-entered, plus an explicit check
+that fails loudly if any run reports more frames than 60Hz permits. Corrected
+result across 12 runs: 10 with zero dropped frames, 2 with exactly one, none
+over 100ms.
+
+**2. The load-cost probe read its total before the total existed.**
+`load-cost.mjs` accumulated response sizes from inside an `async` handler:
+
+```js
+page.on('response', async (r) => { bytes += (await r.body()).length; });
+…
+await page.waitForTimeout(800);
+console.log(bytes);                                   // many bodies still pending
+```
+
+`response.body()` is async, so the handlers were still resolving when the
+total was printed. It undercounted by roughly **15×** — and, critically, on
+*both* sides of the A/B it was built to measure, so the comparison looked
+internally consistent. It reported the lab at 133 KB against a true 2,022 KB
+and the site at 2.77 MB against a true 5.61 MB. Fixed by collecting every
+body promise and `await Promise.all`-ing before reporting.
+
+**The lesson, which is the reason this is a D and not two fix notes.** Both
+probes were wrong in a direction that *supported the conclusion being drawn*
+— the zombie loop invented dropped frames right after a change that could
+plausibly have caused them, and the byte undercount exaggerated a real
+improvement from ~12× to ~32×. Neither was caught by reading the code; both
+were caught by comparing the output against a value derivable from first
+principles (the 60Hz frame ceiling; the site's own byte total measured a
+different way).
+
+**So: before quoting a measurement, name a quantity in it whose correct value
+you already know, and check it.** For frame timing that is the vsync ceiling.
+For transfer size it is a second page measured the same way. A probe with no
+such anchor is not a measurement, it is a plausible number — and this project
+quotes numbers precisely so they can be relied on later.
+
+A third, smaller instance of the same family is already recorded in **D37**:
+`reverse-test.mjs` cut the drop with `waitForTimeout(1300)` while the
+timeline ran at `timeScale` 1.4, so it reported a clean reverse from a point
+the playhead had already passed. Same shape — the harness, not the code under
+test.
+
 > **Update, 2026-09-03 (Stage 5 continued — mobile declutter pass).**
 > `#projects`' mobile/tablet layout was rebuilt: `.portfolio-item` is a
 > bordered card, the role/title two-column split (each column wrapping

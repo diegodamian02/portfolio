@@ -1,0 +1,8 @@
+# working files — scripts + music.mp3 are tracked, build artifacts are not
+raw/
+.sfx/
+frames*/
+check*/
+final_check/
+demo*.mp4
+assets/Urbanist.ttf

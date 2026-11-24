@@ -41,7 +41,7 @@ import { chromium, webkit, devices } from 'playwright';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, '..', 'screenshots', 'mobile-v3');
 const BASE = process.env.BASE || 'http://localhost:5173';
-const URL = `${BASE}/lab/deck`;
+const URL = `${BASE}/lab/deck/`;
 
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -109,7 +109,7 @@ for (const target of TARGETS) {
     page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
 
     await page.goto(URL, { waitUntil: 'load' });
-    await page.waitForFunction(() => !!window.__deckLab, null, { timeout: 15_000 });
+    await page.waitForFunction(() => !!window.__deckLab, null, { timeout: 45_000 });
     await page.waitForTimeout(400);
 
     for (const theme of ['dark', 'light']) {
