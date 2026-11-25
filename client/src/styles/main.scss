@@ -7219,6 +7219,410 @@ $taste-swipe-max: 1024px;
 .deck-lab-sleeve[aria-pressed="true"] {
   box-shadow: 0 0 0 2px var(--text-color);
 }
+// ============================================================================
+// POCKET PLAYER — the dock and the now-playing sheet. Stage 12.2.
+//
+// Components: player-dock.jsx, bottom-sheet.jsx. Both portal to <body>, so
+// these rules are deliberately NOT nested under any section.
+//
+// Nothing mounts them on the live site yet — Stage 12.3 does that. Today they
+// are reachable only from the dev-only /lab/player/ page, so none of this
+// renders in production; the rules ship because main.scss is one always-built
+// file, same trade as the Snow White block above.
+//
+// Mobile-first and, for now, mobile-ONLY: the whole Pocket Player direction is
+// a phone treatment, and desktop keeps the hero deck it already has. The
+// breakpoint is the same 768px the rest of the mobile work uses.
+
+// Shared geometry. --dock-h is a measured constant in the same sense as
+// --navbar-height: the dock has no intrinsic height worth trusting, and the
+// page below needs to reserve exactly this much so a section's last line is
+// never hidden under it.
+:root {
+  --dock-h: 64px;
+  // The dock floats, so it needs its own gutter plus whatever the device
+  // reserves for a home indicator. env() resolves to 0 where there is no
+  // inset, so this is safe on every browser — but it is only NON-zero when
+  // the page opts in with viewport-fit=cover (see lab/player/index.html).
+  --dock-gap: 12px;
+  --dock-inset: calc(var(--dock-gap) + env(safe-area-inset-bottom, 0px));
+  // Total vertical space the dock occupies, for anything reserving room.
+  --dock-reserve: calc(var(--dock-h) + var(--dock-gap) + env(safe-area-inset-bottom, 0px));
+}
+
+// ---- the dock --------------------------------------------------------------
+
+.player-dock {
+  position: fixed;
+  left: var(--dock-gap);
+  right: var(--dock-gap);
+  bottom: var(--dock-inset);
+  z-index: 70; // above the crate takeover (60), below the navbar (1000)
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--dock-h);
+  padding: 0 var(--space-2) 0 var(--space-2);
+  border-radius: 16px;
+  // "Floating glass". backdrop-filter is the whole look, and it is the one
+  // property here worth watching on a real phone: Safari composites it on a
+  // separate layer and it is the most expensive thing in this block by far.
+  // If the dock ever costs frames, this is the line to try removing first.
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  background: color-mix(in srgb, var(--bg-color) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-color) 14%, transparent);
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.55),
+    0 1px 0 color-mix(in srgb, var(--text-color) 10%, transparent) inset;
+
+  // Hidden by default. visibility, not display:none — the dock keeps its box
+  // so Stage 12.4's Flip has a measurable "from" state to animate out of.
+  // pointer-events is belt-and-braces with the tabIndex -1 in the component.
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+
+  // No transition. The roadmap puts the dock's entrance in 12.4, together
+  // with the dock <-> sheet Flip, and a CSS transition here would have to be
+  // removed again the moment GSAP owns the property.
+
+  &[data-shown] {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  // Phones only, for now. Desktop keeps the hero deck.
+  @media (min-width: 769px) {
+    display: none;
+  }
+}
+
+// The panel itself is the open affordance; the transport button is a sibling,
+// not a child, because nesting one button inside another is invalid HTML and
+// hides the inner control from assistive tech entirely.
+.player-dock-open {
+  flex: 1 1 auto;
+  min-width: 0; // lets the title ellipsis actually engage inside a flex child
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 100%;
+  padding: 0 0 0 var(--space-1);
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+// Stands in for sleeve art until there is any: the track's own colour, which
+// is the same value the record's label carries on the deck.
+.player-dock-art {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.34), transparent 60%),
+    var(--dock-art, var(--accent));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.player-dock-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-dock-title,
+.player-dock-artist {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-dock-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.player-dock-artist {
+  font-size: 0.75rem;
+  color: var(--secondary-text);
+}
+
+.player-dock-transport {
+  flex: none;
+  // 44px is the floor for a touch target, and unlike the deck's fader this
+  // one has the room to simply BE 44px rather than growing a ::before.
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+  color: var(--text-color);
+  cursor: pointer;
+
+  svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+  }
+
+  &:active {
+    background: color-mix(in srgb, var(--text-color) 18%, transparent);
+  }
+}
+
+// ---- the sheet -------------------------------------------------------------
+
+.sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 80; // above the dock (70), below the navbar (1000)
+  // Set from JS on open/close as well; the initial value matters because the
+  // sheet is always mounted and must not swallow taps while it is parked
+  // offscreen.
+  pointer-events: none;
+}
+
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.5);
+  // The scrim is the "tap outside to dismiss" target, so it takes pointer
+  // events even though its parent does not — .sheet-root's pointer-events is
+  // flipped to auto on open, and this inherits that.
+  cursor: pointer;
+}
+
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  // Not 100%: the sheet is a sheet, not a page. Leaving the top of the
+  // screen uncovered is what tells a visitor there is something behind it
+  // to go back to, and it gives the scrim somewhere to be tapped.
+  height: min(88svh, 760px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px 22px 0 0;
+  background: var(--bg-color);
+  border-top: 1px solid color-mix(in srgb, var(--text-color) 12%, transparent);
+  box-shadow: 0 -18px 50px -18px rgba(0, 0, 0, 0.7);
+  // Parked offscreen before JS runs. GSAP overwrites this on mount, but
+  // without it a closed sheet is briefly visible on first paint.
+  transform: translateY(100%);
+  will-change: transform;
+  // The sheet is dragged by GSAP Draggable; the browser must not also claim
+  // the gesture as a page scroll.
+  touch-action: none;
+
+  &:focus {
+    // It takes focus on open (for screen readers) but is not itself a
+    // control, so the default ring would be noise. Keyboard users land on
+    // the close button next, which keeps its own ring.
+    outline: none;
+  }
+}
+
+// The drag handle. Its own element rather than a ::before so Draggable can
+// use it as a trigger — a pseudo-element cannot be one.
+.sheet-grabber {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // 28px of actual grabbable height for a 4px bar, which is the usual
+  // mismatch between what a drag handle looks like and what it must be.
+  height: 28px;
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.sheet-grabber-bar {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-color) 26%, transparent);
+}
+
+.sheet-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-4) var(--space-2);
+  // Also a Draggable trigger, so it must not hand the gesture to the browser.
+  cursor: grab;
+}
+
+.sheet-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary-text);
+}
+
+.sheet-close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin-right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-color);
+  cursor: pointer;
+
+  svg { width: 20px; height: 20px; }
+
+  &:active {
+    background: color-mix(in srgb, var(--text-color) 14%, transparent);
+  }
+}
+
+// The scrolling content, and the element the pull-to-dismiss handler watches.
+.sheet-scroll {
+  flex: 1 1 auto;
+  min-height: 0; // without this a flex child refuses to shrink and never scrolls
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  // Stops a scroll that reaches this container's end from chaining to the
+  // page behind the sheet — the "scrolled the background instead" bug every
+  // overlay has by default.
+  overscroll-behavior: contain;
+  // touch-action is OWNED BY JS here — bottom-sheet.jsx rewrites it on every
+  // scroll, `none` at the top and `pan-y` once scrolled, because the browser
+  // commits to scrolling on the first move of a gesture and cannot be talked
+  // out of it afterwards. See the long note at that handler. This declaration
+  // is only the pre-JS value, so the first gesture before hydration scrolls
+  // rather than doing nothing.
+  touch-action: pan-y;
+  padding: 0 var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+}
+
+// ---- /lab/player/ — the dev-only shell page --------------------------------
+//
+// Same caveat as the deck lab: the markup is never built, the rules are.
+
+.player-lab {
+  min-height: 100svh;
+  padding: var(--space-4) var(--space-4) var(--dock-reserve);
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+.player-lab-bar {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.player-lab-h {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.player-lab-crate,
+.player-lab-section {
+  margin-top: var(--space-6);
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--secondary-text);
+  }
+}
+
+.player-lab-sleeve {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 56px;
+  margin-bottom: var(--space-2);
+  padding: var(--space-3);
+  border: 0;
+  border-left: 6px solid var(--sleeve-color);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--text-color) 7%, transparent);
+  color: var(--text-color);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-lab-sleeve[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--sleeve-color);
+}
+
+.player-lab-sleeve-title { font-weight: 600; font-size: 0.9375rem; }
+.player-lab-sleeve-artist { font-size: 0.8125rem; color: var(--secondary-text); }
+
+.player-lab-sheet-deck {
+  display: grid;
+  place-items: center;
+  padding: var(--space-4) 0 var(--space-2);
+}
+
+.player-lab-sheet-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid color-mix(in srgb, var(--text-color) 10%, transparent);
+
+  p { margin: 0; }
+}
+
+.player-lab-sheet-title { font-size: 1.125rem; font-weight: 600; }
+.player-lab-sheet-artist { font-size: 0.875rem; color: var(--secondary-text); }
+
+.player-lab-notes {
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
+    font-size: 0.875rem;
+    color: var(--secondary-text);
+  }
+}
 // D8 — the catch-all. Now the FALLBACK path only: navbar.jsx reaches for
 // document.startViewTransition() first (the ::view-transition rules below) and
 // only adds .is-theme-switching where that's unavailable (Firefox) or under

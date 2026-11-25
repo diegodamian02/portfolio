@@ -2856,7 +2856,7 @@ every plugin needed is already registered in `client/src/lib/gsap.js`.
 | | | target |
 |---|---|---|
 | **12.1** | spec + deck spike — **done 2026-11-20**, branch `mobile-v3-spike-deck`, not merged | Sun Nov 23 |
-| 12.2 | structure: player store, bottom sheet shell (Draggable + inertia, drag-to-dismiss only from scroll-top), dock (no animation) | Wed Nov 26 |
+| **12.2** | structure: player store, bottom sheet shell, dock (no animation) — **done 2026-11-25**, on `mobile-v3`. Reviewable at `/lab/player/`. Gesture pinned 4/4 by `sheet-gesture.mjs`; 0 bytes of production JS (A/B proven), +1,478 gzipped CSS. Inertia is tracked for velocity but the throw is OFF — it fought the snap-back (D40). | Wed Nov 26 |
 | 12.3 | integration: the real turntable into the sheet, keeping the single-writer rules and the `playCached()` same-call-site audio rule; crate tap → drop → play | Sat Nov 29 |
 | 12.4 | polish: the drop timeline on the real deck, lid, theme swap via the existing `startViewTransition`, dock⇄sheet Flip, reduced motion | Tue Dec 2 |
 | 12.5 | device pass + ship | Wed Dec 3 |

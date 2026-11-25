@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Pocket Player shell — lab</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0a0e1a" />
+  <!--
+    /lab/player/ — the Stage 12.2 shell: player store + bottom sheet + dock.
+    DEV ONLY, and dev-only BY CONSTRUCTION: `vite build` only builds the root
+    index.html unless extra inputs are listed in build.rollupOptions.input,
+    and this file is deliberately not listed. Same arrangement as
+    /lab/deck/ — see that file's comment and FINDINGS D38 for why the lab is
+    its own entry rather than a DEV-gated route inside App.jsx.
+
+    viewport-fit=cover, unlike /lab/deck/: the dock sits at the bottom of the
+    screen and has to clear the iPhone home indicator, which means the page
+    needs env(safe-area-inset-bottom) to be non-zero, which means opting into
+    the full screen.
+  -->
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="./main.jsx"></script>
+</body>
+</html>

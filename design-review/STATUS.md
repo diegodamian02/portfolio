@@ -297,6 +297,80 @@ working hero is design information the sections beneath it need.
 
 ## 2. What changed recently
 
+### Stage 12.2 — Pocket Player structure: store, bottom sheet, dock *(2026-11-25)*
+
+Branch `mobile-v3`, pushed, **not merged**. `main` untouched at `1778e4b`.
+
+**What landed.** Three production components, written for the real site but
+**not yet mounted on it** — Stage 12.3 does that:
+
+- `client/src/lib/player-state.js` — the player store. Module-level value with
+  **synchronous** listeners and one writer (`publish`), the same shape as
+  `deck-state.js` and for the same reason: 12.3 needs the needle drop, the
+  audio start and the dock's readout to land in one tick, and a React
+  state round-trip publishes a commit later. That lag is exactly what cost
+  Stage 1 a measured 551ms.
+- `client/src/hooks/use-player-state.js` — `useSyncExternalStore`, not
+  `useState`+`useEffect`. An effect subscription has a window between render
+  and effect-run in which a synchronous publish is simply missed, which here
+  would show as the dock and the sheet disagreeing about what is playing.
+- `client/src/components/bottom-sheet.jsx` — portaled to `<body>`, always
+  mounted (so 12.4's Flip has a "from" state), Escape + scrim + focus
+  restore, reduced-motion crossfade, and the drag-to-dismiss gesture below.
+- `client/src/components/player-dock.jsx` — the floating glass mini-player.
+  **No animation**, per the roadmap; the entrance and the dock⇄sheet Flip are
+  12.4, and building motion now would mean building it twice.
+
+Reviewable at the dev-only **`/lab/player/`** (`client/lab/player/`), its own
+Vite entry like `/lab/deck/`, mounting the dock and sheet over a dummy
+scrolling page with the 12.1 Snow White deck standing in for the turntable.
+
+**The one hard behaviour, and it took four attempts.** "Drag to dismiss, but
+only from scroll-top." `touch-action` has to be correct *before* the finger
+lands — Chrome resolves a vertical pan into a scroll on the first move of a
+gesture and cancels the pointer stream, so of fourteen dispatched touch-moves
+the first implementation received **one**. It is now maintained on `scroll`
+(`none` at the top, `pan-y` once scrolled) and JS runs both branches itself
+at the top. Two further traps inside the same fix: `Draggable.startDrag()`
+declines a drag beginning outside its `trigger`, and `inertia: true` is a
+second animator that beat the snap-back tween and stranded the sheet at
+`y=46`. Full write-up: **FINDINGS D40**.
+
+**Measured.**
+
+| | result |
+|---|---|
+| `sheet-gesture.mjs`, real CDP touch, Pixel 7 | **4/4** — far drag from grabber dismisses; short drag snaps back to `y=0`; drag from scrolled content (`scrollTop` 124) does **not** move the sheet; drag from content at top dismisses |
+| store/sheet/dock state machine | correct across pick → open → close → reopen; dock hidden while the sheet is up |
+| horizontal overflow, Pixel 7 | **0px**, 0 `pageerror`, 0 console errors |
+| production JS delta | **0 bytes — proven by A/B**: built with `client/lab/player` present and moved aside, the bundle hashes byte-identical |
+| production CSS delta | +5,422 bytes raw, **+1,478 gzipped** (ships; `main.scss` is one always-built file) |
+| HTML files in `dist/` | **1** — neither lab entry is built |
+| `/lab/deck/` load cost, unchanged | 4 `src` modules / 36 requests |
+| `npm run lint` | **7 errors / 2 warnings** — unchanged baseline |
+
+**Deferred deliberately, with reasons:**
+
+- **No single writer for the master gain yet.** `player-state.js` declares
+  `setDucked` and nothing consumes it. `turntable-audio.js` has four
+  functions writing `masterGain.gain` (`setVolume`, `followSpin`,
+  `settleSpin`, `fadeOutAndStop`), which is fine today because they are
+  mutually exclusive phases of one deck; ducking is the first thing that
+  cuts across all four. The refactor belongs in 12.3 where it has a real
+  consumer — the deck's audio has **no headless test coverage at all** (no
+  audio device in headless Chromium), so changing it with nothing exercising
+  it is the worst kind of speculative edit.
+- **Lenis.** The sheet locks `document.body` overflow, which is enough in the
+  lab and **not** enough in the app: Lenis drives scroll from its own rAF
+  loop and will scroll straight through it. 12.3 must call `lenis.stop()` on
+  open and `lenis.start()` on close. Noted in the component, because the lab
+  has no Lenis and therefore cannot catch it.
+- **No focus trap.** The sheet takes focus on open, restores on close and
+  closes on Escape, but Tab can still reach the page behind it. 12.4.
+- **First upward flick from the very top has no momentum** — the cost of
+  owning the gesture at scroll-top. 12.4.
+
+
 ### Stage 12.1 — Mobile v3 spec + the Snow White deck spike *(2026-11-20)*
 
 **Not merged.** Branch `mobile-v3-spike-deck`, off `main`. This is a spike

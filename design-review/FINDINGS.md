@@ -1162,6 +1162,67 @@ timeline ran at `timeScale` 1.4, so it reported a clean reverse from a point
 the playhead had already passed. Same shape — the harness, not the code under
 test.
 
+---
+
+### D40 — you cannot decide mid-gesture whether a swipe is a scroll or a drag; `touch-action` has to be right before the finger lands — **FOUND AND FIXED, Stage 12.2 (2026-11-25)**
+
+The Pocket Player's bottom sheet has to dismiss when dragged down, but only
+when its content is already scrolled to the top. Otherwise a downward swipe
+is a scroll. The direction is not known at `pointerdown`, so the obvious
+implementation arms on down and hands the gesture over once the finger has
+travelled past a threshold:
+
+```js
+// scroller has touch-action: pan-y
+onPointerDown  -> armed = scroller.scrollTop <= 0
+onPointerMove  -> if (armed && dy > 8) draggable.startDrag(event)
+```
+
+**It never fires.** Measured with CDP touch events: of fourteen dispatched
+`touchMove`s the handler received **one**. Chrome resolves a vertical pan
+into a scroll on the *first* move of the gesture, cancels the pointer stream,
+and does not reconsider. The threshold is never reached. There is no
+"actually, I'll take this one" after the browser has decided.
+
+So the gesture has to be owned **before it begins**, which means
+`touch-action` has to already be correct at `pointerdown` — and therefore has
+to be maintained on `scroll`, not computed when the touch arrives:
+
+```js
+scrollTop <= 0  ->  touch-action: none   (JS owns the whole gesture)
+scrollTop  > 0  ->  touch-action: pan-y  (browser scrolls natively)
+```
+
+At the top, JS then runs both branches itself: downward drags the sheet,
+upward sets `scrollTop` by hand. The cost is that the first upward flick from
+the very top has no momentum; every later gesture is native.
+
+`touch-action: pan-down` would express this declaratively with no JS at all.
+Not used: the directional values have patchy Safari support and iOS is the
+target, and WebKit cannot be run locally here (see `mobile-v3/README.md` §7),
+so it would ship untested on the one engine that matters.
+
+**Two smaller traps inside the same fix**, both worth knowing:
+
+- **`Draggable.startDrag()` declines a drag that starts outside the
+  Draggable's `trigger`.** With `touch-action` fixed and all thirteen moves
+  arriving, `startDrag()` still left the sheet at `y=0` for the whole
+  gesture. The content pull is hand-driven instead; the Draggable keeps the
+  grabber and the header.
+- **`inertia: true` fights a binary settle.** A sheet's release is
+  dismiss-or-return, and the decision is made from distance and velocity. An
+  inertia throw on top of that is a second animator writing `y`, and it won —
+  a short drag left the sheet stranded at `y=46` instead of snapping back.
+  `InertiaPlugin.track()` still supplies the velocity; the plugin just no
+  longer animates.
+
+All four behaviours are pinned by `design-review/mobile-v3/sheet-gesture.mjs`,
+which drives real CDP touch. Its own first version was wrong in the way D39
+describes: it dragged 320px from a point 736px down an 839px-tall viewport,
+so the finger left the screen mid-gesture — and the "does NOT dismiss" case
+passed because nothing happened at all. A test that cannot fail is not
+evidence.
+
 > **Update, 2026-09-03 (Stage 5 continued — mobile declutter pass).**
 > `#projects`' mobile/tablet layout was rebuilt: `.portfolio-item` is a
 > bordered card, the role/title two-column split (each column wrapping
