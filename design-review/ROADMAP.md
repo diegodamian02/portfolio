@@ -2861,6 +2861,20 @@ every plugin needed is already registered in `client/src/lib/gsap.js`.
 | 12.4 | polish: the drop timeline on the real deck, lid, theme swap via the existing `startViewTransition`, dock⇄sheet Flip, reduced motion | Tue Dec 2 |
 | 12.5 | device pass + ship | Wed Dec 3 |
 
+**Branching for Stage 12** (owner call, 2026-11-25). `main` is a live site used
+for an active job search, so Stage 12 does not touch it until the whole thing
+has been seen end-to-end on a real phone.
+
+| branch / tag | what it is |
+|---|---|
+| **`mobile-v3`** | The integration branch. **Every** 12.x change lands here. Branched from `mobile-v3-spike-deck`, so it already contains 12.1. |
+| `mobile-v3-spike-deck` | Frozen. The 12.1 spike as it was measured; kept as the record, not developed further. |
+| **`backup/main-2026-11-25`** | A branch at `main`'s pre-Stage-12 tip (`1778e4b`) — the current live layout. |
+| **`main-pre-mobile-v3`** | The same commit as an annotated **tag**. A branch can be force-pushed; a tag is the restore point that cannot be moved by accident. Use this one if `main` ever needs rolling back. |
+
+Sub-task branches are optional — small steps can commit straight to
+`mobile-v3`. `main` gets one merge, at 12.5, after the device pass.
+
 **12.1 shipped** an isolated spike, deliberately wired to nothing:
 `client/src/components/snow-white-deck.jsx` (presentational — no audio, no
 deck state, no crate) plus a dev-only lab page at `/lab/deck/`, built as its
@@ -2903,9 +2917,16 @@ for gain would have to be **introduced** in 12.3, not preserved.
 
 Not code. See `STATUS.md` §4 for the full list. Highest priority:
 
-- **Set `RESEND_API_KEY`** on the Railway server service — contact form returns 503 until then.
+- ~~**Set `RESEND_API_KEY`** on the Railway server service~~ — **DONE, verified
+  2026-11-25.** `POST https://api.diegodamian.com/api/contact` with an empty
+  body returns `400 {"error":"Name and message are both required."}`, i.e. it
+  reaches validation. The missing-key guard is the FIRST statement in that
+  handler (`server.js`) and returns 503, so a 400 proves the key is set. The
+  contact form is live.
 - **Set `ADMIN_KEY`** on the Railway server service (long random string) — `/admin`
-  and `/admin/data.json` 404 until then. Optionally `ADMIN_TZ` (default `America/Chicago`).
+  and `/admin/data.json` 404 until then. *(Status unverified: `/admin` returns
+  404 both when the key is unset AND when it is set but absent from the
+  request, by design, so probing from outside cannot tell the two apart.)* Optionally `ADMIN_TZ` (default `America/Chicago`).
   Then the dashboard is at `https://<api host>/admin?key=<value>`.
 - **Revoke the Gmail app password** and delete `SMTP_USER`/`SMTP_PASS` from
   `server/.env` and Railway.
