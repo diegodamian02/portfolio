@@ -185,10 +185,12 @@ console.log('\nStage 12.3 — the real turntable in the Pocket Player\n');
 {
     const { context, page } = await openPage(null);
     const w = await where(page);
-    record('1  desktop: deck stays in the hero, no dock, no sheet',
-        w.deckCount === 1 && w.inHero && !w.inSheet && !w.dockExists && !w.sheetExists && !w.pocketAttr,
+    const preview = await page.locator('.hero-deck-preview').count();
+    record('1  desktop: deck stays in the hero, no dock, no sheet, no preview',
+        w.deckCount === 1 && w.inHero && !w.inSheet && !w.dockExists && !w.sheetExists
+        && !w.pocketAttr && preview === 0,
         `deckCount=${w.deckCount} inHero=${w.inHero} dock=${w.dockExists} `
-        + `sheet=${w.sheetExists} data-pocket-player=${w.pocketAttr}`);
+        + `sheet=${w.sheetExists} data-pocket-player=${w.pocketAttr} heroPreview=${preview}`);
     await context.close();
 }
 
@@ -537,6 +539,86 @@ const { context, page } = await openPage('Pixel 7');
         && art.size.includes('cover'),
         `--dock-art-image=${art.inlineImage.slice(0, 48)}…, --dock-art=${art.inlineColor}, `
         + `background-size=${art.size}`);
+}
+
+// ---- 14. the hero's standing deck is a PREVIEW, not a second turntable ----
+//
+// The whole safety argument for putting a deck back in the hero (12.4) is
+// that it is the presentational Snow White deck, never a second <Turntable>.
+// Two <Turntable> instances would be two GSAP timelines and two sets of
+// deck-state writes racing through one module-level audio engine.
+//
+// `.turntable` must still be exactly 1 — the same invariant check 2 asserts,
+// re-asserted here because this is the change most likely to break it.
+{
+    const hero = await page.evaluate(() => {
+        const btn = document.querySelector('.hero-deck-preview');
+        return {
+            exists: !!btn,
+            label: btn?.getAttribute('aria-label') || '',
+            loaded: btn?.hasAttribute('data-loaded'),
+            swDecks: document.querySelectorAll('.sw-stage').length,
+            turntables: document.querySelectorAll('.turntable').length,
+            previewHoldsTurntable: !!document.querySelector('.hero-deck-preview .turntable'),
+            inPreviewStage: !!document.querySelector('.hero-preview-stage .hero-deck-preview'),
+        };
+    });
+    record('14  hero preview is the Snow White deck, and there is still ONE turntable',
+        hero.exists && hero.inPreviewStage && hero.swDecks === 1
+        && hero.turntables === 1 && !hero.previewHoldsTurntable && hero.loaded,
+        `preview=${hero.exists} inStage=${hero.inPreviewStage} .sw-stage=${hero.swDecks} `
+        + `.turntable=${hero.turntables} (want 1) previewHoldsTurntable=`
+        + `${hero.previewHoldsTurntable} data-loaded=${hero.loaded} label="${hero.label}"`);
+}
+
+// ---- 15. tapping the hero preview opens the sheet -------------------------
+{
+    const before = await page.evaluate(
+        () => !!document.querySelector('.sheet-root')?.hasAttribute('data-open'));
+    await page.locator('.hero-deck-preview').click();
+    await page.waitForTimeout(900);
+    const after = await page.evaluate(
+        () => !!document.querySelector('.sheet-root')?.hasAttribute('data-open'));
+    record('15  tapping the hero deck opens the sheet',
+        before === false && after === true, `sheet ${before} -> ${after}`);
+}
+
+// ---- 16. the progress readout actually advances ---------------------------
+//
+// --progress is written straight to a custom property from a rAF loop, never
+// through React state. Sampled twice a second apart: it has to MOVE, and the
+// total has to be the decoded buffer's real length rather than a hardcoded 30.
+{
+    const read = () => page.evaluate(() => {
+        const bar = document.querySelector('.np-meta-track');
+        const times = [...document.querySelectorAll('.np-meta-times span')]
+            .map((el) => el.textContent);
+        return {
+            progress: Number(bar?.style.getPropertyValue('--progress') || -1),
+            elapsed: times[0], total: times[1],
+            deck: document.querySelector('.turntable')?.dataset.deckState,
+        };
+    });
+    // The deck is PAUSED here — check 9 pressed transport and nothing resumed
+    // it. The progress loop deliberately does not run while paused (a paused
+    // deck has not moved), so sampling now would measure the correct
+    // behaviour and call it a failure. Resume through the deck's own
+    // transport: the sheet is open, so the dock is hidden by design.
+    await page.locator('.turntable-start-button').click();
+    await page.waitForFunction(
+        () => document.querySelector('.turntable')?.dataset.deckState === 'PLAYING',
+        null, { timeout: 10_000 },
+    );
+
+    const a = await read();
+    await page.waitForTimeout(1400);
+    const b = await read();
+    record('16  the sheet\'s progress readout advances while playing',
+        a.progress >= 0 && b.progress > a.progress
+        && /^\d:\d\d$/.test(b.total) && b.total !== '0:00',
+        `--progress ${a.progress} -> ${b.progress}; `
+        + `elapsed ${a.elapsed} -> ${b.elapsed}; total=${b.total} `
+        + `(decoded length, not a hardcoded 30); deck=${b.deck}`);
 }
 
 await context.close();

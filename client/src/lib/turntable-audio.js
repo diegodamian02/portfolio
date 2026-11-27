@@ -536,6 +536,26 @@ export function getAnalyser() {
  * any consumer decoupled from the deck component, and this is the value that
  * is actually authoritative for what the visitor is hearing.
  */
+/**
+ * Length of the loaded preview in seconds, or 0 when nothing is decoded yet.
+ *
+ * Added in Stage 12.4 for the sheet's progress readout. Read-only: it looks
+ * the current URL up in the buffer cache and reports what is there, so it
+ * writes nothing and cannot perturb playback — which matters in a module
+ * with no headless test coverage of its own.
+ *
+ * 0 rather than null for "not known yet", so a caller can divide by it after
+ * one guard instead of threading a null through its own arithmetic. Apple's
+ * previews are ~30s, but the real value is used rather than assumed: the
+ * length has varied by track, and a hardcoded 30 would quietly mis-scale a
+ * progress bar rather than fail.
+ */
+export function getDuration() {
+    if (!currentUrl) return 0;
+    const buffer = bufferCache.get(currentUrl);
+    return buffer ? buffer.duration : 0;
+}
+
 export function getRate() {
     return playbackRate;
 }

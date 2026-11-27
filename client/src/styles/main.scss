@@ -7649,6 +7649,118 @@ $taste-swipe-max: 1024px;
     color: var(--secondary-text);
   }
 }
+// ---- now playing: track meta + preview position (Stage 12.4) -----------
+//
+// Under the deck inside the sheet. components/now-playing-meta.jsx.
+.np-meta {
+  padding: var(--space-3) 0 var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.np-meta-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.np-meta-art {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.np-meta-text {
+  // min-width: 0 on the FLEX ITEM, not just the text inside it. A flex
+  // item's default `min-width: auto` is its content's minimum, so a long
+  // track name pushes the row wider than the sheet instead of ellipsing —
+  // the same floor that caused the 2026-09-07 hero grid blowout.
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  p { margin: 0; }
+}
+
+.np-meta-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-meta-artist {
+  font-size: 0.875rem;
+  color: var(--secondary-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np-meta-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+// --progress (0..1) is written straight to this element from a rAF loop in
+// now-playing-meta.jsx — never through React state. 60 commits a second
+// would fight the deck's own GSAP timeline and the skyline canvas for a main
+// thread that Stage 12.1 measured as having nothing to spare at 4x CPU
+// throttle. Same technique record-crate.jsx uses for its keyboard inset.
+.np-meta-track {
+  --progress: 0;
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-color) 14%, transparent);
+  overflow: hidden;
+}
+
+.np-meta-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  // scaleX, not `width`: width is a layout property and animating it at
+  // 60Hz would reflow this subtree every frame. A transform is composited.
+  transform: scaleX(var(--progress));
+  background: var(--accent);
+  border-radius: inherit;
+  // The rAF loop writes every frame, so there is nothing to interpolate —
+  // a transition here would make the bar LAG the audio rather than smooth
+  // it. Present only for the reduced-motion case below, where the loop
+  // still runs but the eye is given a steadier target.
+  transition: none;
+}
+
+// Reduced motion: the bar still tracks the audio (it is information, not
+// decoration, and freezing it would be a lie about where the preview is),
+// but the rAF updates are smoothed so it reads as a slow sweep rather than
+// a 60Hz twitch.
+.np-meta-track[data-reduced] .np-meta-fill {
+  transition: transform 0.4s linear;
+}
+
+.np-meta-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  // Tabular figures: without them the elapsed time visibly jitters as digit
+  // widths change each second, which on a 4px-tall progress row is the most
+  // distracting thing on the screen.
+  font-variant-numeric: tabular-nums;
+  color: var(--secondary-text);
+}
+
 // ---- the navbar, while a sheet is up (D43) ------------------------------
 //
 // Set by bottom-sheet.jsx on <html> for as long as the sheet is open.
@@ -7724,7 +7836,8 @@ $taste-swipe-max: 1024px;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
     "content"
-    "crate";
+    "crate"
+    "preview";
   // The crate's results panel opens downward into the hero's own space, and
   // with the deck gone there is a great deal of it. Keep the stack top-aligned
   // so the name still sits just under the navbar rather than floating in the
@@ -7734,6 +7847,83 @@ $taste-swipe-max: 1024px;
   // Room for the dock, which floats over the foot of every section. Without
   // this the crate's own bottom edge can sit under it.
   padding-bottom: calc(32px + var(--dock-reserve));
+}
+
+// ---- the hero's standing deck (Stage 12.4) -----------------------------
+//
+// components/hero-deck-preview.jsx. Fills the space the real deck left when
+// 12.3 moved it into the sheet.
+//
+// Occupies its own grid row, declared in `.home[data-pocket-player]` above.
+// The row exists only on the Pocket Player, so the desktop grid is untouched.
+.hero-preview-stage {
+  grid-area: preview;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  // Same floor .hero-deck-stage carries: a grid item's default
+  // `min-width: auto` is its content's minimum, which is how the 2026-09-07
+  // blowout let the deck force the column wider than the gutter.
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-deck-preview {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  // The whole control is the target; nothing inside it is separately
+  // interactive, so there is no nested-button problem to avoid here (unlike
+  // the dock, which needed a div + sibling button).
+  width: min(300px, 78vw);
+  color: var(--secondary-text);
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 6px;
+    border-radius: 18px;
+  }
+}
+
+// The deck itself, held small. `.sw-stage` sizes from its container, so the
+// width here is what scales it — NOT a transform: scale().
+//
+// transform: scale() would be the obvious move and is the wrong one. The deck
+// is a CSS 3D subtree (`perspective` + `preserve-3d`); a scale on an ancestor
+// multiplies into the same matrix the deck's own rotateX/rotateY use, which
+// flattens the perspective and visibly changes the geometry rather than just
+// the size. Letting it lay out smaller keeps its own 3D maths intact.
+.hero-deck-preview-deck {
+  display: block;
+  width: 100%;
+  // pointer-events: none so every tap lands on the button, not on a child of
+  // the deck. The preview is not operable — it mirrors the real deck.
+  pointer-events: none;
+}
+
+.hero-deck-preview-hint {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--secondary-text);
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
+}
+
+.hero-deck-preview[data-loaded] .hero-deck-preview-hint {
+  opacity: 1;
+  color: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-deck-preview-hint { transition: none; }
 }
 
 // ---- the deck's stage inside the sheet ----------------------------------

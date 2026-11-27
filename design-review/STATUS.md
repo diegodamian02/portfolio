@@ -1,6 +1,15 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-11-27 (**Stage 12.4 part 1** — real album art on the dock,
+**Updated:** 2026-11-27 (**Stage 12.4 part 2** — the hero has a deck again: a
+small **Snow White** deck, not a second `<Turntable>`, that mirrors the real
+one and opens the sheet. The sheet gained a body: art, title, artist and a
+preview position written to a CSS custom property from rAF rather than
+through React, reading the decoded buffer's real length (**0:29**, not an
+assumed 30). 16/16 on `pocket-player.mjs`, 139 Playwright passing, lint 7/2.
+Known and accepted: two decks that do not look alike. **D44 still open.**
+Branch `mobile-v3`, **not merged**.)
+
+**Previously:** 2026-11-27 (**Stage 12.4 part 1** — real album art on the dock,
 a focus trap in the sheet, and **D43** closed properly: the navbar is now
 hidden *and unfocusable* while a sheet is open. **D44 recorded and
 reproduced, not fixed** at the owner's request — the pitch fader and the
@@ -319,6 +328,84 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 12.4 (part 2) — the hero's standing deck, and the sheet's body *(2026-11-27)*
+
+Branch `mobile-v3`, pushed, **not merged**. `main` untouched at `1778e4b`.
+
+Both of these were owner decisions, taken after part 1 landed and the options
+were costed.
+
+**The hero has a deck again.** 12.3 left the phone's hero as a name, a
+tagline, a search field and most of a screen of gradient. There is now a
+small standing deck below the crate that mirrors the real one and opens the
+sheet when tapped; with nothing loaded it reads "put a record on" and sends
+focus to the crate instead.
+
+It is the **Snow White deck** (`snow-white-deck.jsx`), not a second
+`<Turntable>`, and that distinction is the entire safety argument. Snow White
+is presentational by construction — no audio, no deck-state writes, no crate
+— so it can be *told* what the real deck is doing and never writes back. Two
+`<Turntable>` instances would be two GSAP timelines and two sets of
+deck-state writes racing through one module-level audio engine.
+`pocket-player.mjs` case 14 re-asserts `.turntable === 1` for exactly this
+reason.
+
+**The known cost, flagged before building and accepted:** the hero and the
+sheet now show two decks that do not look alike — Snow White above, the
+existing dark turntable inside. Replacing `turntable.jsx` with the Snow White
+geometry is a far larger job (it owns the scratch surface, the tonearm
+geometry and the pitch fader). If the mismatch reads badly, the preview is
+the cheap thing to remove, not the deck to rebuild.
+
+Rings are off on the preview: they are a flourish sized for the full deck, and
+the hero already runs the skyline canvas.
+
+**The sheet has a body.** Album art (the 600px one, not the dock's 60px
+thumbnail), title, artist, and a preview position readout.
+
+The progress line **never re-renders React**: `--progress` is written straight
+to a custom property from a rAF loop, the technique `record-crate.jsx`
+already uses for its keyboard inset. Sixty React commits a second would fight
+the deck's GSAP timeline and the skyline canvas for a main thread Stage 12.1
+measured as having nothing spare at 4× throttle. The fill is `scaleX`, not
+`width` — a transform composites, a width reflows every frame.
+
+Elapsed comes from `turntable-audio.getElapsed()`, which derives it from the
+AudioContext clock. A wall-clock counter would drift the moment anyone
+touched the pitch fader, which changes `playbackRate`. A new read-only
+`getDuration()` reports the decoded buffer's real length: measured **0:29**
+on a track, not the 30s that would have been assumed — a hardcoded 30 would
+have mis-scaled the bar rather than failed visibly.
+
+The loop only runs while PLAYING; a paused deck holds its position, which is
+the honest reading. (That behaviour failed case 16 on first run, because the
+test sampled a paused deck and called correct behaviour a bug.)
+
+**Measurements**
+
+| | |
+|---|---|
+| `pocket-player.mjs` | **16/16** (was 13/13; +hero preview, +tap-to-open, +progress) |
+| `sheet-gesture.mjs` | **4/4** |
+| Playwright suite | **139 passed, 0 failed** — including `#home fits its screen` and no horizontal overflow with the deck back in the hero |
+| production JS | 573.32 → **579.94 kB** raw, 203.33 → **205.24 kB** gzipped (+1.91) |
+| production CSS | 86.10 → **88.33 kB** raw, 16.82 → **17.14 kB** gzipped (+0.32) |
+| lint | **7 errors / 2 warnings**, baseline |
+| `dist/` HTML entries | **1** |
+
+Screenshots: `mobile-v3-hero2-*.png`, `mobile-v3-hero-playing-*.png`,
+`mobile-v3-sheet2-*.png`.
+
+**One thing worth knowing for the next CSS change here.** The preview is
+scaled by *laying out smaller*, never `transform: scale()`. The deck is a CSS
+3D subtree; a scale on an ancestor multiplies into the same matrix its own
+`rotateX`/`rotateY` use, which flattens the perspective and changes the
+geometry rather than the size.
+
+**Still open:** **D44** (the fader and the sheet's pull both answer the same
+downward finger — still reproducing, deferred at the owner's request), the
+dock⇄sheet Flip, and the pitch fader's travel (**D41**).
 
 ### Stage 12.4 (part 1) — dock artwork, focus trap, the navbar vs the sheet *(2026-11-27)*
 

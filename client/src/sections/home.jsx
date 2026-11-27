@@ -5,6 +5,8 @@ import RecordCrate from "../components/record-crate.jsx";
 import SkylineBackground from "../components/skyline-background.jsx";
 import PlayerDock from "../components/player-dock.jsx";
 import BottomSheet from "../components/bottom-sheet.jsx";
+import NowPlayingMeta from "../components/now-playing-meta.jsx";
+import HeroDeckPreview from "../components/hero-deck-preview.jsx";
 import { DECK, onDeckState } from "../lib/deck-state.js";
 import { reportPlay } from "../lib/telemetry.js";
 import { onProgrammaticScrollChange } from "../lib/scroll.js";
@@ -151,6 +153,14 @@ export default function Home() {
             {touchUI
                 ? (
                     <>
+                        {/* The hero's standing deck (12.4). Mirrors the real
+                            deck and opens the sheet; it is the presentational
+                            Snow White deck, never a second <Turntable> — see
+                            hero-deck-preview.jsx for why that distinction is
+                            what makes it safe. */}
+                        <div className="hero-preview-stage">
+                            <HeroDeckPreview track={track} />
+                        </div>
                         <PlayerDock />
                         <BottomSheet
                             open={sheetOpen}
@@ -158,6 +168,7 @@ export default function Home() {
                             label={track ? `Now playing — ${track.title}` : "Now playing"}
                         >
                             <div className="sheet-deck-stage">{deck}</div>
+                            <NowPlayingMeta track={track} />
                         </BottomSheet>
                     </>
                 )
