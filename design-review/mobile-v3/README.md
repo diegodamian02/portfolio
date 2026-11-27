@@ -613,3 +613,88 @@ comment saying that is what stops the page scrolling under a drag. The
 nothing is broken and the measured gesture does not scroll the page. The
 comment simply describes a declaration that is being overridden. Fighting
 Draggable for that property would be churn.
+
+---
+
+## 10. Stage 12.3 — the deck is in the sheet, on the live site
+
+Landed 2026-11-27 on `mobile-v3`. Screenshots (iPhone 15 Pro, both themes) in
+`design-review/screenshots/`: `mobile-v3-hero-*.png`,
+`mobile-v3-sheet-*.png`, `mobile-v3-dock-*.png`.
+
+This is the first Stage 12 work that **changes what a visitor sees**. 12.1 was
+an isolated spike and 12.2 was a set of components nothing mounted.
+
+### What the phone does now
+
+Hero: name, tagline, crate — the deck is gone from it. Search a record, tap a
+result: the sheet rises and the record drops onto the real turntable inside
+it, audio at needle contact exactly as in the hero. Dismiss the sheet and the
+glass dock takes over at the foot of every section, still playing, with a
+transport button that works without reopening anything.
+
+Desktop is **byte-identical in behaviour** — same hero, same deck, no dock, no
+sheet.
+
+### Three questions this raises for the research chat
+
+**1. The hero is sparse now.** `mobile-v3-hero-dark.png` is the honest
+picture: a name, a tagline, a search field, and then most of a screen of
+gradient. That is the direct consequence of the agreed direction (the deck
+moved out), and 12.4 owns the answer, but the answer is not obvious. The
+options are not symmetric — filling it with *something* is easy and most of
+the easy options undo the calm that removing the deck bought.
+
+**2. The sheet's body is empty below the deck.** The header carries the track
+name and the deck fills the top half; under it is nothing. The lab had a
+tracklist and notes there as scroll fodder; the real sheet has no equivalent
+content yet. Worth deciding what genuinely belongs — a tracklist implies a
+queue this player does not have.
+
+**3. A modal with a navbar over it.** The sheet is `aria-modal="true"` at
+z-index 80; the navbar is 1000 and stays tappable above it
+(`mobile-v3-sheet-dark.png`). 12.3 stopped the harmful part — a nav tap now
+closes the sheet instead of scrolling a page nobody can see (**D43**) — but
+the layering is still wrong and 12.4 has to choose: raise the sheet above the
+bar, or hide the bar while a sheet is up. The second is more honest to "this
+is a modal"; the first keeps the site's one constant visible.
+
+### Two things worth keeping from how this was built
+
+**The lab could not have caught either defect it was supposed to de-risk.**
+12.2's own note predicted one of them (`lenis.stop()`), and the prediction was
+right for a reason worth generalising: **a lab that omits a global cannot test
+anything that global changes.** `/lab/player/` has no Lenis, so the root
+element is not its scroller, so the sheet's `body { overflow: hidden }` lock
+appeared to work there while locking nothing on the real site (**D42**). The
+lab remains useful for gesture work and useless for integration, and that is
+not a flaw in it — it is what "isolated" means.
+
+**Headless Chromium runs Web Audio fine.** It is *output* that does not exist.
+Served a decodable preview, the deck reaches `PLAYING` and then
+`STOPPED_LOADED`. `pocket-player.mjs` generates a 12-second WAV inline and
+mocks the preview with it, and that is what makes the dock→deck check mean
+anything: with the preview 404ing the deck sits in `DECK.ERROR`, where a
+transport press is **correctly refused**, so the test could not distinguish a
+broken registration from a deck behaving exactly as designed. This does not
+overturn `CLAUDE.md`'s "no audio in headless" — nothing audible is asserted,
+only the state the deck reports.
+
+### Measurements
+
+```
+node design-review/mobile-v3/pocket-player.mjs     # 10/10
+node design-review/mobile-v3/sheet-gesture.mjs     # 4/4  (12.2, unchanged)
+cd client && npm run test:chromium                 # 139 passed, 0 failed
+```
+
+| | |
+|---|---|
+| production JS | 565.74 → **572.63 kB** raw · 201.01 → **203.10 kB** gzipped (**+2.09**) |
+| production CSS | 85.24 → **85.59 kB** raw · 16.67 → **16.73** gzipped (+0.06) |
+| `dist/` HTML entries | **1** — both labs still excluded by construction |
+| lint | **7 errors / 2 warnings**, the known baseline |
+
+**+2.15 kB gzipped in total.** 12.1 and 12.2 were 0 bytes; this one is not,
+and that is simply the cost of mounting the components rather than a
+regression to chase.

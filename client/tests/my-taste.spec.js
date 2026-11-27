@@ -48,7 +48,11 @@ test('theme toggle in #my-taste does not blank the page (B56)', async ({ page, p
 
   expect(pageErrors, pageErrors.map((e) => e.message).join('\n')).toHaveLength(0);
   await expect(page.locator('.my-taste-heading')).toBeVisible();
-  await expect(page.locator('#home .turntable')).toBeVisible(); // app still mounted
+  // "The app is still mounted" — the point of this line (B56 blanked the whole
+  // page). Counted rather than located under #home: on touch viewports the
+  // deck lives in the sheet, which is portaled to <body>, and that move has
+  // nothing to do with what this test is checking.
+  await expect(page.locator('.turntable')).toHaveCount(1); // app still mounted
 });
 
 test('Spotify failure shows the "taking a nap" state, page intact', async ({

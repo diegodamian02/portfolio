@@ -3779,6 +3779,92 @@ responsible.
 
 ---
 
+### D42 — `body { overflow: hidden }` does not lock this page, because Lenis makes `<html>` the scroller — **FOUND AND FIXED, Stage 12.3 (2026-11-27)**
+
+Stage 12.2's bottom sheet locked the page behind itself with
+`document.body.style.overflow = "hidden"` and a note that Stage 12.3 would
+also need `lenis.stop()`. Both halves turned out to be necessary and the first
+half was aimed at the wrong element.
+
+Measured on the live site with the sheet open:
+
+```
+overflow  root=hidden auto   body=visible
+```
+
+Lenis's own `.lenis` class puts `overflow: hidden auto` on the **root**
+element, which makes `<html>` the scroll container. `<body>` is not scrolling
+anything, so setting `overflow: hidden` on it locked nothing at all. With a
+real wheel event dispatched behind an open sheet, the page moved a full
+**400px**.
+
+The fix sets both, and the comment in `bottom-sheet.jsx` now says which one is
+load-bearing and why. `lenis.stop()` is still required alongside it: Lenis
+drives scroll from its own rAF loop and would keep writing positions through
+any overflow value. Stopping it is what makes the gesture inert rather than
+merely clamped.
+
+**`/lab/player/` structurally could not catch this.** The lab has no Lenis, so
+the root element is not its scroller and the body lock appeared to work there.
+That was predicted in 12.2's own note — it is recorded here because the
+prediction was right for a reason worth keeping: **a lab that omits a global
+is a lab that cannot test anything that global changes.**
+
+**Two measurement traps on the way, both of which produced a confident wrong
+answer.**
+
+1. **`data-lenis-stopped` does not exist** in this version. Lenis signals a
+   stop with the **class** `lenis-stopped`. The first probe read the attribute,
+   got `false` from a correctly stopped instance, and pointed at the wrong
+   bug.
+
+2. **`window.scrollBy()` cannot test an overflow lock.** Per spec,
+   `overflow: hidden` blocks *user* scrolling but still permits *programmatic*
+   scrolling — so `scrollBy` moved the page 400px through a lock that was by
+   then working correctly. The check only became real when it dispatched a
+   **wheel event through CDP** (a `WheelEvent` constructed in page script is
+   untrusted and scrolls nothing) **and added a control**: the same gesture
+   with the sheet shut, which has to move the page. "It did not scroll" is
+   worthless alone — it is trivially true if the page is short, if the wheel
+   missed, or if the sheet never opened.
+
+Pinned by cases 6–8 of `design-review/mobile-v3/pocket-player.mjs`.
+
+---
+
+### D43 — the navbar outranks the sheet, so a nav tap scrolled a page hidden behind a modal — **FOUND AND PARTLY FIXED, Stage 12.3 (2026-11-27)**
+
+Visible in `design-review/screenshots/mobile-v3-sheet-dark.png`: with the
+now-playing sheet open, the logo and hamburger are still drawn over it. The
+sheet is `z-index: 80`; the navbar is `1000`. That layering was deliberate in
+12.2 and only became a problem when the sheet started holding the real deck.
+
+The sheet is `role="dialog" aria-modal="true"`. A control that stays tappable
+above an `aria-modal` dialog is a contradiction, and the behaviour was worse
+than the inconsistency: tapping "Experience" ran `scrollToSection()`, which
+passes `force: true` specifically so a stopped Lenis cannot refuse it — so the
+page travelled to a section **behind a full-screen sheet**, and the visitor's
+next dismissal dropped them somewhere they never saw themselves go.
+
+**Fixed for the harmful half:** `sections/home.jsx` closes the sheet when a
+programmatic scroll begins. Hooked to `onProgrammaticScrollChange` rather than
+to the navbar, because that is the existing signal for "something is driving
+the page somewhere deliberately" and it covers nav clicks, deep links and
+`use-hash-scroll`'s ResizeObserver re-issue in one subscription. Closing also
+restarts Lenis through the sheet's own cleanup, which the scroll then needs.
+
+Verified end to end (case 10 of `pocket-player.mjs`): sheet open → hamburger →
+"Experience" → sheet closed, `lenis-stopped` gone, hash `#experience`, section
+top at **132px**, inside the −5..260 navbar-offset window the navigation suite
+already uses. The arrival is asserted deliberately: an earlier version of that
+check tested only the close, and would have passed on a navigation that went
+nowhere.
+
+**Still open, for 12.4:** the layering itself. Either the sheet rises above the
+navbar, or the navbar hides while a sheet is up. Closing on navigation stops
+the visitor being stranded; it does not make a tappable bar over a modal
+correct.
+
 ### B68 — `align-items: center` on an unevenly-tall two-column row centers each column to its OWN offset, not to a shared top edge — **FOUND AND FIXED, Stage 3 Task 1 revision, second follow-up**
 
 Built while turning `#connect`'s single stacked column into a text-left/

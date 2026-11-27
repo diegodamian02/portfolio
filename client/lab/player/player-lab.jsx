@@ -3,9 +3,10 @@ import SnowWhiteDeck from "../../src/components/snow-white-deck.jsx";
 import BottomSheet from "../../src/components/bottom-sheet.jsx";
 import PlayerDock from "../../src/components/player-dock.jsx";
 import usePlayerState from "../../src/hooks/use-player-state.js";
-import {
-    setTrack, setPlaying, openSheet, closeSheet, onPlayerState,
-} from "../../src/lib/player-state.js";
+import useDeckState from "../../src/hooks/use-deck-state.js";
+import { setTrack, openSheet, closeSheet } from "../../src/lib/player-state.js";
+import { setActiveDeck } from "../../src/lib/deck-controls.js";
+import { DECK, emitDeckState, getDeckState } from "../../src/lib/deck-state.js";
 
 // ---------------------------------------------------------------------------
 // /lab/player/ — the Stage 12.2 shell, exercised. DEV ONLY (see index.html).
@@ -20,6 +21,21 @@ import {
 // real turntable. It is the right stand-in precisely because it is
 // presentational: if the sheet works around it, the sheet is not leaning on
 // anything the real deck will not also provide.
+//
+// STAGE 12.3 — this page now stands in for turntable.jsx on BOTH of the seams
+// the real deck owns, so the dock is exercised here exactly as it is on the
+// live site:
+//
+//   setActiveDeck({ transport })  the dock's button calls into the deck
+//   emitDeckState(...)            the dock's icon is rendered from deck state
+//
+// emitDeckState is normally written by turntable.jsx's applyDeckState ALONE,
+// and that single-writer rule is real — see lib/deck-state.js. This page is
+// the one deliberate exception: it is dev-only by construction (its own Vite
+// entry, never in build.rollupOptions.input, 0 bytes of production JS proven
+// by A/B in STATUS §2), and the alternative — a lab that drives the dock
+// through some other path — would be a lab that cannot catch a break in the
+// path the site actually uses.
 //
 // The sheet's content is deliberately TALLER THAN THE SHEET. The one genuinely
 // hard behaviour here is "drag to dismiss, but only from scroll-top", and it
@@ -47,7 +63,9 @@ const NOTES = [
 ];
 
 export default function PlayerLab() {
-    const { track, playing, sheetOpen } = usePlayerState();
+    const { track, sheetOpen } = usePlayerState();
+    const deckState = useDeckState();
+    const playing = deckState === DECK.PLAYING;
     const deckApi = useRef(null);
     const [theme, setTheme] = useState(
         () => document.documentElement.getAttribute("data-theme") || "dark",
@@ -57,22 +75,38 @@ export default function PlayerLab() {
         document.documentElement.setAttribute("data-theme", theme);
     }, [theme]);
 
-    // The store is the single source of truth for "is it playing"; the deck
-    // is told, not asked. Subscribed directly rather than through the hook so
-    // the deck is driven in the SAME tick as the store write — this is the
-    // seam Stage 12.3 replaces with the real deck's transport, and getting
-    // the timing shape right here is the point of the exercise.
-    useEffect(() => onPlayerState((next, previous) => {
-        if (next.playing !== previous.playing) deckApi.current?.setPlaying(next.playing);
-    }), []);
+    // Stand in for turntable.jsx's transport. The real one (handleTransport)
+    // decides what a press MEANS from live deck state and refuses it outright
+    // mid-load, mid-scratch or on an errored deck; this one only has to be a
+    // single verb that flips the spin and publishes the result, because the
+    // dock must not assume anything beyond that.
+    //
+    // Spin first, publish second, both synchronous: the dock's icon comes from
+    // deck state, so publishing before the visual would briefly describe a
+    // deck that had not moved yet.
+    const transport = useCallback(() => {
+        if (!track) return;
+        const next = !(getDeckState() === DECK.PLAYING);
+        deckApi.current?.setPlaying(next);
+        emitDeckState(next ? DECK.PLAYING : DECK.PAUSED);
+    }, [track]);
+
+    // Re-registered when `transport` changes, for the reason turntable.jsx's
+    // own registration spells out: a closure pinned at mount would hold a
+    // stale `track`.
+    useEffect(() => {
+        setActiveDeck({ transport });
+        return () => setActiveDeck(null);
+    }, [transport]);
 
     const pick = useCallback((record) => {
         setTrack(record);
         openSheet();
         // The drop is the deck's own business; the store only records that a
-        // record was chosen. In 12.3 this call site becomes the real deck's
-        // load, and its needle-contact callback is what sets playing — not
-        // this function.
+        // record was chosen. On the live site this call site is just
+        // setTrack() — the real deck's own useGSAP reacts to `track.id`
+        // changing and runs the whole drop itself.
+        emitDeckState(DECK.LOADING);
         deckApi.current?.drop();
     }, []);
 
@@ -80,6 +114,7 @@ export default function PlayerLab() {
         deckApi.current?.lift();
         setTrack(null);
         closeSheet();
+        emitDeckState(DECK.EMPTY);
     }, []);
 
     return (
@@ -140,7 +175,15 @@ export default function PlayerLab() {
                 label={track ? `Now playing — ${track.title}` : "Now playing"}
             >
                 <div className="player-lab-sheet-deck">
-                    <SnowWhiteDeck labelColor={track?.color || "#6f9bff"} apiRef={deckApi} />
+                    <SnowWhiteDeck
+                        labelColor={track?.color || "#6f9bff"}
+                        apiRef={deckApi}
+                        // The real deck starts audio at needle contact and
+                        // publishes PLAYING from the same tick. Mirrored here
+                        // so the dock's icon flips at the same moment of the
+                        // drop that it will on the site.
+                        onNeedleDown={() => emitDeckState(DECK.PLAYING)}
+                    />
                 </div>
 
                 <div className="player-lab-sheet-meta">
@@ -149,7 +192,7 @@ export default function PlayerLab() {
                     <button
                         type="button"
                         className="deck-lab-button"
-                        onClick={() => setPlaying(!playing)}
+                        onClick={transport}
                         disabled={!track}
                     >
                         {playing ? "Pause" : "Play"}

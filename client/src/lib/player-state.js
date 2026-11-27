@@ -1,8 +1,20 @@
-// The Pocket Player's state — Stage 12.2.
+// The Pocket Player's state — Stage 12.2, narrowed in 12.3.
 //
-// What is loaded, whether it is playing, and whether the now-playing sheet is
-// open. The dock and the sheet are two views of ONE value, so they cannot
-// disagree about what is on the deck.
+// What is loaded, and whether the now-playing sheet is open. The dock and the
+// sheet are two views of ONE value, so they cannot disagree about what is on
+// the deck.
+//
+// NOT "whether it is playing". 12.2 kept a `playing` boolean here and 12.3
+// removed it, because the deck already owns that truth: turntable.jsx's
+// applyDeckState is the single writer for deck state, and it REFUSES
+// transitions this store knows nothing about — a transport press during the
+// load choreography, during a scratch, or on an errored deck does not change
+// what the deck is doing (isBusyRef, scratchActive, DECK.ERROR). A boolean
+// here that the dock could flip was a second source of truth that would
+// disagree with the deck the moment one of those guards fired, and the
+// symptom would be a pause icon on a deck that never started. The dock now
+// renders its icon from deck state (hooks/use-deck-state.js) and asks the
+// deck to act via lib/deck-controls.js.
 //
 // ---------------------------------------------------------------------------
 // WHY THIS IS A MODULE AND NOT REACT CONTEXT
@@ -32,16 +44,12 @@
 /**
  * @typedef {Object} PlayerState
  * @property {object|null} track  the loaded track, or null for an empty deck
- * @property {boolean} playing    transport state, mirrored for the dock
  * @property {boolean} sheetOpen  is the now-playing sheet up
- * @property {boolean} ducked     see the note on setDucked below
  */
 
 const initialState = {
     track: null,
-    playing: false,
     sheetOpen: false,
-    ducked: false,
 };
 
 let state = { ...initialState };
@@ -94,45 +102,49 @@ export function onPlayerState(fn) {
  * Loads a track. Passing null empties the deck.
  *
  * Does NOT open the sheet and does NOT start playback — picking a record and
- * showing the deck are separate decisions, and Stage 12.3 needs to load a
- * track while the sheet is still rising.
+ * showing the deck are separate decisions, and 12.3 loads the track while the
+ * sheet is still rising.
+ *
+ * Playback is not this function's business either. Setting a track here is
+ * what makes `track.id` change on the <Turntable> below it, and the deck's
+ * own choreography reacts to that: drop, spin-up, arm swing, and audio at
+ * needle contact. That sequence has always been driven by the track prop and
+ * 12.3 did not change it.
  */
 export function setTrack(track) {
-    publish({ track: track ?? null, playing: false });
-}
-
-export function setPlaying(playing) {
-    // Nothing can be playing on an empty deck. Guarded here rather than at
-    // each call site, because the dock's transport button and the deck's own
-    // needle-contact callback are both callers and only one of them knows.
-    publish({ playing: state.track ? !!playing : false });
+    publish({ track: track ?? null });
 }
 
 export function openSheet() { publish({ sheetOpen: true }); }
 export function closeSheet() { publish({ sheetOpen: false }); }
 export function toggleSheet() { publish({ sheetOpen: !state.sheetOpen }); }
 
-/**
- * Whether the player should be holding its own volume down.
- *
- * DECLARED HERE IN 12.2, NOT YET CONSUMED — and that is deliberate, so read
- * this before wiring it. `turntable-audio.js` has no single writer for the
- * master gain: `setVolume`, `followSpin`, `settleSpin` and `fadeOutAndStop`
- * all write `masterGain.gain` directly, which is fine today because they are
- * mutually exclusive phases of one deck. Ducking is the first thing that
- * needs to cut across all four — it has to survive a spin-up, a settle and a
- * transport press without any of them clobbering it.
- *
- * The audio refactor is Stage 12.3's job, where it has a real consumer. Doing
- * it in 12.2 would mean changing live audio code with nothing exercising it;
- * the deck's audio has no headless test coverage at all (no audio device in
- * headless Chromium — design-review/scratch-tests/README.md), so an untested
- * refactor there is the worst kind of speculative change. This flag exists so
- * the SHAPE is agreed now and 12.3 only has to supply the writer.
- */
-export function setDucked(ducked) {
-    publish({ ducked: !!ducked });
-}
+// ---------------------------------------------------------------------------
+// setDucked() WAS DECLARED HERE IN 12.2 AND REMOVED IN 12.3. Read this before
+// adding it back.
+//
+// The 12.2 note said the master-gain refactor was 12.3's job, "where it has a
+// real consumer". It turned out there is no consumer, and there is no ducking
+// anywhere in the app: `deck-state.js` mentions "Phase 10 (ducking)" in a
+// comment, but no code implements it and nothing in the Pocket Player needs
+// it — the sheet opens over a page that makes no sound of its own.
+//
+// So the honest options were to invent a consumer, or to delete the flag. The
+// underlying observation stands and is still true: turntable-audio.js has no
+// single writer for the master gain — `setVolume`, `followSpin`, `settleSpin`
+// and `fadeOutAndStop` all write `masterGain.gain` directly. That is FINE
+// today because they are mutually exclusive phases of one deck, and it only
+// becomes a bug when something needs to hold the gain down ACROSS those
+// phases.
+//
+// Introducing a gain mixer with exactly one input, to serve a flag with no
+// consumer, in a module with no headless test coverage (there is no audio
+// device in headless Chromium — design-review/scratch-tests/README.md), is
+// speculative architecture with real risk and no payoff. It is recorded as a
+// known constraint in FINDINGS instead, so whoever adds the first real
+// ducking consumer finds the analysis already done rather than discovering it
+// mid-feature.
+// ---------------------------------------------------------------------------
 
 /** Test/lab only. Returns the store to its initial value without notifying. */
 export function __resetPlayerState() {

@@ -2857,8 +2857,8 @@ every plugin needed is already registered in `client/src/lib/gsap.js`.
 |---|---|---|
 | **12.1** | spec + deck spike — **done 2026-11-20**, branch `mobile-v3-spike-deck`, not merged | Sun Nov 23 |
 | **12.2** | structure: player store, bottom sheet shell, dock (no animation) — **done 2026-11-25**, on `mobile-v3`. Reviewable at `/lab/player/`. Gesture pinned 4/4 by `sheet-gesture.mjs`; 0 bytes of production JS (A/B proven), +1,478 gzipped CSS. Inertia is tracked for velocity but the throw is OFF — it fought the snap-back (D40). | Wed Nov 26 |
-| 12.3 | integration: the real turntable into the sheet, keeping the single-writer rules and the `playCached()` same-call-site audio rule; crate tap → drop → play | Sat Nov 29 |
-| 12.4 | polish: the drop timeline on the real deck, lid, theme swap via the existing `startViewTransition`, dock⇄sheet Flip, reduced motion, **pitch-fader travel in the sheet (D41)** | Tue Dec 2 |
+| **12.3** | integration: the real turntable into the sheet — **done 2026-11-27**, on `mobile-v3`. Deck renders in the hero OR the sheet, never both; dock asks the deck and renders what it reports; crate tap → sheet + drop → play. Two lab-invisible defects fixed (**D42** scroll lock on the wrong element, **D43** navbar over an `aria-modal` sheet). 10/10 `pocket-player.mjs`, 139 Playwright passing, **+2.15 kB gzipped** — the first Stage 12 work that is not free. | Sat Nov 29 |
+| 12.4 | polish: the mobile hero now the deck has left it, the sheet's body below the deck, real album art on the dock, **the navbar/sheet layering (D43)**, dock⇄sheet Flip, focus trap, reduced motion, **pitch-fader travel in the sheet (D41)** | Tue Dec 2 |
 | 12.5 | device pass + ship | Wed Dec 3 |
 
 **Branching for Stage 12** (owner call, 2026-11-25). `main` is a live site used
@@ -2925,6 +2925,19 @@ the lab's first version loaded 49 of the site's 47 `src` modules behind an
 early return, invisible on loopback and unusable on a phone) and **D39** (two
 measurement probes producing plausible, wrong numbers; both caught only by
 checking the output against a value known in advance).
+
+**RESOLVED IN 12.3 — read the outcome before re-opening this.** The note
+below was written before the audio module had been read closely. On
+inspection there is **no ducking anywhere in the app**: `deck-state.js`
+mentions "Phase 10 (ducking)" in a comment, no code implements it, and
+nothing in the Pocket Player needs it — the sheet opens over a page that
+makes no sound of its own. So `setDucked` was **removed** rather than wired,
+and no gain mixer was introduced. The constraint itself is real and still
+recorded (in `player-state.js`, where the flag used to be): four functions
+write `masterGain.gain`, which is fine while they are mutually exclusive
+phases of one deck and becomes a bug only when something must hold the gain
+down across them. Whoever adds the first genuine ducking consumer should find
+the analysis already done. The original note follows.
 
 **One correction to carry into 12.3.** The brief names the single-writer rules
 as "`setSpin`, `muteGain`, `applyDeckState`". **`muteGain` does not exist**

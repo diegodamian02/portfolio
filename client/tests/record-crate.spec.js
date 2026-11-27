@@ -3,7 +3,7 @@
 // takeover (with its chevron + Escape dismiss).
 import { test, expect } from './fixtures.js';
 import { flowOnly } from './flow-projects.js';
-import { usesHamburger } from './helpers.js';
+import { usesHamburger, usesPocketPlayer } from './helpers.js';
 
 flowOnly();
 
@@ -26,7 +26,10 @@ test('search returns results and picking one loads the deck', async ({ page }, t
   expect(await cards.count()).toBeGreaterThanOrEqual(1);
   await expect(cards.first()).toContainText(/\w/);
 
-  const deck = page.locator('#home .turntable');
+  // Wherever it lives — hero on desktop, bottom sheet on touch/narrow.
+  // data-deck-state is written by the deck itself, so the assertions below
+  // are about the deck's own state machine and are location-agnostic.
+  const deck = page.locator('.turntable');
   await expect(deck).toHaveAttribute('data-deck-state', 'EMPTY');
 
   await cards.first().click();
@@ -43,6 +46,14 @@ test('search returns results and picking one loads the deck', async ({ page }, t
 
   // The panel is gone once a pick is made.
   await expect(page.locator('.record-crate-card')).toHaveCount(0, { timeout: 5000 });
+
+  // Stage 12.3 — on touch/narrow the pick also RAISES THE SHEET, because that
+  // is where the deck now is. Without this the drop would play out offscreen
+  // and the pick would look like it did nothing.
+  if (await usesPocketPlayer(page)) {
+    await expect(page.locator('.sheet-root')).toHaveAttribute('data-open', '', { timeout: 5000 });
+    await expect(page.locator('.sheet-deck-stage .turntable')).toHaveCount(1);
+  }
 });
 
 test('mobile "dig" takeover opens full-screen and dismisses', async ({ page }) => {

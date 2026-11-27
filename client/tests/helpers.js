@@ -111,3 +111,48 @@ export function usesHamburger(page) {
   const vp = page.viewportSize();
   return !!vp && vp.width <= 900;
 }
+
+// ---------------------------------------------------------------------------
+// Stage 12.3 — the deck has two homes, so tests must stop assuming one.
+//
+// On touch / narrow viewports the Pocket Player moves the turntable out of the
+// hero and into the bottom sheet (portaled to <body>, so not inside #home at
+// all); everywhere else it stays in `.hero-deck-stage`. Three specs asserted
+// `#home .turntable` and failed on every phone and tablet project the moment
+// the deck moved — correctly, since the contract they encoded had changed.
+//
+// Asked of the PAGE, not derived from the viewport. sections/home.jsx sets
+// `data-pocket-player` from the same boolean that decides where the deck
+// renders, so this reads the real decision rather than re-guessing it from a
+// width — which matters because the JS gate is
+// `(pointer: coarse), (max-width: 768px)` and `usesHamburger()` above is
+// `width <= 900`. Those disagree on a touch tablet, which is exactly the case
+// that broke first.
+export async function usesPocketPlayer(page) {
+  return (await page.locator('.home[data-pocket-player]').count()) > 0;
+}
+
+/** The deck, wherever it currently lives. */
+export function deckLocator(page) {
+  return page.locator('.turntable');
+}
+
+/**
+ * Asserts the deck is in exactly ONE of its two homes, and the right one.
+ *
+ * The count check is the load-bearing half: two <Turntable> instances would be
+ * two GSAP timelines and two sets of deck-state writes racing through a single
+ * module-level audio engine, and both would still satisfy a plain
+ * "is it visible" assertion.
+ */
+export async function expectDeckInItsHome(page, expect) {
+  await expect(page.locator('.turntable')).toHaveCount(1);
+  if (await usesPocketPlayer(page)) {
+    await expect(page.locator('.sheet-deck-stage .turntable')).toHaveCount(1);
+    await expect(page.locator('#home .turntable')).toHaveCount(0);
+    await expect(page.locator('.player-dock')).toHaveCount(1);
+  } else {
+    await expect(page.locator('#home .hero-deck-stage .turntable')).toBeVisible();
+    await expect(page.locator('.player-dock')).toHaveCount(0);
+  }
+}

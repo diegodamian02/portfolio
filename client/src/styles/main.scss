@@ -7225,14 +7225,22 @@ $taste-swipe-max: 1024px;
 // Components: player-dock.jsx, bottom-sheet.jsx. Both portal to <body>, so
 // these rules are deliberately NOT nested under any section.
 //
-// Nothing mounts them on the live site yet — Stage 12.3 does that. Today they
-// are reachable only from the dev-only /lab/player/ page, so none of this
-// renders in production; the rules ship because main.scss is one always-built
-// file, same trade as the Snow White block above.
+// MOUNTED ON THE LIVE SITE as of Stage 12.3 — sections/home.jsx renders both
+// when its useTouchUI() hook says so, and renders the hero's own
+// .hero-deck-stage when it does not. (The dev-only /lab/player/ page still
+// mounts them too, over a stand-in deck.)
 //
-// Mobile-first and, for now, mobile-ONLY: the whole Pocket Player direction is
-// a phone treatment, and desktop keeps the hero deck it already has. The
-// breakpoint is the same 768px the rest of the mobile work uses.
+// Mobile-ONLY: the whole Pocket Player direction is a phone treatment, and
+// desktop keeps the hero deck it already has.
+//
+// THE GATE IS JS, NOT A MEDIA QUERY, and that distinction matters here.
+// hooks/use-touch-ui.js owns it: `(pointer: coarse), (max-width: 768px)`,
+// the same query record-crate.jsx uses to switch to its full-screen dig
+// takeover. A touch tablet 900px wide is inside that query but outside the
+// `max-width: 768px` block the rest of the mobile CSS uses, so the two must
+// not be assumed to agree — see `.home[data-pocket-player]` below, which is
+// how the JS decision reaches the hero's grid without a second copy of the
+// query drifting out of step with the first.
 
 // Shared geometry. --dock-h is a measured constant in the same sense as
 // --navbar-height: the dock has no intrinsic height worth trusting, and the
@@ -7623,6 +7631,70 @@ $taste-swipe-max: 1024px;
     color: var(--secondary-text);
   }
 }
+// ---- the hero, with the deck gone --------------------------------------
+//
+// Set by sections/home.jsx from the SAME boolean that decides where the deck
+// renders, so the grid can never disagree with the component tree.
+//
+// Both declarations are needed, and the second is the one that is easy to
+// miss. The hero's base grid is two columns, `"content deck" / "crate deck"`;
+// its `max-width: 768px` block restacks that to one column with a third
+// `"deck"` row. With the deck in the sheet:
+//
+//   - above 768px (a touch tablet) the BASE grid is still in force, and
+//     without this the content column would be crushed into its
+//     `minmax(380px, 44%)` beside an empty 1fr void.
+//   - at or below 768px the restacked grid leaves an empty `"deck"` ROW — and
+//     an empty row still earns its `row-gap`, which is a real 28px of dead
+//     space at the foot of the hero, not a harmless no-op.
+//
+// Attribute selectors are (0,2,0) against the `.home` rules' (0,1,0), so this
+// wins on specificity in both cases and does not depend on source order or on
+// being wrapped in a media query of its own.
+.home[data-pocket-player] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "content"
+    "crate";
+  // The crate's results panel opens downward into the hero's own space, and
+  // with the deck gone there is a great deal of it. Keep the stack top-aligned
+  // so the name still sits just under the navbar rather than floating in the
+  // middle of a mostly empty screen.
+  align-content: start;
+
+  // Room for the dock, which floats over the foot of every section. Without
+  // this the crate's own bottom edge can sit under it.
+  padding-bottom: calc(32px + var(--dock-reserve));
+}
+
+// ---- the deck's stage inside the sheet ----------------------------------
+//
+// The sheet's counterpart to .hero-deck-stage. Centres the deck and gives it
+// the full sheet width; the deck sizes itself from there, exactly as it does
+// in the hero.
+.sheet-deck-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  // min-width: 0 for the same reason .hero-deck-stage carries it: a flex
+  // item's `min-width: auto` floor let the deck force its container wider
+  // than the gutter, and the 2026-09-07 grid-blowout fix is the record of
+  // that happening.
+  min-width: 0;
+  // The deck is the first thing in the sheet and the thing the sheet exists
+  // for, so it gets air above it rather than sitting against the grabber.
+  padding: var(--space-2) 0 var(--space-4);
+
+  .turntable {
+    // The hero's mobile rule bleeds the deck to a 12px gutter because it is
+    // the centrepiece of a full screen. Inside the sheet it shares space with
+    // the track meta and the controls below it, so it is held to the sheet's
+    // own padding instead of pushing against it.
+    width: 100%;
+    max-width: 420px;
+  }
+}
+
 // D8 — the catch-all. Now the FALLBACK path only: navbar.jsx reaches for
 // document.startViewTransition() first (the ::view-transition rules below) and
 // only adds .is-theme-switching where that's unavailable (Firefox) or under

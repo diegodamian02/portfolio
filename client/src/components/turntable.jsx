@@ -6,6 +6,7 @@ import VinylRecord from "./vinyl-record.jsx";
 import StrobeRing from "./strobe-ring.jsx";
 import * as audio from "../lib/turntable-audio.js";
 import { DECK, emitDeckState } from "../lib/deck-state.js";
+import { getActiveDeck, setActiveDeck } from "../lib/deck-controls.js";
 import { armAngleForRadius, RADIUS_OUTER_GROOVE, ARM_OUTER_GROOVE_FALLBACK } from "../lib/tonearm-geometry.js";
 
 // 33⅓ RPM is 1.8s per revolution. Linear, because a real platter's speed is
@@ -1082,6 +1083,36 @@ export default function Turntable({ track = null }) {
             if (pitchKeyIdleTimerRef.current) clearTimeout(pitchKeyIdleTimerRef.current);
         };
     }, []);
+
+    // ---- the dock's handle on this deck (Stage 12.3) -----------------------
+    //
+    // On a phone the Pocket Player's dock floats over every section while the
+    // deck itself is inside the bottom sheet, often unmounted. The dock's
+    // transport button has to reach THIS component's handleTransport, which is
+    // the only place that knows what a press means right now (play / pause /
+    // replay) and the only place that refuses one correctly — mid-load,
+    // mid-scratch, or on an errored deck.
+    //
+    // Registered as a module-level reference rather than threaded through
+    // props, for the reason lib/deck-controls.js spells out: the dock is
+    // portaled to <body> and the deck lives in a different subtree depending
+    // on viewport, so there is no common ancestor to pass a ref through
+    // without inventing one.
+    //
+    // dependencies: [handleTransport] because it is a useCallback with real
+    // deps (it closes over setSpin/startAudio/reduced). Registering once on
+    // mount would pin the dock to a stale closure — the exact bug the pitch
+    // Draggable's own `dependencies: [reduced]` comment warns about.
+    useEffect(() => {
+        setActiveDeck({ transport: handleTransport });
+        // Cleared on unmount so the dock cannot call into a dead deck. The
+        // identity check matters: in a swap (desktop -> sheet on a rotation)
+        // the NEW deck registers before the old one's cleanup runs, and an
+        // unconditional clear here would wipe the live registration.
+        return () => {
+            if (getActiveDeck()?.transport === handleTransport) setActiveDeck(null);
+        };
+    }, [handleTransport]);
 
     const transportLabel =
         deckState === DECK.PLAYING ? "Pause" :

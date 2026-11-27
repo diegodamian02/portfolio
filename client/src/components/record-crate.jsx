@@ -5,16 +5,21 @@ import { createPortal } from "react-dom";
 import { gsap } from "../lib/gsap.js";
 import { cardHueFor } from "../lib/card-hue.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
+import { TOUCH_UI_QUERY } from "../hooks/use-touch-ui.js";
 
 const RESULT_LIMIT = 5;
 const FETCH_LIMIT = 15;
 const DEBOUNCE_MS = 400;
 // The takeover, not the rect-anchored dropdown, is used for every touch device
-// (any iPad, Android tablet, phone) and for narrow windows. `max-width: 768px`
-// mirrors the site's mobile CSS breakpoint EXACTLY (an `innerWidth < 768` JS
-// check disagreed with the inclusive CSS `max-width` at 768px itself — an
-// iPad Mini in portrait — and the dropdown opened off the top of the screen).
-const TOUCH_UI_QUERY = "(pointer: coarse), (max-width: 768px)";
+// (any iPad, Android tablet, phone) and for narrow windows.
+//
+// TOUCH_UI_QUERY moved to hooks/use-touch-ui.js in Stage 12.3, where its full
+// reasoning now lives — `max-width: 768px` mirrors the site's mobile CSS
+// breakpoint EXACTLY (an `innerWidth < 768` JS check disagreed with the
+// inclusive CSS `max-width` at 768px itself — an iPad Mini in portrait — and
+// the dropdown opened off the top of the screen). It is shared because the
+// Pocket Player has to switch the deck into the bottom sheet on exactly the
+// viewports where this crate becomes a takeover; two copies would drift.
 const PANEL_GAP = 10;
 
 // Search goes through our own backend rather than calling Apple directly.

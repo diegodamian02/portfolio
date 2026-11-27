@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useGSAP } from "@gsap/react";
 import { gsap, Draggable, InertiaPlugin } from "../lib/gsap.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
+import { getActiveLenis } from "../lib/scroll.js";
 
 // The now-playing bottom sheet — Stage 12.2, the shell only.
 //
@@ -340,20 +341,57 @@ export default function BottomSheet({ open, onClose, label = "Now playing", chil
         };
     }, [open]);
 
-    // Page behind the sheet must not scroll with it. `overflow: hidden` on
-    // <body> rather than a scroll-position lock, because the sheet is
-    // full-bleed and nothing behind it is visible anyway.
+    // Page behind the sheet must not scroll with it. This takes TWO locks,
+    // because the app has two things that scroll the page, and Stage 12.2's
+    // single `body { overflow: hidden }` was neither of them.
     //
-    // NOTE FOR STAGE 12.3: the real site runs Lenis (smooth-scroll.jsx), which
-    // drives scroll from its own rAF loop and will keep going straight through
-    // this. Mounting the sheet in the app means calling lenis.stop() on open
-    // and lenis.start() on close as well — this line alone is not enough
-    // there, and the lab has no Lenis, so the lab cannot catch it.
+    // 1. THE ELEMENT LOCK GOES ON <html>, NOT <body>. Measured on the live
+    //    site: `getComputedStyle(documentElement).overflow` is `hidden auto`
+    //    and body's is `visible` — Lenis's own `.lenis` class makes the ROOT
+    //    element the scroll container. So locking body locked nothing, and
+    //    `window.scrollBy(0, 400)` behind an open sheet moved the page a full
+    //    400px. /lab/player/ has no Lenis, so there the root is not the
+    //    scroller and the body lock appeared to work; this is precisely the
+    //    class of bug the lab was always going to miss.
+    //
+    //    Both are set anyway. body costs nothing and covers the reduced-motion
+    //    path, where no Lenis exists and the scroller may be either one.
+    //
+    // 2. lenis.stop(). Lenis drives scroll from its own rAF loop and would
+    //    keep writing positions regardless of any overflow value; stopping it
+    //    is what makes a wheel or touch gesture inert rather than merely
+    //    clamped. It also adds `html.lenis-stopped`, which is the attribute
+    //    worth asserting in a test — do not look for `data-lenis-stopped`,
+    //    which this version does not set.
+    //
+    // A scroll-POSITION lock (position: fixed + restoring scrollY) is
+    // deliberately not used: the sheet is full-bleed, nothing behind it is
+    // visible, and that technique's own failure mode — losing the page's
+    // scroll position on every open — is worse than what it prevents here.
+    //
+    // getActiveLenis() is null under prefers-reduced-motion (smooth-scroll.jsx
+    // never constructs an instance in that mode) and in the window before it
+    // mounts, so the `?.` is load-bearing, not defensive habit.
+    //
+    // Re-read on cleanup rather than captured on open: Lenis is constructed
+    // inside a gsap.matchMedia() block, so the instance can be torn down and
+    // rebuilt by a breakpoint change while the sheet is open. Calling start()
+    // on a captured, dead instance would leave the LIVE one stopped — a page
+    // that never scrolls again, and the kind of bug that needs a reload to
+    // clear.
     useEffect(() => {
         if (!open) return undefined;
-        const previous = document.body.style.overflow;
+        const root = document.documentElement;
+        const previousRoot = root.style.overflow;
+        const previousBody = document.body.style.overflow;
+        root.style.overflow = "hidden";
         document.body.style.overflow = "hidden";
-        return () => { document.body.style.overflow = previous; };
+        getActiveLenis()?.stop();
+        return () => {
+            root.style.overflow = previousRoot;
+            document.body.style.overflow = previousBody;
+            getActiveLenis()?.start();
+        };
     }, [open]);
 
     return createPortal(

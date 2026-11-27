@@ -2,7 +2,7 @@
 // uncaught error, and has no horizontal overflow. The cheapest, broadest net —
 // B56 ("the entire page goes blank") surfaces here as a pageerror.
 import { test, expect } from './fixtures.js';
-import { SECTIONS, expectNoHorizontalOverflow } from './helpers.js';
+import { SECTIONS, expectNoHorizontalOverflow, expectDeckInItsHome } from './helpers.js';
 
 // console errors that are environmental noise rather than app defects
 const CONSOLE_ALLOW = [/favicon/i, /apple-touch-icon/i, /manifest/i, /Failed to load resource.*404/i];
@@ -20,9 +20,12 @@ test('loads with all sections, no uncaught errors, no h-overflow', async ({
   for (const id of SECTIONS) {
     await expect(page.locator(`section#${id}`)).toHaveCount(1);
   }
-  // The turntable and the crate input — the hero's two load-bearing pieces.
-  await expect(page.locator('#home .turntable')).toBeVisible();
+  // The crate input is in the hero on every device. The deck is NOT: Stage
+  // 12.3 moves it into the Pocket Player's bottom sheet on touch/narrow
+  // viewports, so where it belongs is per-device and the helper owns that
+  // decision rather than this test re-deriving it.
   await expect(page.locator('#home .record-crate-input')).toBeVisible();
+  await expectDeckInItsHome(page, expect);
 
   // Let late work (Spotify data, GSAP setup, Lenis) settle, then re-check.
   await page.waitForTimeout(1500);

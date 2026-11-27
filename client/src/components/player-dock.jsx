@@ -1,8 +1,11 @@
 import { createPortal } from "react-dom";
 import usePlayerState from "../hooks/use-player-state.js";
-import { setPlaying, openSheet } from "../lib/player-state.js";
+import useDeckState from "../hooks/use-deck-state.js";
+import { openSheet } from "../lib/player-state.js";
+import { getActiveDeck } from "../lib/deck-controls.js";
+import { DECK } from "../lib/deck-state.js";
 
-// The floating glass mini-player — Stage 12.2.
+// The floating glass mini-player — Stage 12.2, wired to the real deck in 12.3.
 //
 // Sits at the foot of every section on a phone. Tapping it opens the
 // now-playing sheet; the transport button is the one control that works
@@ -18,11 +21,33 @@ import { setPlaying, openSheet } from "../lib/player-state.js";
 // inside the hero's grid is a relayout waiting to happen, and the dock has to
 // outlive every section it floats over.
 
-// Two taps, two meanings, and they must not fight: the transport button
-// toggles playback, everything else on the dock opens the sheet. The button
-// stops its own click from bubbling into the panel's handler.
+// ---------------------------------------------------------------------------
+// TWO STORES, ON PURPOSE, AND THEY ARE NOT INTERCHANGEABLE.
+//
+//   player-state  — what the player UI is showing (which track, sheet up?)
+//   deck-state    — what the deck's transport is actually doing
+//
+// The icon is rendered from DECK STATE, never from a local optimistic
+// boolean. turntable.jsx's handleTransport refuses a press outright while the
+// load choreography is running, while a scratch owns the platter, or on an
+// errored deck. A dock that flipped its own icon on tap would show "pause"
+// over a deck that never started. Asking and then rendering what actually
+// happened is one extra store subscription and no lies.
+// ---------------------------------------------------------------------------
+
+// PAUSED and STOPPED_LOADED both mean "a record is on the deck, not
+// sounding": paused mid-track with the arm down, or finished with the arm
+// back at rest. Both show a play triangle, because both resume on a press —
+// handleTransport maps STOPPED_LOADED to a replay (arm swings out again).
+// LOADING shows one too: the record is dropping, nothing is audible yet, and
+// a pause icon there would invite a press the deck is about to refuse.
+const SOUNDING = new Set([DECK.PLAYING]);
+
 export default function PlayerDock() {
-    const { track, playing, sheetOpen } = usePlayerState();
+    const { track, sheetOpen } = usePlayerState();
+    const deckState = useDeckState();
+
+    const playing = SOUNDING.has(deckState);
 
     // Hidden when there is nothing loaded, and while the sheet is up — the
     // sheet IS the player at that point, and a dock peeking under it is just
@@ -58,7 +83,12 @@ export default function PlayerDock() {
             <button
                 type="button"
                 className="player-dock-transport"
-                onClick={() => setPlaying(!playing)}
+                // The deck decides. getActiveDeck() is null between the dock
+                // mounting and the deck registering, and on a phone whenever
+                // the sheet's deck is unmounted — hence `?.` rather than an
+                // assertion. A press that lands in that window is a no-op,
+                // which is the correct outcome: there is no deck to transport.
+                onClick={() => getActiveDeck()?.transport()}
                 aria-label={playing ? `Pause ${track?.title ?? ""}` : `Play ${track?.title ?? ""}`}
                 tabIndex={shown ? 0 : -1}
             >

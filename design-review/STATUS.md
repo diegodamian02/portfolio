@@ -1,6 +1,19 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-11-20 (**Stage 12.1 — Mobile v3 spec + Snow White deck
+**Updated:** 2026-11-27 (**Stage 12.3 — the real turntable in the Pocket
+Player**: on touch/narrow viewports the deck now renders inside the
+now-playing bottom sheet with the glass dock floating over every section;
+desktop is unchanged. First Stage 12 work that ships code — **+2.15 kB
+gzipped**. The dock asks the deck to act and renders what the deck reports, so
+a refused press cannot desync them; `player-state` lost its duplicate
+`playing` boolean and its unused `setDucked`. Two defects the lab structurally
+could not see: the scroll lock was on `<body>` when Lenis makes `<html>` the
+scroller (**D42**), and the navbar stayed tappable over an `aria-modal` sheet
+(**D43**). 10/10 on `pocket-player.mjs`, 139 Playwright tests passing, lint at
+the 7/2 baseline. Branch `mobile-v3`, **not merged** — `main` is still at
+`1778e4b`.)
+
+**Previously:** 2026-11-20 (**Stage 12.1 — Mobile v3 spec + Snow White deck
 spike**: the mobile direction is settled as "Pocket Player" — on phones the
 site becomes an app shell, a floating glass mini-player dock at the foot of
 every section opening a now-playing bottom sheet that holds the turntable; the
@@ -296,6 +309,124 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 12.3 — the real turntable in the Pocket Player *(2026-11-27)*
+
+Branch `mobile-v3`, pushed, **not merged**. `main` untouched at `1778e4b`.
+
+**This is the first Stage 12 work that ships code to visitors.** 12.1 and 12.2
+were an isolated spike and unmounted components; this one changes what a phone
+actually renders.
+
+**The deck now has two homes, and `sections/home.jsx` is the only thing that
+decides between them:**
+
+| viewport | where the deck renders |
+|---|---|
+| desktop / fine pointer | `.hero-deck-stage`, exactly as before |
+| touch or ≤768px | inside the bottom sheet, with the dock floating over the page |
+
+Rendered in one place or the other, **never both** — two `<Turntable>`
+instances would be two GSAP timelines and two sets of deck-state writes racing
+through a single module-level audio engine. Asserted, not assumed
+(`deckCount === 1`).
+
+The deck is **not** unmounted when the sheet closes. The sheet is always
+mounted and parks itself offscreen with a transform, so the deck keeps playing
+with the sheet down — which is the point of a mini-player — and stays
+measurable, which matters because the arm's rest angle is derived from laid
+out geometry.
+
+**What was built**
+
+- `client/src/lib/deck-controls.js` — a module-level reference to the live
+  deck's `{ transport }`, the same pattern `lib/scroll.js` uses for Lenis. The
+  dock is portaled to `<body>` and the deck is in a different subtree
+  depending on viewport, so there is no common ancestor to thread a ref
+  through.
+- `client/src/hooks/use-deck-state.js` — `useSyncExternalStore` over
+  `deck-state.js`, so the dock's icon can be rendered from what the deck is
+  actually doing.
+- `client/src/hooks/use-touch-ui.js` — `TOUCH_UI_QUERY` lifted out of
+  `record-crate.jsx` and now shared with it. One breakpoint, one copy: the
+  failure mode of two was a phone with the crate in takeover mode and the deck
+  still in the hero.
+
+**`player-state` lost its `playing` boolean, deliberately.** 12.2 kept one and
+the dock flipped it on tap. That was a second source of truth: `handleTransport`
+**refuses** a press mid-load, mid-scratch or on an errored deck, so the store
+and the deck would disagree the moment a guard fired, and the symptom would be
+a pause icon on a deck that never started. The dock now asks
+(`getActiveDeck()?.transport()`) and renders what actually happened. Proven:
+`data-deck-state PLAYING -> PAUSED` with the dock's label following.
+
+**`setDucked` was removed rather than wired.** The 12.2 note promised 12.3
+would give it "a real consumer". There is no consumer — `deck-state.js`
+mentions "Phase 10 (ducking)" in a comment but no code implements it, and
+nothing in the Pocket Player needs it. The underlying observation stands and
+is recorded where the flag used to be: `turntable-audio.js` has no single
+writer for the master gain (`setVolume`, `followSpin`, `settleSpin`,
+`fadeOutAndStop` all write it). That is fine while they are mutually exclusive
+phases of one deck, and only becomes a bug when something must hold gain down
+*across* them. **Building a gain mixer with one input, for a flag with no
+consumer, in a module with no headless test coverage, is speculative
+architecture with real risk and no payoff.**
+
+**Two defects found and fixed, neither visible in the lab**
+
+- **D42** — the sheet's scroll lock was on the wrong element. Lenis's `.lenis`
+  class makes `<html>` the scroller (`root=hidden auto, body=visible`), so
+  `body { overflow: hidden }` locked nothing; a real wheel behind an open
+  sheet moved the page **400px**. Now locks both and stops Lenis.
+- **D43** — the navbar (z-index 1000) stays tappable over the sheet (80), and
+  `scrollToSection()` passes `force: true` so a stopped Lenis cannot refuse
+  it. A nav tap scrolled the page behind a live `aria-modal` dialog. The sheet
+  now closes when a programmatic scroll begins. The **layering itself is still
+  open for 12.4.**
+
+**Measurements**
+
+| | |
+|---|---|
+| `pocket-player.mjs` | **10/10** — placement on desktop and phone, one deck only, no orphaned grid row, crate pick → sheet + drop, scroll lock with a control, dock→deck transport, nav close + arrival |
+| `sheet-gesture.mjs` (12.2) | **4/4**, unchanged |
+| Playwright suite | **139 passed, 0 failed** (`test:chromium`, 43 WebKit skipped) |
+| production JS | 565.74 → **572.63 kB** raw, 201.01 → **203.10 kB gzipped** (**+2.09 kB**) |
+| production CSS | 85.24 → **85.59 kB** raw, 16.67 → **16.73 gzipped** (+0.06 kB) |
+| `dist/` HTML entries | **1** — both labs still excluded by construction |
+| lint | **7 errors / 2 warnings**, the known baseline |
+
+Unlike 12.1 and 12.2 this stage is **not** 0 bytes: +2.15 kB gzipped total,
+which is the cost of actually mounting the dock and the sheet.
+
+**Three specs had to change, and they were right to fail.** `smoke`,
+`my-taste` and `record-crate` all asserted `#home .turntable`. On touch
+viewports the deck is in the sheet, which is portaled to `<body>`, so the
+contract they encoded no longer holds. A new helper `expectDeckInItsHome()`
+asks the page (`.home[data-pocket-player]`) rather than deriving the answer
+from a viewport width — `usesHamburger()` is `width <= 900` and the JS gate is
+`(pointer: coarse), (max-width: 768px)`, which disagree on a touch tablet.
+That is the case that broke first (`galaxy-tab`).
+
+**Headless audio turned out to be usable.** The deck reaches `PLAYING` and
+then `STOPPED_LOADED` in headless Chromium when served a decodable preview —
+it is *output* that does not exist, not Web Audio. `pocket-player.mjs`
+generates a 12s WAV tone inline and mocks the preview with it, which is what
+makes the dock→deck transport check meaningful: with the preview 404ing the
+deck sat in `DECK.ERROR`, and an errored deck **correctly refuses** a
+transport press, so the check could not tell a broken registration from a deck
+working as designed.
+
+**Known and deferred to 12.4**
+
+- The mobile hero is sparse now that the deck has left it — name, tagline,
+  crate, then a lot of space (`mobile-v3-hero-dark.png`). Expected; the
+  hero's own treatment is 12.4.
+- The sheet's body below the deck is empty — no track meta, no tracklist.
+- The dock's artwork is a colour swatch, not the real album art, although
+  iTunes supplies `artworkUrl100`.
+- No dock⇄sheet Flip, no focus trap, no momentum on the first upward flick.
+- The pitch fader's travel inside the sheet (**D41**).
 
 ### Stage 12.2 — Pocket Player structure: store, bottom sheet, dock *(2026-11-25)*
 
