@@ -4,6 +4,7 @@ import useDeckState from "../hooks/use-deck-state.js";
 import { openSheet } from "../lib/player-state.js";
 import { getActiveDeck } from "../lib/deck-controls.js";
 import { DECK } from "../lib/deck-state.js";
+import { cardHueFor } from "../lib/card-hue.js";
 
 // The floating glass mini-player — Stage 12.2, wired to the real deck in 12.3.
 //
@@ -69,9 +70,42 @@ export default function PlayerDock() {
                 aria-label={track ? `Open now playing — ${track.title}` : "Open now playing"}
                 tabIndex={shown ? 0 : -1}
             >
+                {/* Real album art, Stage 12.4. Until now this was a flat
+                    colour swatch reading `track.color` — a property
+                    record-crate.jsx's toTrack() does not set, so every dock
+                    showed the same accent block regardless of what was
+                    playing.
+
+                    A background-image rather than an <img>: if the URL 404s
+                    or is slow, the colour layer underneath simply shows
+                    through, with no broken-image glyph and no onError state
+                    to hold. The 60px thumbnail, not the 600px art — this box
+                    is 42px, and the large one is the deck label's job.
+
+                    aria-hidden because the title and artist are right beside
+                    it in text; an alt here would be a second reading of the
+                    same fact. */}
                 <span
                     className="player-dock-art"
-                    style={track?.color ? { "--dock-art": track.color } : undefined}
+                    style={{
+                        // artworkThumbUrl (60px) first, artworkUrl (600px)
+                        // as a fallback. iTunes returns both today, but a
+                        // track object assembled from anywhere else may carry
+                        // only the large one, and a 600px image in a 42px box
+                        // is a far better outcome than no image at all.
+                        ...((track?.artworkThumbUrl || track?.artworkUrl)
+                            && {
+                                "--dock-art-image":
+                                    `url("${track.artworkThumbUrl || track.artworkUrl}")`,
+                            }),
+                        // Same idiom as the crate's own spines
+                        // (record-crate.jsx: `--spine`), so the fallback
+                        // colour is the SAME wax as the card that was
+                        // tapped — the dock looks like it inherited the
+                        // record rather than picking a colour of its own.
+                        ...(track?.id != null
+                            && { "--dock-art": `var(--wax-${cardHueFor(track.id)})` }),
+                    }}
                     aria-hidden="true"
                 />
                 <span className="player-dock-meta">

@@ -326,10 +326,67 @@ export default function BottomSheet({ open, onClose, label = "Now playing", chil
         // reader should hear the dialog's name before its contents.
         sheetRef.current?.focus({ preventScroll: true });
 
+        // ---- the focus trap (Stage 12.4) -----------------------------------
+        //
+        // Escape and focus-restore shipped in 12.2; Tab still walked straight
+        // out of the dialog into the page behind it, which for an element
+        // marked `aria-modal="true"` is a plain contradiction — the attribute
+        // tells assistive technology the rest of the page is inert while the
+        // keyboard proves otherwise.
+        //
+        // The list is rebuilt on every Tab rather than captured once. The
+        // sheet's contents change underneath it constantly: the deck's own
+        // transport, the fader's range input and the close button come and go
+        // with deck state, and a list captured at open would send focus to a
+        // detached node.
+        //
+        // `offsetParent !== null` filters out anything display:none — cheaper
+        // and more honest than checking computed styles, and it is the same
+        // test the hidden-ness of the dock's buttons already relies on.
+        const FOCUSABLE = [
+            "a[href]", "button:not([disabled])", "input:not([disabled])",
+            "select:not([disabled])", "textarea:not([disabled])",
+            '[tabindex]:not([tabindex="-1"])',
+        ].join(",");
+
         const onKeyDown = (event) => {
             if (event.key === "Escape") {
                 event.stopPropagation();
                 onCloseRef.current?.();
+                return;
+            }
+            if (event.key !== "Tab") return;
+
+            const sheet = sheetRef.current;
+            if (!sheet) return;
+            const items = [...sheet.querySelectorAll(FOCUSABLE)]
+                .filter((el) => el.offsetParent !== null || el === document.activeElement);
+            if (items.length === 0) {
+                // Nothing to land on: keep focus on the panel rather than
+                // letting Tab escape to the page behind.
+                event.preventDefault();
+                sheet.focus({ preventScroll: true });
+                return;
+            }
+
+            const first = items[0];
+            const last = items[items.length - 1];
+            const active = document.activeElement;
+
+            // Also catches focus having drifted OUTSIDE the sheet entirely —
+            // a click on the scrim, say — which a plain first/last comparison
+            // would miss and let Tab continue into the page.
+            if (!sheet.contains(active)) {
+                event.preventDefault();
+                (event.shiftKey ? last : first).focus();
+                return;
+            }
+            if (event.shiftKey && (active === first || active === sheet)) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && active === last) {
+                event.preventDefault();
+                first.focus();
             }
         };
         document.addEventListener("keydown", onKeyDown);
@@ -387,9 +444,30 @@ export default function BottomSheet({ open, onClose, label = "Now playing", chil
         root.style.overflow = "hidden";
         document.body.style.overflow = "hidden";
         getActiveLenis()?.stop();
+
+        // ---- D43, the other half (Stage 12.4) ------------------------------
+        //
+        // The navbar is z-index 1000 and this sheet is 80, so the bar stayed
+        // drawn and tappable over an `aria-modal="true"` dialog. 12.3 stopped
+        // the harmful consequence — a nav tap scrolled a page nobody could
+        // see — but left the contradiction.
+        //
+        // Hiding the bar, rather than raising the sheet above it: a modal
+        // with a navigation bar floating on top is not a modal. The sheet
+        // deliberately leaves the top of the screen uncovered so there is
+        // visibly something behind it to go back to, and that gap reads as
+        // scrim, not as somewhere a navbar belongs.
+        //
+        // An attribute on <html> rather than a class, matching how
+        // `data-theme` already drives theming from the same element. main.scss
+        // takes the bar out of the tab order too, so the focus trap above and
+        // this cannot disagree about what is reachable.
+        root.setAttribute("data-sheet-open", "");
+
         return () => {
             root.style.overflow = previousRoot;
             document.body.style.overflow = previousBody;
+            root.removeAttribute("data-sheet-open");
             getActiveLenis()?.start();
         };
     }, [open]);

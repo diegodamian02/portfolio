@@ -1,6 +1,16 @@
 # Project Status — diegodamian.com
 
-**Updated:** 2026-11-27 (**Stage 12.3 — the real turntable in the Pocket
+**Updated:** 2026-11-27 (**Stage 12.4 part 1** — real album art on the dock,
+a focus trap in the sheet, and **D43** closed properly: the navbar is now
+hidden *and unfocusable* while a sheet is open. **D44 recorded and
+reproduced, not fixed** at the owner's request — the pitch fader and the
+sheet's pull-to-dismiss both answer the same downward finger
+(pitch −6.8 **and** sheet +45px), because the sheet arms its pull on any
+pointerdown at scroll-top without asking whether the finger landed on a
+control. 13/13 on `pocket-player.mjs`, 139 Playwright passing, lint 7/2.
+Branch `mobile-v3`, **not merged**.)
+
+**Previously:** 2026-11-27 (**Stage 12.3 — the real turntable in the Pocket
 Player**: on touch/narrow viewports the deck now renders inside the
 now-playing bottom sheet with the glass dock floating over every section;
 desktop is unchanged. First Stage 12 work that ships code — **+2.15 kB
@@ -309,6 +319,88 @@ working hero is design information the sections beneath it need.
 ---
 
 ## 2. What changed recently
+
+### Stage 12.4 (part 1) — dock artwork, focus trap, the navbar vs the sheet *(2026-11-27)*
+
+Branch `mobile-v3`, pushed, **not merged**. `main` untouched at `1778e4b`.
+
+The parts of 12.4 that needed no design decision. The hero's new treatment
+and the sheet's body are still open, because both are judgement calls rather
+than defects.
+
+- **Real album art on the dock.** It was a flat colour swatch reading
+  `track.color` — a property `record-crate.jsx`'s `toTrack()` never sets, so
+  every dock showed the same accent block regardless of what was playing. Now
+  three layers: gloss, `artworkThumbUrl` (60px, falling back to the 600px
+  `artworkUrl`), and underneath a colour that shows through if the image is
+  slow or 404s. The fallback is the track's own **wax** colour — the same one
+  the crate painted on the spine of the card that was tapped — so a dock with
+  no artwork still looks like it belongs to that record. A background-image
+  rather than an `<img>`: no broken-image glyph and no `onError` state.
+- **Focus trap in the sheet.** Escape and focus-restore shipped in 12.2, but
+  Tab walked straight out into the page behind — a contradiction for an
+  element marked `aria-modal="true"`. The focusable list is rebuilt on every
+  Tab, not captured at open, because the sheet's contents change underneath
+  it as deck state changes and a captured list sends focus to detached nodes.
+- **D43 closed properly.** The navbar is now hidden while a sheet is open,
+  not merely un-tappable. `visibility: hidden` as well as `opacity: 0`, which
+  is the load-bearing half: opacity alone leaves the links focusable, so Tab
+  would walk into a bar the dialog declares inert — reopening from the other
+  side the exact hole the focus trap closes.
+
+**D44 recorded, not fixed** — at the owner's request ("keep building, debug
+later"). The pitch fader and the sheet's pull-to-dismiss both respond to the
+same downward finger. Reproduced with real CDP touch
+(`design-review/mobile-v3/fader-in-sheet.mjs`):
+
+```
+DRAG UP 45px   (control)        pitch=+6.8   sheet y=0px
+DRAG DOWN 45px (reported case)  pitch=-6.8   sheet y=45px
+```
+
+The upward drag is the control and it is what proves the diagnosis: the sheet
+only pulls downward, so upward the fader is perfect. `bottom-sheet.jsx` arms
+its pull on **any** pointerdown at scroll-top and never asks whether the
+finger landed on a control. The fix is a hit-test at arm time, and the
+platter's scratch gesture has the same exposure.
+
+**Measurements**
+
+| | |
+|---|---|
+| `pocket-player.mjs` | **13/13** (was 10/10; +navbar, +focus trap, +dock art) |
+| `sheet-gesture.mjs` | **4/4** |
+| Playwright suite | **139 passed, 0 failed** |
+| production JS | 572.63 → **573.32 kB** raw, 203.10 → **203.33 kB** gzipped (+0.23) |
+| production CSS | 85.59 → **86.10 kB** raw, 16.73 → **16.82 kB** gzipped (+0.09) |
+| lint | **7 errors / 2 warnings**, baseline |
+
+**Three bugs in my own tests, worth recording because each produced a
+confident wrong answer against correct code.**
+
+1. `offsetParent !== null` to test "is the hamburger reachable". That is only
+   null for `display: none`, so a `visibility: hidden` element reports
+   reachable while being entirely unfocusable. Replaced with an actual
+   `focus()` attempt.
+2. Dispatched `KeyboardEvent('keydown', {key:'Tab'})` to test the focus trap.
+   Synthetic events are untrusted: the handler runs but the browser performs
+   no default action, so focus never moves. Reported a failing trap against a
+   working one. Replaced with `page.keyboard.press('Tab')`.
+3. The iTunes fixture omitted `artworkUrl60`, which `toTrack()` maps to
+   `artworkThumbUrl` — the exact field the dock reads. The dock art check
+   failed against correct code. (It did surface a real robustness gap: the
+   component now falls back to the 600px art.)
+
+**One regression caught before it shipped.** The navbar rule declared
+`transition: opacity, visibility`, and `transition` is a shorthand — a later
+rule at equal specificity REPLACES the earlier one. `.navbar` already had
+`transition: background-color var(--theme-transition)`, so the theme
+crossfade was silently killed. Both lists now repeat `background-color`, and
+`pocket-player.mjs` case 10 asserts it survives.
+
+**Still open for the rest of 12.4:** the mobile hero now the deck has left it,
+the sheet's body below the deck, **D44**, the dock⇄sheet Flip, and the pitch
+fader's travel (**D41**).
 
 ### Stage 12.3 — the real turntable in the Pocket Player *(2026-11-27)*
 

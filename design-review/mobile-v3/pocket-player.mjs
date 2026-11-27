@@ -32,6 +32,11 @@ const ITUNES = {
             trackName: 'Midnight City', artistName: 'M83',
             collectionName: 'Hurry Up, We’re Dreaming',
             artworkUrl100: 'https://example.test/art100.jpg',
+            // artworkUrl60 matters: record-crate.jsx's toTrack() maps it to
+            // `artworkThumbUrl`, which is what the dock displays. The first
+            // version of this fixture omitted it and check 13 failed against
+            // correct code.
+            artworkUrl60: 'https://example.test/art60.jpg',
             previewUrl: 'https://example.test/preview.m4a',
             trackViewUrl: 'https://example.test/track',
         },
@@ -40,6 +45,7 @@ const ITUNES = {
             trackName: 'Redbone', artistName: 'Childish Gambino',
             collectionName: 'Awaken, My Love!',
             artworkUrl100: 'https://example.test/art100b.jpg',
+            artworkUrl60: 'https://example.test/art60b.jpg',
             previewUrl: 'https://example.test/previewb.m4a',
             trackViewUrl: 'https://example.test/trackb',
         },
@@ -388,48 +394,149 @@ const { context, page } = await openPage('Pixel 7');
         + `"${labelBefore}" -> "${labelAfter}"`);
 }
 
-// ---- 10. a nav click closes the sheet --------------------------------------
+// ---- 10. the navbar is GONE while the sheet is up (D43) --------------------
 //
-// The navbar is z-index 1000 and the sheet is 80, so the bar stays tappable
-// over an open sheet. Without a close, a nav tap scrolls a page nobody can
-// see, behind a dialog still marked aria-modal.
+// Rewritten in 12.4. The previous version opened the sheet and then clicked
+// the hamburger, to prove a nav tap closed the sheet rather than scrolling a
+// hidden page. That test now cannot run, because the thing it was working
+// around is fixed: the navbar is hidden while a sheet is open, so there is
+// no hamburger to click. The check became an assertion that the bar is NOT
+// reachable.
+//
+// Not merely invisible — OUT OF THE TAB ORDER. `opacity: 0` alone leaves the
+// links focusable, so Tab would walk into a bar the dialog declares inert,
+// reopening from the other side the exact hole check 12's focus trap closes.
 {
     await page.locator('.player-dock-open').click();
-    await page.waitForTimeout(800);
-    const openBefore = await page.evaluate(
-        () => !!document.querySelector('.sheet-root')?.hasAttribute('data-open'),
-    );
+    await page.waitForTimeout(900);
+    const shut = await page.evaluate(() => {
+        const nav = document.querySelector('nav.navbar');
+        const cs = getComputedStyle(nav);
+        const burger = document.querySelector('.hamburger');
+        return {
+            sheetOpen: !!document.querySelector('.sheet-root')?.hasAttribute('data-open'),
+            attr: document.documentElement.hasAttribute('data-sheet-open'),
+            visibility: cs.visibility,
+            opacity: Number(cs.opacity),
+            // Try to FOCUS it. `offsetParent !== null` was the first probe
+            // here and it is wrong: offsetParent is only null for
+            // display:none, so a visibility:hidden element reports
+            // "reachable" while being entirely unfocusable. Attempting the
+            // focus is the only test that answers the question actually
+            // being asked.
+            burgerReachable: (() => {
+                if (!burger) return false;
+                const before = document.activeElement;
+                burger.focus();
+                const got = document.activeElement === burger;
+                if (!got && before) before.focus?.();
+                return got;
+            })(),
+            // A later `transition` shorthand at the same specificity REPLACES
+            // the earlier one. The first version of this rule silently
+            // dropped background-color from the navbar's transition and with
+            // it the theme crossfade.
+            transition: cs.transitionProperty,
+        };
+    });
+    record('10  navbar hidden AND unfocusable while the sheet is open (D43)',
+        shut.sheetOpen && shut.attr && shut.visibility === 'hidden'
+        && shut.opacity === 0 && !shut.burgerReachable
+        && shut.transition.includes('background-color'),
+        `sheetOpen=${shut.sheetOpen}, data-sheet-open=${shut.attr}, `
+        + `visibility=${shut.visibility}, opacity=${shut.opacity}, `
+        + `hamburger reachable=${shut.burgerReachable}; `
+        + `transition-property=[${shut.transition}] (background-color must survive)`);
+}
 
-    // Through the hamburger, the way a visitor would reach it on a phone.
-    // Selectors taken from tests/navigation.spec.js rather than guessed — the
-    // first attempt here invented `.navbar-toggle` and timed out on an
-    // element that does not exist.
-    await page.locator('.hamburger').click();
-    await page.locator('.navbar-mobile.is-open').waitFor({ timeout: 5000 });
-    await page.locator('.navbar-mobile a[href="#experience"]').click();
-    await page.waitForTimeout(1800);
-
+// ---- 11. a programmatic scroll still closes the sheet ----------------------
+//
+// The belt-and-braces path from 12.3, which outlives the navbar fix: a deep
+// link, use-hash-scroll's ResizeObserver re-issue, or anything else calling
+// scrollToSection() while a sheet happens to be open. scrollToSection passes
+// `force: true` so a stopped Lenis cannot refuse it, which is precisely why
+// the sheet has to get out of the way rather than rely on being untappable.
+//
+// Driven by a hash change rather than a click, since the nav is now hidden.
+{
+    const before = await page.evaluate(
+        () => !!document.querySelector('.sheet-root')?.hasAttribute('data-open'));
+    await page.evaluate(() => { window.location.hash = '#experience'; });
+    await page.waitForTimeout(2000);
     const after = await page.evaluate(() => ({
         open: !!document.querySelector('.sheet-root')?.hasAttribute('data-open'),
         lenisStopped: document.documentElement.classList.contains('lenis-stopped'),
-        rootOverflow: document.documentElement.style.overflow || '(cleared)',
-        // Did the navigation actually ARRIVE? Closing the sheet is only half
-        // the point; if Lenis were left stopped the nav would silently go
-        // nowhere, and "the sheet closed" would still be true. An earlier
-        // version of this check asserted only the close and would have passed
-        // on a dead nav.
+        navVisible: getComputedStyle(document.querySelector('nav.navbar')).visibility,
         experienceTop: Math.round(
-            document.getElementById('experience').getBoundingClientRect().top,
-        ),
-        hash: location.hash,
+            document.getElementById('experience').getBoundingClientRect().top),
     }));
-    record('10  a nav click closes the sheet AND the navigation lands',
-        openBefore === true && after.open === false && !after.lenisStopped
-        && after.hash === '#experience'
+    record('11  a programmatic scroll closes the sheet and the nav comes back',
+        before === true && after.open === false && !after.lenisStopped
+        && after.navVisible === 'visible'
         && after.experienceTop > -5 && after.experienceTop < 260,
-        `sheet ${openBefore} -> ${after.open}, lenis stopped=${after.lenisStopped}, `
-        + `inline root overflow=${after.rootOverflow}, hash=${after.hash}, `
-        + `#experience top=${after.experienceTop}px (want -5..260, the navbar offset)`);
+        `sheet ${before} -> ${after.open}, lenis stopped=${after.lenisStopped}, `
+        + `navbar visibility=${after.navVisible}, `
+        + `#experience top=${after.experienceTop}px (want -5..260)`);
+}
+
+// ---- 12. Tab cannot leave the sheet ----------------------------------------
+//
+// REAL key presses via page.keyboard, not dispatched KeyboardEvents. A
+// synthetic event is untrusted: the handler runs, but the browser performs no
+// default action, so focus never moves and the test measures nothing. The
+// first version of this check dispatched events, found focus on <body> 14
+// times, and reported a failing trap against working code.
+//
+// And the sheet has to be OPEN — check 11 above closes it.
+{
+    await page.locator('.player-dock-open').click();
+    await page.waitForTimeout(900);
+    const openNow = await page.evaluate(
+        () => !!document.querySelector('.sheet-root')?.hasAttribute('data-open'));
+
+    const outside = [];
+    for (let i = 0; i < 14; i++) {
+        await page.keyboard.press('Tab');
+        const where = await page.evaluate(() => {
+            const sheet = document.querySelector('.sheet');
+            const a = document.activeElement;
+            if (!a || a === document.body) return null;          // nowhere, fine
+            return sheet.contains(a) || a === sheet
+                ? null
+                : `${a.tagName}.${(a.className || '').toString().slice(0, 28)}`;
+        });
+        if (where) outside.push(where);
+    }
+    record('12  Tab stays inside the sheet (focus trap)',
+        openNow && outside.length === 0,
+        `sheet open=${openNow}; 14 real Tab presses, ${outside.length} landed outside`
+        + (outside.length ? `: ${[...new Set(outside)].slice(0, 4).join(', ')}` : ''));
+}
+
+// ---- 13. the dock shows real album art -------------------------------------
+{
+    await page.evaluate(() => document.querySelector('.sheet-scrim')
+        ?.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await page.waitForTimeout(900);
+    const art = await page.evaluate(() => {
+        const el = document.querySelector('.player-dock-art');
+        const cs = getComputedStyle(el);
+        return {
+            image: cs.backgroundImage,
+            inlineImage: el.style.getPropertyValue('--dock-art-image'),
+            inlineColor: el.style.getPropertyValue('--dock-art'),
+            size: cs.backgroundSize,
+        };
+    });
+    // The mocked artwork URL 404s on purpose, which is the point: the colour
+    // layer underneath must still be a real wax colour rather than a hole.
+    record('13  dock art layers the artwork over a per-track wax fallback',
+        art.inlineImage.startsWith('url(')
+        && art.inlineColor.startsWith('var(--wax-')
+        && art.image.includes('url(')
+        && art.size.includes('cover'),
+        `--dock-art-image=${art.inlineImage.slice(0, 48)}…, --dock-art=${art.inlineColor}, `
+        + `background-size=${art.size}`);
 }
 
 await context.close();

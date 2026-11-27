@@ -3904,6 +3904,72 @@ rule generalises.
 
 ---
 
+### D44 — the sheet's pull-to-dismiss claims downward drags on controls inside it, so the pitch fader and the sheet both move at once — **OPEN, reproduced, for Stage 12.4**
+
+Reported by the owner on 2026-11-27, right after 12.3 landed: *"the pitch
+fader has a weird behavior when you scroll up and down because of the pop up
+window."* Deliberately **recorded rather than fixed** — the owner asked to
+keep building and debug later. The mechanism is written down here so that
+later is a short job.
+
+**Reproduced** by `design-review/mobile-v3/fader-in-sheet.mjs`, Pixel 7, real
+CDP touch, a 45px drag on the fader handle inside an open sheet:
+
+```
+DRAG UP 45px   (control)        pitch=+6.8   sheet y=0px
+DRAG DOWN 45px (reported case)  pitch=-6.8   sheet y=45px
+```
+
+**Both controls respond to the same finger.** The fader bends the pitch *and*
+the sheet follows the drag. At 45px the sheet snaps back (the dismiss
+threshold is a third of its height), so it reads as the sheet "wobbling"
+under the thumb — but a longer pull would dismiss the sheet in the middle of
+a pitch bend.
+
+**The upward drag is the control, and it is what proves the diagnosis.** The
+sheet only pulls downward, so upward the fader works perfectly and the sheet
+stays at 0. The fader is not at fault.
+
+**Mechanism.** `bottom-sheet.jsx` attaches its pull handler to
+`.sheet-scroll` and arms it on **any** `pointerdown` while that scroller is
+at its top:
+
+```js
+const onPointerDown = (event) => {
+    if (!event.isPrimary) return;
+    startY = event.clientY; startTop = scroller.scrollTop;
+    mode = startTop <= AT_TOP ? "undecided" : null;
+};
+```
+
+The deck — and therefore the fader — is a child of `.sheet-scroll`, and sits
+at its top. So a downward drag on the fader *is* a downward drag from
+scroll-top. Nothing asks whether the finger landed on a control. This is the
+same decision **D40** got right for scrolling and did not generalise: D40
+taught the handler to distinguish *scroll* from *dismiss*, but not *neither*.
+
+**The fix is a hit-test at arm time, not another threshold.** A control
+inside the sheet should opt out of the pull:
+
+```js
+if (event.target.closest("[data-sheet-no-pull]")) { mode = null; return; }
+```
+
+…with `data-sheet-no-pull` on the fader (and on the platter, which owns the
+scratch gesture and will have exactly this problem the moment anyone drags it
+downward). Opt-out rather than opt-in, and an explicit attribute rather than
+sniffing for `<button>`/`<input>`: the fader's real target is a `<div>` that
+GSAP Draggable owns, so a tag-name test would miss the one control that
+already demonstrates the bug.
+
+**Do not reach for `stopPropagation()` on the control.** Draggable binds at
+the document level, so stopping propagation to fix the sheet would break the
+fader instead — trading one broken gesture for another.
+
+**Also check at the same time:** the platter's scratch gesture
+(`handleScratchDown`) has the same shape and the same exposure, and is not
+covered by the reproduction above.
+
 ### B69 — `.home` rendered 180px taller than one screen: `content-box` `height: 100vh` + padding — **FOUND AND FIXED, desktop one-screen fit pass (2026-08-28)**
 
 Measured every section against the viewport via its real nav link. `#home`

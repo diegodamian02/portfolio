@@ -7333,9 +7333,27 @@ $taste-swipe-max: 1024px;
   width: 42px;
   height: 42px;
   border-radius: 8px;
-  background:
+  // Three layers, top to bottom: a gloss highlight, the album art, and a
+  // colour that shows through if the art is missing, slow or 404s.
+  //
+  // Stage 12.4 added the middle layer. Before it this was gloss over a flat
+  // colour, and the colour came from `track.color` — a property
+  // record-crate.jsx's toTrack() never sets, so every dock showed the same
+  // accent block no matter what was playing.
+  //
+  // The fallback is now the track's own wax colour, the same one the crate
+  // painted on the spine of the card that was tapped (player-dock.jsx), so a
+  // dock with no artwork still looks like it belongs to that record.
+  //
+  // `none` is a valid background-image, which is what makes the var()
+  // fallback work as a layer rather than breaking the whole shorthand.
+  background-image:
     radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.34), transparent 60%),
-    var(--dock-art, var(--accent));
+    var(--dock-art-image, none);
+  background-color: var(--dock-art, var(--accent));
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
@@ -7631,6 +7649,57 @@ $taste-swipe-max: 1024px;
     color: var(--secondary-text);
   }
 }
+// ---- the navbar, while a sheet is up (D43) ------------------------------
+//
+// Set by bottom-sheet.jsx on <html> for as long as the sheet is open.
+//
+// The sheet is `role="dialog" aria-modal="true"`. The navbar is z-index 1000
+// against the sheet's 80, so without this it stays drawn and tappable over
+// the dialog — which is a contradiction, and used to scroll the page behind
+// the sheet when tapped. 12.3 made a nav tap close the sheet first; this is
+// the half that stops the bar being there at all.
+//
+// `visibility: hidden` as well as `opacity: 0`, and that is the load-bearing
+// part: opacity alone leaves the links focusable, so Tab would still walk
+// into a bar the dialog claims is inert — exactly the hole the sheet's own
+// focus trap was added to close. Hidden visibility takes them out of the tab
+// order, so the two agree.
+//
+// Transitioned, with visibility stepping at the end of the fade rather than
+// at its start (`visibility` is discrete, so this is what keeps the bar
+// visible while it fades OUT and un-focusable until it has faded IN).
+// NOTE: `background-color` is repeated in BOTH transition lists on purpose.
+// The base `.navbar` block above already declares
+// `transition: background-color var(--theme-transition)`, and `transition` is
+// a shorthand — a later rule at the same specificity REPLACES it rather than
+// adding to it. The first version of this block omitted it and silently
+// killed the navbar's theme crossfade, which is the kind of regression that
+// shows up as "the theme toggle looks worse now" three weeks later.
+:root[data-sheet-open] .navbar {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    background-color var(--theme-transition),
+    opacity 0.22s ease,
+    visibility 0s linear 0.22s;
+}
+
+.navbar {
+  transition:
+    background-color var(--theme-transition),
+    opacity 0.22s ease,
+    visibility 0s linear 0s;
+}
+
+// Reduced motion: no fade, just gone. A bar dissolving is motion a visitor
+// asked not to see, and there is nothing to understand in the transition.
+@media (prefers-reduced-motion: reduce) {
+  :root[data-sheet-open] .navbar,
+  .navbar {
+    transition: none;
+  }
+}
+
 // ---- the hero, with the deck gone --------------------------------------
 //
 // Set by sections/home.jsx from the SAME boolean that decides where the deck
