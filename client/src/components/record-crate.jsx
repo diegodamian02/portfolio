@@ -6,6 +6,7 @@ import { gsap } from "../lib/gsap.js";
 import { cardHueFor } from "../lib/card-hue.js";
 import useReducedMotion from "../hooks/use-reduced-motion.js";
 import { TOUCH_UI_QUERY } from "../hooks/use-touch-ui.js";
+import { apiBaseUrl } from "../lib/api-base.js";
 
 const RESULT_LIMIT = 5;
 const FETCH_LIMIT = 15;
@@ -28,7 +29,8 @@ const PANEL_GAP = 10;
 // cannot follow, so every iPhone/iPad visitor got an empty crate. See the
 // /api/itunes/search handler in server/server.js for the full explanation.
 // Trailing-slash-safe for the same reason as my-taste.jsx.
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
+// apiBaseUrl moved to lib/api-base.js (one copy, and dev resolves to a
+// relative path so the Vite proxy can serve a phone on the LAN).
 
 function toTrack(result) {
     return {

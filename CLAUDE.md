@@ -18,6 +18,7 @@ modules, no Tailwind, no styled-components. Match the surrounding SCSS idiom.
 
 ```bash
 cd client && npm run dev     # starts BOTH the Express server and Vite
+cd client && npm run dev:lan # ...and binds Vite to the LAN, for a real phone
 ```
 
 **The dev client must be on port 5173.** The backend's CORS allowlist
@@ -26,6 +27,21 @@ nothing else local. `npm run preview` serves on **4173**, where `#my-taste` and
 the record crate fail with their generic error states — which reads exactly like
 a real bug and isn't one. If you need the production build locally, either use
 5173 or set `ALLOWED_ORIGINS`.
+
+**Testing on a real phone:** `npm run dev:lan`, then open
+`http://<your-mac-lan-ip>:5173/` on the phone (Vite prints the address; it
+changes with every network, so it is not bookmarkable). Both devices must be on
+the same Wi-Fi, and the network must not use client isolation — guest networks
+commonly do, and no amount of code works around it.
+
+**API calls are RELATIVE in dev** (`src/lib/api-base.js` resolves to `""`) and
+Vite proxies `/api` to Express (`server.proxy`, dev-only). This is what makes
+the phone work: an absolute `http://localhost:5050` would resolve to the
+*phone*, and using the Mac's LAN address instead would be cross-origin and
+rejected by the allowlist above. Through the proxy the phone only ever talks to
+the origin it loaded the page from, so there is no CORS to configure and no IP
+baked into a variable. `VITE_API_BASE_URL` still wins when set, so production
+is unchanged.
 
 `npm run lint` reports **7 errors / 2 warnings** (all `react/prop-types` +
 `react-refresh`, in `src/`). Known baseline, tracked as Stage 8 — don't treat it

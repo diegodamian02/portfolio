@@ -10,6 +10,7 @@ import {
 } from '../lib/scroll.js';
 import useReducedMotion from '../hooks/use-reduced-motion.js';
 import Walkman, { WALKMAN_LCD_TEXT } from '../components/walkman.jsx';
+import { apiBaseUrl } from "../lib/api-base.js";
 
 // Stage 3 Task 11.2 — Task 2 of the pair Task 11 opened (numbered as a
 // decimal follow-up, same convention as Task 10.1/10.2, not a new top-level
@@ -125,7 +126,8 @@ const MESSAGE_MAX_HEIGHT = 420;
 
 // Same trailing-slash guard as my-taste.jsx: a trailing slash on the env var
 // would produce "//api/contact", which Express treats as an unregistered path.
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050').replace(/\/+$/, '');
+// apiBaseUrl moved to lib/api-base.js (one copy, and dev resolves to a
+// relative path so the Vite proxy can serve a phone on the LAN).
 
 // The heading itself IS the confirmation message on a successful send — a
 // genuine text transformation of the existing element (ScrambleTextPlugin,

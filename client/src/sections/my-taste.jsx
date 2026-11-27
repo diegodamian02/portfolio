@@ -40,6 +40,7 @@ import { cardHueFor } from "../lib/card-hue.js";
 // reuse whatever already renders platform marks on this site.
 import spotifyWhite from "../assets/spotify_white.png";
 import spotifyBlack from "../assets/spotify_black.png";
+import { apiBaseUrl } from "../lib/api-base.js";
 
 // Stage 4 Task 2 — the wall's structure and hierarchy: headliner (large) + 4
 // support acts, arranged on a CSS Grid so overlap is structurally impossible
@@ -144,7 +145,8 @@ import spotifyBlack from "../assets/spotify_black.png";
 // measurement, fixed in smooth-scroll.jsx — FINDINGS.md B30) and a setlist
 // row-wrap bug that could orphan a track's index number onto its own line
 // (FINDINGS.md B31).
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
+// apiBaseUrl moved to lib/api-base.js (one copy, and dev resolves to a
+// relative path so the Vite proxy can serve a phone on the LAN).
 
 // Same account footer.jsx's own Spotify link already points at — reused
 // verbatim (not a second profile) rather than hardcoding a placeholder.

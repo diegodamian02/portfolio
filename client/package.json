@@ -6,6 +6,7 @@
   "scripts": {
     "start": "npm run dev",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:lan": "concurrently \"npm run dev:server\" \"npm run dev:client -- --host\"",
     "dev:server": "cd ../server && node server.js",
     "dev:client": "vite",
     "build": "vite build",
