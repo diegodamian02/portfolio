@@ -2858,7 +2858,7 @@ every plugin needed is already registered in `client/src/lib/gsap.js`.
 | **12.1** | spec + deck spike — **done 2026-11-20**, branch `mobile-v3-spike-deck`, not merged | Sun Nov 23 |
 | **12.2** | structure: player store, bottom sheet shell, dock (no animation) — **done 2026-11-25**, on `mobile-v3`. Reviewable at `/lab/player/`. Gesture pinned 4/4 by `sheet-gesture.mjs`; 0 bytes of production JS (A/B proven), +1,478 gzipped CSS. Inertia is tracked for velocity but the throw is OFF — it fought the snap-back (D40). | Wed Nov 26 |
 | 12.3 | integration: the real turntable into the sheet, keeping the single-writer rules and the `playCached()` same-call-site audio rule; crate tap → drop → play | Sat Nov 29 |
-| 12.4 | polish: the drop timeline on the real deck, lid, theme swap via the existing `startViewTransition`, dock⇄sheet Flip, reduced motion | Tue Dec 2 |
+| 12.4 | polish: the drop timeline on the real deck, lid, theme swap via the existing `startViewTransition`, dock⇄sheet Flip, reduced motion, **pitch-fader travel in the sheet (D41)** | Tue Dec 2 |
 | 12.5 | device pass + ship | Wed Dec 3 |
 
 **Branching for Stage 12** (owner call, 2026-11-25). `main` is a live site used
@@ -2874,6 +2874,30 @@ has been seen end-to-end on a real phone.
 
 Sub-task branches are optional — small steps can commit straight to
 `mobile-v3`. `main` gets one merge, at 12.5, after the device pass.
+
+**Owner request, 2026-11-27 — the pitch fader on mobile.** Asked for as "a
+pitch slider to go up and down so we can use it on mobile devices". Checked
+against the code before scheduling it, and **it already exists and already
+works with a finger**: `turntable.jsx` has had a vertical `Draggable` pitch
+fader since Stage 6 Phase 9, with a 44×44 `::before` hit target under
+`@media (pointer: coarse)`, ±8% range, and a real `<input type="range">` behind
+it for keyboard and screen readers. Measured with real CDP touch on a Pixel 7
+viewport: a 40px thumb drag gives **+5.9%** and the page does not scroll
+(`design-review/mobile-v3/fader-touch.mjs`).
+
+So there is nothing to build, and two things to decide:
+
+1. **Travel.** 108px for the full ±8% on a phone is the real weakness — about
+   6.8px per percent. The sheet has height the plinth never will. **Scheduled
+   into 12.4.**
+2. **Bend vs latch.** It springs back to 0 on release today, which makes it a
+   pitch *bend*, not a 1210's latching fader. Genuine design question with a
+   recommendation (keep the bend) and a cost breakdown in **D41** — latching
+   drags in a value readout, a reset affordance, and an audit of
+   `endScratch()`'s unconditional `setRate(1)`, so it is not 12.4-sized.
+
+Nothing here changes 12.3, which brings the whole of `turntable.jsx` into the
+sheet and the fader with it.
 
 **12.1 shipped** an isolated spike, deliberately wired to nothing:
 `client/src/components/snow-white-deck.jsx` (presentational — no audio, no

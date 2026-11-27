@@ -535,3 +535,81 @@ Locally this blocks every WebKit project in `client/playwright.config.js`
 (`desktop-safari`, `ipad-portrait`, `ipad-landscape`, `ipad-pro-portrait`,
 `iphone-se`, `iphone-14`, `iphone-15-pro-max`). `npx playwright test --list`
 still works, because listing launches nothing. CI covers them.
+
+---
+
+## 9. The pitch fader on a phone — a question for the research chat
+
+Added 2026-11-27, after the owner asked for "a pitch slider to go up and down
+so we can use it on mobile devices". Checking the code first changed the shape
+of the task, which is why this section exists rather than a build task.
+
+**It already exists, and it already works with a finger.** `turntable.jsx` has
+carried a vertical GSAP `Draggable` pitch fader since Stage 6 Phase 9:
+
+- **±8%** (`PITCH_RANGE = 8`), matching a Technics 1210.
+- Driving `AudioBufferSourceNode.playbackRate` via `audio.setRate(1 + pitch / 100)`
+  — so **pitch and tempo move together**, as on a real deck. No time-stretch,
+  which is the right call: a portfolio deck that holds pitch while changing
+  tempo would sound like software, and the whole point of the object is that it
+  does not.
+- A **44×44** touch target, grown with a `::before` at `inset: -15px -8px`
+  inside `@media (pointer: coarse)`, so the visible 28×14 handle stays small
+  while the hit area clears the floor.
+- A real `<input type="range" min="-8" max="8" step="0.1">` behind it,
+  `pointer-events: none`, made vertical with the `writing-mode` + `direction: rtl`
+  trick. Keyboard and screen-reader users get the control; Draggable is not
+  competing with it for the same pointer.
+
+Measured with real CDP touch on a Pixel 7 viewport
+(`node design-review/mobile-v3/fader-touch.mjs`):
+
+```
+while held (dragged up 40px):  pitch=5.9
+page scrollY: 0 -> 0
+400ms after release:           pitch=0
+```
+
+### The two open questions
+
+**1. Travel — and this is the actual weakness.** The track is **108px** of
+usable travel on a phone for the full ±8% (a 122px track less the 14px handle),
+about **6.8px per percent**. That is
+why a casual 40px thumb drag lands on 5.9% rather than anywhere musical: the
+control is accurate but far too sensitive for a thumb. The Pocket Player sheet
+has vertical room the plinth never will, so this is a layout fix, scheduled
+into 12.4.
+
+**2. Bend or latch — a real design question, not a bug.** On release the fader
+springs back to 0 over 400ms. That makes it a pitch **bend** (a CDJ nudge), not
+a 1210's **latching** fader that stays where you put it.
+
+- The bend is **self-correcting**: a visitor cannot leave the track detuned, and
+  "the next recruiter loads the page and it plays a semitone sharp" is a real
+  failure mode on a site whose job is getting someone hired.
+- The latch is **honest to the object** and the only version where the fader is
+  useful rather than expressive — but it needs a visible value readout (the
+  `<input>` is invisible today), a reset affordance (double-tap, normally), and
+  an audit of `endScratch()`, which calls `setRate(1)` unconditionally and would
+  silently wipe a latched pitch.
+
+**The recommendation on the roadmap is to keep the bend and spend 12.4 on
+travel**, on the grounds that the sensitivity is what makes it hard to use and
+the spring-back is what makes it safe. Full reasoning and costs in
+**FINDINGS.md D41**.
+
+**Where the research chat can help:** whether a bend reads as *broken* to
+someone who has used a real turntable — i.e. whether the self-correcting
+behaviour is experienced as a safety feature or as the control not working.
+That is a question about expectation, not about implementation, and it is the
+one thing the measurements cannot answer.
+
+### One thing not to "fix"
+
+`.turntable-fader-handle` declares `touch-action: none` in `main.scss`, with a
+comment saying that is what stops the page scrolling under a drag. The
+**computed** value is `pan-x` — Draggable writes `touch-action` inline for
+`type: "y"` and inline wins. Both values are correct for a vertical control, so
+nothing is broken and the measured gesture does not scroll the page. The
+comment simply describes a declaration that is being overridden. Fighting
+Draggable for that property would be churn.

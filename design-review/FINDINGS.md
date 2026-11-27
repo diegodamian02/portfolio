@@ -1263,6 +1263,75 @@ weaker one for that section.
 
 ---
 
+### D41 — the pitch fader already works on touch; what is undecided is whether a phone wants a pitch *bend* or a *latching* fader — **OPEN, owner call, carry into Stage 12.4**
+
+Raised by the owner on 2026-11-27 as "a pitch slider to go up and down so we can
+use it on mobile devices". The useful finding is that **most of it already
+exists and already works with a finger**, so this is a design decision, not a
+build.
+
+**What is already there** (`turntable.jsx` Stage 6 Phase 9, shipped on `main`):
+
+| | |
+|---|---|
+| control | vertical `Draggable` `type: "y"`, `bounds` the fader track |
+| range | `PITCH_RANGE = 8` → ±8%, matching a 1210 |
+| audio | `audio.setRate(1 + pitch / 100)` on an `AudioBufferSourceNode`'s `playbackRate` — so pitch *and* tempo move together, like a real deck, not a time-stretch |
+| keyboard / SR | a real `<input type="range" min="-8" max="8" step="0.1">`, `pointer-events: none`, vertical via the `writing-mode` + `direction: rtl` trick |
+| touch target | a `::before` at `inset: -15px -8px` under `@media (pointer: coarse)` — **44×44**, exactly the floor |
+
+**Measured on a Pixel 7 viewport with real CDP touch**
+(`design-review/mobile-v3/fader-touch.mjs`): a 40px upward thumb drag reads
+**+5.9%**, `window.scrollY` stays at **0** through the whole gesture, and the
+handle springs back to **0** within 400ms of release. So the touch path is not
+hypothetical and the page does not scroll out from under the finger.
+
+**Two things that did turn up.**
+
+**(a) The SCSS and GSAP disagree about `touch-action`, harmlessly.**
+`.turntable-fader-handle` declares `touch-action: none` with a comment saying
+that is what stops the page scrolling. The computed value is **`pan-x`** —
+`Draggable` writes `touch-action` inline for `type: "y"`, and inline wins. Both
+are correct for a vertical control (`pan-x` surrenders only horizontal panning,
+which this fader does not use), so nothing is broken; the comment is just
+describing a declaration that is being overridden. Do not "fix" the SCSS by
+fighting Draggable for it.
+
+**(b) The real question: bend or latch.** On release the fader **springs back to
+0** over `PITCH_RETURN_SECONDS` (0.4s) — visually and in the audio, as two
+separate tweens (see **B49**, which is exactly this release path getting its
+units wrong). That makes it a **pitch bend**, like a CDJ nudge. A real 1210
+fader *latches*: you set +2% and it stays until you move it.
+
+Both are defensible and they are not the same product:
+
+- **Bend (what exists).** Self-correcting — a visitor can never leave the track
+  detuned, and a portfolio page that plays something a semitone sharp to the
+  next recruiter who loads it is a real risk. Rewards a deliberate gesture and
+  then tidies up after itself.
+- **Latch (what a DJ expects).** Honest to the object being simulated, and the
+  only version where the control is genuinely *useful* rather than expressive.
+  Costs: it needs a visible readout of the current value (the `<input>` is
+  invisible today), a way back to zero that is not "drag it carefully"
+  (double-tap to reset is the usual idiom), and it has to survive a pause, a
+  track change and a scratch — `endScratch()` already calls `setRate(1)`
+  unconditionally, which would silently wipe a latched pitch.
+
+**Recommendation: keep the bend on phones, and spend the Stage 12.4 budget on
+reach rather than on latching.** The travel is the actual mobile weakness —
+**108px for the full ±8%** (a 122px track less the 14px handle), about 6.8px per percent, which is why a casual 40px
+drag lands on 5.9% rather than somewhere musical. Inside the Pocket Player
+sheet there is room to make the track taller than it can ever be on the plinth,
+and that single change does more for "usable with a thumb" than changing the
+release behaviour would. If latching is wanted later it is additive, but it
+brings the readout, the reset affordance and the `setRate(1)` audit with it,
+and none of those are 12.4-sized.
+
+**Not a Stage 12.3 item.** 12.3 moves the real `turntable.jsx` into the sheet,
+and the fader arrives with it for free because it is part of that component.
+The decision above only needs making once the deck is in the sheet and the
+available height is a known number.
+
 ### D33 — "Avenir Next" was never actually self-hosted — sitewide, it was one missing @font-face away from a generic system sans — **FOUND AND FIXED, Stage 10 (2026-09-01)**
 
 `body`'s `font-family` (and a second, independent hardcode on `.portfolio-header`)
