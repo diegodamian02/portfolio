@@ -4,7 +4,11 @@
 // beacon must never be something a visitor's turntable or search box can feel,
 // so neither call site awaits these, and failures are swallowed rather than
 // surfaced.
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "http://localhost:5050").replace(/\/+$/, "");
+// apiBaseUrl moved to lib/api-base.js — this was the FOURTH copy, and the
+// one that was missed on the first pass: it kept firing at a hardcoded
+// localhost:5050 and failed on every phone, silently, because telemetry is
+// fire-and-forget by design.
+import { apiBaseUrl } from "./api-base.js";
 
 function beacon(path, body) {
     fetch(`${apiBaseUrl}${path}`, {

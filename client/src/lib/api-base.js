@@ -39,4 +39,46 @@ export const apiBaseUrl = configured
     ? configured.replace(/\/+$/, "")
     : (import.meta.env.DEV ? "" : "http://localhost:5050");
 
+// ---------------------------------------------------------------------------
+// A loud warning for the failure that cost an afternoon.
+//
+// `client/.env.local` held `VITE_API_BASE_URL=http://192.168.1.68:5050` — a
+// LAN address captured two days earlier while testing on a phone. A Mac's
+// LAN IP changes with every network, so by then .68 belonged to nothing. The
+// site loaded perfectly, the crate span on "searching the crate…" forever,
+// and no record could be played.
+//
+// Nothing reported it. A fetch to an unreachable host does not 404 or throw
+// synchronously; it just never resolves, so there was no console error, no
+// failed response, and no visible difference from a slow network. Worse,
+// `.env.local` is gitignored — invisible in a diff, and it silently
+// overrides the dev proxy that exists precisely so no IP has to be written
+// down at all.
+//
+// So: in dev, if an explicit base points at a HOST OTHER THAN THE ONE
+// SERVING THE PAGE, say so. That is almost always a stale LAN IP. It is not
+// always wrong — pointing the dev client at a deployed backend is a real
+// thing to want — hence a warning rather than an override. Explicit
+// configuration still wins.
+//
+// DEV-only: `import.meta.env.DEV` is a compile-time constant, so this whole
+// block is removed from the production bundle by dead-code elimination.
+if (import.meta.env.DEV && configured && typeof window !== "undefined") {
+    try {
+        const target = new URL(configured, window.location.origin);
+        if (target.hostname !== window.location.hostname) {
+            console.warn(
+                `[api-base] VITE_API_BASE_URL points at ${target.origin}, but this page `
+                + `is served from ${window.location.origin}.\n`
+                + `If that host is unreachable, every API call will hang with NO error: `
+                + `the record crate spins forever and nothing can be played.\n`
+                + `This is usually a stale LAN IP in client/.env.local. Unset it and the `
+                + `dev server proxies /api for you, on localhost and from a phone alike.`,
+            );
+        }
+    } catch {
+        console.warn(`[api-base] VITE_API_BASE_URL is not a valid URL: ${configured}`);
+    }
+}
+
 export default apiBaseUrl;
