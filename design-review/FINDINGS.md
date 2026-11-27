@@ -3993,6 +3993,68 @@ padding overflow. There is still no global `box-sizing: border-box` reset
 
 ---
 
+### D45 — the hero's preview deck ran its whole drop behind the sheet, so it read as a pop rather than as motion — **FOUND AND FIXED, Stage 12.4 (2026-11-27)**
+
+Reported by the owner the moment 12.4 part 2 landed: the hero deck's
+animation was *"kinda effy."* Diagnosed by sampling the deck's pose during a
+drop rather than by watching it.
+
+```
+t+200ms   sheet=true   hero plinth mid-tilt
+t+1100ms  sheet=true   record falling (z=115)
+t+1700ms  sheet=true   record landed  (z=6)
+sheet closed -> deck ALREADY tilted, open and spinning
+```
+
+The hero deck dropped the instant the track changed — which is the same
+instant the sheet starts rising **over the hero**. So the entire ~2.6s
+choreography played behind a full-screen overlay.
+
+**Two consequences, and the reported one is the second.**
+
+1. A complete CSS 3D choreography ran invisibly, at the exact moment the real
+   deck inside the sheet was running its own. Two of them competing for a
+   frame budget Stage 12.1 measured as having nothing spare at 4× CPU
+   throttle.
+2. Dismissing the sheet revealed a deck that had silently become tilted, open
+   and spinning. Nobody saw it move, so it read as a **pop**. The animation
+   was never the problem; its *timing* was.
+
+**Fix: defer the drop until the hero is actually on screen.** The effect
+takes `sheetOpen` as a dependency and does nothing while covered, so the
+record now lands in the hero **as the sheet slides away** — a handover rather
+than a second performance of the same beat. Keyed on track id, so dismissing
+and reopening the same record does not re-drop it.
+
+**Deferring the drop was not enough, and that is the part worth keeping.**
+The first fix left the platter turning: 3 of 5 samples still showed movement
+with the sheet open. A continuous rotation is far cheaper than the drop, but
+it is not free, and there is no value at all in turning a platter inside an
+opaque full-screen overlay on a phone. The platter is now **parked** while
+covered — `setPlaying(false)` — rather than merely left undriven, so the deck
+settles to genuinely zero motion instead of coasting. The spin-up on dismiss
+is then visible and reads as the deck waking as it is revealed.
+
+Pinned by `design-review/mobile-v3/hero-deck-timing.mjs`, **2/2**:
+
+```
+A  hero deck is motionless while the sheet covers it
+   5 samples with the sheet open, 0 showed movement
+B  control: the drop RUNS once the sheet is out of the way
+   pose at close -> mid-drop: changed; mid-drop -> settled: changed
+```
+
+**B is the control and the file is worth little without it.** "The deck did
+not move" is trivially satisfied by a deck that never animates again, so the
+second case asserts the drop was *deferred*, not deleted — and samples
+mid-drop rather than after it, because two settled poses would also compare
+equal on a deck that teleported.
+
+**The general rule this is an instance of:** anything animating behind an
+opaque overlay is work with no viewer. Worth checking the same way whenever
+something is covered rather than unmounted — which, on this site, the sheet
+always does.
+
 ### B70 — `.contact-section` rendered ~160px taller than one screen, same `content-box` cause — **FOUND AND FIXED, desktop one-screen fit pass (2026-08-28)**
 
 `#connect` overflowed by ~160px at 1440×900 (box 916px against a 756px

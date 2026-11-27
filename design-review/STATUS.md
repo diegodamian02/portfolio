@@ -403,6 +403,18 @@ scaled by *laying out smaller*, never `transform: scale()`. The deck is a CSS
 `rotateX`/`rotateY` use, which flattens the perspective and changes the
 geometry rather than the size.
 
+**D45 — the hero deck's pop, found and fixed the same day.** The owner called
+the hero animation "kinda effy". Sampling its pose during a drop showed the
+whole ~2.6s choreography running *behind the sheet*: by the time the sheet was
+dismissed the deck had silently become tilted, open and spinning, so it read
+as a pop. The animation was never the problem; its timing was. The drop now
+waits until the hero is on screen, and the record lands as the sheet slides
+away. Deferring the drop alone was not enough — the platter kept turning
+behind the sheet (3 of 5 samples), so it is parked while covered rather than
+merely undriven. `hero-deck-timing.mjs` **2/2**, with the second case as the
+control: "the deck did not move" is trivially true of a deck that never
+animates again.
+
 **Still open:** **D44** (the fader and the sheet's pull both answer the same
 downward finger — still reproducing, deferred at the owner's request), the
 dock⇄sheet Flip, and the pitch fader's travel (**D41**).
